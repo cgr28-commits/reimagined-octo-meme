@@ -112,6 +112,12 @@ export function getAirportPickupFlightNumberBlockers(params: {
   returnJourney?: boolean | null;
   flightNumber?: string | null;
   returnFlightNumber?: string | null;
+  /**
+   * Website bookings (owner, Nov 2026): the flight number can be added later
+   * from Manage Booking, so a blank one doesn't block booking. A typed one must
+   * still be a valid flight number.
+   */
+  allowMissing?: boolean;
 }): string[] {
   const blockers: string[] = [];
   const returnJourney = Boolean(params.returnJourney);
@@ -119,13 +125,13 @@ export function getAirportPickupFlightNumberBlockers(params: {
   const inbound = String(params.returnFlightNumber ?? "").trim();
 
   if (requiresOutboundAirportPickupFlight(params.airportContext)) {
-    if (!outbound || !isValidFlightNumberFormat(outbound)) {
+    if (outbound ? !isValidFlightNumberFormat(outbound) : !params.allowMissing) {
       blockers.push(FLIGHT_NUMBER_FORMAT_ERROR);
     }
   }
 
   if (requiresReturnAirportPickupFlight(params.airportContext, returnJourney)) {
-    if (!inbound || !isValidFlightNumberFormat(inbound)) {
+    if (inbound ? !isValidFlightNumberFormat(inbound) : !params.allowMissing) {
       // Same customer-facing copy; distinguishes via which field is required.
       if (!blockers.includes(FLIGHT_NUMBER_FORMAT_ERROR)) {
         blockers.push(FLIGHT_NUMBER_FORMAT_ERROR);
@@ -555,4 +561,37 @@ export async function lookupFlight(
   }
 
   return lookupFlightViaAeroDataBox(apiKey.trim(), params);
+}
+
+/**
+ * The airport-collection leg that still has no flight number (booked without
+ * one), or null. Outbound collection first; otherwise the return collection.
+ */
+export function missingAirportCollectionFlight(booking: {
+  isFromAirport?: boolean | null;
+  isAirportTrip?: boolean | null;
+  isAirportToAirport?: boolean | null;
+  returnJourney?: boolean | null;
+  flightNumber?: string | null;
+  returnFlightNumber?: string | null;
+  tripDate?: string | null;
+  tripTime?: string | null;
+  returnDate?: string | null;
+  returnTime?: string | null;
+}): { leg: "outbound" | "return"; date: string; time: string } | null {
+  const ctx: AirportPickupFlightContext = {
+    fromAirport: Boolean(booking.isFromAirport),
+    isAirportTrip: Boolean(booking.isAirportTrip),
+    isAirportToAirport: Boolean(booking.isAirportToAirport),
+  };
+  if (requiresOutboundAirportPickupFlight(ctx) && !String(booking.flightNumber ?? "").trim()) {
+    return { leg: "outbound", date: booking.tripDate ?? "", time: booking.tripTime ?? "" };
+  }
+  if (
+    requiresReturnAirportPickupFlight(ctx, Boolean(booking.returnJourney)) &&
+    !String(booking.returnFlightNumber ?? "").trim()
+  ) {
+    return { leg: "return", date: booking.returnDate ?? "", time: booking.returnTime ?? "" };
+  }
+  return null;
 }

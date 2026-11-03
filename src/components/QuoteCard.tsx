@@ -1395,9 +1395,7 @@ function QuoteCard({
     quoteStep >= 2 &&
     Boolean(customerName.trim()) &&
     isValidMobileNumber(customerMobile) &&
-    isValidEmailAddress(customerEmail) &&
-    (!needsOutboundFlightNumber || Boolean(goingFlightNumber.trim())) &&
-    (!needsReturnCollectionFlightNumber || Boolean(collectionFlightNumber.trim()));
+    isValidEmailAddress(customerEmail);
   const lastCheckoutBoxId = needsReturnCollectionFlightNumber
     ? "collectionFlightNumber"
     : needsOutboundFlightNumber
@@ -4130,9 +4128,10 @@ function QuoteCard({
 
     if (needsOutboundFlightNumber) {
       const trimmed = goingFlightNumber.trim();
+      // Optional at booking (owner, Nov 2026): customers can add it later in
+      // Manage Booking. Only a typed, invalid number blocks.
       if (!trimmed) {
-        setGoingFlightError(QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber);
-        ok = false;
+        setGoingFlightError("");
       } else if (!isValidFlightNumberFormat(trimmed) || goingFlightLookupStatus === "error") {
         setGoingFlightError(FLIGHT_NUMBER_FORMAT_ERROR);
         ok = false;
@@ -4146,8 +4145,7 @@ function QuoteCard({
     if (needsReturnCollectionFlightNumber) {
       const trimmed = collectionFlightNumber.trim();
       if (!trimmed) {
-        setCollectionFlightError(QUOTE_REQUIRED_FIELD_MESSAGES.flightNumber);
-        ok = false;
+        setCollectionFlightError("");
       } else if (
         !isValidFlightNumberFormat(trimmed) ||
         collectionFlightLookupStatus === "error"
@@ -6209,7 +6207,7 @@ function QuoteCard({
 
   /**
    * Airport-pickup flight number — collected on Step 2 (Travel details).
-   * Required for airport collections; never shown for pure to-airport one-ways.
+   * Optional (can be added later in Manage Booking); never shown for pure to-airport one-ways.
    */
   function renderFlightDetailsSection(activeOnStep: 2 | 3) {
     if (!needsOutboundFlightNumber && !needsReturnCollectionFlightNumber) {
@@ -6228,7 +6226,7 @@ function QuoteCard({
         {needsOutboundFlightNumber ? (
           <FlightNumberField
             id="goingFlightNumber"
-            label="Flight number (required)"
+            label="Flight number (optional — add it later if you like)"
             helperText={BOOKING_FLIGHT_NUMBER_HELPER}
             value={goingFlightNumber}
             onChange={(value) => {
@@ -6251,7 +6249,7 @@ function QuoteCard({
         {needsReturnCollectionFlightNumber ? (
           <FlightNumberField
             id="collectionFlightNumber"
-            label="Return flight number (required)"
+            label="Return flight number (optional — add it later if you like)"
             helperText={BOOKING_FLIGHT_NUMBER_HELPER}
             value={collectionFlightNumber}
             onChange={(value) => {

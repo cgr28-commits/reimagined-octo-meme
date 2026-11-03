@@ -94,8 +94,9 @@ export default function StripeCardPayClient() {
                 colorTextPlaceholder: "rgba(232, 237, 245, 0.5)",
                 colorDanger: "#fca5a5",
                 fontFamily: "Manrope, system-ui, sans-serif",
-                borderRadius: "12px",
-                spacingUnit: "4px",
+                borderRadius: "10px",
+                spacingUnit: "3px",
+                fontSizeBase: "15px",
               },
               rules: {
                 ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
@@ -112,9 +113,9 @@ export default function StripeCardPayClient() {
         checkoutRef.current = checkout;
 
         const express = checkout.createExpressCheckoutElement({
-          buttonHeight: 48,
+          buttonHeight: 44,
         buttonTheme: { applePay: "white-outline", googlePay: "white" },
-          layout: { maxColumns: 1, maxRows: 3 },
+          layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
         });
         express.on("ready", (event) => {
           const methods = event.availablePaymentMethods as Record<string, boolean> | undefined;
@@ -146,52 +147,54 @@ export default function StripeCardPayClient() {
   return (
     <section
       data-stripe-pay={view}
-      className="rounded-3xl border border-white/15 bg-white/[0.04] p-6 text-white sm:p-8"
+      className="rounded-2xl border border-white/15 bg-white/[0.04] p-4 text-white sm:p-5"
     >
+      {/* Compact by design: the whole payment fits on one screen (phone and laptop). */}
+      <div className="flex items-center justify-between gap-3">
+        <Logo className="h-9 sm:h-10" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald">
+          Secure card payment
+        </span>
+      </div>
       {showForm ? (
         <>
-          <div className="mb-5 flex justify-center">
-            <Logo className="h-14" />
+          <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-white/10 pt-3">
+            <div className="min-w-0">
+              <p className="text-xs text-white/65">
+                {info?.cardHold ? "Amount to authorise" : "Amount to pay"}
+                {info?.reference ? ` · Ref ${info.reference.replace(/-HOLD$/, "")}` : ""}
+              </p>
+            </div>
+            {amountLabel ? (
+              <p className="shrink-0 text-xl font-bold text-white">{amountLabel}</p>
+            ) : null}
           </div>
-          <h1 className="text-2xl font-bold">Secure card payment</h1>
-          {amountLabel ? (
-            <p className="mt-2 text-lg text-white/90">
-              {info?.cardHold ? "Amount to authorise" : "Amount to pay"}:{" "}
-              <span className="font-semibold text-white">{amountLabel}</span>
-            </p>
-          ) : null}
-          {info?.reference ? (
-            <p className="mt-1 text-sm text-white/70">
-              Booking reference: {info.reference.replace(/-HOLD$/, "")}
-            </p>
-          ) : null}
           {info?.holdKind === "short_notice" ? (
-            <p className="mt-4 rounded-2xl border border-emerald/40 bg-emerald/10 p-3 text-sm leading-relaxed text-white/90">
-              We hold this amount on your card while we confirm your driver. You&apos;re only charged
-              once we confirm your booking. If we can&apos;t take it, the hold is released and you pay
-              nothing.
+            <p className="mt-2 rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-xs leading-snug text-white/90">
+              Held on your card while we confirm your driver. Only charged once we confirm; otherwise
+              released and you pay nothing.
             </p>
           ) : info?.cardHold ? (
-            <p className="mt-4 rounded-2xl border border-emerald/40 bg-emerald/10 p-3 text-sm leading-relaxed text-white/90">
-              Your card is authorised now to secure the booking, and charged after your journey.
-              If you cancel 24 hours or more before pickup, the hold is released and you pay nothing.
+            <p className="mt-2 rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-xs leading-snug text-white/90">
+              Held now, charged after your journey. Cancel 24 hours or more before pickup and the
+              hold is released.
             </p>
           ) : null}
 
           {view === "loading" ? (
-            <p className="mt-6 text-sm text-white/70">Loading secure payment…</p>
+            <p className="mt-3 text-sm text-white/70">Loading secure payment…</p>
           ) : null}
 
-          <div id="stripe-express-checkout" className="mt-6" />
+          <div id="stripe-express-checkout" className="mt-3" />
           {walletsShown ? (
-            <p className="my-4 text-center text-xs uppercase tracking-wider text-white/50">
+            <p className="my-2 text-center text-[11px] uppercase tracking-wider text-white/50">
               or pay by card
             </p>
           ) : null}
-          <div id="stripe-payment-element" className={walletsShown ? "" : "mt-6"} />
+          <div id="stripe-payment-element" className={walletsShown ? "" : "mt-3"} />
 
           {message ? (
-            <p role="alert" className="mt-4 text-sm text-red-300">
+            <p role="alert" className="mt-2 text-sm text-red-300">
               {message}
             </p>
           ) : null}
@@ -199,7 +202,7 @@ export default function StripeCardPayClient() {
           {view !== "loading" ? (
             <button
               type="button"
-              className="btn-primary mt-6 w-full justify-center"
+              className="btn-primary mt-3 w-full justify-center"
               disabled={view === "paying"}
               onClick={() => void confirmPayment()}
             >
@@ -208,32 +211,33 @@ export default function StripeCardPayClient() {
                 : `${info?.cardHold ? "Authorise" : "Pay"}${amountLabel ? ` ${amountLabel}` : ""}`}
             </button>
           ) : null}
-          <p className="mt-4 text-xs text-white/60">
-            Payments are processed securely by Stripe. We never see or store your card details.
+          <p className="mt-2 text-center text-[11px] leading-snug text-white/55">
+            Secured by Stripe — we never see your card details. Questions? Call{" "}
+            {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
           </p>
         </>
       ) : (
         <>
-          <h1 className="text-2xl font-bold">
+          <h1 className="mt-3 text-xl font-bold">
             {view === "expired"
               ? "This payment link has expired"
               : view === "invalid"
                 ? "We couldn't open this payment link"
                 : "Card payment isn't available right now"}
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-white/85">
+          <p className="mt-2 text-sm leading-relaxed text-white/85">
             {view === "expired"
               ? "Payment links last 24 hours. Please get a new quote on our website, or contact us and we'll send you a fresh link."
               : message || "Please try again in a few minutes, or contact us and we'll help."}
           </p>
-          <Link href="/" className="btn-primary mt-6 inline-flex">
+          <Link href="/" className="btn-primary mt-4 inline-flex">
             Back to home
           </Link>
+          <p className="mt-4 text-sm text-white/70">
+            Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
+          </p>
         </>
       )}
-      <p className="mt-6 text-sm text-white/70">
-        Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
-      </p>
     </section>
   );
 }

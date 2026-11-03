@@ -3675,6 +3675,7 @@ async function handlePaymentRequest(
           returnJourney: Boolean(booking.returnJourney),
           flightNumber: booking.flightNumber,
           returnFlightNumber: booking.returnFlightNumber,
+          allowMissing: true,
         });
         if (flightBlockers.length > 0) {
           return json(

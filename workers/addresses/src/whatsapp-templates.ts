@@ -3,6 +3,8 @@
  * alongside the existing customer emails:
  *
  *   mat_booking_confirmed  — after a paid booking is finalised
+ *   mat_add_flight_number  — after booking an airport collection without a flight number:
+ *                            asks the customer to add it with the Manage booking button
  *   mat_driver_on_the_way  — when the driver starts the journey (start_tracking)
  *   mat_driver_details     — when an assigned (non-owner) driver accepts
  *   mat_review_request     — with the delayed Google review request
@@ -46,7 +48,8 @@ export type WhatsAppTemplateName =
   | "mat_tip_request"
   | "mat_driver_arrived"
   | "mat_driver_arrived_airport"
-  | "mat_quote_link";
+  | "mat_quote_link"
+  | "mat_add_flight_number";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -243,6 +246,32 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               text: "Where to go",
               url: `${SITE}/{{1}}`,
               example: [`${SITE}/maps/belfast-international-pick-up-drop-off.jpg`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // Flight numbers are optional at booking (owner, Nov 2026); ask for it afterwards.
+      name: "mat_add_flight_number",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thanks for booking with My Airport Taxi NI (reference {{2}}).\n\n" +
+            "Please add your flight number for your airport collection on {{3}}. We track your flight " +
+            "and adjust your pickup time if it lands early or late. Tap Manage booking below to add it.",
+          example: { body_text: [["Sarah", "MAT-1042", "Sat 31 Oct at 05:30"]] },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Manage booking",
+              url: `${SITE}/manage-booking/?token={{1}}`,
+              example: [`${SITE}/manage-booking/?token=abc123`],
             },
           ],
         },
@@ -511,6 +540,42 @@ export function sendBookingConfirmedWhatsApp(
           input.dropoffLabel ?? "",
         ],
         // The button needs a value; without a token the page asks for the booking details instead.
+        urlButtonParam: input.manageToken?.trim() || "lookup",
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/**
+ * Airport collection booked without a flight number: ask for it (Manage booking
+ * button). `collectionWhen` is the date/time of the airport pickup leg.
+ */
+export function sendAddFlightNumberWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    paymentReference: string;
+    customerReference?: string | null;
+    customerName?: string | null;
+    mobile?: string | null;
+    collectionDate?: string | null;
+    collectionTime?: string | null;
+    manageToken?: string | null;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_add_flight_number",
+        jobKey: input.paymentReference,
+        mobile: input.mobile,
+        bodyParams: [
+          firstNameOf(input.customerName),
+          input.customerReference || input.paymentReference,
+          tripWhen(input.collectionDate, input.collectionTime),
+        ],
         urlButtonParam: input.manageToken?.trim() || "lookup",
       },
       fetchImpl,
