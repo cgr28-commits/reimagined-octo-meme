@@ -135,6 +135,10 @@ export default function StripeCardPayClient() {
 
         const express = checkout.createExpressCheckoutElement({
           buttonHeight: 44,
+          // Show Apple Pay / Google Pay on desktop too (Chrome, Edge, Firefox):
+          // "always" shows the button even before the customer has a saved card,
+          // and Apple Pay on non-Safari browsers uses Apple's QR-code flow.
+          paymentMethods: { applePay: "always", googlePay: "always" },
         buttonTheme: { applePay: "white-outline", googlePay: "white" },
           layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
         });
