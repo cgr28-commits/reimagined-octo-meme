@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import Logo from "@/components/Logo";
 import { SITE } from "@/lib/data";
 import {
   fetchStripeSession,
@@ -77,9 +78,28 @@ export default function StripeCardPayClient() {
         const checkout = stripe.initCheckoutElementsSdk({
           clientSecret: session.clientSecret,
           elementsOptions: {
+            // Site branding (src/app/globals.css): navy + emerald, Manrope.
+            fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" }],
             appearance: {
               theme: "night",
-              variables: { colorPrimary: "#10b981", borderRadius: "12px" },
+              variables: {
+                colorPrimary: "#2fbf4a",
+                colorBackground: "#0c2a52",
+                colorText: "#e8edf5",
+                colorTextSecondary: "#b5c0cd",
+                colorTextPlaceholder: "rgba(232, 237, 245, 0.5)",
+                colorDanger: "#fca5a5",
+                fontFamily: "Manrope, system-ui, sans-serif",
+                borderRadius: "12px",
+                spacingUnit: "4px",
+              },
+              rules: {
+                ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
+                ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
+                ".Tab": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#071c38" },
+                ".Tab--selected": { borderColor: "#2fbf4a", backgroundColor: "#0c2a52" },
+                ".Label": { color: "#b5c0cd", fontWeight: "600" },
+              },
             },
           },
         });
@@ -87,6 +107,7 @@ export default function StripeCardPayClient() {
 
         const express = checkout.createExpressCheckoutElement({
           buttonHeight: 48,
+        buttonTheme: { applePay: "white-outline", googlePay: "white" },
           layout: { maxColumns: 1, maxRows: 3 },
         });
         express.on("ready", (event) => {
@@ -119,6 +140,9 @@ export default function StripeCardPayClient() {
     >
       {showForm ? (
         <>
+          <div className="mb-5 flex justify-center">
+            <Logo className="h-14" />
+          </div>
           <h1 className="text-2xl font-bold">Secure card payment</h1>
           {amountLabel ? (
             <p className="mt-2 text-lg text-white/90">
