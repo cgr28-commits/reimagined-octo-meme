@@ -4674,7 +4674,7 @@ function QuoteCard({
           return;
         }
         setPaymentError(
-          "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a SumUp link once confirmed.",
+          "Online payment is available when an instant fare is shown. Request to book instead and we’ll email a secure payment link once confirmed.",
         );
       }
       return;
@@ -6662,7 +6662,7 @@ function QuoteCard({
           <>
             <p className="quote-price-label">
               {testChargeAmount !== null
-                ? "Test SumUp charge"
+                ? "Test card charge"
                 : appliedPersonalQuote
                   ? "Personal quoted fare"
                   : "Your transfer price"}
@@ -6746,10 +6746,10 @@ function QuoteCard({
                 ? "We’ll reply with your quote — no online payment until you confirm."
                 : canPayNowOnline
                   ? isAirportLegForInclusions
-                    ? "Eligible bookings can be paid securely online with SumUp."
-                    : "Fixed price for your journey. Eligible bookings can be paid securely online with SumUp."
+                    ? "Eligible bookings can be paid securely online by card."
+                    : "Fixed price for your journey. Eligible bookings can be paid securely online by card."
                   : isAirportLegForInclusions
-                    ? "Continue to enter your details — eligible bookings can be paid securely online with SumUp."
+                    ? "Continue to enter your details — eligible bookings can be paid securely online by card."
                     : "Fixed price for your journey. Continue to enter your details when you’re ready."}
         </p>
       </>
@@ -7316,7 +7316,7 @@ function QuoteCard({
               {paymentPopupBlocked && !paymentError ? (
                 <div className="space-y-3">
                   <p className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                    Payment could not open automatically. Tap “Continue to SumUp” below, or message
+                    Payment could not open automatically. Tap “Continue to secure payment” below, or message
                     us on WhatsApp if you still need help.
                   </p>
                   {renderBookingErrorHelp("payment-actions")}
@@ -7327,11 +7327,11 @@ function QuoteCard({
                   <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                   <p className="text-xs leading-relaxed text-white/75">
                     Your booking details are saved for {openCheckout.amountLabel}. Continue to
-                    SumUp to finish paying, or cancel payment and return to your quote.
+                    secure payment to finish paying, or cancel payment and return to your quote.
                   </p>
                   {isMobileDevice === false ? (
                     <p className="text-xs leading-relaxed text-white/70">
-                      SumUp opens in a separate tab. Close it at any time to return to your saved quote.
+                      Secure payment opens in a separate tab. Close it at any time to return to your saved quote.
                     </p>
                   ) : null}
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -7348,7 +7348,7 @@ function QuoteCard({
                       disabled={paymentLoading}
                       className="btn-pay w-full disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {paymentLoading ? "Opening secure payment…" : "Continue to SumUp"}
+                      {paymentLoading ? "Opening secure payment…" : "Continue to secure payment"}
                     </button>
                   </div>
                   <button
@@ -7528,7 +7528,7 @@ function QuoteCard({
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
                     : testChargeAmount !== null
-                      ? "Pay £1.00 test charge with SumUp"
+                      ? "Pay £1.00 test charge"
                       : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
@@ -7546,8 +7546,8 @@ function QuoteCard({
                 <p id="payment-loading-status" role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-white/85">
                   {paymentLoading && !isAvailabilityRequest
                     ? paymentSlow
-                      ? "Still connecting securely to SumUp. Please wait…"
-                      : "Please wait. We’re connecting you securely to SumUp."
+                      ? "Still connecting to secure payment. Please wait…"
+                      : "Please wait. We’re connecting you to secure payment."
                     : ""}
                 </p>
                 <p className="text-center text-xs text-white/55">{SECURE_SUMUP_LINE}</p>
@@ -8304,7 +8304,7 @@ function QuoteCard({
           <p className="hidden md:block">
             {pricingConfirmationRequired
               ? "Three quick steps — Journey details, Your quote, then Complete your booking. We’ll confirm your fare before any payment."
-              : "Three quick steps — Journey details, Your quote, then Complete your booking. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a SumUp link after we confirm."}
+              : "Three quick steps — Journey details, Your quote, then Complete your booking. Instant fares can be paid online by card to confirm; otherwise Request to book and we’ll email a secure payment link after we confirm."}
           </p>
             </>
           )}
@@ -8390,7 +8390,7 @@ function QuoteCard({
         />
         {testChargeAmount !== null && (
           <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            <strong className="text-white">Test booking mode.</strong> SumUp will charge{" "}
+            <strong className="text-white">Test booking mode.</strong> your card will be charged{" "}
             <strong className="text-white">£1.00</strong> only
             {testBookingLabel ? ` for ${testBookingLabel}` : ""}. You will still receive the full
             invoice email.

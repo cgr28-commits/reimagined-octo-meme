@@ -216,7 +216,7 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     "",
     `${ctaLabel}: ${details.payUrl}`,
     "",
-    "Secure card payment powered by SumUp.",
+    "Secure card payment.",
     "",
     `My Airport Taxi NI · Call ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_EMAIL}`,
     BUSINESS_WEBSITE,
@@ -265,7 +265,7 @@ ${businessEmailClientMeta()}</head>
           <p style="margin:0 0 24px;text-align:center;">
             <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">${escapeHtml(ctaLabel)}</a>
           </p>
-          <p style="margin:0;font-size:12px;color:#9fb0c0;text-align:center;">Secure card payment powered by SumUp.</p>
+          <p style="margin:0;font-size:12px;color:#9fb0c0;text-align:center;">Secure card payment.</p>
           <p style="margin:16px 0 0;font-size:12px;color:#9fb0c0;text-align:center;">Ref ${escapeHtml(details.reference)}</p>
         </td></tr>
       </table>

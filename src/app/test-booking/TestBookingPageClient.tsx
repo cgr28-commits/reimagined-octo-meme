@@ -60,7 +60,7 @@ export default function TestBookingPageClient() {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">£1 test booking</h1>
             <p className="mt-3 text-white/70">
-              Use this to complete a real SumUp payment for £1 and see exactly what a customer
+              Use this to complete a real card payment for £1 and see exactly what a customer
               receives — invoice email, tracking link, and driver dashboard entry.
             </p>
           </header>
@@ -83,7 +83,7 @@ export default function TestBookingPageClient() {
                 </dd>
               </div>
               <div>
-                <dt className="font-medium text-white">SumUp charge</dt>
+                <dt className="font-medium text-white">Card charge</dt>
                 <dd className="text-emerald">£1.00 only (route price is not charged)</dd>
               </div>
             </dl>
@@ -102,7 +102,7 @@ export default function TestBookingPageClient() {
             <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm leading-relaxed text-white/70">
               <li>Click the button above — the quote form opens with this route pre-filled.</li>
               <li>Enter your real name, mobile, and email (use an inbox you can check).</li>
-              <li>Accept Terms &amp; Conditions, then pay £1 with SumUp.</li>
+              <li>Accept Terms &amp; Conditions, then pay £1 by card.</li>
               <li>Check your email for the branded invoice and live tracking link.</li>
               <li>
                 Open the{" "}

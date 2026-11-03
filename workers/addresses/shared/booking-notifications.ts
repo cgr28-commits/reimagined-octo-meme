@@ -636,10 +636,10 @@ ${businessEmailClientMeta()}
                       ${customerRef ? `<strong>Booking reference:</strong> ${escapeHtml(customerRef)}<br />` : ""}
                       <strong>Payment method:</strong> ${
                         depositCashReceiptDetails(details)
-                          ? "Deposit by card (SumUp) + cash on the day"
+                          ? "Deposit by card + cash on the day"
                           : cardBalanceReceiptDetails(details)
-                            ? "Deposit by card (SumUp), balance by card before your journey"
-                            : "Card (SumUp)"
+                            ? "Deposit by card, balance by card before your journey"
+                            : "Card"
                       }<br />
                       <strong>Status:</strong> ${
                         depositCashReceiptDetails(details)
@@ -871,10 +871,10 @@ export function buildCustomerConfirmationEmail(
     (customerRef ? `Booking reference: ${customerRef}\n` : "") +
     `Payment method: ${
       depositCashReceiptDetails(details)
-        ? "Deposit by card (SumUp) + cash on the day"
+        ? "Deposit by card + cash on the day"
         : cardBalanceReceiptDetails(details)
-          ? "Deposit by card (SumUp), balance by card before your journey"
-          : "Card (SumUp)"
+          ? "Deposit by card, balance by card before your journey"
+          : "Card"
     }\n` +
     `Status: ${
       depositCashReceiptDetails(details)
@@ -994,10 +994,10 @@ export function buildOwnerPaidBookingEmail(
     (details.checkoutReference ? `Checkout reference: ${details.checkoutReference}\n` : "") +
     `Status: ${
       deposit
-        ? "DEPOSIT PAID (verified via SumUp) — CASH DUE ON THE DAY"
+        ? "DEPOSIT PAID (verified) — CASH DUE ON THE DAY"
         : cardBalanceReceiptDetails(details)
-          ? "DEPOSIT PAID (verified via SumUp) — CARD BALANCE DUE BEFORE THE JOURNEY"
-          : "PAID (verified via SumUp)"
+          ? "DEPOSIT PAID (verified) — CARD BALANCE DUE BEFORE THE JOURNEY"
+          : "PAID (verified)"
     }` +
     (details.termsAcceptedAt
       ? `\nTerms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}`
@@ -1025,7 +1025,7 @@ export function buildOwnerPaymentAttemptEmail(
 
   const body =
     `A customer entered their details and started online card payment on the ${businessName} website.\n` +
-    `Payment is NOT confirmed yet — contact details below are from the booking form (stored server-side before SumUp).\n\n` +
+    `Payment is NOT confirmed yet — contact details below are from the booking form (stored server-side before payment).\n\n` +
     `CUSTOMER\n` +
     `${"=".repeat(40)}\n` +
     `Name: ${details.customerName}\n` +
@@ -1043,7 +1043,7 @@ export function buildOwnerPaymentAttemptEmail(
     (details.termsAcceptedAt
       ? `Terms accepted: ${details.termsAcceptedAt}${details.termsVersion ? ` (${details.termsVersion})` : ""}\n`
       : "") +
-    `\nYou will get a separate “Paid booking” email if SumUp confirms payment.` +
+    `\nYou will get a separate “Paid booking” email once payment is confirmed.` +
     formatOwnerAttributionBlock(details);
 
   return { subject, body };
@@ -1061,10 +1061,10 @@ export function buildOwnerPaymentUnsuccessfulEmail(
   businessName = "My Airport Taxi NI",
 ): { subject: string; body: string } {
   const status = options.sumUpStatus?.trim() || "UNSUCCESSFUL";
-  const subject = `SumUp payment unsuccessful — ${details.customerName} — ${options.amountLabel}`;
+  const subject = `Card payment unsuccessful — ${details.customerName} — ${options.amountLabel}`;
 
   const body =
-    `A customer’s SumUp payment did not complete on the ${businessName} website.\n` +
+    `A customer’s card payment did not complete on the ${businessName} website.\n` +
     `No card payment was taken. Contact details are below so you can follow up.\n\n` +
     `CUSTOMER\n` +
     `${"=".repeat(40)}\n` +
@@ -1445,8 +1445,8 @@ export function buildOwnerRefundAuditEmailBody(
       : "") +
     `\nREFERENCES\n${"=".repeat(40)}\n` +
     (details.sumUpTransactionId
-      ? `SumUp transaction / reference: ${details.sumUpTransactionId}\n`
-      : `SumUp transaction / reference: (not recorded)\n`) +
+      ? `Card transaction / reference: ${details.sumUpTransactionId}\n`
+      : `Card transaction / reference: (not recorded)\n`) +
     `Payment / booking reference: ${details.paymentReference}\n` +
     (details.auditId ? `Audit ID: ${details.auditId}\n` : "Audit ID: (not recorded)\n") +
     `Timestamp: ${timestamp}\n\n` +
@@ -1568,7 +1568,7 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
     (showCumulative ? `Total refunded to date: ${details.cumulativeRefunded}\n` : "") +
     `Original payment amount: ${details.originalAmount}\n` +
     `Booking status: ${bookingStatus}\n` +
-    `Original payment method: Card (SumUp) — refund returned to your original payment method\n` +
+    `Original payment method: Card — refund returned to your original payment method\n` +
     `Trip: ${details.tripLabel}\n` +
     (when ? `When: ${when}\n` : "") +
     `Pickup: ${details.pickupLabel}\n` +
@@ -1586,7 +1586,7 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
       : "") +
     `<strong>Original payment amount:</strong> ${escapeHtml(details.originalAmount)}<br/>` +
     `<strong>Booking status:</strong> ${escapeHtml(bookingStatus)}<br/>` +
-    `<strong>Original payment method:</strong> Card (SumUp) — refund returned to your original payment method<br/>` +
+    `<strong>Original payment method:</strong> Card — refund returned to your original payment method<br/>` +
     `<strong>Trip:</strong> ${escapeHtml(details.tripLabel)}<br/>` +
     (when ? `<strong>When:</strong> ${escapeHtml(when)}<br/>` : "") +
     `<strong>Pickup:</strong> ${escapeHtml(details.pickupLabel)}<br/>` +

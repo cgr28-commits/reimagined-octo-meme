@@ -273,7 +273,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           {stats.funnel.truncated && <p className="mt-2 text-sm text-amber-200">Showing a sample of up to 100 quote sessions for this date. These counts are not the full day totals.</p>}
           <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
             {[["Quotes received", stats.funnel.quotes], ["Book My Transfer", stats.funnel.started], ["Contact stage opened", stats.funnel.detailsOpened],
-              ["Details submitted", stats.funnel.detailsSubmitted], ["SumUp opened", stats.funnel.paymentOpened], ["Payment confirmed", stats.funnel.paid]].map(([label, value]) =>
+              ["Details submitted", stats.funnel.detailsSubmitted], ["Payment page opened", stats.funnel.paymentOpened], ["Payment confirmed", stats.funnel.paid]].map(([label, value]) =>
               <div key={label} className="rounded-lg bg-white/5 p-3"><dt className="text-xs text-white/70">{label}</dt><dd className="text-2xl font-bold text-white">{value}</dd></div>)}
           </dl>
           <p className="mt-3 text-xs text-white/60">Possible abandonment means no later recorded stage for 10 minutes. Customers may still return. Older sessions have no historical click-stage data.</p>

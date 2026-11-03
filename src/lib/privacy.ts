@@ -28,7 +28,7 @@ export const PRIVACY_SECTIONS = [
       "Travel date, time and flight numbers (for airport journeys)",
       "Passenger and luggage details",
       "Saved journey details, original quoted fare and, for email saving, your email address when you choose Save My Quote",
-      "Payment confirmation details from SumUp (amount, transaction reference)",
+      "Payment confirmation details from our card payment provider (amount, transaction reference)",
       "Optional live location if a customer chooses to share it via WhatsApp",
       "Driver GPS location history may be recorded during booked journeys for operational/dispute evidence",
       "Marketing preferences if you opt in to receive updates (optional)",
@@ -42,7 +42,7 @@ export const PRIVACY_SECTIONS = [
     list: [
       "Provide quotations and confirm bookings",
       "Save journey details you request and provide a secure link by email or customer-initiated WhatsApp sharing",
-      "Process card payments via SumUp",
+      "Process card payments through our card payment provider",
       "Send booking confirmations and invoices by email",
       "Contact you about your journey (including SMS/WhatsApp where agreed)",
       "Send Driver on the way and arrival updates by email when applicable",
@@ -81,7 +81,7 @@ export const PRIVACY_SECTIONS = [
     title: "Who we share data with",
     content: ["We may share limited data with trusted service providers, including:"],
     list: [
-      "SumUp — card payment processing",
+      "Our card payment provider (Stripe) — card payment processing",
       "Cloudflare — website hosting and booking API",
       "Email delivery providers — sending confirmations",
       "Google — address autocomplete (Google Places), maps, directions, and calendar logging where configured",

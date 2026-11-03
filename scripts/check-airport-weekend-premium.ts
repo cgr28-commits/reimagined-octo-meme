@@ -275,7 +275,7 @@ console.log("OK  10. SumUp remains Worker/KV-authoritative");
 
 const data = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
 assert.match(data, /a 5% discount applies to the combined fare/);
-assert.match(data, /confirmed securely by card via SumUp/);
+assert.match(data, /confirmed securely by card/);
 console.log("OK  Homepage FAQ still states the 5% return discount and card payment");
 
 console.log("\nAll airport Night & Weekend Surcharge parity checks passed.");

@@ -266,7 +266,7 @@ export default function TipPageClient() {
                   >
                     {submitting ? "Opening secure payment…" : leaveTipButtonLabel(chosenAmount)}
                   </button>
-                  <p className="text-center text-xs text-white/55">Secure payment powered by SumUp</p>
+                  <p className="text-center text-xs text-white/55">Secure card payment</p>
                 </div>
               ) : null}
               <p className="text-center text-sm font-semibold text-white/80">Thank you for supporting My Airport Taxi NI.</p>

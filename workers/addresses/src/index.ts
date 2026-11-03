@@ -3290,7 +3290,7 @@ async function handlePaymentRequest(
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       ...promoFieldsFromFareBreakdown(breakdown),
       meetGreetFeeGbp: quotedAccess.meetGreetFeeGbp + optionalMeetGreetFee || undefined,
-      // Persist the amount the customer accepted and SumUp will charge.
+      // Persist the amount the customer accepted and your card will be charged.
       finalAmountPayableGbp: sumUpChargeGbp,
       ...(returnOfferOriginalPaymentReference
         ? { returnOfferOriginalPaymentReference }
@@ -3402,7 +3402,7 @@ async function handlePaymentRequest(
       {
         error:
           blockers[0] ||
-          "Missing customer booking details. Complete name, email, mobile, trip and travel details before starting SumUp payment.",
+          "Missing customer booking details. Complete name, email, mobile, trip and travel details before starting payment.",
         blockers,
       },
       400,

@@ -284,7 +284,7 @@ function AcceptAlternativeInner() {
                   </a>
                 ) : (
                   <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-amber-100">
-                    Preview/test environment: online card payment (SumUp) is not fully available
+                    Preview/test environment: online card payment is not fully available
                     here. Your acceptance was recorded and the payment-link email uses the secure
                     pay page URL for this preview.
                   </p>

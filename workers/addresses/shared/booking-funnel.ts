@@ -31,7 +31,7 @@ export function summarizeBookingFunnel(day: string, records: Array<{
   const result: BookingFunnelSnapshot = { day, truncated, quotes: records.length, started: 0,
     detailsOpened: 0, detailsSubmitted: 0, paymentOpened: 0, paid: 0, rows: [] };
   const stages = [["booking_started", "Booking started"], ["details_opened", "Contact stage opened"],
-    ["details_submitted", "Details submitted"], ["payment_opened", "SumUp opened"], ["paid", "Payment confirmed"]] as const;
+    ["details_submitted", "Details submitted"], ["payment_opened", "Payment page opened"], ["paid", "Payment confirmed"]] as const;
   for (const { quote, events } of records) {
     if (events.booking_started) result.started++;
     if (events.details_opened) result.detailsOpened++;

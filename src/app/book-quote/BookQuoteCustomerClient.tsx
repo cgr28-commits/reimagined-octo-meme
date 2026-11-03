@@ -866,7 +866,7 @@ function BookQuoteInner() {
       )}
       {isAvailabilityRequest ? null : (
         <p className="break-words px-1 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs text-white/45">
-          You will complete payment on SumUp’s secure hosted checkout. Card details are never entered on this site.
+          You’ll complete payment on our secure card payment page. Your card details go straight to our payment provider and are never stored by us.
         </p>
       )}
     </div>

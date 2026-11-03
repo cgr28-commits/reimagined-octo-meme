@@ -591,7 +591,7 @@ console.log("\n=== 6. Owner prompt, worker, and page wiring ===");
   assert.match(client, /Would you like to leave your driver a tip\?/);
   assert.match(client, /Tips are never expected, but always greatly appreciated\./);
   assert.match(client, /Thank you for supporting My Airport Taxi NI\./);
-  assert.match(client, /Secure payment powered by SumUp/);
+  assert.match(client, /Secure card payment/);
   assert.match(client, /Your \{formatTipGbp\(view\.amountGbp\)\} tip has been received/);
   assert.match(client, /TIP_PAGE_THANKS/);
   assert.equal(

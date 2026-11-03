@@ -3,7 +3,7 @@
  *
  * - Offered when pickup is at least {@link CARD_BALANCE_MIN_DAYS_AHEAD} days away.
  * - Customer pays {@link CARD_BALANCE_DEPOSIT_PERCENT}% by card today.
- * - {@link CARD_BALANCE_DUE_DAYS_BEFORE} days before pickup we email a SumUp payment link
+ * - {@link CARD_BALANCE_DUE_DAYS_BEFORE} days before pickup we email a secure payment link
  *   for the balance, with reminders.
  * - If still unpaid {@link CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, the booking
  *   is cancelled automatically and the deposit is kept.

@@ -148,7 +148,7 @@ export async function finalizePaidBookingFromUrl(
         return {
           status: "pending",
           summary:
-            "Payment isn’t showing as complete yet. Wait a few seconds and refresh this page, or open the SumUp link from your email again.",
+            "Payment isn’t showing as complete yet. Wait a few seconds and refresh this page, or open the payment link from your email again.",
           checkoutId,
           error: message,
         };

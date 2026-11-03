@@ -66,11 +66,11 @@ export const DEPOSIT_CASH_BADGE = "Pay less today";
 export const DEPOSIT_CASH_SUPPORTING =
   "Secure your booking with a deposit and pay the remaining balance in cash.";
 export const FULL_ONLINE_OPTION_LABEL = "Pay in Full Online";
-export const FULL_ONLINE_SUPPORTING = "Secure card payment powered by SumUp.";
+export const FULL_ONLINE_SUPPORTING = "Secure card payment.";
 export const DEPOSIT_CASH_SUMMARY_HEADING = "Payment summary";
 export const DEPOSIT_CASH_SELECTED_HEADING = "Deposit + Cash selected";
 export const PAYMENT_DETAILS_HEADING = "Payment details";
-export const SECURE_SUMUP_LINE = "Secure payment powered by SumUp";
+export const SECURE_SUMUP_LINE = "Secure card payment";
 export const CASH_SELECTED_CARD_UNAVAILABLE =
   "Card payment is not available for the remaining balance, so please have the cash available before your pickup.";
 export const REMAINING_BALANCE_CASH_ONLY =
