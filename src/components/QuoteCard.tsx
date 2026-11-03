@@ -219,6 +219,7 @@ import {
   cardBalanceExplainer,
   cardBalanceOptionSubline,
   cardBalancePayButtonLabel,
+  cardBalanceQuoteScreenNote,
   isCardBalanceDateEligible,
 } from "../../shared/deposit-card-balance";
 import {
@@ -7607,6 +7608,10 @@ function QuoteCard({
       <button
         type="submit"
         id="quote-book-now-button"
+        onClick={() => {
+          // Plain "Book" goes back to the normal payment default if the deposit pill was tapped earlier.
+          if (paymentMethod === PAYMENT_METHOD_DEPOSIT_CARD_BALANCE) setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH);
+        }}
         disabled={
           submitted ||
           !quoteChoicesReady ||
@@ -7838,6 +7843,19 @@ function QuoteCard({
       : liveLabel
         ? liveLabel
         : "Calculating…";
+    // Pickup 30+ days away: show the 20% deposit right under the price.
+    const quoteDepositOffer =
+      authoritativeTotal != null &&
+      !priceUpdating &&
+      !appliedPersonalQuote &&
+      testChargeAmount == null &&
+      !isAvailabilityRequest &&
+      isCardBalanceDateEligible(tripDate, tripTime)
+        ? calculateCardBalanceQuote(authoritativeTotal)
+        : null;
+    const quoteDepositNote = quoteDepositOffer?.eligible
+      ? cardBalanceQuoteScreenNote(quoteDepositOffer.depositGbp)
+      : null;
     // One-tap Business Class upgrade under a Saloon/Estate price (instant-price mode only).
     const offerBusinessClassUpgrade =
       publicExecutiveEnabled &&
@@ -7877,6 +7895,11 @@ function QuoteCard({
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         surchargeNote={null}
+        depositNote={quoteDepositNote}
+        onDepositSelect={() => {
+          setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE);
+          setCashAgreementAccepted(false);
+        }}
         businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}
@@ -8021,23 +8044,6 @@ function QuoteCard({
           className="scroll-mt-24 space-y-1.5 pb-[max(0.25rem,env(safe-area-inset-bottom))]"
           data-quote-result-actions
         >
-          {saveQuoteSettings.enabled && saveQuoteSettings.emailEnabled && !isVehiclePersonalQuote ? (
-            <button
-              type="button"
-              data-quote-save-prominent
-              aria-haspopup="dialog"
-              onClick={() => handleSaveQuoteClick("email")}
-              className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald/50 bg-emerald/10 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald/20"
-            >
-              <QuoteResultActionIcon name="save" className="h-[1.1rem] w-[1.1rem] text-emerald" />
-              <span>
-                Not ready to book? <span className="text-emerald">Email me this price</span>
-                <span className="text-white/60">
-                  {" "}· held for {saveQuoteSettings.validityDays} day{saveQuoteSettings.validityDays === 1 ? "" : "s"}
-                </span>
-              </span>
-            </button>
-          ) : null}
           <div className="grid grid-cols-4 gap-1.5 max-[340px]:grid-cols-2">
             {mapsHref ? (
               <button

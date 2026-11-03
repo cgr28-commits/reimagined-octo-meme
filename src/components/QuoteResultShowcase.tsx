@@ -34,6 +34,10 @@ type QuoteResultShowcaseProps = {
   priceUpdating?: boolean;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
+  /** Pickup 30+ days away: "Secure it today for £56 (20% deposit)". */
+  depositNote?: string | null;
+  /** Tapping the deposit pill: preselect "Pay a deposit" and continue like Book. */
+  onDepositSelect?: () => void;
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
@@ -81,6 +85,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       layoutBusinessClassInclusions = null,
       priceUpdating = false,
       surchargeNote = null,
+      depositNote = null,
+      onDepositSelect,
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
@@ -244,6 +250,27 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </>
           )}
         </div>
+        {depositNote ? (
+          <button
+            type="submit"
+            data-quote-deposit-note
+            onClick={onDepositSelect}
+            aria-label={`${depositNote} — book with a deposit`}
+            className="mx-auto mt-2 block w-full rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm transition hover:brightness-105 active:brightness-95"
+          >
+            {(() => {
+              // Two lines: "Secure your booking today for just £48" / "(20% deposit)".
+              const split = depositNote.lastIndexOf(" (");
+              if (split < 0) return depositNote;
+              return (
+                <>
+                  <span className="block">{depositNote.slice(0, split)}</span>
+                  <span className="block whitespace-nowrap">{depositNote.slice(split + 1)}</span>
+                </>
+              );
+            })()}
+          </button>
+        ) : null}
         {surchargeNote ? (
           <p className="mt-0.5 text-xs font-semibold text-navy" data-night-weekend-surcharge-badge>
             {surchargeNote}
