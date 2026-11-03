@@ -252,7 +252,17 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
             data-quote-deposit-note
             className="mx-auto mt-2 inline-flex items-center justify-center rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm"
           >
-            {depositNote}
+            {(() => {
+              // Keep "(20% deposit)" together on one line.
+              const split = depositNote.lastIndexOf(" (");
+              if (split < 0) return depositNote;
+              return (
+                <>
+                  {depositNote.slice(0, split)}{" "}
+                  <span className="whitespace-nowrap">{depositNote.slice(split + 1)}</span>
+                </>
+              );
+            })()}
           </p>
         ) : null}
         {surchargeNote ? (
