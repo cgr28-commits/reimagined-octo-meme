@@ -543,7 +543,7 @@ function PersonalQuoteInner() {
       <h1 className="mt-2 text-2xl font-bold tracking-tight">Your private airport transfer quote</h1>
       <p className="mt-2 text-sm text-white/65">
         This is a personally agreed fare from My Airport Taxi NI. Complete your trip details below
-        and pay securely with SumUp.
+        and pay securely by card.
       </p>
 
       <dl className="mt-6 grid gap-3 text-sm text-white/75">
@@ -920,7 +920,7 @@ function PersonalQuoteInner() {
             >
               {paying
                 ? "Opening secure payment…"
-                : `Pay ${paymentDisplay.paymentAmountLabel} securely with SumUp`}
+                : `Pay ${paymentDisplay.paymentAmountLabel} securely by card`}
             </button>
           </>
         )}

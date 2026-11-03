@@ -236,7 +236,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "How booking works",
       body:
-        "Standard process: (1) Get Your Fixed Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online with SumUp to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a SumUp payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus when enabled and available; the form recommends a suitable vehicle from your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
+        "Standard process: (1) Get Your Fixed Quote on the website or in this chat for your fixed journey price. (2) When an instant fare is shown, you can pay online by card to confirm. Otherwise Request to book / enquire with your date, time, and contact details — we confirm the job and email a secure payment link; booking is confirmed after payment. Online quotes show Saloon, Estate or similar larger vehicle, Business Class, and 7 Seater Minibus when enabled and available; the form recommends a suitable vehicle from your passengers and luggage. Airport access required for the journey is included in the fixed price. My Airport Taxi NI provides private airport transfers for up to 4 passengers, or up to 7 when a 7 Seater is offered.",
     },
     {
       title: "Quote tool flow",
@@ -290,7 +290,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
     {
       title: "Cash and payment options",
       body:
-        "Transfers with an instant fare can pay by card online via SumUp at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a SumUp payment link. Cash to the driver or bank transfer can be arranged where agreed.",
+        "Transfers with an instant fare can pay by card online at the end of the website quote. Otherwise, after you Request to book and we confirm the job, we email a secure payment link. Cash to the driver or bank transfer can be arranged where agreed.",
     },
     {
       title: "Terms last updated",

@@ -322,7 +322,7 @@ function A2aQuotePayInner() {
             {paying ? "Opening secure payment…" : payLabel}
           </button>
           <p className="mt-3 text-center text-xs text-white/50">
-            Secure card payment powered by SumUp.
+            Secure card payment.
           </p>
         </>
       ) : !isCustomerSmartAvailabilityBlockMessage(error) && !summary.payable ? (

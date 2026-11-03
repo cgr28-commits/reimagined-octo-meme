@@ -218,7 +218,7 @@ check("homepage benefits include 5% off when you book a return", () => {
   assert.match(benefits, /Flight monitoring/);
   assert.match(benefits, /Airport waiting included/);
   assert.match(data, /a 5% discount applies to the combined fare/);
-  assert.match(data, /confirmed securely by card via SumUp/);
+  assert.match(data, /confirmed securely by card/);
 });
 
 check("public quote fare step does not ask for child/car seats", () => {

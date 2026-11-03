@@ -92,7 +92,7 @@ export const EMERGE_FAQS = [
   {
     question: "Can I pay online?",
     answer:
-      "Yes. Confirmed bookings can be paid securely through the website’s existing SumUp payment process.",
+      "Yes. Confirmed bookings can be paid securely through the website’s secure card payment.",
   },
 ] as const;
 
@@ -130,7 +130,7 @@ export const EMERGE_BOOKING_STEPS = [
   },
   {
     title: "Confirm and pay securely",
-    body: "Complete your booking through the existing secure SumUp payment process.",
+    body: "Complete your booking through the website’s secure card payment.",
   },
   {
     title: "Receive your pickup details",
@@ -149,7 +149,7 @@ export const EMERGE_TRUST_POINTS = [
 
 export const EMERGE_HERO_TRUST = [
   "Fixed quote before booking",
-  "Secure payment powered by SumUp",
+  "Secure card payment",
   "Up to 4 passengers",
   "Pre-booked pickup arrangements",
 ] as const;

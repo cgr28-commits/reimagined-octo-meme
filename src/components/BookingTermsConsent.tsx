@@ -42,7 +42,7 @@ export default function BookingTermsConsent({
           <p className="font-semibold text-white">Agreement</p>
           <p className="mt-1">
             I understand this is a quote request. My journey is not booked yet. If the quote is
-            approved, I’ll receive my personalised price and a secure SumUp payment link. My booking
+            approved, I’ll receive my personalised price and a secure payment link. My booking
             is confirmed only after payment is received.
           </p>
         </div>

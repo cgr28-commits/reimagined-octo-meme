@@ -142,7 +142,7 @@ ${businessEmailLogoHtml()}
 <p style="margin:24px 0 8px;text-align:center;">
 <a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">${escapeHtml(input.ctaLabel)}</a>
 </p>${input.afterCtaHtml ?? ""}
-<p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;text-align:center;">Secure card payment powered by SumUp.</p>
+<p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;text-align:center;">Secure card payment.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
 <strong style="color:${NAVY};">${escapeHtml(input.businessName)}</strong><br />
@@ -199,7 +199,7 @@ export function buildSavedQuoteInitialEmail(
     `${ctaIntro}\n\n` +
     `${cta.label}\n${cta.url}` +
     `${changeLinkText(offer)}\n\n` +
-    `Secure card payment powered by SumUp.\n\n` +
+    `Secure card payment.\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
 
   const html = brandedHtml({

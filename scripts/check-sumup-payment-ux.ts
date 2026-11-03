@@ -89,7 +89,7 @@ assert.match(card, /window\.location\.assign\(checkout\.paymentUrl\)/);
 assert.match(card, /Opening secure payment…/);
 assert.match(card, /Secure payment ready/);
 assert.match(card, /Cancel payment and return to quote/);
-assert.match(card, /SumUp opens in a separate tab\. Close it at any time to return to your saved quote\./);
+assert.match(card, /Secure payment opens in a separate tab\. Close it at any time to return to your saved quote\./);
 assert.match(card, /openDesktopSumUpCheckout\(window,\s*paymentUrl\)/);
 assert.match(read("src/lib/sumup-desktop-handoff.ts"), /window\.open\("about:blank", "_blank"\)|win\.open\("about:blank", "_blank"\)/);
 assert.match(card, /isMobileDevice \?\? detectMobileDevice\(\)/);
@@ -97,7 +97,7 @@ assert.match(card, /if \(isMobile\) \{[\s\S]{0,180}?window\.location\.assign\(ch
 assert.match(card, /saveBookingFormDraft/);
 assert.match(card, /savePendingPayment/);
 assert.match(card, /saveOpenCheckoutSession/);
-assert.match(card, /Continue to SumUp/);
+assert.match(card, /Continue to secure payment/);
 console.log("OK  desktop SumUp opens separately; mobile stays same-tab; draft preserved");
 
 const shortNotice = read("src/app/pay/short-notice/ShortNoticePayClient.tsx");

@@ -282,7 +282,7 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
     booking.paid && booking.paymentReference
       ? `Payment reference: ${booking.paymentReference}`
       : "",
-    booking.paid ? "Status: PAID (SumUp)" : "",
+    booking.paid ? "Status: PAID (card)" : "",
     "",
     `Source: ${BUSINESS_NAME} website booking`,
   ];

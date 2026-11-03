@@ -118,7 +118,7 @@ export default function BookingConfirmedClient() {
         if (!cancelled) {
           setStatus("missing");
           setSummary(
-            `If you’ve just paid, check your email for confirmation or return via the SumUp “Back to merchant” link. Need help? Email ${SITE.email}.`,
+            `If you’ve just paid, check your email for confirmation or use the payment link in your email again. Need help? Email ${SITE.email}.`,
           );
         }
         return;
@@ -301,7 +301,7 @@ export default function BookingConfirmedClient() {
           </ul>
         ) : null}
         {status === "confirmed" ? (
-          <p className="mt-1 text-xs text-white/40">Payment method: Card (SumUp)</p>
+          <p className="mt-1 text-xs text-white/40">Payment method: Card</p>
         ) : null}
 
         {status === "confirmed" ? (

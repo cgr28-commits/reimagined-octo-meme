@@ -49,7 +49,7 @@ export default function BookingPaymentOptions({ offer, paymentMethod, cashAgreem
           <span className="block text-sm font-semibold text-white">{FULL_ONLINE_OPTION_LABEL}</span>
           <span className="mt-1 block text-sm font-semibold text-emerald">{todayPayLabel(offer.totalFare)}</span>
           <span className="mt-0.5 block text-sm leading-snug text-white/80">Nothing to pay on pickup</span>
-          <span className="mt-1 block text-xs leading-snug text-white/70">Secure card payment powered by SumUp.</span>
+          <span className="mt-1 block text-xs leading-snug text-white/70">Secure card payment.</span>
         </button>
       </div>
       {paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH ? (
