@@ -29,6 +29,9 @@ export const STRIPE_HOLD_CAPTURE_DELAY_HOURS_AFTER_PICKUP = 3;
 /** Never leave capture closer than this to the authorisation expiry. */
 export const STRIPE_HOLD_EXPIRY_MARGIN_HOURS = 12;
 
+/** Payment methods the business does not offer (Nov 2026: no Amazon Pay). */
+export const STRIPE_EXCLUDED_PAYMENT_METHODS = ["amazon_pay"] as const;
+
 let configuredSecretKey = "";
 
 type StripeEnvLike = { STRIPE_SECRET_KEY?: string };
@@ -227,6 +230,8 @@ export async function createStripeCheckoutSession(
     {
       mode: "payment",
       ui_mode: "elements",
+      // Owner choice: never offer these, whatever the Dashboard has switched on.
+      excluded_payment_method_types: [...STRIPE_EXCLUDED_PAYMENT_METHODS],
       return_url: withStripeSessionPlaceholder(request.returnUrl),
       client_reference_id: request.checkoutReference,
       ...(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? { customer_email: email } : {}),
