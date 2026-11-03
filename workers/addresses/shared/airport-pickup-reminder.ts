@@ -22,7 +22,7 @@ import {
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE,
   businessEmailLogoHtml,
-  businessWhatsAppChatUrl,
+  businessWhatsAppChatUrl, BUSINESS_LANDLINE_DISPLAY, BUSINESS_LANDLINE_TEL
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
 import { parseDublinArrivalTerminal } from "./dublin-arrival-terminal";
@@ -422,6 +422,7 @@ export function buildAirportPickupReminderMessage(
       "",
       BUSINESS_LINE_LABEL,
       BUSINESS_PHONE_DISPLAY,
+      `Landline: ${BUSINESS_LANDLINE_DISPLAY}`,
     );
   }
 
@@ -542,6 +543,7 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
     }
     let safe = escapeHtml(lines.slice(heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY" ? 1 : 0).join("\n")).replace(/\n/g, "<br />");
     safe = safe.replace(BUSINESS_PHONE_DISPLAY, `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:${navy};">${BUSINESS_PHONE_DISPLAY}</a>`);
+    safe = safe.replace(BUSINESS_LANDLINE_DISPLAY, `<a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${navy};">${BUSINESS_LANDLINE_DISPLAY}</a>`);
     if (heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY") {
       const showMap = heading === "WHERE TO GO" && mapAfterDirections && Boolean(mapHtml);
       if (showMap) mapPlaced = true;
