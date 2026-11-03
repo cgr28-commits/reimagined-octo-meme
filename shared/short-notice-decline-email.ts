@@ -65,7 +65,7 @@ export function buildShortNoticeDeclineEmail(
     `We apologise that we’re unable to accommodate your journey on this occasion.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
-    `Phone: ${BUSINESS_PHONE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY}\n` +
+    `Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_PHONE_DISPLAY}\n` +
     `Email: ${BUSINESS_EMAIL}`;
 
   const html = lightCustomerEmailHtml(`<!DOCTYPE html>
@@ -105,7 +105,7 @@ ${businessEmailClientMeta()}
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;line-height:1.7;color:#64748b;">
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
-              Phone: ${BUSINESS_PHONE_DISPLAY} · Landline: ${BUSINESS_LANDLINE_DISPLAY} ·
+              Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_PHONE_DISPLAY} ·
               <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>
             </td>
           </tr>

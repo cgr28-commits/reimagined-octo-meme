@@ -13,7 +13,7 @@ import {
   BUSINESS_PHONE_DISPLAY,
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE,
-  businessWhatsAppChatUrl, BUSINESS_LANDLINE_DISPLAY, BUSINESS_LANDLINE_TEL
+  businessWhatsAppChatUrl, BUSINESS_LANDLINE_DISPLAY, BUSINESS_LANDLINE_TEL, BUSINESS_WHATSAPP_DIGITS
 } from "./business-email";
 
 export const INBOX_MESSAGE_MAX = 10_000;
@@ -203,8 +203,8 @@ function bookingDetailLines(booking: InboxBookingDetails): Array<[string, string
 export function signatureText(): string {
   return [
     BUSINESS_NAME,
-    `Tel: ${BUSINESS_PHONE_DISPLAY}`,
-    `Landline: ${BUSINESS_LANDLINE_DISPLAY}`,
+    `Call: ${BUSINESS_LANDLINE_DISPLAY}`,
+    `WhatsApp: ${BUSINESS_PHONE_DISPLAY}`,
     `Email: ${BUSINESS_MAILBOX}`,
     BUSINESS_WEBSITE.replace(/^https?:\/\//, ""),
   ].join("\n");
@@ -223,8 +223,8 @@ export function signatureHtml(): string {
     `</a></td>` +
     `<td valign="middle" style="padding:16px 0 0 0;font-size:13px;line-height:1.55;color:#1d2433;">` +
     `<div style="font-size:15px;font-weight:bold;color:${BRAND_NAVY};">${escapeInboxHtml(BUSINESS_NAME)}</div>` +
-    `<div>Tel: <a href="tel:${BUSINESS_PHONE_TEL}" style="${link}">${BUSINESS_PHONE_DISPLAY}</a></div>` +
-    `<div>Landline: <a href="tel:${BUSINESS_LANDLINE_TEL}" style="${link}">${BUSINESS_LANDLINE_DISPLAY}</a></div>` +
+    `<div>Call: <a href="tel:${BUSINESS_LANDLINE_TEL}" style="${link}">${BUSINESS_LANDLINE_DISPLAY}</a></div>` +
+    `<div>WhatsApp: <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="${link}">${BUSINESS_PHONE_DISPLAY}</a></div>` +
     `<div>Email: <a href="mailto:${BUSINESS_MAILBOX}" style="${link}">${BUSINESS_MAILBOX}</a></div>` +
     `<div><a href="${site}/" style="${link}">${site.replace(/^https?:\/\//, "")}</a> · ` +
     `<a href="${businessWhatsAppChatUrl()}" style="color:${BRAND_EMERALD};text-decoration:none;font-weight:bold;">Chat on WhatsApp</a></div>` +

@@ -51,7 +51,7 @@ export default function BalancePaidClient() {
         </p>
       ) : null}
       <p className="mt-6 text-sm text-white/70">
-        Questions? Call or WhatsApp {SITE.landlineDisplay}, or ring {SITE.officeLandlineDisplay}.
+        Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
       </p>
       <Link href="/" className="btn-primary mt-6 inline-flex">
         Back to home

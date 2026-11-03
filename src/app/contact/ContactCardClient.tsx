@@ -208,7 +208,9 @@ export default function ContactCardClient() {
             </a>
 
             <a
-              href={`tel:${SITE.landline}`}
+              href={`https://wa.me/${SITE.whatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
@@ -223,7 +225,7 @@ export default function ContactCardClient() {
               </ActionIcon>
               <span className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
-                  Call or WhatsApp
+                  WhatsApp only
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
               </span>

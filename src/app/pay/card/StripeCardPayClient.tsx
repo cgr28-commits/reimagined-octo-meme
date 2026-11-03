@@ -100,8 +100,10 @@ export default function StripeCardPayClient() {
               rules: {
                 ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
                 ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
-                ".Tab": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#071c38" },
-                ".Tab--selected": { borderColor: "#2fbf4a", backgroundColor: "#0c2a52" },
+                // Payment options list: our colours for the frame only. Klarna,
+                // Revolut Pay, card brands etc. keep their own logo colours.
+                ".AccordionItem": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#0c2a52", boxShadow: "none" },
+                ".AccordionItem--selected": { borderColor: "#2fbf4a" },
                 ".Label": { color: "#b5c0cd", fontWeight: "600" },
               },
             },
@@ -123,7 +125,11 @@ export default function StripeCardPayClient() {
         });
         express.mount("#stripe-express-checkout");
 
-        const payment = checkout.createPaymentElement({ layout: "tabs" });
+        // Accordion list shows each payment option with its own brand logo
+        // (tabs would tint the logos in our theme colour).
+        const payment = checkout.createPaymentElement({
+          layout: { type: "accordion", radios: true, spacedAccordionItems: true },
+        });
         payment.mount("#stripe-payment-element");
         setView("ready");
       } catch (error) {
@@ -226,7 +232,7 @@ export default function StripeCardPayClient() {
         </>
       )}
       <p className="mt-6 text-sm text-white/70">
-        Questions? Call or WhatsApp {SITE.landlineDisplay}, or ring {SITE.officeLandlineDisplay}.
+        Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
       </p>
     </section>
   );
