@@ -668,7 +668,13 @@ async function approveShortNoticeRecord(
   let paymentEmailSent = false;
   let paymentEmailError: string | undefined;
 
-  if (shouldAutoSendPaymentLinkEmail(latest, payUrl, now)) {
+  // A card already held for this exact request is charged on approval instead
+  // (index.ts), so no payment link email is needed.
+  const heldForThisRequest =
+    !extras.booking &&
+    Boolean(latest.cardHold?.authorisedAt) &&
+    !latest.cardHold?.releasedAt;
+  if (!heldForThisRequest && shouldAutoSendPaymentLinkEmail(latest, payUrl, now)) {
     const send = await sendPaymentLinkEmail(env, latest, payUrl);
     paymentEmailSent = send.sent;
     paymentEmailError = send.error;

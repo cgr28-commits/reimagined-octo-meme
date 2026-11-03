@@ -614,13 +614,26 @@ export default function OwnerShortNoticePanel({
           whatsappPayUrl: result.whatsappPayUrl,
         },
       }));
+      if (result.cardHold === "captured" && result.bookingConfirmed) {
+        setMessage(
+          `Approved ${booking.reference}. The customer's card was charged and the booking is confirmed — they've been emailed.`,
+        );
+        await load();
+        return;
+      }
+      const holdNote =
+        result.cardHold === "capture_failed"
+          ? ` The card hold couldn't be charged (${result.cardHoldError || "Stripe refused it"}) — share the payment link instead.`
+          : result.cardHold === "captured"
+            ? ` The card was charged but the confirmation didn't finish (${result.cardHoldError || "unknown error"}) — check the booking.`
+            : "";
       const emailNote = result.paymentEmailSent
         ? " Payment email sent to the customer."
         : result.paymentEmailError
           ? ` Payment email not sent (${result.paymentEmailError}).`
           : " Payment email not sent.";
       setMessage(
-        `Approved ${booking.reference}. Share the secure payment link with the customer.${emailNote}`,
+        `Approved ${booking.reference}. Share the secure payment link with the customer.${emailNote}${holdNote}`,
       );
       await load();
     } catch (err) {
@@ -1327,6 +1340,17 @@ export default function OwnerShortNoticePanel({
                     <p className="mt-1 break-words text-sm text-white/65">
                       {booking.reference} · {booking.amountLabel} · {service}
                     </p>
+                    {booking.cardHold?.authorisedAt &&
+                    !booking.cardHold.releasedAt &&
+                    !booking.cardHold.capturedAt ? (
+                      <p className="mt-1 text-xs font-semibold text-emerald">
+                        💳 Card held for {booking.amountLabel} — Approve charges it and confirms the booking
+                      </p>
+                    ) : booking.cardHold && !booking.cardHold.authorisedAt && !booking.cardHold.releasedAt ? (
+                      <p className="mt-1 text-xs text-white/60">
+                        Card hold requested — customer hasn&apos;t authorised it yet
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-amber-200">
                       {hasLuggageCapacityHold(booking.holdReasons)
                         ? LUGGAGE_CAPACITY_OWNER_REASON

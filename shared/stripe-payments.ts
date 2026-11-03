@@ -29,6 +29,9 @@ export const STRIPE_HOLD_CAPTURE_DELAY_HOURS_AFTER_PICKUP = 3;
 /** Never leave capture closer than this to the authorisation expiry. */
 export const STRIPE_HOLD_EXPIRY_MARGIN_HOURS = 12;
 
+/** Payment methods the business does not offer (Nov 2026: no Amazon Pay). */
+export const STRIPE_EXCLUDED_PAYMENT_METHODS = ["amazon_pay"] as const;
+
 let configuredSecretKey = "";
 
 type StripeEnvLike = { STRIPE_SECRET_KEY?: string };
@@ -179,6 +182,8 @@ export type StripeCheckoutRequest = {
   manualCapture?: boolean;
   /** Site origin for the on-site payment page link. */
   siteOrigin: string;
+  /** Extra metadata on the session (e.g. hold_kind=short_notice). */
+  metadata?: Record<string, string>;
 };
 
 export type StripeCheckoutResult = {
@@ -225,6 +230,8 @@ export async function createStripeCheckoutSession(
     {
       mode: "payment",
       ui_mode: "elements",
+      // Owner choice: never offer these, whatever the Dashboard has switched on.
+      excluded_payment_method_types: [...STRIPE_EXCLUDED_PAYMENT_METHODS],
       return_url: withStripeSessionPlaceholder(request.returnUrl),
       client_reference_id: request.checkoutReference,
       ...(email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? { customer_email: email } : {}),
@@ -240,7 +247,11 @@ export async function createStripeCheckoutSession(
           },
         },
       ],
-      metadata: { checkout_reference: request.checkoutReference, source: "website" },
+      metadata: {
+        ...(request.metadata ?? {}),
+        checkout_reference: request.checkoutReference,
+        source: "website",
+      },
       payment_intent_data: {
         description: description.slice(0, 1000),
         metadata: { checkout_reference: request.checkoutReference },
@@ -257,6 +268,11 @@ export async function createStripeCheckoutSession(
     createdAt: new Date(session.created * 1000).toISOString(),
     manualCapture,
   };
+}
+
+/** Close an unpaid session so its link can no longer be used. */
+export async function expireStripeCheckoutSession(checkoutId: string): Promise<void> {
+  await stripeRequest("POST", `/checkout/sessions/${encodeURIComponent(checkoutId)}/expire`, {});
 }
 
 export async function retrieveStripeCheckoutSession(

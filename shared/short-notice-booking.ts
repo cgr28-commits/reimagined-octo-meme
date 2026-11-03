@@ -66,6 +66,23 @@ export function sanitizeCustomerResponseNote(raw: unknown, maxLen = 500): string
   return stripped.length > maxLen ? stripped.slice(0, maxLen) : stripped;
 }
 
+export type ShortNoticeCardHold = {
+  /** Stripe Checkout Session id (cs_…). */
+  checkoutId: string;
+  checkoutReference: string;
+  amount: number;
+  /** When the session was created (anchors the payment-window check). */
+  createdAt: string;
+  /** Customer completed the card authorisation. */
+  authorisedAt?: string;
+  /** Charged on owner approval. */
+  capturedAt?: string;
+  /** Released (declined, expired, alternative time, or never authorised). */
+  releasedAt?: string;
+  releaseReason?: string;
+  lastError?: string;
+};
+
 export type ShortNoticeBookingRecord = {
   /** Public customer reference e.g. MATNI-SN-… */
   reference: string;
@@ -126,6 +143,11 @@ export type ShortNoticeBookingRecord = {
   paymentExpiresAt?: string;
   declinedAt?: string;
   declineReason?: string;
+  /**
+   * Stripe card hold taken when the request was sent (card authorised, not
+   * charged). Approve → charged and confirmed; decline / expiry → released.
+   */
+  cardHold?: ShortNoticeCardHold;
   /** Set when SumUp checkout is created after approval. */
   checkoutId?: string;
   checkoutReference?: string;

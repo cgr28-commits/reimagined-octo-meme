@@ -9,6 +9,14 @@ import {
   isStripeCheckoutId,
 } from "../shared/stripe-payments";
 import {
+  noteShortNoticeHoldAuthorised,
+  releaseShortNoticeHold,
+  startShortNoticeCardHold,
+  sweepShortNoticeCardHolds,
+  SHORT_NOTICE_HOLD_KIND,
+} from "./short-notice-card-hold";
+import { captureCheckoutHold } from "./stripe-holds";
+import {
   lastPickupAtForBooking,
   processDueStripeHolds,
   recordStripeHoldIfAny,
@@ -226,6 +234,7 @@ import {
 } from "./smart-ops-handlers";
 import {
   getShortNoticeByAcceptToken,
+  getShortNoticeByReference,
   getShortNoticeByToken,
   saveShortNoticeBooking,
 } from "./short-notice-store";
@@ -621,6 +630,8 @@ type Env = {
   STRIPE_WEBHOOK_SECRET?: string;
   /** "false" turns off card holds (authorise now, charge after the journey). */
   STRIPE_HOLDS_ENABLED?: string;
+  /** "false" stops holding the card when a short-notice request is sent. */
+  STRIPE_SHORT_NOTICE_HOLDS?: string;
   /** Comma-separated emails that use Stripe when PAYMENT_PROVIDER=stripe-test. */
   STRIPE_TEST_EMAILS?: string;
   BOOKING_COUNTER?: KVNamespace;
@@ -3500,6 +3511,32 @@ async function handlePaymentRequest(
               : {}),
         });
         const amountLabel = formatPaidAmount(created.record.amount);
+        // Stripe: hold the customer's card now; Approve charges it and confirms.
+        let cardHoldUrl: string | undefined;
+        if (
+          env.TRACKING_STORE &&
+          stripePaymentsActive(env, booking ?? null) &&
+          env.STRIPE_SHORT_NOTICE_HOLDS?.trim().toLowerCase() !== "false"
+        ) {
+          try {
+            const hold = await startShortNoticeCardHold({
+              store: env.TRACKING_STORE,
+              record: created.record,
+              booking,
+              siteOrigin: new URL(redirectUrl).origin,
+              description:
+                description || `Booking request ${created.record.reference} (held until confirmed)`,
+            });
+            cardHoldUrl = hold.paymentUrl;
+          } catch (holdError) {
+            // The request still stands; approval falls back to the payment link.
+            console.error(
+              "Short-notice card hold could not start",
+              created.record.reference,
+              holdError instanceof Error ? holdError.message : "",
+            );
+          }
+        }
         const luggageCapacity = hasLuggageCapacityHold(created.record.holdReasons);
         const minibusRequest = notice.minibusNotice === true && !luggageCapacity;
         const attemptEmail = buildOwnerPaymentAttemptEmail(booking, {
@@ -3562,7 +3599,12 @@ async function handlePaymentRequest(
             `Pickup remaining: ${pickupRemaining ?? "—"}\n` +
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
             `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
-            `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.`,
+            `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.` +
+            (cardHoldUrl
+              ? `\n\nCard hold: the customer has been asked to authorise ${amountLabel} on their card. ` +
+                `You'll get a "Card held" email when they do. Approve → charged and confirmed automatically. ` +
+                `Decline or no answer → released, customer pays nothing.`
+              : ""),
         });
         if (created.record.underMinimumNotice || luggageCapacity) {
           await sendShortNoticeRequestReceivedEmail(env, created.record);
@@ -3571,6 +3613,7 @@ async function handlePaymentRequest(
           {
             ok: true,
             shortNotice: true,
+            ...(cardHoldUrl ? { cardHoldUrl } : {}),
             luggageCapacity,
             holdReasons: created.record.holdReasons ?? [],
             reference: created.record.reference,
@@ -4030,6 +4073,25 @@ async function handlePaymentWebhookRequest(
   }
 
   const checkoutId = extractCheckoutIdFromRequest(request, payload);
+  if (checkoutId && isStripeCheckoutId(checkoutId) && env.TRACKING_STORE) {
+    // Short-notice card hold: authorised only — never confirm the booking here.
+    const pendingHold = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    if (pendingHold?.checkoutKind === "short-notice-hold") {
+      try {
+        await noteShortNoticeHoldAuthorised({
+          store: env.TRACKING_STORE,
+          pending: pendingHold,
+          emailOwner: async (subject, body) => {
+            await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+          },
+        });
+      } catch (error) {
+        console.error("Short-notice hold webhook failed", error instanceof Error ? error.message : "");
+        return json({ ok: false }, 503, origin);
+      }
+      return json({ ok: true, shortNoticeHold: true }, 200, origin);
+    }
+  }
   if (checkoutId) {
     const meetGreetWebhook = await confirmMeetGreetWebhook(env, checkoutId);
     if (meetGreetWebhook === "retry") return json({ ok: false }, 503, origin);
@@ -4135,6 +4197,16 @@ async function handlePaymentConfirmRequest(
 
   if (!apiKey && !(isStripeCheckoutId(checkoutId) && env.STRIPE_SECRET_KEY?.trim())) {
     return json({ error: "Payment is not configured" }, 503, origin);
+  }
+  if (isStripeCheckoutId(checkoutId) && env.TRACKING_STORE) {
+    const pendingHold = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    if (pendingHold?.checkoutKind === "short-notice-hold") {
+      return json(
+        { error: "This card hold confirms when the booking is approved.", shortNoticeHold: true },
+        409,
+        origin,
+      );
+    }
   }
   const clientBooking = parsePaidBookingDetails(body);
   const booking = checkoutId
@@ -4372,7 +4444,9 @@ async function handleStripeSessionRequest(
       amount: typeof session.amount_total === "number" ? session.amount_total / 100 : null,
       currency: (session.currency ?? "gbp").toUpperCase(),
       reference: session.client_reference_id ?? "",
-      cardHold: pi?.capture_method === "manual",
+      cardHold:
+        pi?.capture_method === "manual" || session.metadata?.hold_kind === SHORT_NOTICE_HOLD_KIND,
+      holdKind: session.metadata?.hold_kind === SHORT_NOTICE_HOLD_KIND ? "short_notice" : null,
     };
     if (session.status === "complete") {
       return json({ ...base, status: "complete" }, 200, origin);
@@ -4449,6 +4523,92 @@ async function recordStripeHoldSafely(
     await recordStripeHoldIfAny(env.TRACKING_STORE, checkoutId, booking);
   } catch (error) {
     console.error("Stripe hold record failed", checkoutId, error instanceof Error ? error.message : "");
+  }
+}
+
+async function releaseShortNoticeHoldForReference(
+  env: Env,
+  reference: string,
+  reason: string,
+): Promise<void> {
+  if (!env.TRACKING_STORE || !reference.trim()) return;
+  try {
+    const record = await getShortNoticeByReference(env.TRACKING_STORE, reference.trim());
+    if (record?.cardHold) await releaseShortNoticeHold(env.TRACKING_STORE, record, reason);
+  } catch (error) {
+    console.error("Short-notice hold release failed", reference, error instanceof Error ? error.message : "");
+  }
+}
+
+/**
+ * Owner approved a short-notice request. If the customer's card is held,
+ * charge it and confirm the booking now (same confirmation as a paid booking:
+ * emails, calendar, tracking). Otherwise the normal payment link stands.
+ */
+async function captureShortNoticeHoldAndConfirm(
+  env: Env,
+  approved: { reference: string },
+): Promise<Record<string, unknown>> {
+  const store = env.TRACKING_STORE;
+  if (!store) return {};
+  const record = await getShortNoticeByReference(store, approved.reference);
+  const hold = record?.cardHold;
+  if (!record || !hold || hold.releasedAt) return {};
+  if (!hold.capturedAt && !hold.authorisedAt) {
+    // Customer never finished the hold page; close it and use the payment link.
+    await releaseShortNoticeHold(store, record, "not_authorised_before_approval");
+    return { cardHold: "not_authorised" };
+  }
+  if (record.status !== "SHORT_NOTICE_APPROVED" && record.status !== "SHORT_NOTICE_PAID") {
+    return {};
+  }
+
+  try {
+    const capture = await captureCheckoutHold(hold.checkoutId);
+    if (!capture.ok) {
+      const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+      await saveShortNoticeBooking(store, {
+        ...latest,
+        cardHold: { ...hold, lastError: capture.error },
+        updatedAt: new Date().toISOString(),
+      });
+      return { cardHold: "capture_failed", cardHoldError: capture.error };
+    }
+
+    // Bind the hold session as this booking's checkout so the payment gate
+    // and finalisation treat it exactly like a normal paid checkout.
+    const now = new Date().toISOString();
+    const latest = (await getShortNoticeByReference(store, record.reference)) ?? record;
+    await saveShortNoticeBooking(store, {
+      ...latest,
+      checkoutId: hold.checkoutId,
+      checkoutReference: hold.checkoutReference,
+      checkoutStartedAt: hold.createdAt,
+      sumUpCheckoutCreatedAt: hold.createdAt,
+      cardHold: { ...hold, capturedAt: hold.capturedAt ?? now, lastError: undefined },
+      updatedAt: now,
+    });
+
+    const booking = await resolveBookingForCheckout(env, hold.checkoutId, null);
+    if (!booking) {
+      return { cardHold: "captured", bookingConfirmed: false, cardHoldError: "Booking details missing" };
+    }
+    const result = await finalizePaidCheckout({
+      env,
+      checkoutId: hold.checkoutId,
+      booking,
+      logPaidBookingCalendar,
+    });
+    return {
+      cardHold: "captured",
+      bookingConfirmed: result.ok,
+      ...(result.paymentReference ? { paymentReference: result.paymentReference } : {}),
+      ...(result.ok ? {} : { cardHoldError: result.error || "Confirmation failed" }),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Card hold could not be charged";
+    console.error("Short-notice hold capture failed", record.reference, message);
+    return { cardHold: "capture_failed", cardHoldError: message };
   }
 }
 
@@ -5292,7 +5452,8 @@ export default {
           resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
-        return json(result, 200, origin);
+        const holdOutcome = await captureShortNoticeHoldAndConfirm(env, result.record);
+        return json({ ...result, ...holdOutcome }, 200, origin);
       }
       if (
         (url.pathname.endsWith("/decline") || url.pathname.includes("/decline")) &&
@@ -5306,6 +5467,7 @@ export default {
         }
         const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
+        await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "declined");
         return json(result, 200, origin);
       }
       if (
@@ -5346,6 +5508,8 @@ export default {
           resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
         if ("error" in result) return json({ error: result.error }, result.status, origin);
+        // A new time means a new payment link; release the original hold.
+        await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "alternative_offered");
         return json(result, 200, origin);
       }
       if (
@@ -6233,6 +6397,13 @@ export default {
     // Other scheduled work keeps its existing hourly cadence.
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
+      ctx.waitUntil(
+        sweepShortNoticeCardHolds(env.TRACKING_STORE)
+          .then((r) => {
+            if (r.released) console.log("Short-notice hold sweep", JSON.stringify(r));
+          })
+          .catch((error) => console.error("Short-notice hold sweep failed", error)),
+      );
       ctx.waitUntil(recoverMeetGreetEmails(env).catch(error => console.error("Meet & Greet queue recovery failed", error)));
       // Reached the card page but didn't pay: alert the owner + "finish your booking" email after 10 minutes.
       ctx.waitUntil(processUnfinishedPayments(env, new Date(event.scheduledTime)).then(result => {

@@ -65,7 +65,11 @@ export default function StripeCardPayClient() {
         const session = await fetchStripeSession(checkoutId);
         setInfo(session);
         if (session.status === "complete") {
-          window.location.replace(confirmedUrl(checkoutId));
+          window.location.replace(
+            session.holdKind === "short_notice"
+              ? `/pay/hold-received/?ref=${encodeURIComponent(session.reference.replace(/-HOLD$/, ""))}`
+              : confirmedUrl(checkoutId),
+          );
           return;
         }
         if (session.status !== "open" || !session.clientSecret || !session.publishableKey) {
@@ -151,9 +155,17 @@ export default function StripeCardPayClient() {
             </p>
           ) : null}
           {info?.reference ? (
-            <p className="mt-1 text-sm text-white/70">Booking reference: {info.reference}</p>
+            <p className="mt-1 text-sm text-white/70">
+              Booking reference: {info.reference.replace(/-HOLD$/, "")}
+            </p>
           ) : null}
-          {info?.cardHold ? (
+          {info?.holdKind === "short_notice" ? (
+            <p className="mt-4 rounded-2xl border border-emerald/40 bg-emerald/10 p-3 text-sm leading-relaxed text-white/90">
+              We hold this amount on your card while we confirm your driver. You&apos;re only charged
+              once we confirm your booking. If we can&apos;t take it, the hold is released and you pay
+              nothing.
+            </p>
+          ) : info?.cardHold ? (
             <p className="mt-4 rounded-2xl border border-emerald/40 bg-emerald/10 p-3 text-sm leading-relaxed text-white/90">
               Your card is authorised now to secure the booking, and charged after your journey.
               If you cancel 24 hours or more before pickup, the hold is released and you pay nothing.

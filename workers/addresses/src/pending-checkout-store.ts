@@ -50,7 +50,7 @@ export type PendingCheckoutRecord = {
    * Amendment top-up: SumUp charge for fare difference only.
    * Finalize must amend the existing booking — never create a new journey.
    */
-  checkoutKind?: "booking" | "amendment-topup" | "refund-test";
+  checkoutKind?: "booking" | "amendment-topup" | "refund-test" | "short-notice-hold";
   /** DEPOSIT_CARD_BALANCE: balance due by card later (snapshot at booking). */
   cardBalanceDue?: number;
   /** Existing paid booking payment reference being amended. */

@@ -46,6 +46,13 @@ export type ShortNoticeBookingSummary = {
   declinedAt?: string;
   paymentLinkEmailSentAt?: string;
   paymentLinkEmailPayUrl?: string;
+  cardHold?: {
+    amount: number;
+    authorisedAt?: string;
+    capturedAt?: string;
+    releasedAt?: string;
+    lastError?: string;
+  };
   originalRequestedDate?: string;
   originalRequestedTime?: string;
   offeredDate?: string;
@@ -233,6 +240,10 @@ export async function approveShortNoticeBooking(
   whatsappPayUrl: string;
   paymentEmailSent: boolean;
   paymentEmailError?: string;
+  /** Stripe card hold outcome: captured (charged + confirmed), capture_failed, not_authorised. */
+  cardHold?: string;
+  bookingConfirmed?: boolean;
+  cardHoldError?: string;
 }> {
   const response = await fetch(`${WORKER_BASE}/owner/short-notice/approve`, {
     method: "POST",
@@ -255,6 +266,11 @@ export async function approveShortNoticeBooking(
     ...(typeof payload.paymentEmailError === "string"
       ? { paymentEmailError: payload.paymentEmailError }
       : {}),
+    ...(typeof payload.cardHold === "string" ? { cardHold: payload.cardHold } : {}),
+    ...(typeof payload.bookingConfirmed === "boolean"
+      ? { bookingConfirmed: payload.bookingConfirmed }
+      : {}),
+    ...(typeof payload.cardHoldError === "string" ? { cardHoldError: payload.cardHoldError } : {}),
   };
 }
 
