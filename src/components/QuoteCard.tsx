@@ -219,6 +219,7 @@ import {
   cardBalanceExplainer,
   cardBalanceOptionSubline,
   cardBalancePayButtonLabel,
+  cardBalanceQuoteScreenNote,
   isCardBalanceDateEligible,
 } from "../../shared/deposit-card-balance";
 import {
@@ -7838,6 +7839,19 @@ function QuoteCard({
       : liveLabel
         ? liveLabel
         : "Calculating…";
+    // Pickup 30+ days away: show the 20% deposit right under the price.
+    const quoteDepositOffer =
+      authoritativeTotal != null &&
+      !priceUpdating &&
+      !appliedPersonalQuote &&
+      testChargeAmount == null &&
+      !isAvailabilityRequest &&
+      isCardBalanceDateEligible(tripDate, tripTime)
+        ? calculateCardBalanceQuote(authoritativeTotal)
+        : null;
+    const quoteDepositNote = quoteDepositOffer?.eligible
+      ? cardBalanceQuoteScreenNote(quoteDepositOffer.depositGbp)
+      : null;
     // One-tap Business Class upgrade under a Saloon/Estate price (instant-price mode only).
     const offerBusinessClassUpgrade =
       publicExecutiveEnabled &&
@@ -7877,6 +7891,7 @@ function QuoteCard({
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         surchargeNote={null}
+        depositNote={quoteDepositNote}
         businessClassInclusions={renderBusinessClassInclusions()}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}

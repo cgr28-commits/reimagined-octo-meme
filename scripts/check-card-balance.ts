@@ -14,6 +14,7 @@ import { getPaidBookingRecord, savePaidBookingRecord } from "../workers/addresse
 import {
   calculateCardBalanceQuote,
   cardBalanceOwnerStatusLine,
+  cardBalanceQuoteScreenNote,
   cardBalanceSchedule,
   isCardBalanceDateEligible,
   remainingCardBalanceGbp,
@@ -311,6 +312,9 @@ async function main() {
   assert.match(refundsSrc, /refundPaidCardBalanceBeforeCancel/);
   const card = readFileSync("src/components/QuoteCard.tsx", "utf8");
   assert.match(card, /data-card-balance-option/);
+  assert.match(card, /depositNote=\{quoteDepositNote\}/, "deposit shown under the price on the quote screen");
+  assert.match(readFileSync("src/components/QuoteResultShowcase.tsx", "utf8"), /data-quote-deposit-note/);
+  assert.equal(cardBalanceQuoteScreenNote(56), "Secure your booking today for just £56 (20% deposit)");
   assert.match(card, /isCardBalanceDateEligible\(tripDate, tripTime\)/);
 
   console.log("check-card-balance: OK");

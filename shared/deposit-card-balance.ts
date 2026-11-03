@@ -13,7 +13,7 @@
  * so customer amendments that change the fare are reflected automatically.
  */
 
-import { formatGbpAmountExact, gbpToPence, penceToGbp, roundGbp } from "./gbp";
+import { formatGbpAmount, formatGbpAmountExact, gbpToPence, penceToGbp, roundGbp } from "./gbp";
 import { formatUkDateTime, parseLondonLocalDateTime } from "./uk-time";
 
 export const PAYMENT_METHOD_DEPOSIT_CARD_BALANCE = "DEPOSIT_CARD_BALANCE" as const;
@@ -165,6 +165,11 @@ export function cardBalanceDueDateLabel(tripDate?: string | null, tripTime?: str
 
 export const CARD_BALANCE_OPTION_LABEL = "Pay a deposit";
 export const CARD_BALANCE_BADGE = `${CARD_BALANCE_DEPOSIT_PERCENT}% today`;
+
+/** Under the price on the quote screen. */
+export function cardBalanceQuoteScreenNote(depositGbp: number): string {
+  return `Secure your booking today for just ${formatGbpAmount(depositGbp)} (${CARD_BALANCE_DEPOSIT_PERCENT}% deposit)`;
+}
 
 export function cardBalanceOptionSubline(balanceGbp: number): string {
   return `${formatGbpAmountExact(balanceGbp)} by card ${CARD_BALANCE_DUE_DAYS_BEFORE} days before`;

@@ -34,6 +34,8 @@ type QuoteResultShowcaseProps = {
   priceUpdating?: boolean;
   /** Shown only when the first displayed price already includes the 10%. */
   surchargeNote?: string | null;
+  /** Pickup 30+ days away: "Secure it today for £56 (20% deposit)". */
+  depositNote?: string | null;
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
@@ -81,6 +83,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       layoutBusinessClassInclusions = null,
       priceUpdating = false,
       surchargeNote = null,
+      depositNote = null,
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
@@ -244,6 +247,14 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </>
           )}
         </div>
+        {depositNote ? (
+          <p
+            data-quote-deposit-note
+            className="mx-auto mt-1.5 inline-flex items-center rounded-full bg-[#147a2a]/10 px-3 py-1 text-xs font-bold leading-tight text-[#147a2a]"
+          >
+            {depositNote}
+          </p>
+        ) : null}
         {surchargeNote ? (
           <p className="mt-0.5 text-xs font-semibold text-navy" data-night-weekend-surcharge-badge>
             {surchargeNote}
