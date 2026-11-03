@@ -16,6 +16,7 @@ import {
   SHORT_NOTICE_HOLD_KIND,
 } from "./short-notice-card-hold";
 import { captureCheckoutHold } from "./stripe-holds";
+import { stripeActiveFor } from "./payment-provider";
 import {
   lastPickupAtForBooking,
   processDueStripeHolds,
@@ -4405,20 +4406,7 @@ async function handleFlightLookupRequest(
  * Without a booking (early gate), "could this request use Stripe at all".
  */
 function stripePaymentsActive(env: Env, booking?: { customerEmail?: string } | null): boolean {
-  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
-  if (!key) return false;
-  const provider = env.PAYMENT_PROVIDER?.trim().toLowerCase() ?? "";
-  if (provider === "stripe") return stripeModeFromKey(key) === "live";
-  if (provider === "stripe-test") {
-    if (booking === undefined) return true;
-    const email = booking?.customerEmail?.trim().toLowerCase() ?? "";
-    const allowed = (env.STRIPE_TEST_EMAILS ?? "")
-      .split(",")
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-    return Boolean(email) && allowed.includes(email);
-  }
-  return false;
+  return stripeActiveFor(env, booking === undefined ? undefined : (booking?.customerEmail ?? null));
 }
 
 /** On-site payment page: swap a Checkout Session id for its client secret. */

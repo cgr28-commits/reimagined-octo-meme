@@ -1,3 +1,4 @@
+import { cardPaymentsConfigured, createHostedCheckout } from "./payment-provider";
 import { businessClassPassengerLimitError } from "../shared/business-class-capacity";
 /**
  * Address-to-Address personalised quotes: create / list / approve / pay.
@@ -53,6 +54,9 @@ export type A2aQuoteEnv = DriverAuthEnv &
     TRACKING_STORE: KVNamespace;
     SUMUP_API_KEY?: string;
     SUMUP_MERCHANT_CODE?: string;
+    PAYMENT_PROVIDER?: string;
+    STRIPE_SECRET_KEY?: string;
+    STRIPE_TEST_EMAILS?: string;
     PUBLIC_SITE_ORIGIN?: string;
     GOOGLE_PLACES_API_KEY?: string;
   };
@@ -619,10 +623,8 @@ export async function handleOwnerApproveA2aQuote(
   const capacityError = businessClassPassengerLimitError(existing.booking.vehicle, existing.booking.passengers);
   if (capacityError) return { error: capacityError, status: 400 };
 
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
-  const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
-  if (!apiKey || !merchantCode) {
-    return { error: "SumUp is not configured on the Worker.", status: 503 };
+  if (!cardPaymentsConfigured(env, existing.booking.customerEmail)) {
+    return { error: "Card payments are not configured on the Worker.", status: 503 };
   }
   if (!pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
     return { error: "Booking store is not configured.", status: 503 };
@@ -641,15 +643,19 @@ export async function handleOwnerApproveA2aQuote(
   let checkout: SumUpCheckoutResult | null = null;
   if (approvedQuoteFlightBlockers(existing.booking).length === 0) {
     try {
-      checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-        amount: quotedPrice,
-        description: `A2A quote ${existing.reference}`.slice(0, 140),
-        checkoutReference,
-        redirectUrl,
-      });
+      checkout = await createHostedCheckout(
+        env,
+        {
+          amount: quotedPrice,
+          description: `A2A quote ${existing.reference}`.slice(0, 140),
+          checkoutReference,
+          redirectUrl,
+        },
+        { customerEmail: existing.booking.customerEmail, siteOrigin },
+      );
     } catch (err) {
       return {
-        error: err instanceof Error ? err.message : "Could not create SumUp checkout",
+        error: err instanceof Error ? err.message : "Could not create the card payment",
         status: 502,
       };
     }

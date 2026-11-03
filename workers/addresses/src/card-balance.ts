@@ -1,3 +1,4 @@
+import { cardPaymentsConfigured, createHostedCheckout, providerKeyFor } from "./payment-provider";
 /**
  * Card balance for "Pay a deposit" bookings (paymentMethod DEPOSIT_CARD_BALANCE).
  *
@@ -68,6 +69,9 @@ export type CardBalanceEnv = WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
+  PAYMENT_PROVIDER?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_TEST_EMAILS?: string;
   SITE_ORIGIN?: string;
 };
 
@@ -372,7 +376,7 @@ async function pollBalanceCheckout(
   record: PaidBookingRecord,
 ): Promise<PaidBookingRecord> {
   const checkoutId = record.cardBalance?.checkoutId?.trim();
-  const apiKey = env.SUMUP_API_KEY?.trim();
+  const apiKey = providerKeyFor(env, checkoutId);
   if (!checkoutId || !apiKey) return record;
   const checkout = await getSumUpCheckout(apiKey, checkoutId);
   if (!isSumUpCheckoutPaid(checkout)) return record;
@@ -392,7 +396,7 @@ export async function confirmCardBalanceWebhook(
   try {
     const record = await getPaidBookingRecord(store, ref);
     if (!record) return "done";
-    const apiKey = env.SUMUP_API_KEY?.trim();
+    const apiKey = providerKeyFor(env, id);
     if (!apiKey) return "retry";
     const checkout = await getSumUpCheckout(apiKey, id);
     if (isSumUpCheckoutPaid(checkout)) {
@@ -451,14 +455,12 @@ export async function handleCardBalancePay(request: Request, env: CardBalanceEnv
   const balance = remainingCardBalanceGbp(record);
   if (record.cardBalance?.status === "paid" || balance < 0.01) return resultPage(env, "paid", ref);
 
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
-  const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
-  if (!apiKey || !merchantCode) return resultPage(env, "unavailable", ref);
+  if (!cardPaymentsConfigured(env, record.customerEmail)) return resultPage(env, "unavailable", ref);
 
   const state = record.cardBalance;
   if (state?.checkoutId && state.paymentUrl && Math.abs((state.checkoutAmountGbp ?? 0) - balance) < 0.005) {
     try {
-      const existing = await getSumUpCheckout(apiKey, state.checkoutId);
+      const existing = await getSumUpCheckout(providerKeyFor(env, state.checkoutId), state.checkoutId);
       const status = String(existing.status ?? "").toUpperCase();
       if (status === "PENDING") return redirect(state.paymentUrl);
     } catch {
@@ -469,13 +471,17 @@ export async function handleCardBalancePay(request: Request, env: CardBalanceEnv
   const returnLink = new URL("/card-balance/return", WORKER_PUBLIC_ORIGIN);
   returnLink.searchParams.set("ref", record.paymentReference);
   returnLink.searchParams.set("t", payTokenOf(record));
-  const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-    amount: balance,
-    description: `Balance ${formatPaidAmount(balance)} — booking ${ref}`,
-    checkoutReference: buildCheckoutReference(`bal-${record.paymentReference.slice(0, 10)}`),
-    redirectUrl: returnLink.toString(),
-    returnUrl: new URL("/payments/webhook", WORKER_PUBLIC_ORIGIN).toString(),
-  });
+  const checkout = await createHostedCheckout(
+    env,
+    {
+      amount: balance,
+      description: `Balance ${formatPaidAmount(balance)} — booking ${ref}`,
+      checkoutReference: buildCheckoutReference(`bal-${record.paymentReference.slice(0, 10)}`),
+      redirectUrl: returnLink.toString(),
+      returnUrl: new URL("/payments/webhook", WORKER_PUBLIC_ORIGIN).toString(),
+    },
+    { customerEmail: record.customerEmail, siteOrigin: siteOrigin(env) },
+  );
   await store.put(`${CHECKOUT_INDEX_PREFIX}${checkout.checkoutId}`, record.paymentReference, {
     expirationTtl: 60 * 60 * 24 * 45,
   });
@@ -514,8 +520,9 @@ export async function refundPaidCardBalanceBeforeCancel(
   const store = env.TRACKING_STORE;
   const entries = (record.additionalPayments ?? []).filter((p) => p.kind === "card-balance" && !p.refundedSeparatelyAt);
   if (!store || entries.length === 0) return { ok: true, record, refundedGbp: 0 };
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
-  if (!apiKey) return { ok: false, error: "SumUp is not configured — cannot refund the card balance." };
+  const firstId = entries[0]?.transactionId || entries[0]?.checkoutId || "";
+  const apiKey = providerKeyFor(env, firstId);
+  if (!apiKey) return { ok: false, error: "Card payments are not configured — cannot refund the card balance." };
 
   let refundedGbp = 0;
   const now = new Date().toISOString();

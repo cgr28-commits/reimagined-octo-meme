@@ -258,7 +258,11 @@ export async function createStripeCheckoutSession(
         ...(manualCapture ? { capture_method: "manual" } : {}),
       },
     },
-    { idempotencyKey: `checkout:${request.checkoutReference}:${unitAmount}:${manualCapture ? "hold" : "pay"}` },
+    {
+      // Guards double-clicks. Hour bucket: Stripe keeps idempotency keys for 24h but
+      // sessions expire after 23h, so a later retry must be able to get a fresh session.
+      idempotencyKey: `checkout:${request.checkoutReference}:${unitAmount}:${manualCapture ? "hold" : "pay"}:${Math.floor(Date.now() / 3_600_000)}`,
+    },
   );
 
   return {

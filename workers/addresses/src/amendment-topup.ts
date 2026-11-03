@@ -1,3 +1,4 @@
+import { cardPaymentsConfigured, createHostedCheckout, hostedCheckoutStillOpen } from "./payment-provider";
 /**
  * SumUp top-up payments for higher-fare customer schedule amendments.
  * Creates a difference-only checkout and commits the amendment only after PAID.
@@ -61,6 +62,9 @@ export type AmendmentTopUpEnv = WorkerEmailEnv & {
   TRACKING_STORE: KVNamespace;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
+  PAYMENT_PROVIDER?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_TEST_EMAILS?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
 };
@@ -85,9 +89,7 @@ export async function createOrReuseAmendmentTopUpCheckout(input: {
     }
   | { ok: false; reason: string; message: string }
 > {
-  const apiKey = input.env.SUMUP_API_KEY?.trim() ?? "";
-  const merchantCode = input.env.SUMUP_MERCHANT_CODE?.trim() ?? "";
-  if (!apiKey || !merchantCode) {
+  if (!cardPaymentsConfigured(input.env, input.booking.customerEmail)) {
     return {
       ok: false,
       reason: "sumup_not_configured",
@@ -104,7 +106,11 @@ export async function createOrReuseAmendmentTopUpCheckout(input: {
   }
 
   // Reuse unpaid SumUp session when still valid.
-  if (input.pending.checkoutId && input.pending.paymentUrl) {
+  if (
+    input.pending.checkoutId &&
+    input.pending.paymentUrl &&
+    (await hostedCheckoutStillOpen(input.pending.checkoutId))
+  ) {
     const existing = await getPendingCheckout(input.env.TRACKING_STORE, input.pending.checkoutId);
     if (
       existing &&
@@ -131,13 +137,17 @@ export async function createOrReuseAmendmentTopUpCheckout(input: {
   );
   const description = `Amendment top-up ${input.booking.paymentReference} (+£${amount.toFixed(2)})`;
 
-  const checkout = await createSumUpHostedCheckout(apiKey, merchantCode, {
-    amount,
-    description,
-    checkoutReference,
-    redirectUrl: input.redirectUrl,
-    returnUrl: input.returnUrl,
-  });
+  const checkout = await createHostedCheckout(
+    input.env,
+    {
+      amount,
+      description,
+      checkoutReference,
+      redirectUrl: input.redirectUrl,
+      returnUrl: input.returnUrl,
+    },
+    { customerEmail: input.booking.customerEmail, siteOrigin: new URL(input.redirectUrl).origin },
+  );
 
   const bookingDetails: PaidBookingDetails = paidBookingRecordToDetails(input.booking);
   await savePendingCheckout(input.env.TRACKING_STORE, {

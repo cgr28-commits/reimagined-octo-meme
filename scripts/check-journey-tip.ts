@@ -277,7 +277,8 @@ console.log("\n=== 4b. One live SumUp checkout per tip token ===");
   assert.match(tipPaymentInProgressMessage(3), /already in progress/);
 
   const tipHandlers = read("workers/addresses/src/journey-tip-handlers.ts");
-  const createAt = tipHandlers.indexOf("await createSumUpHostedCheckout");
+  // Stripe or SumUp, chosen per customer (payment-provider.ts).
+  const createAt = tipHandlers.indexOf("await createHostedCheckout");
   const claimAt = tipHandlers.indexOf("claimTipSumUpCheckout");
   const inProgressAt = tipHandlers.indexOf('plan !== "create"');
   assert.ok(inProgressAt > 0 && claimAt > inProgressAt && createAt > inProgressAt);

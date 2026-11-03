@@ -1,3 +1,5 @@
+import { getPaidBookingRecord } from "./paid-booking-store";
+import { cardPaymentsConfigured, createHostedCheckout, providerKeyFor } from "./payment-provider";
 /**
  * Optional post-journey tips.
  * Own SumUp checkout and KV record. Never finalizes or amends the journey booking.
@@ -45,6 +47,9 @@ export type JourneyTipEnv = {
   TRACKING_STORE?: KVNamespace;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
+  PAYMENT_PROVIDER?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_TEST_EMAILS?: string;
 };
 
 function tipJson(body: unknown, status: number, origin: string | null): Response {
@@ -161,9 +166,9 @@ async function settleTipRecord(
   paymentNotCompleted: boolean;
   live: { paid: boolean; status?: string };
 }> {
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  const apiKey = providerKeyFor(env, checkoutId);
   if (!apiKey || !env.TRACKING_STORE) {
-    throw new Error("SumUp tip confirmation is not configured");
+    throw new Error("Tip payment confirmation is not configured");
   }
   const checkout = await getSumUpCheckout(apiKey, checkoutId);
   const proof = proofFromCheckout(checkout);
@@ -405,9 +410,12 @@ async function tipCheckoutResponse(
     );
   }
 
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
-  const merchantCode = env.SUMUP_MERCHANT_CODE?.trim() ?? "";
-  if (!apiKey || !merchantCode) {
+  // Card provider follows the customer's booking (Stripe test mode is per email).
+  const tipBooking = record.paymentReference && env.TRACKING_STORE
+    ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference).catch(() => null)
+    : null;
+  const customerEmail = tipBooking?.customerEmail ?? null;
+  if (!cardPaymentsConfigured(env, customerEmail)) {
     return tipJson(
       { error: "Card payment is not available right now. Please contact My Airport Taxi NI." },
       503,
@@ -416,7 +424,7 @@ async function tipCheckoutResponse(
   }
 
   const checkoutReference = tipCheckoutReferenceForAttempt(record);
-  const opened = await claimTipSumUpCheckout(apiKey, merchantCode, {
+  const opened = await claimTipSumUpCheckout(env, customerEmail, {
     amount: amount.amountGbp,
     description: "Optional driver tip",
     checkoutReference,
@@ -514,12 +522,16 @@ type ClaimedTipCheckout =
  * this checkout_reference (409 DUPLICATED_CHECKOUT). Never mints a second reference.
  */
 async function claimTipSumUpCheckout(
-  apiKey: string,
-  merchantCode: string,
+  env: JourneyTipEnv,
+  customerEmail: string | null,
   request: SumUpCheckoutRequest,
 ): Promise<ClaimedTipCheckout> {
+  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
   try {
-    const created = await createSumUpHostedCheckout(apiKey, merchantCode, request);
+    const created = await createHostedCheckout(env, request, {
+      customerEmail,
+      siteOrigin: new URL(request.redirectUrl).origin,
+    });
     return {
       kind: "payable",
       checkoutId: created.checkoutId,
