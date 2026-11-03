@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/data";
+import { clearOpenCheckoutSession } from "@/lib/booking-draft-storage";
 import {
   fetchStripeSession,
   loadStripeJs,
@@ -16,6 +17,26 @@ type View = "loading" | "ready" | "paying" | "expired" | "invalid" | "error";
 function formatGbp(amount: number | null): string {
   if (typeof amount !== "number" || !Number.isFinite(amount)) return "";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(amount);
+}
+
+/**
+ * Back to the quote to change details. The booking form is saved in the
+ * browser, so going back restores it; clearing the open-checkout marker shows
+ * the editable form instead of the "payment ready" panel.
+ */
+function backToBooking(): void {
+  clearOpenCheckoutSession();
+  let sameSite = false;
+  try {
+    sameSite = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
+  } catch {
+    sameSite = false;
+  }
+  if (sameSite && window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+  window.location.assign("/");
 }
 
 function confirmedUrl(checkoutId: string): string {
@@ -156,6 +177,16 @@ export default function StripeCardPayClient() {
           Secure card payment
         </span>
       </div>
+      {view !== "paying" ? (
+        <button
+          type="button"
+          onClick={backToBooking}
+          className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline"
+          data-pay-back-to-booking
+        >
+          <span aria-hidden>←</span> Back to booking (change details)
+        </button>
+      ) : null}
       {showForm ? (
         <>
           <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-white/10 pt-3">
