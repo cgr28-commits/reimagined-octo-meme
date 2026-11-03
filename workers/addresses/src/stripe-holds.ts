@@ -9,6 +9,10 @@
  * a hold (full) or captures less (partial), and the next cron run drops it.
  */
 import {
+  cancelStripePaymentIntent,
+  expireStripeCheckoutSession,
+  retrieveStripeCheckoutSession,
+  type StripePaymentIntent,
   captureStripePaymentIntent,
   getStripeCheckoutAsSumUp,
   isStripeCheckoutId,
@@ -138,4 +142,66 @@ export async function processDueStripeHolds(
   } while (cursor);
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Holds on a single Checkout Session (used by short-notice requests)
+// ---------------------------------------------------------------------------
+
+export type CheckoutHoldState = {
+  sessionStatus: "open" | "complete" | "expired" | null;
+  paymentIntentId?: string;
+  /** requires_capture = held; succeeded = charged; canceled = released. */
+  paymentIntentStatus?: string;
+  amountGbp?: number;
+};
+
+export async function getCheckoutHoldState(checkoutId: string): Promise<CheckoutHoldState> {
+  const session = await retrieveStripeCheckoutSession(checkoutId);
+  const pi: StripePaymentIntent | null =
+    session.payment_intent && typeof session.payment_intent === "object" ? session.payment_intent : null;
+  return {
+    sessionStatus: session.status,
+    ...(pi ? { paymentIntentId: pi.id, paymentIntentStatus: pi.status } : {}),
+    ...(typeof session.amount_total === "number" ? { amountGbp: session.amount_total / 100 } : {}),
+  };
+}
+
+/** Charge a held card. Safe to call twice: an already-charged hold is fine. */
+export async function captureCheckoutHold(
+  checkoutId: string,
+): Promise<{ ok: true; alreadyCaptured: boolean } | { ok: false; error: string; state: CheckoutHoldState }> {
+  const state = await getCheckoutHoldState(checkoutId);
+  if (state.paymentIntentStatus === "succeeded") return { ok: true, alreadyCaptured: true };
+  if (state.paymentIntentStatus !== "requires_capture" || !state.paymentIntentId) {
+    return {
+      ok: false,
+      error:
+        state.paymentIntentStatus === "canceled"
+          ? "The card hold had already been released or expired."
+          : "The customer has not authorised their card yet.",
+      state,
+    };
+  }
+  await captureStripePaymentIntent(state.paymentIntentId);
+  return { ok: true, alreadyCaptured: false };
+}
+
+/**
+ * Release a hold (customer is never charged). Also closes the session if the
+ * customer never finished authorising, so the link can't be used later.
+ */
+export async function releaseCheckoutHold(
+  checkoutId: string,
+): Promise<{ released: boolean; state: CheckoutHoldState }> {
+  const state = await getCheckoutHoldState(checkoutId);
+  if (state.paymentIntentStatus === "requires_capture" && state.paymentIntentId) {
+    await cancelStripePaymentIntent(state.paymentIntentId);
+    return { released: true, state };
+  }
+  if (state.sessionStatus === "open") {
+    await expireStripeCheckoutSession(checkoutId);
+    return { released: true, state };
+  }
+  return { released: false, state };
 }

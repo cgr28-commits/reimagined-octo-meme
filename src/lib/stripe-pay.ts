@@ -36,6 +36,8 @@ export type StripeSessionInfo = {
   currency: string;
   reference: string;
   cardHold: boolean;
+  /** "short_notice": held while the owner confirms availability. */
+  holdKind?: "short_notice" | null;
   code?: string;
   error?: string;
 };

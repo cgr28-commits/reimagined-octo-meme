@@ -130,6 +130,8 @@ export type PaymentCheckoutResult = {
   holdReasons?: string[];
   reference?: string;
   whatsappUrl?: string;
+  /** Stripe: on-site page where the customer authorises a card hold for the request. */
+  cardHoldUrl?: string;
   automaticBookingsAvailableFrom?: string | null;
   automaticBookingsAvailableFromLabel?: string | null;
   blockingPeriodId?: string | null;

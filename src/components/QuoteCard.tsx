@@ -4855,6 +4855,15 @@ function QuoteCard({
           : {}),
       });
 
+      if (checkout.shortNotice && checkout.reference && checkout.cardHoldUrl) {
+        // Stripe: the customer authorises a card hold now; the owner's approval
+        // charges it and confirms the booking.
+        notifyOwnerQuoteContactIfReady("payment_opened");
+        paymentNavigating.current = true;
+        window.location.assign(checkout.cardHoldUrl);
+        return;
+      }
+
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
         pendingShortNoticeScrollRef.current = true;
         setShortNoticeResult({

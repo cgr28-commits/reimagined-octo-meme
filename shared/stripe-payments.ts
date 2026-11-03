@@ -179,6 +179,8 @@ export type StripeCheckoutRequest = {
   manualCapture?: boolean;
   /** Site origin for the on-site payment page link. */
   siteOrigin: string;
+  /** Extra metadata on the session (e.g. hold_kind=short_notice). */
+  metadata?: Record<string, string>;
 };
 
 export type StripeCheckoutResult = {
@@ -240,7 +242,11 @@ export async function createStripeCheckoutSession(
           },
         },
       ],
-      metadata: { checkout_reference: request.checkoutReference, source: "website" },
+      metadata: {
+        ...(request.metadata ?? {}),
+        checkout_reference: request.checkoutReference,
+        source: "website",
+      },
       payment_intent_data: {
         description: description.slice(0, 1000),
         metadata: { checkout_reference: request.checkoutReference },
@@ -257,6 +263,11 @@ export async function createStripeCheckoutSession(
     createdAt: new Date(session.created * 1000).toISOString(),
     manualCapture,
   };
+}
+
+/** Close an unpaid session so its link can no longer be used. */
+export async function expireStripeCheckoutSession(checkoutId: string): Promise<void> {
+  await stripeRequest("POST", `/checkout/sessions/${encodeURIComponent(checkoutId)}/expire`, {});
 }
 
 export async function retrieveStripeCheckoutSession(
