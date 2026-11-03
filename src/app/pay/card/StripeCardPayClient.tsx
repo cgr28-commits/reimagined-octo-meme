@@ -128,7 +128,7 @@ export default function StripeCardPayClient() {
         // Accordion list shows each payment option with its own brand logo
         // (tabs would tint the logos in our theme colour).
         const payment = checkout.createPaymentElement({
-          layout: { type: "accordion", radios: true, spacedAccordionItems: true },
+          layout: { type: "accordion", spacedAccordionItems: true },
         });
         payment.mount("#stripe-payment-element");
         setView("ready");

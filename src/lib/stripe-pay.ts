@@ -66,7 +66,8 @@ export function loadStripeJs(): Promise<StripeGlobal> {
     script.addEventListener("load", done, { once: true });
     script.addEventListener("error", () => reject(new Error("Stripe failed to load")), { once: true });
     if (!existing) {
-      script.src = "https://js.stripe.com/v3/";
+      // Versioned Stripe.js (Elements with Checkout Sessions needs a current release).
+      script.src = "https://js.stripe.com/endive/stripe.js";
       script.async = true;
       script.dataset.stripeJs = "1";
       document.head.appendChild(script);
