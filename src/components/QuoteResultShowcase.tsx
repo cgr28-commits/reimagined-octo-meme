@@ -250,16 +250,16 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
         {depositNote ? (
           <p
             data-quote-deposit-note
-            className="mx-auto mt-2 inline-flex items-center justify-center rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm"
+            className="mx-auto mt-2 block w-full rounded-full bg-[#2FBF4A] px-4 py-1.5 text-center text-sm font-extrabold leading-tight text-[#071C38] shadow-sm"
           >
             {(() => {
-              // Keep "(20% deposit)" together on one line.
+              // Two lines: "Secure your booking today for just £48" / "(20% deposit)".
               const split = depositNote.lastIndexOf(" (");
               if (split < 0) return depositNote;
               return (
                 <>
-                  {depositNote.slice(0, split)}{" "}
-                  <span className="whitespace-nowrap">{depositNote.slice(split + 1)}</span>
+                  <span className="block">{depositNote.slice(0, split)}</span>
+                  <span className="block whitespace-nowrap">{depositNote.slice(split + 1)}</span>
                 </>
               );
             })()}
