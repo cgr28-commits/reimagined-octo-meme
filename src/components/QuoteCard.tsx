@@ -1,5 +1,6 @@
 "use client";
 
+import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
 import { hasUncertainPayment, PAYMENT_UNCERTAIN_MESSAGE, PaymentOutcomeUncertainError } from "@/lib/payment-attempt-guard";
 import { saveQuote, type SaveQuoteResult } from "@/lib/saved-quote-api";
@@ -4922,7 +4923,8 @@ function QuoteCard({
 
       const isMobile = isMobileDevice ?? detectMobileDevice();
       // Same-tab redirect — reliable on iPhone Safari / Android (no popup).
-      if (isMobile) {
+      // Our own Stripe payment page also opens in the same tab on desktop.
+      if (isMobile || isOnSitePaymentUrl(checkout.paymentUrl)) {
         notifyOwnerQuoteContactIfReady("payment_opened");
         paymentNavigating.current = true;
         window.location.assign(checkout.paymentUrl);
@@ -5010,7 +5012,7 @@ function QuoteCard({
   function openSumUpPayment(paymentUrl: string) {
     notifyOwnerQuoteContactIfReady("payment_opened");
     const isMobile = isMobileDevice ?? detectMobileDevice();
-    if (isMobile) {
+    if (isMobile || isOnSitePaymentUrl(paymentUrl)) {
       window.location.assign(paymentUrl);
       return;
     }

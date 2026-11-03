@@ -1,3 +1,10 @@
+import {
+  getStripeCheckoutAsSumUp,
+  getStripeTransactionDetails,
+  isStripeCheckoutId,
+  isStripePaymentIntentId,
+  refundStripePayment,
+} from "./stripe-payments";
 export type SumUpCheckoutRequest = {
   amount: number;
   description: string;
@@ -120,6 +127,10 @@ export async function getSumUpCheckout(
   apiKey: string,
   checkoutId: string,
 ): Promise<SumUpCheckoutDetails> {
+  // Stripe Checkout Sessions share this code path (see stripe-payments.ts).
+  if (isStripeCheckoutId(checkoutId)) {
+    return getStripeCheckoutAsSumUp(checkoutId.trim());
+  }
   const response = await fetch(
     `https://api.sumup.com/v0.1/checkouts/${encodeURIComponent(checkoutId)}`,
     {
@@ -451,7 +462,7 @@ export type SumUpRefundResult = {
   refundedAmount?: number;
   currency?: string;
   /** Which refund endpoint accepted the request. */
-  endpoint: "v0.1/me/refund" | "v1.0/merchants/payments/refunds";
+  endpoint: "v0.1/me/refund" | "v1.0/merchants/payments/refunds" | "stripe";
   httpStatus: number;
   /** Exact JSON body sent (empty string = empty/omitted body → SumUp full refund). */
   requestBody: string;
@@ -725,6 +736,9 @@ export async function refundSumUpTransaction(
   if (!trimmedId) {
     throw new Error("Missing SumUp transaction id for refund");
   }
+  if (isStripePaymentIntentId(trimmedId)) {
+    return refundStripePayment(trimmedId, amount);
+  }
 
   const built = buildSumUpRefundHttpBody(amount);
   const body = built.body;
@@ -967,6 +981,9 @@ export async function getSumUpTransactionDetails(
 ): Promise<SumUpTransactionDetails | null> {
   const trimmed = transactionId.trim();
   if (!trimmed) return null;
+  if (isStripePaymentIntentId(trimmed)) {
+    return getStripeTransactionDetails(trimmed);
+  }
 
   const attempts: string[] = [];
   if (merchantCode?.trim()) {

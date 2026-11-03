@@ -16,6 +16,7 @@ import {
   type SumUpCheckoutDetails,
 } from "../shared/sumup-checkout";
 import { reconcilePaidBookingSumUpTransaction } from "./reconcile-sumup-transaction";
+import { isStripeCheckoutId, stripeConfigured } from "../shared/stripe-payments";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import {
@@ -230,7 +231,11 @@ async function finalizePaidCheckoutOnce(input: {
   logPaidBookingCalendar: LogPaidBookingCalendarFn;
 }): Promise<FinalizePaidCheckoutResult> {
   const { env, checkoutId, booking, logPaidBookingCalendar } = input;
-  const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
+  // Stripe sessions are looked up via getSumUpCheckout's Stripe route; the
+  // SumUp key is not needed for them.
+  const apiKey =
+    env.SUMUP_API_KEY?.trim() ||
+    (isStripeCheckoutId(checkoutId) && stripeConfigured() ? "stripe" : "");
   if (!apiKey) {
     return {
       ok: false,
@@ -957,7 +962,9 @@ export function extractCheckoutIdFromRequest(
 
 /** All browser/webhook callers share the same durable operation per checkout. */
 export async function finalizePaidCheckout(input: Parameters<typeof finalizePaidCheckoutOnce>[0]): Promise<FinalizePaidCheckoutResult> {
-  if (!input.env.SUMUP_API_KEY?.trim()) return finalizePaidCheckoutOnce(input);
+  if (!input.env.SUMUP_API_KEY?.trim() && !(isStripeCheckoutId(input.checkoutId) && stripeConfigured())) {
+    return finalizePaidCheckoutOnce(input);
+  }
   // Safe reads must remain retryable. Claim only after SumUp confirms PAID;
   // a temporary GET failure must not strand an otherwise valid payment.
   if (input.env.TRACKING_STORE) {

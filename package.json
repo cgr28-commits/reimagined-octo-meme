@@ -38,6 +38,7 @@
     "check:restored-places-route": "npx tsx scripts/check-restored-places-route-payment.ts",
     "check:fresh-visit-address-reset": "npx tsx scripts/check-fresh-visit-address-reset.ts",
     "check:payment-placeid-route": "npx tsx scripts/check-payment-placeid-route-resolve.ts",
+    "check:stripe-payments": "npx tsx scripts/check-stripe-payments.ts",
     "check:quote-error-help": "npx tsx scripts/check-quote-error-help-start-new.ts && npx tsx scripts/check-quote-error-help-render.tsx",
     "check:final-correction": "npx tsx scripts/check-final-correction-pass.ts",
     "check:bot-knowledge": "npx tsx scripts/check-bot-site-knowledge.ts",
