@@ -38,6 +38,8 @@ type QuoteResultShowcaseProps = {
   depositNote?: string | null;
   /** Tapping the deposit pill: preselect "Pay a deposit" and continue like Book. */
   onDepositSelect?: () => void;
+  /** Google stars under the price promise (instant prices only). */
+  trustBadge?: ReactNode;
   /** Worker quote failed. Do not show a fallback fare in the price slot. */
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
@@ -87,6 +89,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       surchargeNote = null,
       depositNote = null,
       onDepositSelect,
+      trustBadge = null,
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
@@ -288,6 +291,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           <div data-quote-result-footer>
         {priceUnavailable ? null : (
           <p data-quote-assurance className="mt-1.5 text-xs font-semibold leading-tight text-[#147a2a]">{requestQuote ? "Your fixed price will be confirmed before booking." : "The price you see is the price you pay."}</p>
+        )}
+        {priceUnavailable || requestQuote || !trustBadge ? null : (
+          <div data-quote-trust className="mt-2 flex justify-center">{trustBadge}</div>
         )}
         {requestQuote ? null : businessClassInclusions}
           </div>

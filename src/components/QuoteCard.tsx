@@ -249,6 +249,7 @@ import { resolveWorkerBaseUrl as savedQuoteWorkerBaseUrl } from "@/lib/worker-ap
 import SaveQuoteModal from "@/components/SaveQuoteModal";
 
 import QuoteAirportBenefits from "@/components/QuoteAirportBenefits";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
@@ -7896,6 +7897,7 @@ function QuoteCard({
         priceUpdating={priceUpdating}
         surchargeNote={null}
         depositNote={quoteDepositNote}
+        trustBadge={<GoogleReviewsBadge className="!px-2.5 !py-1 !text-xs" />}
         onDepositSelect={() => {
           setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CARD_BALANCE);
           setCashAgreementAccepted(false);
