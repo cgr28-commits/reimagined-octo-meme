@@ -42,7 +42,7 @@ export default function NorthernIrelandAirportTransfersPage() {
       "@type": "Service",
       name: "Airport transfers in Northern Ireland",
       serviceType: "Airport transfer",
-      provider: { "@type": "LocalBusiness", name: SITE.name, url: SITE.url, telephone: SITE.landline },
+      provider: { "@type": "LocalBusiness", name: SITE.name, url: SITE.url, telephone: SITE.officeLandline },
       areaServed: { "@type": "AdministrativeArea", name: "Northern Ireland" },
       url: `${SITE.url}${NI_TRANSFERS_PATH}`,
     },

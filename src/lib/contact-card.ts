@@ -101,7 +101,7 @@ export function saveToContactsHref(): string {
  */
 export function androidAddContactIntentUrl(): string {
   const name = encodeURIComponent(SITE.name);
-  const phone = encodeURIComponent(SITE.landline);
+  const phone = encodeURIComponent(SITE.officeLandline);
   const email = encodeURIComponent(SITE.email);
   const company = encodeURIComponent(SITE.name);
   return (

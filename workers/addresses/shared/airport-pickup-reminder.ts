@@ -421,8 +421,7 @@ export function buildAirportPickupReminderMessage(
       whatsAppHref,
       "",
       BUSINESS_LINE_LABEL,
-      BUSINESS_PHONE_DISPLAY,
-      `Landline: ${BUSINESS_LANDLINE_DISPLAY}`,
+      BUSINESS_LANDLINE_DISPLAY,
     );
   }
 

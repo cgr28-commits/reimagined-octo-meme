@@ -176,7 +176,7 @@ ${businessEmailLogoHtml()}
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
 ${bodyHtml}
-<p style="margin:16px 0 0;font-size:14px;color:#64748b;">Any questions? Just reply to this email, or call or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}, or ring our landline on ${esc(BUSINESS_LANDLINE_DISPLAY)}.</p>
+<p style="margin:16px 0 0;font-size:14px;color:#64748b;">Any questions? Just reply to this email, or call us on ${esc(BUSINESS_LANDLINE_DISPLAY)}, or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
 <strong style="color:${BRAND_NAVY};">My Airport Taxi NI</strong><br />
@@ -204,7 +204,7 @@ export function buildCardBalanceCustomerEmail(input: {
   const total = formatGbpAmountExact(Number(r.amount) || 0);
   const tail = [
     "",
-    `Any questions? Just reply to this email, or call or WhatsApp us on ${BUSINESS_PHONE_DISPLAY}, or ring our landline on ${BUSINESS_LANDLINE_DISPLAY}.`,
+    `Any questions? Just reply to this email, or call us on ${BUSINESS_LANDLINE_DISPLAY}, or WhatsApp us on ${BUSINESS_PHONE_DISPLAY}.`,
     "",
     "My Airport Taxi NI",
     BUSINESS_WEBSITE,

@@ -63,17 +63,22 @@ assert.match(desktopCtas, /Manage Your Booking/);
 assert.match(desktopCtas, /tel:\$\{SITE\.officeLandline\}/);
 console.log("OK  mobile + desktop nav keep Quote / WhatsApp / Contact / Manage Booking; no Call CTA");
 
-assert.match(footer, /tel:\$\{SITE\.landline\}/);
+// Owner request (Nov 2026): 07549 is WhatsApp only; the only number to call is 028 9602 2952.
+assert.doesNotMatch(footer, /tel:\$\{SITE\.landline\}/);
+assert.match(footer, /tel:\$\{SITE\.officeLandline\}/);
 assert.match(footer, /SITE\.landlineDisplay/);
-assert.match(footer, /Call or WhatsApp/);
+assert.match(footer, /WhatsApp only/);
+assert.doesNotMatch(footer, /Call or WhatsApp/);
 assert.doesNotMatch(footer, /Call us|Call \{SITE\.landlineDisplay\}/);
 assert.match(footer, /WhatsApp @\{SITE\.whatsappUsername\}/);
 assert.match(footer, /SITE\.email/);
 console.log("OK  footer has email, WhatsApp, and a quiet business line");
 
-assert.match(contact, /tel:\$\{SITE\.landline\}/);
+assert.doesNotMatch(contact, /tel:\$\{SITE\.landline\}/);
+assert.match(contact, /tel:\$\{SITE\.officeLandline\}/);
 assert.match(contact, /SITE\.landlineDisplay/);
-assert.match(contact, /Call or WhatsApp/);
+assert.match(contact, /WhatsApp only/);
+assert.doesNotMatch(contact, /Call or WhatsApp/);
 assert.match(contact, /Get a quote/);
 assert.match(contact, /whatsAppChatUrl\(\)/);
 assert.match(contact, /@\{SITE\.whatsappUsername\}/);

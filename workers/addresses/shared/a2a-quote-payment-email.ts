@@ -218,7 +218,7 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     "",
     "Secure card payment powered by SumUp.",
     "",
-    `My Airport Taxi NI · ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_LANDLINE_DISPLAY} · ${BUSINESS_EMAIL}`,
+    `My Airport Taxi NI · Call ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_EMAIL}`,
     BUSINESS_WEBSITE,
   );
   const text = textLines.join("\n");
