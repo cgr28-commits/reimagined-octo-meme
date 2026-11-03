@@ -40,7 +40,7 @@ async function main() {
       "belfast international",
       "dublin airport",
       "saloon",
-      "sumup",
+      "card deposit",
     ]) {
       assert.ok(body.includes(needle), `missing knowledge for: ${needle}`);
     }

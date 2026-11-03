@@ -498,7 +498,7 @@ export const FAQS = [
   {
     question: "How do I pay?",
     answer:
-      "Get your fixed price online. Eligible Saloon and Estate bookings can be confirmed securely by card. On some website instant quotes you may also be offered Deposit + Cash: pay a card deposit to confirm, then pay the remaining balance in cash to your driver on the day. Card payment is not available for the remaining balance. Short-notice pickups may need Owner availability confirmation before payment. Bank transfer can be arranged where agreed.",
+      "Get your fixed price online. Eligible Saloon and Estate bookings can be confirmed securely by card. On some website instant quotes you may also be offered Deposit + Cash: pay a card deposit to confirm, then pay the remaining balance in cash to your driver on the day. With Deposit + Cash, card payment is not available for the remaining balance. For journeys at least 30 days ahead you can instead pay a 20% card deposit and the balance by card later: we email a payment link 7 days before, and if it isn't paid 3 days before pickup the booking is cancelled and your deposit refunded in full. Short-notice pickups may need Owner availability confirmation before payment. Bank transfer can be arranged where agreed.",
   },
   {
     question: "Can I cancel my booking?",

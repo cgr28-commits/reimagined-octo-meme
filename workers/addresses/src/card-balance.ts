@@ -6,7 +6,7 @@ import { cardPaymentsConfigured, createHostedCheckout, providerKeyFor } from "./
  *   7 days before  → email a secure link to pay the balance by card
  *   5 days before  → reminder
  *   4 days before  → final reminder (+ owner heads-up)
- *   3 days before  → still unpaid: booking cancelled automatically, deposit kept
+ *   3 days before  → still unpaid: booking cancelled automatically, deposit refunded in full
  *
  * The link opens /card-balance/pay on the Worker, which creates (or reuses) a SumUp
  * hosted checkout for the balance at that moment and redirects to it. Payment is
@@ -77,7 +77,7 @@ export type CardBalanceEnv = WorkerEmailEnv & {
 
 type QueueEntry = { ref: string; addedAt: string };
 
-/** Cancels the booking with no refund. Injected so this module never imports the refund engine. */
+/** Cancels the booking and refunds the deposit in full. Injected so this module never imports the refund engine. */
 export type CancelUnpaidBookingFn = (input: {
   paymentReference: string;
   customerFacingReason: string;
@@ -248,7 +248,7 @@ export function buildCardBalanceCustomerEmail(input: {
       : input.kind === "reminder"
         ? `Just a reminder that the remaining balance of ${balance} for your transfer is still due.`
         : `Your journey is a week away, so the remaining balance of ${balance} for your transfer is now due.`;
-  const warning = `Please pay by ${deadline}. If it isn't paid by then, the booking will be cancelled automatically and the deposit kept, as agreed when you booked.`;
+  const warning = `Please pay by ${deadline}. If it isn't paid by then, the booking will be cancelled automatically and your deposit refunded in full.`;
   const text = [
     `Hi ${first},`,
     "",
@@ -659,15 +659,15 @@ export async function processCardBalanceQueue(
           paymentReference: record.paymentReference,
           customerFacingReason:
             `The remaining balance of ${formatGbpAmountExact(balance)} wasn't paid by the due date, so the booking has been cancelled ` +
-            `and the deposit kept, as agreed when booking.`,
-          ownerNotes: `Automatic: card balance ${formatGbpAmountExact(balance)} unpaid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup — cancelled, deposit kept.`,
+            `and your deposit refunded in full.`,
+          ownerNotes: `Automatic: card balance ${formatGbpAmountExact(balance)} unpaid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup — cancelled, deposit refunded.`,
         });
         if (!cancelled.ok) {
           result.errors++;
           await saveState(store, record, { lastError: `Auto-cancel failed: ${cancelled.error ?? "unknown"}` });
           await sendOwner(fullEnv, `ACTION NEEDED — balance unpaid, auto-cancel failed — ${record.customerName}`, [
             `The card balance wasn't paid and the booking could not be cancelled automatically: ${cancelled.error ?? "unknown error"}.`,
-            "Please cancel it from the owner dashboard (no refund — deposit kept) or contact the customer.",
+            "Please cancel it from the owner dashboard with a full refund of the deposit, or contact the customer.",
             "",
             ...ownerSummary(record, balance),
           ]);
@@ -677,7 +677,7 @@ export async function processCardBalanceQueue(
         const fresh = (await getPaidBookingRecord(store, record.paymentReference)) ?? record;
         await saveState(store, fresh, { status: "cancelled_unpaid", cancelledAt: now.toISOString() });
         await sendOwner(fullEnv, `Booking AUTO-CANCELLED — balance not paid — ${record.customerName}`, [
-          `The card balance of ${formatGbpAmountExact(balance)} wasn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, so the booking has been cancelled and the deposit kept. The customer has been emailed.`,
+          `The card balance of ${formatGbpAmountExact(balance)} wasn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, so the booking has been cancelled and the deposit refunded in full. The customer has been emailed.`,
           "",
           ...ownerSummary(record, balance),
         ]);
@@ -704,7 +704,7 @@ export async function processCardBalanceQueue(
           await saveState(store, record, { finalWarningSentAt: now.toISOString() });
           result.reminders++;
           await sendOwner(fullEnv, `Heads-up: balance still unpaid — cancels ${formatUkInstant(schedule.cancelAt)} — ${record.customerName}`, [
-            `The customer hasn't paid the card balance yet. They've had a final reminder. If it's still unpaid at ${formatUkInstant(schedule.cancelAt)} the booking is cancelled automatically and the deposit kept.`,
+            `The customer hasn't paid the card balance yet. They've had a final reminder. If it's still unpaid at ${formatUkInstant(schedule.cancelAt)} the booking is cancelled automatically and the deposit refunded.`,
             "You may want to give them a call.",
             "",
             ...ownerSummary(record, balance),

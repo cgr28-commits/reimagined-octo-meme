@@ -6424,10 +6424,10 @@ export default {
           const ownerKey = env.OWNER_ACCESS_KEY?.trim() || env.DRIVER_ACCESS_KEY?.trim() || "";
           const result = await processBookingRefundOrCancel(env, {
             paymentReference,
+            // Owner policy (Nov 2026): unpaid balance → cancel and refund the deposit in full.
             cancelBooking: true,
-            refundFullRemaining: false,
-            amount: 0,
-            actionKind: "cancel_no_refund",
+            refundFullRemaining: true,
+            actionKind: "cancel_full_refund",
             reasonCategory: "other",
             ownerNotes,
             customerFacingReason,

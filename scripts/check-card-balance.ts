@@ -163,7 +163,7 @@ async function main() {
   const confirm = buildCustomerConfirmationEmail(receipt as never);
   assert.match(confirm.text, /Deposit paid today: £56\.00/);
   assert.match(confirm.text, /Balance by card: £225\.00 — payment link emailed Sunday,? 6 June 2027/);
-  assert.match(confirm.text, /cancelled and the deposit is kept/);
+  assert.match(confirm.text, /cancelled and your deposit refunded in full/);
   assert.doesNotMatch(confirm.text, /cash/i, "card-balance bookings never mention cash");
   assert.match(confirm.html, /Deposit paid/);
   const owner = buildOwnerPaidBookingEmail(receipt as never);
@@ -207,7 +207,7 @@ async function main() {
   assert.match(String(emails[0].subject), /Your balance of £225\.00 is now due \(MAT-4001\)/);
   const link = String(emails[0].text).match(/https:\/\/reimagined-octo-meme\.cgr28\.workers\.dev\/card-balance\/pay\?ref=TXDEP1&t=[a-f0-9]+/)?.[0];
   assert.ok(link, "email carries the secure pay link");
-  assert.match(String(emails[0].text), /cancelled automatically and the deposit kept/);
+  assert.match(String(emails[0].text), /cancelled automatically and your deposit refunded in full/);
 
   // Same hour again: nothing new.
   r = await processCardBalanceQueue(env, cancelUnpaid, new Date("2027-06-06T16:00:00Z"));
@@ -233,7 +233,7 @@ async function main() {
   assert.equal(finals.length, 1);
   assert.ok(emails.some((e) => /Heads-up: balance still unpaid/.test(String(e.subject))), "owner told the day before");
 
-  // 3 days before, unpaid → cancelled, deposit kept.
+  // 3 days before, unpaid → cancelled, deposit refunded.
   r = await processCardBalanceQueue(env, cancelUnpaid, new Date("2027-06-10T15:00:00Z"));
   assert.equal(r.cancelled, 1);
   assert.deepEqual(cancels, ["TXDEP1"]);
@@ -305,6 +305,8 @@ async function main() {
   assert.match(index, /\/card-balance\/pay/);
   assert.match(index, /confirmCardBalanceWebhook\(env, checkoutId\)/);
   assert.match(index, /processCardBalanceQueue\(env/);
+  // Owner policy: unpaid balance → cancel with the deposit refunded in full.
+  assert.match(index, /actionKind: "cancel_full_refund",[\s\S]{0,200}card-balance-unpaid-/);
   assert.match(index, /PAYMENT_METHOD_DEPOSIT_CARD_BALANCE/);
   const finalize = readFileSync("workers/addresses/src/finalize-paid-checkout.ts", "utf8");
   assert.match(finalize, /enqueueCardBalanceBooking/);

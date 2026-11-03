@@ -6,7 +6,7 @@
  * - {@link CARD_BALANCE_DUE_DAYS_BEFORE} days before pickup we email a secure payment link
  *   for the balance, with reminders.
  * - If still unpaid {@link CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, the booking
- *   is cancelled automatically and the deposit is kept.
+ *   is cancelled automatically and the deposit is refunded in full.
  *
  * The Worker is authoritative: browser-sent amounts are ignored and recalculated.
  * The balance is always worked out from the live booking (fare − card money collected),
@@ -179,14 +179,14 @@ export function cardBalanceExplainer(balanceGbp: number, dueDateLabel: string): 
   return (
     `We'll email you a secure card payment link for the remaining ${formatGbpAmountExact(balanceGbp)} on ${dueDateLabel} ` +
     `(${CARD_BALANCE_DUE_DAYS_BEFORE} days before your journey). If it isn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, ` +
-    `the booking is cancelled and the deposit is kept. Cancel 24 hours or more before pickup for a full refund.`
+    `the booking is cancelled and your deposit refunded in full. Cancel 24 hours or more before pickup for a full refund.`
   );
 }
 
 export function cardBalanceAgreementLabel(balanceGbp: number): string {
   return (
     `I understand the remaining ${formatGbpAmountExact(balanceGbp)} must be paid by card ${CARD_BALANCE_DUE_DAYS_BEFORE} days before my journey, ` +
-    `and that the booking is cancelled (deposit kept) if it isn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup.`
+    `and that the booking is cancelled (deposit refunded) if it isn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup.`
   );
 }
 
@@ -242,7 +242,7 @@ export function cardBalanceOwnerStatusLine(record: {
     case "refunded":
       return `Card balance refunded${state.refundedAmountGbp ? ` (${formatGbpAmountExact(state.refundedAmountGbp)})` : ""}`;
     case "cancelled_unpaid":
-      return "Cancelled — card balance not paid (deposit kept)";
+      return "Cancelled — card balance not paid (deposit refunded)";
     case "link_sent":
       return `Card balance ${formatGbpAmountExact(due)} — payment link sent${schedule ? `, cancels ${formatUkInstant(schedule.cancelAt)} if unpaid` : ""}`;
     default:
