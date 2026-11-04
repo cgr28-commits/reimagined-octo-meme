@@ -678,14 +678,18 @@ type Env = {
   /** London hour (0–23) to send the current day's quote report. Default 19. */
   DAILY_QUOTE_REPORT_LONDON_HOUR?: string;
   /** WhatsApp Business Platform (Cloud API) — quote assistant. See docs/whatsapp-business-api.md. */
+  /** Explicit provider: "360dialog" | "meta". Unset = legacy (D360_API_KEY wins). */
+  WHATSAPP_PROVIDER?: string;
   WHATSAPP_ACCESS_TOKEN?: string;
   WHATSAPP_PHONE_NUMBER_ID?: string;
   WHATSAPP_APP_SECRET?: string;
   WHATSAPP_VERIFY_TOKEN?: string;
+  /** WhatsApp Business Account ID — Meta template list/create. */
+  WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
   WHATSAPP_GRAPH_VERSION?: string;
   WHATSAPP_BOT_ENABLED?: string;
   WHATSAPP_HANDOFF_HOURS?: string;
-  /** 360dialog API key (Worker secret) — used instead of the Meta token / app secret when set. */
+  /** 360dialog API key (Worker secret). Required when WHATSAPP_PROVIDER=360dialog (or legacy default). */
   D360_API_KEY?: string;
   /** Team WhatsApp number for handoffs when the assistant runs on a separate number. */
   WHATSAPP_TEAM_NUMBER?: string;

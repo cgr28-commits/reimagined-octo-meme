@@ -10,13 +10,16 @@ import {
   derive360dialogWebhookSecret,
   normalizeWhatsAppNumber,
   parseWhatsAppWebhook,
+  postWhatsAppMessage,
   register360dialogWebhook,
+  resolveWhatsAppProvider,
   sendWhatsAppButtons,
   sendWhatsAppText,
   upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
   whatsAppCloudConfigured,
+  whatsAppSendTarget,
   whatsAppVerifyChallenge,
 } from "../shared/whatsapp-cloud";
 import {
@@ -90,6 +93,32 @@ async function main() {
   );
   assert.equal(normalizeWhatsAppNumber("+44 7700 900123"), "447700900123");
   assert.equal(whatsAppCloudConfigured({ D360_API_KEY: "k" }), true, "360dialog needs only its API key");
+
+  console.log("=== Provider selection ===");
+  const metaFull = {
+    WHATSAPP_ACCESS_TOKEN: "a",
+    WHATSAPP_PHONE_NUMBER_ID: "b",
+    WHATSAPP_APP_SECRET: "c",
+    WHATSAPP_VERIFY_TOKEN: "d",
+  };
+  assert.equal(resolveWhatsAppProvider({ D360_API_KEY: "k", ...metaFull }), "360dialog", "legacy: D360 wins");
+  assert.equal(resolveWhatsAppProvider({ ...metaFull }), "meta");
+  assert.equal(resolveWhatsAppProvider({ WHATSAPP_PROVIDER: "meta", D360_API_KEY: "k" }), null, "explicit meta never falls back to D360");
+  assert.equal(resolveWhatsAppProvider({ WHATSAPP_PROVIDER: "meta", ...metaFull }), "meta");
+  assert.equal(resolveWhatsAppProvider({ WHATSAPP_PROVIDER: "360dialog", ...metaFull }), null, "explicit 360dialog never falls back to Meta");
+  assert.equal(resolveWhatsAppProvider({ WHATSAPP_PROVIDER: "360dialog", D360_API_KEY: "k" }), "360dialog");
+  assert.equal(whatsAppCloudConfigured({ WHATSAPP_PROVIDER: "meta", D360_API_KEY: "k" }), false);
+  assert.equal(whatsAppSendTarget({ WHATSAPP_PROVIDER: "meta", D360_API_KEY: "k" }), null);
+  assert.equal(
+    whatsAppSendTarget({ WHATSAPP_PROVIDER: "meta", ...metaFull })?.endpoint,
+    "https://graph.facebook.com/v23.0/b/messages",
+  );
+  assert.equal(whatsAppSendTarget({ D360_API_KEY: "k" })?.endpoint, "https://waba-v2.360dialog.io/messages");
+  {
+    const blocked = await postWhatsAppMessage({ WHATSAPP_PROVIDER: "meta", D360_API_KEY: "k" }, "447700900123", { type: "text", text: { body: "x" } }, fetch);
+    assert.equal(blocked.sent, false);
+    assert.match(blocked.error ?? "", /meta credentials are incomplete/i);
+  }
 
   console.log("=== 360dialog webhook secret ===");
   const d360Secret = await derive360dialogWebhookSecret("key-1");

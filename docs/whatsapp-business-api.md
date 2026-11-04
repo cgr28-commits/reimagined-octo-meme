@@ -5,9 +5,27 @@ confirms them, and replies with a **fixed price and a secure booking link**. The
 comes from the same website pricing engine as the online quote, and the link is a normal
 Quick Quote (`/book-quote/?id=…`) where the customer checks the details and pays by SumUp.
 
-You **keep your existing number** and the WhatsApp Business app on your phone. This uses
-Meta's *Coexistence* onboarding: the app and the API share the number, so every chat
-(including the assistant's replies) still appears in the app.
+You **keep your existing number** and the WhatsApp Business app on your phone when using
+Meta *Coexistence*. With 360dialog (current production), the business number
+`07549 815538` is hosted on 360dialog's Cloud API.
+
+## Provider selection
+
+| `WHATSAPP_PROVIDER` | Behaviour |
+| --- | --- |
+| unset (default) | **Legacy:** use 360dialog if `D360_API_KEY` is set, otherwise Meta if all four Meta secrets are set. Production today relies on this with `D360_API_KEY`. |
+| `360dialog` | 360dialog only. Missing `D360_API_KEY` → not configured (does **not** fall back to Meta). |
+| `meta` | Meta Cloud API only. Incomplete Meta credentials → not configured (does **not** fall back to 360dialog, even if `D360_API_KEY` is present). |
+
+Required Meta credentials when provider is `meta`:
+
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_APP_SECRET`
+- `WHATSAPP_VERIFY_TOKEN`
+- `WHATSAPP_BUSINESS_ACCOUNT_ID` (templates list/create/submit)
+
+Optional: `WHATSAPP_GRAPH_VERSION` (default `v23.0`).
 
 ## How the conversation works
 
@@ -28,61 +46,78 @@ Assistant: Your fixed price is £45 ✅  To book, check your details and pay sec
 - **NEW** starts again. **AGENT** hands the chat to you, and the assistant stays quiet for
   that customer for 12 hours.
 - **When you reply from the WhatsApp Business app, the assistant stops for that customer**
-  (12 hours by default), so it never talks over you.
+  (when `smb_message_echoes` are available), so it never talks over you.
 - Groups of more than 4 are passed to you (larger vehicle). Past dates are rejected.
 - Quote links last 24 hours. Each customer can create up to 10 quotes per hour.
 - Media, voice notes and locations get a polite "please type your journey" reply.
 
-## Setup with 360dialog (virtual number)
+## Setup with 360dialog (current production)
 
-This is the simplest route. The assistant gets its own WhatsApp number (a virtual
-number from Meta via 360dialog). Your existing number stays on your phone, untouched.
+The live business number (`07549 815538`) is on 360dialog.
 
-1. In 360dialog (hub.360dialog.com) finish the signup and choose **"Use a display name
-   with a virtual number instead"**.
+1. In 360dialog (hub.360dialog.com) finish the signup and API access for the number.
 2. In the 360dialog dashboard, generate an **API key** for the number.
 3. In Cloudflare → Workers → reimagined-octo-meme → Settings → Variables and Secrets add:
    - `D360_API_KEY` (type **Secret**): the 360dialog API key.
-   - `WHATSAPP_TEAM_NUMBER` (type Text): your own WhatsApp number, e.g. `447549815538`.
-     When a customer replies AGENT (or needs a larger vehicle) the assistant sends them
-     a link to chat with this number, with their journey details pre-filled.
+   - Optional: `WHATSAPP_PROVIDER=360dialog` (explicit; recommended once Meta staging exists).
+   - `WHATSAPP_TEAM_NUMBER` (type Text): e.g. `447549815538` when handoffs should link elsewhere.
 4. Open this address once in your browser:
    `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/connect`
    It tells 360dialog to send messages to the Worker and sets the WhatsApp business
    profile (about, description, email, website, and the navy logo
    `public/facebook-profile-logo-navy.png`). You should see **Connected ✅**.
-   Open it again any time to re-apply the profile (60-second cooldown).
-5. Message the new number from another phone to test.
-6. Point the website's WhatsApp buttons at the new number (`SITE.whatsapp` in
+5. Message the number from another phone to test.
+6. Point the website's WhatsApp buttons at the number (`SITE.whatsapp` in
    `src/lib/data.ts`).
 
-The owner also gets an email whenever a customer asks to speak to the team. 360dialog
-mode needs no Meta access token, app secret or verify token. The webhook is protected
-by a secret header derived from the API key.
+Template status / submit: `GET /whatsapp/templates` and `?submit=1` (via 360dialog).
 
-## One-time setup (Meta direct, Coexistence)
+## Staging with Meta Cloud API (test number only)
 
-You need a Meta Business account (business.facebook.com) and about 30 minutes.
+Use a **separate** Cloudflare Worker (`wrangler.staging.toml`) with isolated KV and Meta
+**test** credentials. Do **not** connect staging to the production number, live webhook,
+or production KV.
 
-1. **Connect your existing number with Coexistence.** Onboarding an *existing* WhatsApp
-   Business app number goes through Meta's Embedded Signup. That means a Meta Tech
-   Provider / Business Solution Provider (for example 360dialog, Twilio or Infobip), or
-   your own Meta app registered as a Tech Provider. Choose the option to **connect your
-   existing WhatsApp Business app** (not "new number"), enter your number and confirm the
-   code in the app.
-   Requirements: WhatsApp Business app **v2.24.17 or newer**, your country code on Meta's
-   supported list (check +44 when you sign up), and the app used on the phone regularly.
-   Linked companion devices are unlinked during onboarding; re-link them afterwards.
-   **Do not** register the number through "Add phone number" in WhatsApp Manager. That
-   path moves the number off the app.
-2. In your Meta app → **WhatsApp → API Setup**, copy the **Phone number ID** (a long
-   number, not your phone number).
-3. Create a **permanent access token**: Business Settings → Users → System users → add
-   one (Admin) → Assign assets (your app and WhatsApp account) → Generate token with
+Proposed resources (create only after explicit approval):
+
+| Resource | Value |
+| --- | --- |
+| Worker name | `reimagined-octo-meme-whatsapp-staging` |
+| Config file | `workers/addresses/wrangler.staging.toml` |
+| `[vars].WHATSAPP_PROVIDER` | `meta` |
+| KV `TRACKING_STORE` | **new** namespace (never production id) |
+| KV `BOOKING_COUNTER` | **new** namespace (never production id) |
+| Secrets | Meta test: access token, phone number ID, app secret, verify token, WABA id |
+| Do not set | `D360_API_KEY`, production WhatsApp number, production webhooks |
+
+After deploy (only when approved):
+
+1. Meta App → WhatsApp → Configuration → Webhook  
+   Callback: `https://reimagined-octo-meme-whatsapp-staging.<workers-subdomain>/whatsapp/webhook`  
+   Verify token: matches `WHATSAPP_VERIFY_TOKEN`  
+   Fields: `messages`, and `smb_message_echoes` if available.
+2. Send a message from a phone to the **Meta test number** only.
+3. Check `GET /whatsapp/status` and `GET /whatsapp/templates` on the staging Worker.
+4. Submit templates with `GET /whatsapp/templates?submit=1` on staging; wait for APPROVED.
+
+Never send staging messages to real customers.
+
+## One-time setup (Meta direct — production cutover later)
+
+You need a Meta Business account (business.facebook.com). **Do not run this against the
+live number until cutover is explicitly approved.** Number migration is not an env-var flip
+(see Migration procedure below).
+
+1. Ensure the WhatsApp Business Account can be hosted on Meta Cloud API (direct), or
+   complete Embedded Signup / Tech Provider onboarding as required for your portfolio.
+2. In your Meta app → **WhatsApp → API Setup**, copy the **Phone number ID**.
+3. Copy the **WhatsApp Business Account ID** (WABA).
+4. Create a **permanent access token**: Business Settings → Users → System users → Admin
+   → Assign assets (app + WhatsApp account) → Generate token with
    `whatsapp_business_messaging` and `whatsapp_business_management`.
-4. Copy the **App secret** from App settings → Basic.
-5. Pick any long random string as the **verify token**.
-6. Add the four Worker secrets:
+5. Copy the **App secret** from App settings → Basic.
+6. Pick any long random string as the **verify token**.
+7. Add Worker secrets/vars (production Worker only at cutover):
 
    ```bash
    cd workers/addresses
@@ -90,46 +125,98 @@ You need a Meta Business account (business.facebook.com) and about 30 minutes.
    npx wrangler secret put WHATSAPP_PHONE_NUMBER_ID
    npx wrangler secret put WHATSAPP_APP_SECRET
    npx wrangler secret put WHATSAPP_VERIFY_TOKEN
+   npx wrangler secret put WHATSAPP_BUSINESS_ACCOUNT_ID
+   # plain var:
+   # WHATSAPP_PROVIDER=meta
    ```
 
-   (or Cloudflare dashboard → Workers → reimagined-octo-meme → Settings → Variables and Secrets).
-7. Deploy the Worker, then in the Meta app → **WhatsApp → Configuration → Webhook**:
-   - Callback URL: `https://reimagined-octo-meme.cgr28.workers.dev/whatsapp/webhook`
-   - Verify token: the string from step 5
-   - Subscribe to the **messages** and **smb_message_echoes** fields.
-     (`smb_message_echoes` is what lets the assistant step back when you reply from the app.)
-8. Send your number a test message from another phone.
-
-If you onboard through a provider that hosts the webhook for you, set its forwarding URL
-to the callback URL above. The Worker verifies Meta's `X-Hub-Signature-256` with your App
-secret, so the provider must forward Meta's original body and signature.
+8. Point Meta webhook at the production Worker `/whatsapp/webhook`, subscribe to
+   `messages` and `smb_message_echoes`.
+9. Re-submit / confirm all `mat_*` templates are APPROVED on the Meta-hosted WABA before
+   enabling customer traffic.
 
 ## Controls
 
 | Setting | Where | Effect |
 | --- | --- | --- |
+| `WHATSAPP_PROVIDER` | Worker var | `360dialog` \| `meta` (see table above). |
 | `WHATSAPP_BOT_ENABLED = "false"` | Worker variable | Assistant stops replying; you handle every chat in the app. |
-| `WHATSAPP_HANDOFF_HOURS` | Worker variable | How long it stays quiet after AGENT or your reply (default 12). |
+| `WHATSAPP_HANDOFF_HOURS` | Worker variable | How long it stays quiet after AGENT or your reply (default 0.5 h). |
 | `WHATSAPP_GRAPH_VERSION` | Worker variable | Graph API version (default `v23.0`). |
 | `WHATSAPP_TEAM_NUMBER` | Worker variable | Handoffs link customers to this number instead of pausing the assistant. |
+| `WHATSAPP_TEMPLATES_ENABLED = "false"` | Worker variable | Stops all template sends (emails unaffected). |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | Worker secret/var | Required for Meta template list/submit. |
 
-Without either `D360_API_KEY` or the four Meta secrets, the webhook returns 503 and
+Without a resolved provider (`resolveWhatsAppProvider` null), the webhook returns 503 and
 nothing else changes on the site.
 
 ## Costs and rules
 
-- Replies to a customer who messaged you (within 24 hours) are free-form *service*
-  messages. Meta does not charge for service conversations at the time of writing; check
-  Meta's current pricing page. Messages you type in the app stay free.
-- The assistant only ever replies to customers who message first, so no message templates
-  or marketing opt-ins are needed.
-- Blue-tick (Official Business Account) verification is not available on Coexistence numbers.
+- Free-form replies inside the 24-hour customer service window follow Meta's current
+  service-message pricing (including any free allowance). Check Meta's pricing page.
+- Business-initiated templates (booking confirmed, reminders, driver status, etc.) are
+  charged as utility/marketing per Meta's rate card whether you use 360dialog or Meta
+  direct — 360dialog adds a ~€49/number/month platform fee; Meta direct has no BSP fee.
+- Template wording stays in My Airport Taxi NI voice ("we", "your driver").
+
+## Migration: 360dialog → Meta Cloud API (live number)
+
+**Critical:** switching `WHATSAPP_PROVIDER` alone does **not** move the phone number.
+Once a number leaves 360dialog BSP hosting and is registered on Meta Cloud API, rollback
+is limited and may require Meta/360dialog support — it is not a simple env revert.
+
+### Preconditions
+
+1. Staging Meta path proven (inbound, AI reply, quote, templates, statuses).
+2. Meta Business Portfolio owns / can host the WABA.
+3. Confirm with 360dialog and Meta whether the current WABA supports **direct hosting**
+   / number release to Meta Cloud API for `+44 7549 815538`.
+4. Inventory all APPROVED `mat_*` templates on 360dialog; they must be recreated and
+   APPROVED on the destination Meta WABA (names/language `en_GB`/components identical).
+5. Maintenance window agreed; owner available to monitor `/whatsapp/status`.
+
+### Cutover outline
+
+1. Freeze non-essential template experiments; keep production on 360dialog.
+2. On Meta: create/verify WABA, app, system user token, phone number ID (after number is
+   eligible to register — often after BSP release).
+3. Submit all `mat_*` templates on Meta; wait until APPROVED.
+4. Deploy Worker code that supports `WHATSAPP_PROVIDER=meta` (this codebase) to production
+   **while still** `WHATSAPP_PROVIDER` unset or `360dialog` and `D360_API_KEY` active.
+5. Coordinate 360dialog **number release / migration** to Meta (account-side). Expect
+   possible WhatsApp downtime while the number moves — customers may not receive API
+   messages during that window.
+6. Immediately set production secrets for Meta, set `WHATSAPP_PROVIDER=meta`, configure
+   Meta webhook to production `/whatsapp/webhook`, verify handshake.
+7. Smoke-test with a staff phone: inbound → AI/quote → one approved template to the staff
+   number only.
+8. Keep `D360_API_KEY` retained (unused) until stability is confirmed — do not cancel
+   360dialog until explicitly approved.
+
+### Rollback limitations
+
+| Stage | Rollback |
+| --- | --- |
+| Code deployed, still on 360dialog | Revert Worker deploy or keep provider `360dialog`. |
+| Meta secrets added but provider still 360dialog | Remove Meta webhook; no customer impact. |
+| Number migrated to Meta + provider=meta | Setting provider back to `360dialog` **only works if** the number is still on 360dialog. After a completed BSP release, you must reverse the number migration with Meta/360dialog — env rollback alone cannot restore API delivery. |
+
+### Downtime / risk
+
+- Brief messaging outage during number host migration is likely.
+- Templates pending approval = silent skip of WhatsApp notifications (emails still send).
+- Coexistence / `smb_message_echoes` behaviour may differ after migration — re-verify owner
+  reply pauses the assistant.
+- Dual-send risk if both 360dialog and Meta webhooks remain pointed at production — disable
+  the old webhook as soon as Meta is live.
 
 ## Code map
 
-- `shared/whatsapp-cloud.ts`: webhook parsing, signature verification, sending.
+- `shared/whatsapp-cloud.ts`: provider resolution, webhook parsing, signature verification, sending + safe HTTP retries.
 - `shared/whatsapp-quote-bot.ts`: conversation logic (pure, unit-checked).
 - `workers/addresses/src/whatsapp-handlers.ts`: `/whatsapp/webhook` route, KV state, pricing.
-- `createPricedQuickQuote` in `workers/addresses/src/quick-quote-handlers.ts`: shared
-  with the owner Quick Quote tool.
-- Checks: `npm run check:whatsapp-quote-bot`.
+- `workers/addresses/src/whatsapp-templates.ts`: template definitions, list/submit/send (360dialog + Meta).
+- `workers/addresses/src/whatsapp-ai.ts`: Claude assistant (unchanged behaviour).
+- `workers/addresses/wrangler.staging.toml`: Meta staging Worker (deploy only after approval).
+- Checks: `npm run check:whatsapp-quote-bot`, `npm run check:whatsapp-templates`,
+  `npm run check:whatsapp-meta-cloud`.

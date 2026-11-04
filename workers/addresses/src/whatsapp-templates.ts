@@ -18,16 +18,25 @@
  *   mat_driver_arrived_airport — driver taps Arrived at an airport: where to go + map button
  *
  * Nothing is sent until Meta has APPROVED the template: the approved list is read
- * from 360dialog (cached). WHATSAPP_TEMPLATES_ENABLED="false" switches all of them
- * off. Every send is best-effort — it never blocks or fails the email path — and is
- * idempotent via a KV marker per template + job.
+ * from the active provider (360dialog or Meta Graph) and cached. WHATSAPP_TEMPLATES_ENABLED="false"
+ * switches all of them off. Every send is best-effort — it never blocks or fails the email
+ * path — and is idempotent via a KV marker per template + job (written only after a successful
+ * accept, so intra-send retries cannot double-notify).
  *
  * GET /whatsapp/templates            — status of each template (approved / pending / missing)
- * GET /whatsapp/templates?submit=1   — submit any missing templates to Meta via 360dialog
+ * GET /whatsapp/templates?submit=1   — submit any missing templates via the active provider
  * (No key needed, like /whatsapp/connect: it can only ever submit these fixed templates.)
  */
 
-import { D360_API_BASE, type WhatsAppCloudEnv } from "../shared/whatsapp-cloud";
+import {
+  D360_API_BASE,
+  isRetriableWhatsAppHttpStatus,
+  postWhatsAppMessage,
+  resolveWhatsAppProvider,
+  whatsAppGraphBase,
+  type WhatsAppCloudEnv,
+  type WhatsAppProvider,
+} from "../shared/whatsapp-cloud";
 import { formatPartialRegistration } from "../shared/partial-registration";
 import { DEFAULT_GOOGLE_REVIEW_URL } from "../shared/google-business-profile";
 
@@ -398,10 +407,28 @@ const STATUS_CACHE_SECONDS = 30 * 60;
 const SUBMIT_COOLDOWN_KEY = "whatsapp:templates:submit-cooldown";
 const SUBMIT_COOLDOWN_SECONDS = 120;
 const SENT_MARKER_TTL_SECONDS = 60 * 60 * 24 * 400;
+const TEMPLATE_HTTP_MAX_ATTEMPTS = 3;
+const TEMPLATE_HTTP_RETRY_BASE_MS = 200;
 
 type TemplateStatusMap = Partial<Record<WhatsAppTemplateName, string>>;
 
-async function fetchTemplateStatuses(apiKey: string, fetchImpl: typeof fetch): Promise<TemplateStatusMap | null> {
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function recordMatTemplateStatus(
+  out: TemplateStatusMap,
+  tpl: { name?: string; status?: string; language?: string },
+): void {
+  if (!tpl.name || !tpl.name.startsWith("mat_")) return;
+  if (tpl.language && tpl.language !== WHATSAPP_TEMPLATE_LANGUAGE) return;
+  out[tpl.name as WhatsAppTemplateName] = String(tpl.status ?? "unknown").toLowerCase();
+}
+
+async function fetch360dialogTemplateStatuses(
+  apiKey: string,
+  fetchImpl: typeof fetch,
+): Promise<TemplateStatusMap | null> {
   try {
     const res = await fetchImpl(`${D360_API_BASE}/v1/configs/templates?limit=1000`, {
       headers: { "D360-API-KEY": apiKey },
@@ -411,31 +438,75 @@ async function fetchTemplateStatuses(apiKey: string, fetchImpl: typeof fetch): P
       waba_templates?: Array<{ name?: string; status?: string; language?: string }>;
     } | null;
     const out: TemplateStatusMap = {};
-    for (const tpl of data?.waba_templates ?? []) {
-      if (!tpl.name || !tpl.name.startsWith("mat_")) continue;
-      if (tpl.language && tpl.language !== WHATSAPP_TEMPLATE_LANGUAGE) continue;
-      out[tpl.name as WhatsAppTemplateName] = String(tpl.status ?? "unknown").toLowerCase();
-    }
+    for (const tpl of data?.waba_templates ?? []) recordMatTemplateStatus(out, tpl);
     return out;
   } catch {
     return null;
   }
 }
 
+/** Meta Graph: GET /{WABA_ID}/message_templates (paginated). */
+async function fetchMetaTemplateStatuses(
+  env: WhatsAppTemplateEnv,
+  fetchImpl: typeof fetch,
+): Promise<TemplateStatusMap | null> {
+  const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
+  const wabaId = env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim();
+  if (!token || !wabaId) return null;
+  const out: TemplateStatusMap = {};
+  let url: string | null =
+    `${whatsAppGraphBase(env)}/${encodeURIComponent(wabaId)}/message_templates` +
+    `?limit=100&fields=name,status,language`;
+  try {
+    while (url) {
+      let res: Response | null = null;
+      for (let attempt = 1; attempt <= TEMPLATE_HTTP_MAX_ATTEMPTS; attempt++) {
+        res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok || !isRetriableWhatsAppHttpStatus(res.status) || attempt === TEMPLATE_HTTP_MAX_ATTEMPTS) break;
+        await sleepMs(TEMPLATE_HTTP_RETRY_BASE_MS * attempt);
+      }
+      if (!res || !res.ok) return Object.keys(out).length ? out : null;
+      const data = (await res.json().catch(() => null)) as {
+        data?: Array<{ name?: string; status?: string; language?: string }>;
+        paging?: { next?: string };
+      } | null;
+      for (const tpl of data?.data ?? []) recordMatTemplateStatus(out, tpl);
+      url = data?.paging?.next?.trim() || null;
+    }
+    return out;
+  } catch {
+    return Object.keys(out).length ? out : null;
+  }
+}
+
+export async function fetchTemplateStatusesForProvider(
+  env: WhatsAppTemplateEnv,
+  provider: WhatsAppProvider,
+  fetchImpl: typeof fetch,
+): Promise<TemplateStatusMap | null> {
+  if (provider === "360dialog") {
+    const apiKey = env.D360_API_KEY?.trim();
+    if (!apiKey) return null;
+    return fetch360dialogTemplateStatuses(apiKey, fetchImpl);
+  }
+  return fetchMetaTemplateStatuses(env, fetchImpl);
+}
+
 export async function getTemplateStatuses(
   env: WhatsAppTemplateEnv,
   options: { refresh?: boolean; fetchImpl?: typeof fetch } = {},
 ): Promise<TemplateStatusMap | null> {
-  const apiKey = env.D360_API_KEY?.trim();
-  if (!apiKey) return null;
+  const provider = resolveWhatsAppProvider(env);
+  if (!provider) return null;
   const store = env.TRACKING_STORE;
+  const cacheKey = `${STATUS_CACHE_KEY}:${provider}`;
   if (store && !options.refresh) {
-    const cached = await store.get<TemplateStatusMap>(STATUS_CACHE_KEY, "json").catch(() => null);
+    const cached = await store.get<TemplateStatusMap>(cacheKey, "json").catch(() => null);
     if (cached) return cached;
   }
-  const fresh = await fetchTemplateStatuses(apiKey, options.fetchImpl ?? fetch);
+  const fresh = await fetchTemplateStatusesForProvider(env, provider, options.fetchImpl ?? fetch);
   if (fresh && store) {
-    await store.put(STATUS_CACHE_KEY, JSON.stringify(fresh), { expirationTtl: STATUS_CACHE_SECONDS }).catch(() => {});
+    await store.put(cacheKey, JSON.stringify(fresh), { expirationTtl: STATUS_CACHE_SECONDS }).catch(() => {});
   }
   return fresh;
 }
@@ -492,40 +563,90 @@ async function sendTemplate(
   if (!store) return { sent: false, reason: "no_store" };
   const to = whatsAppRecipient(input.mobile);
   if (!to) return { sent: false, reason: "no_mobile" };
+  if (!resolveWhatsAppProvider(env)) return { sent: false, reason: "disabled_or_not_approved" };
   if (!(await templateApproved(env, input.name, fetchImpl))) return { sent: false, reason: "disabled_or_not_approved" };
 
   const markerKey = `whatsapp:tpl:${input.name}:${input.jobKey}`;
   if (await store.get(markerKey)) return { sent: false, reason: "already_sent" };
 
-  const apiKey = env.D360_API_KEY?.trim();
-  if (!apiKey) return { sent: false, reason: "disabled_or_not_approved" };
-  try {
-    const res = await fetchImpl(`${D360_API_BASE}/messages`, {
-      method: "POST",
-      headers: { "D360-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        ...buildTemplatePayload(input.name, input.bodyParams, input.urlButtonParam),
+  // Send via the shared Cloud API helper (360dialog or Meta). Marker is written only after
+  // a successful accept so intra-send HTTP retries cannot double-notify a customer.
+  const result = await postWhatsAppMessage(
+    env,
+    to,
+    buildTemplatePayload(input.name, input.bodyParams, input.urlButtonParam),
+    fetchImpl,
+  );
+  if (!result.sent) {
+    console.log(
+      JSON.stringify({
+        event: "whatsapp_template_failed",
+        template: input.name,
+        phoneSuffix: to.slice(-4),
+        error: result.error,
       }),
-    });
-    const data = (await res.json().catch(() => null)) as {
-      messages?: Array<{ id?: string }>;
-      error?: { message?: string; code?: number };
-    } | null;
-    if (!res.ok) {
-      const error = data?.error?.message
-        ? `${data.error.message}${data.error.code ? ` (code ${data.error.code})` : ""}`
-        : `HTTP ${res.status}`;
-      console.log(JSON.stringify({ event: "whatsapp_template_failed", template: input.name, phoneSuffix: to.slice(-4), error }));
-      return { sent: false, reason: "send_failed", error };
+    );
+    return { sent: false, reason: "send_failed", error: result.error };
+  }
+  await store.put(markerKey, new Date().toISOString(), { expirationTtl: SENT_MARKER_TTL_SECONDS });
+  console.log(JSON.stringify({ event: "whatsapp_template_sent", template: input.name, phoneSuffix: to.slice(-4) }));
+  return { sent: true, messageId: result.messageId };
+}
+
+async function submitTemplateDefinition(
+  env: WhatsAppTemplateEnv,
+  provider: WhatsAppProvider,
+  def: TemplateDefinition,
+  fetchImpl: typeof fetch,
+): Promise<{ ok: boolean; detail: string }> {
+  const body = JSON.stringify({
+    name: def.name,
+    category: def.category,
+    language: WHATSAPP_TEMPLATE_LANGUAGE,
+    components: def.components,
+  });
+  if (provider === "360dialog") {
+    const apiKey = env.D360_API_KEY!.trim();
+    try {
+      const res = await fetchImpl(`${D360_API_BASE}/v1/configs/templates`, {
+        method: "POST",
+        headers: { "D360-API-KEY": apiKey, "Content-Type": "application/json" },
+        body,
+      });
+      const text = await res.text();
+      return res.ok
+        ? { ok: true, detail: `${def.name}: submitted ✅` }
+        : { ok: false, detail: `${def.name}: not accepted (HTTP ${res.status}) ${text.slice(0, 400)}` };
+    } catch (err) {
+      return { ok: false, detail: `${def.name}: error ${err instanceof Error ? err.message : String(err)}` };
     }
-    await store.put(markerKey, new Date().toISOString(), { expirationTtl: SENT_MARKER_TTL_SECONDS });
-    console.log(JSON.stringify({ event: "whatsapp_template_sent", template: input.name, phoneSuffix: to.slice(-4) }));
-    return { sent: true, messageId: data?.messages?.[0]?.id };
+  }
+
+  const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
+  const wabaId = env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim();
+  if (!token || !wabaId) {
+    return { ok: false, detail: `${def.name}: WHATSAPP_BUSINESS_ACCOUNT_ID (and access token) required for Meta submit` };
+  }
+  const endpoint = `${whatsAppGraphBase(env)}/${encodeURIComponent(wabaId)}/message_templates`;
+  try {
+    let lastDetail = `${def.name}: submit failed`;
+    for (let attempt = 1; attempt <= TEMPLATE_HTTP_MAX_ATTEMPTS; attempt++) {
+      const res = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body,
+      });
+      const text = await res.text();
+      if (res.ok) return { ok: true, detail: `${def.name}: submitted ✅` };
+      lastDetail = `${def.name}: not accepted (HTTP ${res.status}) ${text.slice(0, 400)}`;
+      if (!isRetriableWhatsAppHttpStatus(res.status) || attempt === TEMPLATE_HTTP_MAX_ATTEMPTS) {
+        return { ok: false, detail: lastDetail };
+      }
+      await sleepMs(TEMPLATE_HTTP_RETRY_BASE_MS * attempt);
+    }
+    return { ok: false, detail: lastDetail };
   } catch (err) {
-    return { sent: false, reason: "send_failed", error: err instanceof Error ? err.message : "send failed" };
+    return { ok: false, detail: `${def.name}: error ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
@@ -854,8 +975,20 @@ export async function handleWhatsAppTemplates(
   env: WhatsAppTemplateEnv,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
-  const apiKey = env.D360_API_KEY?.trim();
-  if (!apiKey) return plain("D360_API_KEY is not set, so templates cannot be managed.", 503);
+  const provider = resolveWhatsAppProvider(env);
+  if (!provider) {
+    return plain(
+      "WhatsApp provider is not configured. Set WHATSAPP_PROVIDER=360dialog|meta with the matching credentials " +
+        "(or D360_API_KEY for the legacy default).",
+      503,
+    );
+  }
+  if (provider === "meta" && !env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim()) {
+    return plain(
+      "WHATSAPP_BUSINESS_ACCOUNT_ID is required to list or submit templates on Meta Cloud API.",
+      503,
+    );
+  }
   const url = new URL(request.url);
   const reviewUrl = env.GOOGLE_REVIEW_URL?.trim() || DEFAULT_GOOGLE_REVIEW_URL;
   const definitions = whatsAppTemplateDefinitions(reviewUrl);
@@ -872,22 +1005,8 @@ export async function handleWhatsAppTemplates(
         lines.push(`${def.name}: already submitted (${existing[def.name]})`);
         continue;
       }
-      try {
-        const res = await fetchImpl(`${D360_API_BASE}/v1/configs/templates`, {
-          method: "POST",
-          headers: { "D360-API-KEY": apiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: def.name,
-            category: def.category,
-            language: WHATSAPP_TEMPLATE_LANGUAGE,
-            components: def.components,
-          }),
-        });
-        const text = await res.text();
-        lines.push(res.ok ? `${def.name}: submitted ✅` : `${def.name}: not accepted (HTTP ${res.status}) ${text.slice(0, 400)}`);
-      } catch (err) {
-        lines.push(`${def.name}: error ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const submitted = await submitTemplateDefinition(env, provider, def, fetchImpl);
+      lines.push(submitted.detail);
     }
     lines.push("", "Meta usually reviews templates within 24 hours. Open this page again (without ?submit=1) to see the status.");
   }
@@ -895,6 +1014,7 @@ export async function handleWhatsAppTemplates(
   const statuses = (await getTemplateStatuses(env, { refresh: true, fetchImpl })) ?? {};
   const enabled = env.WHATSAPP_TEMPLATES_ENABLED?.trim().toLowerCase() !== "false";
   lines.unshift(
+    `WhatsApp provider: ${provider}`,
     `WhatsApp template messages: ${enabled ? "ON (approved templates send automatically)" : "OFF (WHATSAPP_TEMPLATES_ENABLED=false)"}`,
     "",
     ...definitions.map((def) => `${def.name} (${def.category}): ${statuses[def.name] ?? "not submitted"}`),

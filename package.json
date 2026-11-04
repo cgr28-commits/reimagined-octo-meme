@@ -91,6 +91,8 @@
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
     "check:owner-customer-contact-message": "npx tsx scripts/check-owner-customer-contact-message.ts",
     "check:whatsapp-quote-bot": "npx tsx scripts/check-whatsapp-quote-bot.ts",
+    "check:whatsapp-templates": "npx tsx scripts/check-whatsapp-templates.ts",
+    "check:whatsapp-meta-cloud": "npx tsx scripts/check-whatsapp-meta-cloud.ts",
     "check:quick-quote-roi-manual": "npx tsx scripts/check-quick-quote-roi-manual-price.ts",
     "check:quick-quote-checkout-expiry-hotfix": "npx tsx scripts/check-quick-quote-checkout-expiry-hotfix.ts",
     "check:quote-path-fare-parity": "npx tsx scripts/check-quote-path-fare-parity.ts",
@@ -157,7 +159,7 @@
     "check:stripe-hold-refund": "npx tsx scripts/check-stripe-hold-refund.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.3.0",
+    "@anthropic-ai/sdk": "^1.5.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.61.0",
     "next": "^15.3.3",

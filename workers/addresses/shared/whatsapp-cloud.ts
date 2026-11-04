@@ -2,11 +2,14 @@
  * WhatsApp Business Platform (Cloud API) helpers — webhook parsing, signature
  * verification and outbound text messages.
  *
- * Two ways to connect:
+ * Two ways to connect (selected by WHATSAPP_PROVIDER, with backwards-compatible default):
  * - Meta direct: access token + phone number ID; webhooks signed with the App secret.
  *   Supports Coexistence (owner app replies arrive as `smb_message_echoes`).
  * - 360dialog: one API key (D360_API_KEY). Sends via waba-v2.360dialog.io and the
  *   webhook carries a shared secret header derived from that key.
+ *
+ * When WHATSAPP_PROVIDER is set explicitly, missing credentials for that provider never
+ * fall back to the other provider.
  */
 
 export const WHATSAPP_DEFAULT_GRAPH_VERSION = "v23.0";
@@ -14,7 +17,14 @@ export const D360_API_BASE = "https://waba-v2.360dialog.io";
 /** Header 360dialog adds to every webhook POST (set by /whatsapp/connect). */
 export const D360_WEBHOOK_SECRET_HEADER = "X-Webhook-Secret";
 
+export type WhatsAppProvider = "360dialog" | "meta";
+
 export type WhatsAppCloudEnv = {
+  /**
+   * Explicit provider: "360dialog" | "meta".
+   * When unset: keep legacy behaviour (D360_API_KEY wins, else Meta if fully configured).
+   */
+  WHATSAPP_PROVIDER?: string;
   /** Permanent System User access token (Worker secret). */
   WHATSAPP_ACCESS_TOKEN?: string;
   /** Phone number ID from WhatsApp Manager → API Setup (not the phone number). */
@@ -23,9 +33,11 @@ export type WhatsAppCloudEnv = {
   WHATSAPP_APP_SECRET?: string;
   /** Any random string; must match the Verify Token entered in the Meta App webhook settings. */
   WHATSAPP_VERIFY_TOKEN?: string;
+  /** WhatsApp Business Account ID — Meta template list/create (Worker secret / var). */
+  WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
   /** Optional Graph API version override, e.g. "v23.0". */
   WHATSAPP_GRAPH_VERSION?: string;
-  /** 360dialog API key — when set, 360dialog is used instead of Meta direct (Worker secret). */
+  /** 360dialog API key (Worker secret). */
   D360_API_KEY?: string;
 };
 
@@ -67,18 +79,61 @@ export type ParsedWhatsAppWebhook = {
   failures: WhatsAppDeliveryFailure[];
 };
 
-export function whatsAppUses360dialog(env: WhatsAppCloudEnv): boolean {
-  return Boolean(env.D360_API_KEY?.trim());
-}
-
-export function whatsAppCloudConfigured(env: WhatsAppCloudEnv): boolean {
-  if (whatsAppUses360dialog(env)) return true;
+export function metaWhatsAppCredentialsPresent(env: WhatsAppCloudEnv): boolean {
   return Boolean(
     env.WHATSAPP_ACCESS_TOKEN?.trim() &&
       env.WHATSAPP_PHONE_NUMBER_ID?.trim() &&
       env.WHATSAPP_APP_SECRET?.trim() &&
       env.WHATSAPP_VERIFY_TOKEN?.trim(),
   );
+}
+
+/**
+ * Resolve which provider the Worker should use.
+ * Returns null when an explicit provider is selected but that provider's credentials
+ * are missing — callers must not fall back to the other provider.
+ */
+export function resolveWhatsAppProvider(env: WhatsAppCloudEnv): WhatsAppProvider | null {
+  const explicit = env.WHATSAPP_PROVIDER?.trim().toLowerCase();
+  if (explicit === "meta") {
+    return metaWhatsAppCredentialsPresent(env) ? "meta" : null;
+  }
+  if (explicit === "360dialog") {
+    return env.D360_API_KEY?.trim() ? "360dialog" : null;
+  }
+  // Backwards compatible default: 360dialog when its key is set, else Meta.
+  if (env.D360_API_KEY?.trim()) return "360dialog";
+  if (metaWhatsAppCredentialsPresent(env)) return "meta";
+  return null;
+}
+
+export function whatsAppUses360dialog(env: WhatsAppCloudEnv): boolean {
+  return resolveWhatsAppProvider(env) === "360dialog";
+}
+
+export function whatsAppCloudConfigured(env: WhatsAppCloudEnv): boolean {
+  return resolveWhatsAppProvider(env) !== null;
+}
+
+export function whatsAppGraphVersion(env: WhatsAppCloudEnv): string {
+  return env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
+}
+
+/** Graph API base for the configured version, e.g. https://graph.facebook.com/v23.0 */
+export function whatsAppGraphBase(env: WhatsAppCloudEnv): string {
+  return `https://graph.facebook.com/${whatsAppGraphVersion(env)}`;
+}
+
+/** Transient HTTP statuses that are safe to retry within a single send attempt. */
+export function isRetriableWhatsAppHttpStatus(status: number): boolean {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+const SEND_MAX_ATTEMPTS = 3;
+const SEND_RETRY_BASE_MS = 200;
+
+async function sleepMs(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Digits only, international format without "+" — the form Meta uses for wa_id. */
@@ -270,56 +325,78 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
 
 export type WhatsAppSendResult = { sent: boolean; messageId?: string; error?: string };
 
-function whatsAppSendTarget(
+export function whatsAppSendTarget(
   env: WhatsAppCloudEnv,
-): { endpoint: string; auth: Record<string, string> } | null {
-  const d360Key = env.D360_API_KEY?.trim();
-  if (d360Key) return { endpoint: `${D360_API_BASE}/messages`, auth: { "D360-API-KEY": d360Key } };
-  const token = env.WHATSAPP_ACCESS_TOKEN?.trim();
-  const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID?.trim();
-  if (!token || !phoneNumberId) return null;
-  const version = env.WHATSAPP_GRAPH_VERSION?.trim() || WHATSAPP_DEFAULT_GRAPH_VERSION;
-  return {
-    endpoint: `https://graph.facebook.com/${version}/${encodeURIComponent(phoneNumberId)}/messages`,
-    auth: { Authorization: `Bearer ${token}` },
-  };
+): { provider: WhatsAppProvider; endpoint: string; auth: Record<string, string> } | null {
+  const provider = resolveWhatsAppProvider(env);
+  if (provider === "360dialog") {
+    const d360Key = env.D360_API_KEY!.trim();
+    return { provider, endpoint: `${D360_API_BASE}/messages`, auth: { "D360-API-KEY": d360Key } };
+  }
+  if (provider === "meta") {
+    const token = env.WHATSAPP_ACCESS_TOKEN!.trim();
+    const phoneNumberId = env.WHATSAPP_PHONE_NUMBER_ID!.trim();
+    return {
+      provider,
+      endpoint: `${whatsAppGraphBase(env)}/${encodeURIComponent(phoneNumberId)}/messages`,
+      auth: { Authorization: `Bearer ${token}` },
+    };
+  }
+  return null;
 }
 
-async function postWhatsAppMessage(
+/**
+ * POST a Cloud API message. Retries only on explicit retriable HTTP statuses (429/5xx)
+ * before any success acknowledgement — never retries after a successful accept, so
+ * notification idempotency markers remain safe.
+ */
+export async function postWhatsAppMessage(
   env: WhatsAppCloudEnv,
   to: string,
   message: Record<string, unknown>,
   fetchImpl: typeof fetch,
 ): Promise<WhatsAppSendResult> {
   const target = whatsAppSendTarget(env);
-  if (!target) return { sent: false, error: "WhatsApp Cloud API not configured" };
-  try {
-    const res = await fetchImpl(target.endpoint, {
-      method: "POST",
-      headers: { ...target.auth, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: normalizeWhatsAppNumber(to),
-        ...message,
-      }),
-    });
-    const data = (await res.json().catch(() => null)) as {
-      messages?: Array<{ id?: string }>;
-      error?: { message?: string; code?: number };
-    } | null;
-    if (!res.ok) {
-      return {
-        sent: false,
-        error: data?.error?.message
-          ? `${data.error.message}${data.error.code ? ` (code ${data.error.code})` : ""}`
-          : `HTTP ${res.status}`,
-      };
-    }
-    return { sent: true, messageId: data?.messages?.[0]?.id };
-  } catch (err) {
-    return { sent: false, error: err instanceof Error ? err.message : "WhatsApp send failed" };
+  if (!target) {
+    const explicit = env.WHATSAPP_PROVIDER?.trim().toLowerCase();
+    if (explicit === "meta") return { sent: false, error: "WhatsApp provider is meta but Meta credentials are incomplete" };
+    if (explicit === "360dialog") return { sent: false, error: "WhatsApp provider is 360dialog but D360_API_KEY is missing" };
+    return { sent: false, error: "WhatsApp Cloud API not configured" };
   }
+  const body = JSON.stringify({
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: normalizeWhatsAppNumber(to),
+    ...message,
+  });
+  let lastError = "WhatsApp send failed";
+  for (let attempt = 1; attempt <= SEND_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetchImpl(target.endpoint, {
+        method: "POST",
+        headers: { ...target.auth, "Content-Type": "application/json" },
+        body,
+      });
+      const data = (await res.json().catch(() => null)) as {
+        messages?: Array<{ id?: string }>;
+        error?: { message?: string; code?: number };
+      } | null;
+      if (res.ok) {
+        return { sent: true, messageId: data?.messages?.[0]?.id };
+      }
+      lastError = data?.error?.message
+        ? `${data.error.message}${data.error.code ? ` (code ${data.error.code})` : ""}`
+        : `HTTP ${res.status}`;
+      if (!isRetriableWhatsAppHttpStatus(res.status) || attempt === SEND_MAX_ATTEMPTS) {
+        return { sent: false, error: lastError };
+      }
+    } catch (err) {
+      // Network failures before a response are ambiguous; do not retry — safer against duplicates.
+      return { sent: false, error: err instanceof Error ? err.message : "WhatsApp send failed" };
+    }
+    await sleepMs(SEND_RETRY_BASE_MS * attempt);
+  }
+  return { sent: false, error: lastError };
 }
 
 /**

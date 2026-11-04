@@ -275,6 +275,49 @@ async function main() {
     assert.equal(whatsAppRecipient("4155550123"), "", "no country code: not guessed");
     console.log("OK  international WhatsApp numbers");
   }
+
+  // Meta provider: explicit selection never uses D360 even if the key is present.
+  {
+    const calls: Call[] = [];
+    const env = {
+      WHATSAPP_PROVIDER: "meta",
+      WHATSAPP_ACCESS_TOKEN: "tok",
+      WHATSAPP_PHONE_NUMBER_ID: "pnid",
+      WHATSAPP_APP_SECRET: "sec",
+      WHATSAPP_VERIFY_TOKEN: "ver",
+      WHATSAPP_BUSINESS_ACCOUNT_ID: "waba",
+      D360_API_KEY: "must-not-be-used",
+      TRACKING_STORE: memoryKv(),
+    };
+    const f = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, body });
+      if (url.includes("360dialog")) {
+        return new Response("should not call 360dialog", { status: 500 });
+      }
+      if (url.includes("/message_templates")) {
+        return new Response(
+          JSON.stringify({ data: [{ name: "mat_driver_on_the_way", status: "APPROVED", language: "en_GB" }] }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/messages")) {
+        return new Response(JSON.stringify({ messages: [{ id: "wamid.meta" }] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+    const r = await sendDriverOnTheWayWhatsApp(
+      env,
+      { jobKey: "meta-1", customerName: "Sarah", mobile: "07377515059", pickupLabel: "Lisburn", tripTime: "05:30" },
+      f,
+    );
+    assert.equal(r.sent, true);
+    assert.equal(calls.some((c) => c.url.includes("360dialog")), false);
+    assert.ok(calls.some((c) => c.url.includes("graph.facebook.com") && c.url.includes("/messages")));
+  }
+  console.log("OK  Meta provider sends templates via Graph API only");
+
   console.log("\nAll WhatsApp template checks passed.");
 }
 
