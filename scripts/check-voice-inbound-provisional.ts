@@ -136,7 +136,7 @@ async function main() {
   assert.equal(body.ok, true);
   assert.equal(body.paymentStatus, "awaiting_payment");
   assert.match(body.bookingReference, /^MATNI-\d+$/);
-  assert.match(body.say, /isn't paid yet|isn.t paid yet/i);
+  assert.match(body.say, /not confirmed until you pay|hold only|isn't paid yet|isn.t paid yet/i);
   assert.match(body.say, /Your driver/);
   assert.match(body.say, /We'/);
   assert.match(body.bookingLink, /book-quote/);

@@ -4,6 +4,11 @@
 
 This document is the technical audit outcome and the approved wiring checklist for My Airport Taxi NI. Worker endpoints already exist (or are added in-repo); fonio dashboard configuration is a separate, approval-gated step.
 
+Review copies (paste only after approval):
+
+- Receptionist prompt: `docs/fonio-receptionist-prompt.md`
+- HTTP tool wiring: `docs/fonio-tool-config.md`
+
 Official fonio docs used for this audit (no invented endpoints):
 
 | Topic | Source |

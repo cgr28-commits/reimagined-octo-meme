@@ -69,7 +69,7 @@ export async function handleVoiceInbound(request: Request, env: Env): Promise<Re
       // Prompt guidance only — the assistant must still verify with reference + mobile
       // via /voice/booking before reading any journey details.
       sayHint:
-        "Greet them by name if we have it. Do not read booking details until they give the M-A-T booking reference and we verify it.",
+        "Greet them warmly by first name if we have it. Ask how we can help. Do not read booking details until they give the M-A-T booking reference and Booking Lookup verifies it.",
     });
   } catch (error) {
     console.error("voice inbound lookup failed", error instanceof Error ? error.message : error);

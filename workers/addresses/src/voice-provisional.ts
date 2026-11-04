@@ -144,7 +144,7 @@ export async function handleVoiceProvisionalBooking(request: Request, env: Env):
       bookingLink: bookingUrl,
       paymentStatus: "awaiting_payment",
       smsText: `My Airport Taxi NI: we've held your provisional booking ${existingRef} for ${memo.journeyLabel} on ${memo.whenLabel} at ${memo.amountLabel}. It is not paid yet. Check details and pay securely here: ${bookingUrl}`,
-      say: `We've already held provisional booking ${existingRef} for you at ${memo.amountLabel}. It isn't paid yet — I'll send you the secure link to check the details and pay. Your driver is confirmed after payment.`,
+      say: `We've already held provisional booking ${existingRef} for you at ${memo.amountLabel}. That's not a confirmed booking until you pay — shall I text you the secure link? Your driver is confirmed after payment.`,
     });
   }
 
@@ -211,6 +211,6 @@ export async function handleVoiceProvisionalBooking(request: Request, env: Env):
     paymentStatus: "awaiting_payment",
     price: quote.quotedAmountLabel,
     smsText: `My Airport Taxi NI: we've held your provisional booking ${bookingReference} for ${memo.journeyLabel} on ${memo.whenLabel} at ${memo.amountLabel}. It is not paid yet. Check details and pay securely here: ${bookingUrl}`,
-    say: `We've held provisional booking ${bookingReference} for ${memo.amountLabel}. It isn't paid yet — I'll send you the secure link to check the details and pay. Your driver is confirmed after payment.`,
+    say: `We've held provisional booking ${bookingReference} for ${memo.amountLabel}. That's a hold only — not confirmed until you pay on the secure link. Shall I text you that link? Your driver is confirmed after payment.`,
   });
 }

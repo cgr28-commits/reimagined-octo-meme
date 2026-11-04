@@ -39,6 +39,7 @@ import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
 import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
 import { handleVoiceInbound } from "./voice-inbound";
 import { handleVoiceProvisionalBooking } from "./voice-provisional";
+import { handleVoiceMessage } from "./voice-message";
 import { handleOwnerVoiceCalls } from "./voice-call-log-store";
 import { voiceAuthDenied } from "./voice-auth";
 export { ConsentLedger } from "./consent-ledger";
@@ -4714,6 +4715,10 @@ export default {
     // Unpaid provisional hold from a phone-priced quote (never marks paid).
     if (voicePath === "/voice/provisional-booking" && request.method === "POST") {
       return handleVoiceProvisionalBooking(request, env);
+    }
+    // Callback / urgent / unclear enquiry message for the team (never creates a paid booking).
+    if (voicePath === "/voice/message" && request.method === "POST") {
+      return handleVoiceMessage(request, env);
     }
     // After the conversation: call summary log + optional WhatsApp follow-up (with consent).
     if (voicePath === "/voice/call-ended" && request.method === "POST") {

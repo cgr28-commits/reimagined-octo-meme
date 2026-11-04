@@ -50,26 +50,42 @@ function readInput(body: unknown): VoiceQuoteInput {
 
 export async function handleVoiceQuote(request: Request, env: Env): Promise<Response> {
   const store = env.TRACKING_STORE;
-  if (!store) return reply({ ok: false, say: "I can't get a price right now. The team will text you the price shortly." }, 503);
+  if (!store) {
+    return reply({
+      ok: false,
+      toolFailed: true,
+      say: "I'm sorry — I can't get a price right now. Can I take your name and mobile so the team can text you back?",
+    }, 503);
+  }
 
   const body = await request.json().catch(() => null);
   const input = readInput(body);
   const checked = voiceQuoteDraft(input);
-  if (!checked.ok) return reply({ ok: false, missing: checked.missing, say: checked.say });
+  if (!checked.ok) {
+    return reply({
+      ok: false,
+      missing: checked.missing,
+      ...(checked.askNext ? { askNext: checked.askNext } : {}),
+      say: checked.say,
+    });
+  }
   const draft = checked.draft;
 
   if ((await consumeQuickQuoteCreateQuota(store, "voice:fonio", VOICE_QUOTES_PER_HOUR)) === "limited") {
-    return reply({ ok: false, say: "I can't get a price just now. Can I take your details so the team can text you the price?" });
+    return reply({
+      ok: false,
+      say: "I've given a lot of prices just now. Can I take your name and mobile so the team can text you the price?",
+    });
   }
 
   const availability = await checkWhatsAppAvailability(draft, store);
   if (!availability.ok) {
     const say =
       availability.reason === "notice"
-        ? "That's a bit too soon for us to guarantee a car. Can I take your details so the team can see if they can fit you in?"
+        ? "That's a bit soon for us to guarantee a car. Can I take your name and mobile so the team can see if they can fit you in?"
         : availability.reason === "closed"
-          ? "We're not taking bookings for that time. Can I take your details so the team can get back to you?"
-          : "We're fully booked at that time. Would a slightly earlier or later pickup work?";
+          ? "We're not taking bookings for that time. Can I take a message and have the team call you back?"
+          : "We're fully booked at that time. Would a slightly earlier or later pickup work for you?";
     return reply({ ok: false, unavailable: availability.reason, say });
   }
 
@@ -81,7 +97,8 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
   if (!priced.ok) {
     return reply({
       ok: false,
-      say: "I couldn't work out that journey. Could you give me the full address or postcode for the pickup and the destination?",
+      needsClearerAddress: true,
+      say: "I couldn't quite place that journey. Could you give me the full pickup address or postcode?",
     });
   }
 
@@ -125,13 +142,13 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   const mobile = String(input.mobile ?? "").trim();
   const name = String(input.name ?? "").trim().slice(0, 40);
   if (!/^[a-f0-9]{16,64}$/i.test(quoteId)) {
-    return reply({ ok: false, say: "I need to get the price first, then I can send the link." });
+    return reply({ ok: false, say: "Let me get the fixed price first, then I can send you the booking link." });
   }
   const memo = await store.get<VoiceQuoteMemo>(memoKey(quoteId), "json");
-  if (!memo) return reply({ ok: false, say: "That price has expired, so let me get it again before I send the link." });
+  if (!memo) return reply({ ok: false, say: "That price has timed out. Let me get a fresh one, then I'll send the link." });
   const digits = mobile.replace(/[^\d+]/g, "");
   if (!/^(\+?44|0)7\d{9}$/.test(digits)) {
-    return reply({ ok: false, missing: ["mobile"], say: "What's the best mobile number for WhatsApp? It should start with 07." });
+    return reply({ ok: false, missing: ["mobile"], say: "What's the best mobile for the link? It should start with 07." });
   }
   const sent = await sendQuoteLinkWhatsApp(env, {
     quoteId,
@@ -144,7 +161,10 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   });
   if (sent.sent || sent.reason === "already_sent") {
     await markVoiceLinkSent(store, digits).catch(() => undefined);
-    return reply({ ok: true, say: "Done – I've sent the booking link to your WhatsApp. Just tap Book now to check the details and pay." });
+    return reply({
+      ok: true,
+      say: "Done — I've sent the booking link to your WhatsApp. Tap Book now to check the details and pay securely. Your driver is confirmed after payment.",
+    });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
   // The SMS backup still gets them the link, so don't also send a follow-up.
@@ -156,7 +176,7 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
       sendBySms: true,
       mobile: digits,
       smsText: smsText(memo, memo.bookingUrl),
-      say: "I'll text you the booking link instead.",
+      say: "No bother — I'll text you the booking link instead. Your driver is confirmed after you pay on that secure link.",
     });
   }
   return reply({ ok: false, say: fallback });

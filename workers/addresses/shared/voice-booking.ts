@@ -132,14 +132,14 @@ export function voiceBookingSay(booking: PaidBookingRecord, driver: VoiceDriverI
 export function voiceMobileOnlySay(count: number): string {
   const found = count === 1 ? "an upcoming booking" : `${count} upcoming bookings`;
   return (
-    `I can see ${found} on that mobile number. For your security I can't read the details out without the booking reference, ` +
-    "which starts M-A-T and is in your confirmation email. Or I can send the details to that mobile now – would you like that?"
+    `I can see ${found} on that mobile. For your security I can't read the details out without the booking reference — ` +
+    "it starts M-A-T and is in your confirmation email. Or I can send the details to that mobile now — would you like that?"
   );
 }
 
 export const VOICE_BOOKING_NOT_FOUND_SAY =
-  "I couldn't find a booking with those details. Could you check the booking reference in your confirmation email – it starts M-A-T – " +
-  "and the mobile number you booked with? Or I can take your details and the team will get back to you.";
+  "I couldn't find a booking with those details. Could you check the M-A-T reference in your confirmation email " +
+  "and the mobile you booked with? Or I can take a message and have the team call you back.";
 
 /** Text message with the booking details and Manage Booking link (SMS backup to WhatsApp). */
 export function voiceBookingSmsText(booking: PaidBookingRecord, manageUrl: string | null): string {
