@@ -5,6 +5,7 @@ import {
   retrieveStripeCheckoutSession,
   shouldUseStripeHold,
   stripeModeFromKey,
+  cleanSecretValue,
   verifyStripeWebhook,
   isStripeCheckoutId,
 } from "../shared/stripe-payments";
@@ -16,7 +17,7 @@ import {
   SHORT_NOTICE_HOLD_KIND,
 } from "./short-notice-card-hold";
 import { captureCheckoutHold } from "./stripe-holds";
-import { stripeActiveFor } from "./payment-provider";
+import { paymentProviderStatus, stripeActiveFor } from "./payment-provider";
 import {
   lastPickupAtForBooking,
   processDueStripeHolds,
@@ -4416,7 +4417,7 @@ async function handleStripeSessionRequest(
   origin: string | null,
 ): Promise<Response> {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405, origin);
-  const publishableKey = env.STRIPE_PUBLISHABLE_KEY?.trim() ?? "";
+  const publishableKey = cleanSecretValue(env.STRIPE_PUBLISHABLE_KEY);
   if (!env.STRIPE_SECRET_KEY?.trim() || !publishableKey) {
     return json({ error: "Card payment is not available right now", code: "not_configured" }, 503, origin);
   }
@@ -4459,7 +4460,7 @@ async function handleStripeSessionRequest(
  * the SumUp callback (emails, calendar, tracking, holds) for the session id.
  */
 async function handleStripeWebhookRequest(request: Request, env: Env): Promise<Response> {
-  const secret = env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
+  const secret = cleanSecretValue(env.STRIPE_WEBHOOK_SECRET);
   if (!secret) return new Response("Stripe webhook secret not configured", { status: 503 });
   const payload = await request.text();
   let event;
@@ -4649,6 +4650,12 @@ export default {
       request.method === "POST"
     ) {
       return handleStripeWebhookRequest(request, env);
+    }
+    if (url.pathname === "/payments/provider-status" && request.method === "GET") {
+      return new Response(JSON.stringify(paymentProviderStatus(env), null, 2), {
+        status: 200,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+      });
     }
     if (url.pathname === "/payments/stripe-session" || url.pathname === "/api/payments/stripe-session") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
