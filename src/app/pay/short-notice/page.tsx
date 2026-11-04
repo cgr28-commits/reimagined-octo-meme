@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import Logo from "@/components/Logo";
 import ShortNoticePayClient from "./ShortNoticePayClient";
 
 export const metadata: Metadata = {
@@ -14,9 +16,9 @@ export default function ShortNoticePayPage() {
   return (
     <main className="min-h-screen bg-navy px-4 py-10 sm:px-6">
       <div className="mx-auto mb-8 max-w-lg text-center">
-        <p className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          My Airport Taxi NI
-        </p>
+        <Link href="/" aria-label="My Airport Taxi NI — home" className="inline-block">
+          <Logo className="mx-auto h-20 w-auto" priority />
+        </Link>
       </div>
       <ShortNoticePayClient />
     </main>

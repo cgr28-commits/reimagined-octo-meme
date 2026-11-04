@@ -12,7 +12,8 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   lightCustomerEmailHtml,
   businessEmailClientMeta,
-  businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY
+  businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY,
+  paymentMethodsEmailHtml,
 } from "./business-email";
 import { formatA2aQuoteValidityLabel } from "./a2a-personalised-quote";
 import { formatUkDate } from "./uk-time";
@@ -263,7 +264,7 @@ ${businessEmailClientMeta()}</head>
         <tr><td style="padding:8px 28px 24px;color:#d7e2ec;font-size:15px;line-height:1.55;">
           ${bodyHtml}
           <p style="margin:0 0 24px;text-align:center;">
-            <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">${escapeHtml(ctaLabel)}</a>
+            <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">${escapeHtml(ctaLabel)}</a>${paymentMethodsEmailHtml()}
           </p>
           <p style="margin:0;font-size:12px;color:#9fb0c0;text-align:center;">Secure card payment.</p>
           <p style="margin:16px 0 0;font-size:12px;color:#9fb0c0;text-align:center;">Ref ${escapeHtml(details.reference)}</p>

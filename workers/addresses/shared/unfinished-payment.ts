@@ -14,7 +14,8 @@ import {
   BUSINESS_WEBSITE,
   businessEmailClientMeta,
   businessEmailLogoHtml,
-  lightCustomerEmailHtml, BUSINESS_LANDLINE_DISPLAY
+  lightCustomerEmailHtml, BUSINESS_LANDLINE_DISPLAY,
+  paymentMethodsEmailHtml,
 } from "./business-email";
 import { emailTypoSuggestion, isUsableEmailAddress } from "./email-typo";
 import { formatUkDateTime } from "./uk-time";
@@ -208,7 +209,7 @@ ${businessEmailLogoHtml()}
 <p><strong>${esc(journey)}</strong><br/>Pickup: ${esc(pickup)}</p>
 <p>${esc(priceLine)}</p>
 <p style="margin:24px 0 8px;text-align:center;">
-<a href="${esc(input.resumeUrl)}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Finish my booking</a>
+<a href="${esc(input.resumeUrl)}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Finish my booking</a>${paymentMethodsEmailHtml()}
 </p>
 <p style="margin:16px 0 0;font-size:14px;color:#64748b;">If the card payment didn't work or you'd rather book another way, just reply to this email or call us on ${esc(BUSINESS_LANDLINE_DISPLAY)}, or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}.</p>
 </td></tr>
