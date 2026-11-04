@@ -1,6 +1,7 @@
 "use client";
 
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
+import { formatUkDateTime } from "../../../shared/uk-time";
 import { emailAddressProblem } from "../../../shared/email-typo";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -558,13 +559,19 @@ function BookQuoteInner() {
             </p>
           </div>
         ) : null}
-        <p className="mt-2 break-words text-sm text-white/60">
+        <p className="mt-2 break-words text-sm text-white/70">
           {quote.expiresAt == null || quote.expiresAt === ""
-            ? "Secure card payment · no expiry date"
-            : `Secure card payment · quote expires ${new Date(quote.expiresAt).toLocaleString("en-GB", {
+            ? "Fixed price · no hidden extras"
+            : `Price held until ${new Date(quote.expiresAt).toLocaleString("en-GB", {
                 timeZone: "Europe/London",
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
               })}`}
         </p>
+        <PaymentMethodLogos className="mt-4" />
       </section>
 
       {expressSelection.eligible && expressSelection.airportCode ? (
@@ -602,14 +609,14 @@ function BookQuoteInner() {
         <p className="break-words">
           <span className="text-white/50">When:</span>{" "}
           {tripDate.trim() && tripTime.trim()
-            ? `${tripDate} ${tripTime}`
+            ? formatUkDateTime(tripDate, tripTime) || `${tripDate} ${tripTime}`
             : "Not set"}
         </p>
         {journey.returnJourney ? (
           <p className="break-words">
             <span className="text-white/50">Return:</span>{" "}
             {returnDate.trim() && returnTime.trim()
-              ? `${returnDate} ${returnTime}`
+              ? formatUkDateTime(returnDate, returnTime) || `${returnDate} ${returnTime}`
               : "Not set"}
           </p>
         ) : (
@@ -618,45 +625,45 @@ function BookQuoteInner() {
           </p>
         )}
         <div className="grid grid-cols-2 gap-3 pt-2">
-          <div>
+          <div className="min-w-0">
             <label className="mb-1 block text-xs text-white/45">Pickup date</label>
             <input
               id="book-quote-date"
               type="date"
               value={tripDate}
               onChange={(e) => setTripDate(e.target.value)}
-              className={`${fieldClass} w-full`}
+              className={`${fieldClass} block w-full min-w-0 max-w-full appearance-none`}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="mb-1 block text-xs text-white/45">Pickup time</label>
             <input
               id="book-quote-time"
               type="time"
               value={tripTime}
               onChange={(e) => setTripTime(e.target.value)}
-              className={`${fieldClass} w-full`}
+              className={`${fieldClass} block w-full min-w-0 max-w-full appearance-none`}
             />
           </div>
         </div>
         {journey.returnJourney ? (
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="mb-1 block text-xs text-white/45">Return date</label>
               <input
                 type="date"
                 value={returnDate}
                 onChange={(e) => setReturnDate(e.target.value)}
-                className={`${fieldClass} w-full`}
+                className={`${fieldClass} block w-full min-w-0 max-w-full appearance-none`}
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="mb-1 block text-xs text-white/45">Return time</label>
               <input
                 type="time"
                 value={returnTime}
                 onChange={(e) => setReturnTime(e.target.value)}
-                className={`${fieldClass} w-full`}
+                className={`${fieldClass} block w-full min-w-0 max-w-full appearance-none`}
               />
             </div>
           </div>

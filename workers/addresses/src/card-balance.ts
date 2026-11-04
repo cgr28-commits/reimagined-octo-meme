@@ -25,6 +25,7 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml,
   lightCustomerEmailHtml,
+  paymentMethodsEmailHtml,
 } from "../shared/business-email";
 import { formatPaidAmount } from "../shared/booking-notifications";
 import {
@@ -273,7 +274,7 @@ export function buildCardBalanceCustomerEmail(input: {
     `<p>${esc(lead)}</p>
 <p><strong>Booking reference:</strong> ${esc(ref)}<br/><strong>${esc(journey)}</strong><br/>Pickup: ${esc(pickup)}<br/>Booking total: ${esc(total)}<br/><strong>Balance due: ${esc(balance)}</strong></p>
 <p style="margin:24px 0 8px;text-align:center;">
-<a href="${esc(input.payUrl ?? "")}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Pay ${esc(balance)} by card</a>
+<a href="${esc(input.payUrl ?? "")}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Pay ${esc(balance)} by card</a>${paymentMethodsEmailHtml({ wallets: false })}
 </p>
 <p style="margin:8px 0 0;font-size:13px;color:#64748b;text-align:center;">Secure card payment</p>
 <p style="margin:16px 0 0;">${esc(warning)}</p>`,

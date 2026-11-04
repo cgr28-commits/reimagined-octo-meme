@@ -11,6 +11,7 @@ import {
   lightCustomerEmailHtml,
   businessEmailClientMeta,
   businessEmailLogoHtml,
+  paymentMethodsEmailHtml,
 } from "./business-email";
 import {
   firstNameFromCustomerName,
@@ -58,7 +59,7 @@ ${businessEmailLogoHtml()}
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${input.bodyHtml}
 <p style="margin:24px 0 8px;text-align:center;">
-<a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">${escapeHtml(input.ctaLabel)}</a>
+<a href="${escapeHtml(input.ctaUrl)}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">${escapeHtml(input.ctaLabel)}</a>${paymentMethodsEmailHtml()}
 </p>
 <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;text-align:center;">Your ${formatReturnOfferPercent()} return saving will be applied automatically.</p>
 </td></tr>

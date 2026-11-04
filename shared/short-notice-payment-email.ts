@@ -11,7 +11,8 @@ import {
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   lightCustomerEmailHtml,
   businessEmailClientMeta,
-  businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY
+  businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY,
+  paymentMethodsEmailHtml,
 } from "./business-email";
 import { formatCustomerPaymentDeadline, formatUkDateTime } from "./uk-time";
 
@@ -132,7 +133,7 @@ ${businessEmailClientMeta()}
           </tr>
           <tr>
             <td style="padding:8px 32px 24px;text-align:center;">
-              <a href="${escapeHtml(payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Pay securely</a>
+              <a href="${escapeHtml(payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Pay securely</a>${paymentMethodsEmailHtml()}
               <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Or copy this link:<br /><a href="${escapeHtml(payUrl)}" style="color:${NAVY};word-break:break-all;">${escapeHtml(payUrl)}</a></p>
             </td>
           </tr>

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import Logo from "@/components/Logo";
 import ReturnOfferBookClient from "./ReturnOfferBookClient";
 
 export const metadata: Metadata = {
@@ -15,9 +17,9 @@ export default function BookReturnOfferPage() {
   return (
     <main className="min-h-screen min-w-0 max-w-[100%] overflow-x-clip bg-navy px-3 py-8 text-white sm:px-6 sm:py-10">
       <div className="mx-auto mb-6 w-full min-w-0 max-w-lg px-0 text-center sm:mb-8">
-        <p className="text-sm font-semibold uppercase tracking-wider text-emerald">
-          My Airport Taxi NI
-        </p>
+        <Link href="/" aria-label="My Airport Taxi NI — home" className="inline-block">
+          <Logo className="mx-auto h-20 w-auto" priority />
+        </Link>
         <h1 className="mt-2 break-words font-display text-3xl text-white">
           Your 5% Return Journey Offer
         </h1>

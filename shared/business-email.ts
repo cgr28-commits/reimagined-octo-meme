@@ -38,6 +38,25 @@ export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
 export const BUSINESS_EMAIL_LOGO_WIDTH = 124;
 export const BUSINESS_EMAIL_LOGO_HEIGHT = 96;
 
+/** Accepted card / wallet marks for payment-link emails (PNG — email clients don't show SVG). */
+export const BUSINESS_EMAIL_PAYMENT_METHODS_URL = `${BUSINESS_WEBSITE}/email/payment-methods.png`;
+export const BUSINESS_EMAIL_PAYMENT_METHODS_ALT = "Visa, Mastercard, American Express, Apple Pay, Google Pay";
+
+export const BUSINESS_EMAIL_PAYMENT_CARDS_URL = `${BUSINESS_WEBSITE}/email/payment-cards.png`;
+
+/**
+ * Card (and, where the payment page offers them, wallet) logos + a "Secure card payment"
+ * line, placed straight under a pay button. Pass wallets: false for links whose payment
+ * page doesn't offer Apple Pay / Google Pay.
+ */
+export function paymentMethodsEmailHtml(options: { wallets?: boolean } = {}): string {
+  const wallets = options.wallets !== false;
+  const src = wallets ? BUSINESS_EMAIL_PAYMENT_METHODS_URL : BUSINESS_EMAIL_PAYMENT_CARDS_URL;
+  const alt = wallets ? BUSINESS_EMAIL_PAYMENT_METHODS_ALT : "Visa, Mastercard, American Express";
+  const width = wallets ? 248 : 147;
+  return `<br /><img src="${src}" alt="${alt}" width="${width}" height="32" border="0" style="display:inline-block;margin:14px auto 0;width:${width}px;max-width:100%;height:auto;border:0;outline:none;" /><br /><span style="display:inline-block;margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:normal;color:#64748b;">&#128274; Secure card payment</span>`;
+}
+
 /**
  * Asks clients that honour it to keep our navy header instead of inverting the logo.
  */
