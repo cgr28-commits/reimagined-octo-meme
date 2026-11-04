@@ -20,6 +20,7 @@ import {
   getStripeCheckoutAsSumUp,
   isStripeCheckoutId,
   stripeModeFromKey,
+  cleanSecretValue,
 } from "../shared/stripe-payments";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
 
@@ -36,10 +37,14 @@ export type PaymentProviderEnv = {
  * before the booking is known).
  */
 export function stripeActiveFor(env: PaymentProviderEnv, customerEmail?: string | null): boolean {
-  const key = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  const key = cleanSecretValue(env.STRIPE_SECRET_KEY);
   if (!key) return false;
-  const provider = env.PAYMENT_PROVIDER?.trim().toLowerCase() ?? "";
-  if (provider === "stripe") return stripeModeFromKey(key) === "live";
+  const provider = cleanSecretValue(env.PAYMENT_PROVIDER).toLowerCase().replace(/[\s_]+/g, "-");
+  // Live switch: anything except a test key goes to Stripe (a bad key then fails loudly
+  // at Stripe instead of quietly sending customers to SumUp).
+  if (provider === "stripe" || provider === "stripe-live" || provider === "live") {
+    return stripeModeFromKey(key) !== "test";
+  }
   if (provider === "stripe-test") {
     if (customerEmail === undefined) return true;
     const email = customerEmail?.trim().toLowerCase() ?? "";
@@ -118,4 +123,17 @@ export function providerKeyFor(
   const trimmed = String(id ?? "").trim();
   const stripeId = isStripeCheckoutId(trimmed) || /^pi_[A-Za-z0-9]+/.test(trimmed);
   return stripeId && env.STRIPE_SECRET_KEY?.trim() ? "stripe" : "";
+}
+
+/** Non-secret summary of the payment switch, for checking the live setup. */
+export function paymentProviderStatus(env: PaymentProviderEnv & { STRIPE_PUBLISHABLE_KEY?: string; STRIPE_WEBHOOK_SECRET?: string }) {
+  const key = cleanSecretValue(env.STRIPE_SECRET_KEY);
+  const pk = cleanSecretValue(env.STRIPE_PUBLISHABLE_KEY);
+  return {
+    paymentProvider: cleanSecretValue(env.PAYMENT_PROVIDER).toLowerCase() || "(not set)",
+    secretKey: key ? `${key.slice(0, 8)}… (${stripeModeFromKey(key)})` : "(not set)",
+    publishableKey: pk ? `${pk.slice(0, 8)}… (${pk.includes("_live_") ? "live" : pk.includes("_test_") ? "test" : "unknown"})` : "(not set)",
+    webhookSecret: cleanSecretValue(env.STRIPE_WEBHOOK_SECRET).startsWith("whsec_") ? "set" : "missing or wrong",
+    everyoneUsesStripe: stripeActiveFor(env, "") ,
+  };
 }

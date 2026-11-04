@@ -38,7 +38,7 @@ type StripeEnvLike = { STRIPE_SECRET_KEY?: string };
 
 /** Call once per request / cron run so routed SumUp helpers can reach Stripe. */
 export function configureStripe(env: StripeEnvLike): void {
-  configuredSecretKey = env.STRIPE_SECRET_KEY?.trim() ?? "";
+  configuredSecretKey = (env.STRIPE_SECRET_KEY ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
 }
 
 export function stripeConfigured(): boolean {
@@ -54,9 +54,15 @@ export function isStripePaymentIntentId(id: string | undefined | null): boolean 
 }
 
 export function stripeModeFromKey(key: string): "test" | "live" | "unknown" {
-  if (key.startsWith("sk_test_") || key.startsWith("rk_test_")) return "test";
-  if (key.startsWith("sk_live_") || key.startsWith("rk_live_")) return "live";
+  const k = key.trim().replace(/^["']+|["']+$/g, "");
+  if (/^(sk|rk)_test_/.test(k) || /^(sk|rk)_[a-z0-9]+_test_/.test(k)) return "test";
+  if (/^(sk|rk)_live_/.test(k) || /^(sk|rk)_[a-z0-9]+_live_/.test(k)) return "live";
   return "unknown";
+}
+
+/** Strips stray quotes/whitespace pasted into a secret. */
+export function cleanSecretValue(value: string | undefined | null): string {
+  return (value ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
 }
 
 export class StripeRequestError extends Error {
