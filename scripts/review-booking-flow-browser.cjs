@@ -12,6 +12,9 @@ const server = spawn('python3', ['-m', 'http.server', String(PORT), '--bind', '1
 const VIEWPORTS = [
   { name: 'desktop-1440', options: { viewport: { width: 1440, height: 900 } } },
   { name: 'laptop-1366', options: { viewport: { width: 1366, height: 768 } } },
+  { name: 'laptop-1280', options: { viewport: { width: 1280, height: 720 } } },
+  { name: 'tablet-1024', options: { viewport: { width: 1024, height: 768 } } },
+  { name: 'ipad-820', options: { viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true } },
   { name: 'iphone-13', options: { ...devices['iPhone 13'] } },
   { name: 'android-pixel7', options: { ...devices['Pixel 7'] } },
 ];
@@ -20,6 +23,7 @@ const JOURNEYS = [
   // 10 days out: normal full payment. 2 days out: card hold copy.
   { name: 'airport-10d', query: 'previewJourney=bfs&previewPax=2&previewBags=2', daysAhead: 10 },
   { name: 'airport-2d', query: 'previewJourney=bfs&previewPax=1&previewBags=1', daysAhead: 2 },
+  { name: 'deposit-40d', query: 'previewJourney=bfs&previewPax=2&previewBags=2', daysAhead: 40 },
 ];
 
 async function visibleText(page) {
@@ -112,26 +116,18 @@ async function run() {
           }
           await page.waitForTimeout(300);
           await shot(page, `${label}-4-details-filled`, report);
-          // Walk forward through any remaining steps until the payment page.
-          for (let step = 5; step <= 9; step++) {
-            if (page.url().includes('/pay/card/')) break;
-            const candidates = page.getByRole('button', { name: /pay|continue|confirm|book/i });
-            const count = await candidates.count();
-            let clicked = '';
-            for (let i = count - 1; i >= 0; i--) {
-              const b = candidates.nth(i);
-              if (!(await b.isVisible()) || !(await b.isEnabled())) continue;
-              const text = (await b.innerText()).trim();
-              if (/back|change|save my quote|whatsapp/i.test(text)) continue;
-              clicked = text;
-              await b.click();
-              break;
-            }
-            report.push(`- step ${step}: clicked "${clicked || '(nothing clickable)'}"`);
-            if (!clicked) break;
-            await page.waitForTimeout(1500);
-            await shot(page, `${label}-${step}-after-click`, report);
+          // Deposit journeys: choose the deposit option to show its payment terms.
+          const deposit = page.getByRole('button', { name: /Pay a deposit/i }).first();
+          if (await deposit.isVisible().catch(() => false)) {
+            await deposit.click();
+            await page.waitForTimeout(300);
+            await shot(page, `${label}-4b-deposit-chosen`, report);
           }
+          const pay = page.locator('[data-quote-result-card], main').getByRole('button', { name: /^Pay .*(Confirm|Booking|Hold)/i }).first();
+          const payText = (await pay.innerText().catch(() => '')).trim();
+          report.push(`- pay button: "${payText}" enabled=${await pay.isEnabled().catch(() => false)}`);
+          await pay.click({ timeout: 5000 });
+          await page.waitForURL(/\/pay\/card\//, { timeout: 10000 }).catch(() => {});
           if (page.url().includes('/pay/card/')) {
             await page.waitForTimeout(2500);
             await shot(page, `${label}-pay-page`, report);
