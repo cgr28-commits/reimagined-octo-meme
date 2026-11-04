@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ContactCardClient from "./ContactCardClient";
+import RetellVoiceSection from "@/components/RetellVoiceSection";
 import { SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 
@@ -25,5 +26,10 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactCardClient />;
+  return (
+    <>
+      <ContactCardClient />
+      <RetellVoiceSection />
+    </>
+  );
 }
