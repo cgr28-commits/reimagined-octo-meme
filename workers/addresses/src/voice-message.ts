@@ -122,6 +122,6 @@ export async function handleVoiceMessage(request: Request, env: Env): Promise<Re
     urgent,
     say: urgent
       ? "I've marked that as urgent for the team and they'll call you back as soon as they can on that mobile."
-      : "I've left that with the team and they'll call you back on that mobile. Is there anything else I can help with?",
+      : "I've left that with the team and they'll call you back on that mobile.",
   });
 }

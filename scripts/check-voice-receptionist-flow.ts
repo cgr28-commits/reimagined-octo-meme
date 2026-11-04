@@ -158,12 +158,24 @@ async function main() {
   body = await res.json();
   assert.equal(body.ok, true);
   assert.match(body.say, /call you back/i);
+  assert.doesNotMatch(body.say, /anything else I can help/i);
+  assert.doesNotMatch(body.say, /My Airport Taxi NI/i, "Spoken turns omit the full business name");
   console.log("OK  leave-message and urgent escalation");
 
   // 7) Reviewable prompt + tools present; live deploy forbidden in docs.
-  assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /Ask only one question at a time/);
+  const prompt = readFileSync("docs/fonio-receptionist-prompt.md", "utf8");
+  assert.match(prompt, /Ask only one question at a time/);
+  assert.match(prompt, /Natural business name usage/);
+  assert.match(prompt, /once only, in the opening greeting/);
+  assert.match(prompt, /Do NOT ask “Is there anything else I can help you with\?”/);
+  assert.match(prompt, /Never introduce yourself as an AI/);
   assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /Do not change the live Fonio/);
   assert.match(readFileSync("workers/addresses/src/index.ts", "utf8"), /\/voice\/message/);
+  assert.doesNotMatch(
+    readFileSync("workers/addresses/src/voice-message.ts", "utf8"),
+    /Is there anything else I can help/,
+  );
+  assert.match(readFileSync("AGENTS.md", "utf8"), /natural business name/i);
   console.log("check-voice-receptionist-flow: OK");
 }
 

@@ -68,3 +68,24 @@ bookings/addresses/tracking against your own backend.
 - The `SITE_OFFLINE` flag in `src/lib/data.ts` gates the whole public site behind a holding page when
   `enabled: true`. It is currently `false` (full site shows). If a future run sees only a holding
   page, check that flag.
+
+### Fonio phone receptionist (natural business name)
+When changing Fonio prompt copy, spoken `say` strings, or related docs
+(`docs/fonio-receptionist-prompt.md`, `docs/fonio-tool-config.md`, `/voice/*`):
+
+- Use the full business name **My Airport Taxi NI once** in the opening greeting only
+  (e.g. “Good morning, My Airport Taxi NI. How can we help?”).
+- After the greeting, speak as **we / us / our**. Do not repeat the full name when asking
+  questions, quoting, confirming, sending links or ending calls.
+- Only repeat the full name if the caller asks who they are speaking to, or clarification is
+  genuinely needed.
+- Avoid robotic closings such as “Thank you for choosing My Airport Taxi NI”.
+- Prefer short warm phrases (“No problem at all”, “Certainly”, “That’s grand”, “We can check
+  that for you”) without overusing them.
+- Do **not** ask “Is there anything else I can help you with?” after every answer; offer further
+  help only when the topic is finished or the caller seems unsure.
+- Never introduce as an AI unless asked directly (then answer truthfully).
+- SMS/WhatsApp bodies may still prefix **My Airport Taxi NI:** so the sender is clear in text —
+  that does not apply to spoken phone turns.
+- Do **not** deploy or paste changes into the live Fonio assistant without explicit approval.
+  Review copies live in `docs/fonio-receptionist-prompt.md`.
