@@ -49,7 +49,8 @@ export type WhatsAppTemplateName =
   | "mat_driver_arrived"
   | "mat_driver_arrived_airport"
   | "mat_quote_link"
-  | "mat_add_flight_number";
+  | "mat_add_flight_number"
+  | "mat_call_followup";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -299,6 +300,33 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               text: "Book now",
               url: `${SITE}/book-quote/?id={{1}}`,
               example: [`${SITE}/book-quote/?id=abc123`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // Phone assistant: the caller agreed to a WhatsApp if the call dropped, and it ended
+      // before they got a price or booking link.
+      name: "mat_call_followup",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thanks for calling My Airport Taxi NI about {{2}}. Sorry we didn't get to finish your quote.\n\n" +
+            "Tap below to get your fixed price online in under a minute, or just reply here and we'll help.",
+          example: {
+            body_text: [["Sarah", "a taxi from Dublin Airport to West Belfast"]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Get my price",
+              url: `${SITE}/?src=call#quote`,
             },
           ],
         },
@@ -935,6 +963,26 @@ export function resendBookingDetailsWhatsApp(
           input.dropoffLabel ?? "",
         ],
         urlButtonParam: input.manageToken?.trim() || "lookup",
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/** Phone assistant follow-up after a dropped call (caller agreed on the call). Once per number a day. */
+export function sendCallFollowUpWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: { mobile: string; customerName?: string | null; enquiry: string; dayKey: string },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_call_followup",
+        jobKey: `${whatsAppRecipient(input.mobile)}:${input.dayKey}`,
+        mobile: input.mobile,
+        bodyParams: [firstNameOf(input.customerName) || "there", input.enquiry],
       },
       fetchImpl,
     ),

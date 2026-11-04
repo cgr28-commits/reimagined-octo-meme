@@ -36,6 +36,7 @@ import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
 import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
 import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
+import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -4691,6 +4692,10 @@ export default {
     if ((url.pathname === "/voice/send-link" || url.pathname === "/api/voice/send-link") && request.method === "POST") {
       return handleVoiceSendLink(request, env);
     }
+    // fonio "After the conversation" request: WhatsApp follow-up for dropped calls (with consent).
+    if ((url.pathname === "/voice/call-ended" || url.pathname === "/api/voice/call-ended") && request.method === "POST") {
+      return handleVoiceCallEnded(request, env);
+    }
     if ((url.pathname === "/voice/booking" || url.pathname === "/api/voice/booking") && request.method === "POST") {
       return handleVoiceBooking(request, env);
     }
@@ -6414,6 +6419,9 @@ export default {
       ctx.waitUntil(processWhatsAppFollowUps(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent) console.log("WhatsApp follow-up cron", JSON.stringify(result));
       }).catch(error => console.error("WhatsApp follow-up cron failed", error)));
+      ctx.waitUntil(processVoiceFollowUps(env, new Date(event.scheduledTime)).then(result => {
+        if (result.sent || result.errors) console.log("Voice follow-up cron", JSON.stringify(result));
+      }).catch(error => console.error("Voice follow-up cron failed", error)));
       ctx.waitUntil(processQuoteContactFollowUps(env, new Date(event.scheduledTime)).then(result => {
         if (result.sent || result.errors) console.log("Quote follow-up cron", JSON.stringify(result));
       }).catch(error => console.error("Quote follow-up cron failed", error)));
