@@ -230,7 +230,7 @@ check("Deposit + Cash renders before Full Online and is preselected when eligibl
   assert.match(card, /CASH/);
   assert.match(card, /todayPayLabel\(depositCashOffer\.totalFare\)/);
   assert.match(card, /nothingToPayOnTheDayLabel\(\)/);
-  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
+  assert.equal((card.match(/<PaymentMethodLogos \/>/g) ?? []).length, 1);
 
 
 
@@ -506,7 +506,7 @@ check("CASE C — Full Online £50.10 shows today + nothing on the day", () => {
   assert.equal(fullPayButtonLabel(caseA.totalFare), "Pay £50.10 & Confirm Booking");
   const card = read("src/components/QuoteCard.tsx");
   assert.match(card, /\{selectedDepositCash \? \(/);
-  assert.equal((card.match(/\{SECURE_SUMUP_LINE\}/g) ?? []).length, 1);
+  assert.equal((card.match(/<PaymentMethodLogos \/>/g) ?? []).length, 1);
 });
 
 check("CASE D — cash acknowledgement stays required and unchecked", () => {

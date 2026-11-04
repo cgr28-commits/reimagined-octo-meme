@@ -1,5 +1,6 @@
 "use client";
 
+import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { emailAddressProblem } from "../../../shared/email-typo";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -858,6 +859,7 @@ function BookQuoteInner() {
                       : quote.quotedAmountLabel
                   }`}
           </button>
+          {isAvailabilityRequest ? null : <PaymentMethodLogos className="pt-1" />}
         </div>
       )}
       {isAvailabilityRequest ? null : (

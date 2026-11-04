@@ -1,5 +1,6 @@
 "use client";
 
+import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
 import { hasUncertainPayment, PAYMENT_UNCERTAIN_MESSAGE, PaymentOutcomeUncertainError } from "@/lib/payment-attempt-guard";
@@ -198,7 +199,6 @@ import {
   DEPOSIT_CASH_CHOOSE_HEADING,
   DEPOSIT_CASH_OPTION_LABEL,
   FULL_ONLINE_OPTION_LABEL,
-  SECURE_SUMUP_LINE,
   cashAgreementLabel,
   depositPayButtonLabel,
   formatDepositCashGbp,
@@ -7524,7 +7524,7 @@ function QuoteCard({
                       : "Please wait. We’re connecting you to secure payment."
                     : ""}
                 </p>
-                <p className="text-center text-xs text-white/55">{SECURE_SUMUP_LINE}</p>
+                <PaymentMethodLogos />
                 </>
               )}
             </div>
