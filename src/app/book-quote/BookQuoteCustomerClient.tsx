@@ -819,16 +819,12 @@ function BookQuoteInner() {
               offer={cardBalanceOffer}
               dueDateLabel={cardBalanceDueDateLabel(tripDate, tripTime)}
               depositSelected={payDeposit}
-              agreementAccepted={cardBalanceAgreed}
               disabled={paying}
               onSelectDeposit={(deposit) => {
                 setPayDeposit(deposit);
-                if (!deposit) setCardBalanceAgreed(false);
+                // Choosing the deposit (with the Terms tick) accepts the balance terms shown.
+                setCardBalanceAgreed(deposit);
                 setError((prev) => (prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev));
-              }}
-              onAgreementChange={(accepted) => {
-                setCardBalanceAgreed(accepted);
-                if (accepted) setError((prev) => (prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev));
               }}
             />
           ) : null}
