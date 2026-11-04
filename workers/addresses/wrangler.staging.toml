@@ -21,7 +21,9 @@
 # - Do not set D360_API_KEY on staging.
 # - Do not point Meta or 360dialog production webhooks at this Worker.
 # - Do not bind production KV namespaces.
-# - Do not migrate or register the live 07549 815538 number here.
+# - Do not migrate, disconnect, or register the live Coexistence number 07549 815538 here.
+# - Deploy via: node scripts/setup-whatsapp-staging.mjs (requires CF token + Meta TEST secrets).
+# - Live migration blocked until Meta confirms Coexistence is retained on direct Cloud API hosting.
 
 name = "reimagined-octo-meme-whatsapp-staging"
 main = "src/index.ts"

@@ -76,29 +76,45 @@ Template status / submit: `GET /whatsapp/templates` and `?submit=1` (via 360dial
 
 Use a **separate** Cloudflare Worker (`wrangler.staging.toml`) with isolated KV and Meta
 **test** credentials. Do **not** connect staging to the production number, live webhook,
-or production KV.
-
-Proposed resources (create only after explicit approval):
+or production KV. Do **not** register or migrate the live Coexistence number onto staging.
 
 | Resource | Value |
 | --- | --- |
 | Worker name | `reimagined-octo-meme-whatsapp-staging` |
 | Config file | `workers/addresses/wrangler.staging.toml` |
+| Setup script | `node scripts/setup-whatsapp-staging.mjs` |
 | `[vars].WHATSAPP_PROVIDER` | `meta` |
 | KV `TRACKING_STORE` | **new** namespace (never production id) |
 | KV `BOOKING_COUNTER` | **new** namespace (never production id) |
-| Secrets | Meta test: access token, phone number ID, app secret, verify token, WABA id |
-| Do not set | `D360_API_KEY`, production WhatsApp number, production webhooks |
+| Secrets | Meta **test** only: access token, phone number ID, app secret, verify token, WABA id |
+| Do not set | `D360_API_KEY`, production WhatsApp number, production webhooks, production KV |
 
-After deploy (only when approved):
+### Deploy staging (when Cloudflare token + Meta TEST secrets are available)
+
+```bash
+cd /path/to/repo
+CLOUDFLARE_API_TOKEN=... \
+WHATSAPP_ACCESS_TOKEN=... \
+WHATSAPP_PHONE_NUMBER_ID=... \
+WHATSAPP_APP_SECRET=... \
+WHATSAPP_VERIFY_TOKEN=... \
+WHATSAPP_BUSINESS_ACCOUNT_ID=... \
+# optional: ANTHROPIC_API_KEY=... \
+node scripts/setup-whatsapp-staging.mjs
+```
+
+The script refuses to run if `D360_API_KEY` is present, refuses production KV ids, and only
+deploys `wrangler.staging.toml`.
+
+After deploy:
 
 1. Meta App → WhatsApp → Configuration → Webhook  
    Callback: `https://reimagined-octo-meme-whatsapp-staging.<workers-subdomain>/whatsapp/webhook`  
    Verify token: matches `WHATSAPP_VERIFY_TOKEN`  
-   Fields: `messages`, and `smb_message_echoes` if available.
-2. Send a message from a phone to the **Meta test number** only.
-3. Check `GET /whatsapp/status` and `GET /whatsapp/templates` on the staging Worker.
-4. Submit templates with `GET /whatsapp/templates?submit=1` on staging; wait for APPROVED.
+   Fields: `messages`, and `smb_message_echoes` if available on the test number.
+2. Check `GET /whatsapp/status` and `GET /whatsapp/templates` on the staging Worker.
+3. Submit templates with `GET /whatsapp/templates?submit=1` on staging; wait for APPROVED.
+4. Message the **Meta test number** only — never `07549 815538`.
 
 Never send staging messages to real customers.
 
@@ -165,15 +181,33 @@ nothing else changes on the site.
 Once a number leaves 360dialog BSP hosting and is registered on Meta Cloud API, rollback
 is limited and may require Meta/360dialog support — it is not a simple env revert.
 
+### Mandatory Coexistence gate (must pass before any live migration)
+
+The live number uses the **WhatsApp Business App with Coexistence** (API + phone app share
+the same number; owner replies must continue to appear in the app and pause the assistant
+via `smb_message_echoes`).
+
+**Do not migrate** until Meta (and 360dialog if they still host the number) confirm in writing that:
+
+1. Direct Meta Cloud API hosting is available for this WhatsApp Business Account / number.
+2. **WhatsApp Business App Coexistence is retained** after leaving 360dialog BSP hosting
+   (same number stays linked to the Business App on the phone).
+3. `smb_message_echoes` (or equivalent) continues so the assistant steps back when the owner
+   replies from the app.
+4. Any 360dialog release steps required before Meta can host the number.
+
+If Coexistence cannot be retained on Meta direct hosting, **stop** — do not cut over. Keep
+360dialog (or another Coexistence-capable path) until an acceptable arrangement exists.
+
 ### Preconditions
 
-1. Staging Meta path proven (inbound, AI reply, quote, templates, statuses).
-2. Meta Business Portfolio owns / can host the WABA.
-3. Confirm with 360dialog and Meta whether the current WABA supports **direct hosting**
-   / number release to Meta Cloud API for `+44 7549 815538`.
-4. Inventory all APPROVED `mat_*` templates on 360dialog; they must be recreated and
+1. Staging Meta path proven (inbound, AI reply, quote, templates, statuses) on a **test** number only.
+2. Coexistence gate above passed.
+3. Meta Business Portfolio owns / can host the WABA.
+4. Confirm with 360dialog and Meta the exact release / re-host steps for `+44 7549 815538`.
+5. Inventory all APPROVED `mat_*` templates on 360dialog; they must be recreated and
    APPROVED on the destination Meta WABA (names/language `en_GB`/components identical).
-5. Maintenance window agreed; owner available to monitor `/whatsapp/status`.
+6. Maintenance window agreed; owner available to monitor `/whatsapp/status`.
 
 ### Cutover outline
 
