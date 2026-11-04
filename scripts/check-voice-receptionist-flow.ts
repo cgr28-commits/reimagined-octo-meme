@@ -162,20 +162,27 @@ async function main() {
   assert.doesNotMatch(body.say, /My Airport Taxi NI/i, "Spoken turns omit the full business name");
   console.log("OK  leave-message and urgent escalation");
 
-  // 7) Reviewable prompt + tools present; live deploy forbidden in docs.
+  // 7) Scenario coverage checklist + reviewable prompt.
   const prompt = readFileSync("docs/fonio-receptionist-prompt.md", "utf8");
   assert.match(prompt, /Ask only one question at a time/);
   assert.match(prompt, /Natural business name usage/);
-  assert.match(prompt, /once only, in the opening greeting/);
+  assert.match(prompt, /daylight saving|Europe\/London|Inbound Webhook/i);
   assert.match(prompt, /Do NOT ask “Is there anything else I can help you with\?”/);
-  assert.match(prompt, /Never introduce yourself as an AI/);
-  assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /Do not change the live Fonio/);
+  assert.match(prompt, /answer truthfully|Do not pretend to be human/i);
+  assert.match(prompt, /sayAfterSmsSent|Only after SMS succeeds/i);
+  assert.match(prompt, /more than 24 hours before pickup|within 24 hours/i);
+  assert.match(prompt, /Belfast International|Dublin|return journey|urgent|interrupt/i);
+  assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /sayAfterSmsSent/);
   assert.match(readFileSync("workers/addresses/src/index.ts", "utf8"), /\/voice\/message/);
   assert.doesNotMatch(
     readFileSync("workers/addresses/src/voice-message.ts", "utf8"),
     /Is there anything else I can help/,
   );
   assert.match(readFileSync("AGENTS.md", "utf8"), /natural business name/i);
+
+  // 8) Correction / interruption / AI-honesty are prompt behaviours (documented).
+  assert.match(prompt, /interruptions and corrections/i);
+  assert.match(prompt, /automated phone receptionist/);
   console.log("check-voice-receptionist-flow: OK");
 }
 

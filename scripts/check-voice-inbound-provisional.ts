@@ -29,7 +29,7 @@ function memoryStore() {
 async function main() {
   const store = memoryStore();
 
-  // Inbound with no bookings → empty-ish safe payload.
+  // Inbound with no bookings → greeting + no PII dump.
   let res = await handleVoiceInbound(
     new Request("https://w/voice/inbound", {
       method: "POST",
@@ -37,14 +37,16 @@ async function main() {
       body: JSON.stringify({ fromNumber: "07700900123" }),
     }),
     { TRACKING_STORE: store as unknown as KVNamespace },
+    new Date("2026-11-04T15:00:00Z"),
   );
   let body = await res.json();
   assert.equal(body.knownCaller, false);
   assert.equal(body.hasUpcomingBooking, false);
+  assert.match(body.greeting, /My Airport Taxi NI/);
   assert.equal(body.bookingReference, undefined);
   assert.equal(body.pickupLabel, undefined);
 
-  // Unknown / landline → {}.
+  // Landline still gets a greeting (no booking lookup) — never dumps PII.
   res = await handleVoiceInbound(
     new Request("https://w/voice/inbound", {
       method: "POST",
@@ -52,10 +54,13 @@ async function main() {
       headers: { "Content-Type": "application/json" },
     }),
     { TRACKING_STORE: store as unknown as KVNamespace },
+    new Date("2026-11-04T20:00:00Z"),
   );
   body = await res.json();
-  assert.deepEqual(body, {});
-  console.log("OK  inbound returns no PII for unknown / landline callers");
+  assert.match(body.greeting, /Good evening, My Airport Taxi NI/);
+  assert.equal(body.knownCaller, false);
+  assert.equal(body.hasUpcomingBooking, false);
+  console.log("OK  inbound greeting for unknown / landline; no journey PII");
 
   // Provisional without a prior voice quote memo → ask for price first.
   res = await handleVoiceProvisionalBooking(

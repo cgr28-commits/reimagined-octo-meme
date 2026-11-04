@@ -30,7 +30,8 @@ Execution sentence for every during-call tool:
 }
 ```
 
-Use returned `name` / `sayHint` in the greeting only. Never invent booking details from inbound context.
+Speak returned `greeting` once (Europe/London morning/afternoon/evening + full business name once).  
+Use `name` / `sayHint` only as guidance. Never invent booking details from inbound context.
 
 ---
 
@@ -73,7 +74,8 @@ Speak only `say`. Honour `askNext`, `unavailable`, `needsClearerAddress`, `toolF
 }
 ```
 
-If `sendBySms` is true, trigger Fonio Send SMS to Caller with `smsText` (requires SMS add-on).
+If `sendBySms` is true, trigger Fonio Send SMS to Caller with `smsText` (requires SMS add-on).  
+Only after SMS succeeds, speak `sayAfterSmsSent` (do not claim delivery from the initial `say`).
 
 ---
 

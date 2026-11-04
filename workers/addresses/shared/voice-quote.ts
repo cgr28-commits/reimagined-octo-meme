@@ -8,6 +8,7 @@
  */
 import { parseAirportCode, parseQuickQuoteMessage } from "./quick-quote-parse";
 import { todayLondonDate } from "./uk-time";
+import { VOICE_CANCELLATION_SAY } from "./voice-greeting";
 import { extractClockTimes, type WhatsAppQuoteDraft } from "./whatsapp-quote-bot";
 
 export type VoiceQuoteInput = {
@@ -231,17 +232,17 @@ export function voiceQuoteSay(input: {
         ? "Airport pickups include up to 60 minutes' waiting, and address pickups 10 minutes."
         : "That includes 10 minutes' free waiting at pickup.";
   const parts = [
-    `Grand — the fixed price is ${spokenGbp(input.amount)} ${trip}, and that's everything included.`,
+    `That's grand — the fixed price is ${spokenGbp(input.amount)} ${trip}, and that's everything included.`,
     voiceVehicleSentence(input.vehicle, draft.suitcases ?? 0),
     waiting,
-    "You can cancel up to 24 hours before for a full refund.",
+    VOICE_CANCELLATION_SAY,
   ];
   if (input.requestOnly) {
     parts.push("For that date and time we need to confirm we can do it before you pay, so the team will confirm with you.");
   } else if (input.shortNotice) {
     parts.push("Because it's less than 24 hours away, that price is held for 2 hours.");
   } else {
-    parts.push("That's a quotation until you pay on the secure link — would you like me to text you the booking link?");
+    parts.push("That's a quotation until you pay on the secure link — would you like the booking link by text?");
   }
   return parts.join(" ");
 }

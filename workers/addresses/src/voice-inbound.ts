@@ -4,11 +4,11 @@
  * Official docs: https://fonio.info/en/developers/inbound-webhook
  * Fonio POSTs the caller number; we must respond with JSON within 5,000 ms.
  *
- * Privacy: never return addresses, booking references, payment status, or full
- * booking details. At most a first name + whether we recognise an upcoming job
- * so the assistant can greet politely and ask for the MAT reference to verify.
+ * Always returns a Europe/London time-of-day greeting that uses the full business
+ * name once. Privacy: never return addresses, booking references, or journey details.
  */
 import { sameCustomerPhone } from "../shared/whatsapp-pickup-info";
+import { voiceOpeningGreeting } from "../shared/voice-greeting";
 import { listUpcomingPaidBookings } from "./paid-booking-store";
 import { voiceMobile } from "../shared/voice-booking";
 
@@ -38,11 +38,7 @@ function firstName(value: string): string {
   return first.replace(/[^A-Za-z'-]/g, "").slice(0, 40);
 }
 
-export async function handleVoiceInbound(request: Request, env: Env): Promise<Response> {
-  const store = env.TRACKING_STORE;
-  // Empty object is a valid fonio response when nothing is known.
-  if (!store) return reply({});
-
+export async function handleVoiceInbound(request: Request, env: Env, now = new Date()): Promise<Response> {
   let input: Record<string, unknown> = {};
   if (request.method === "GET") {
     const url = new URL(request.url);
@@ -54,26 +50,34 @@ export async function handleVoiceInbound(request: Request, env: Env): Promise<Re
   const raw =
     String(input.fromNumber ?? input.from_number ?? input.callerNumber ?? input.from ?? input.phone ?? input.mobile ?? "").trim();
   const mobile = voiceMobile(raw);
-  if (!mobile) return reply({});
+  const store = env.TRACKING_STORE;
 
-  try {
-    const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 180, limit: 250 });
-    const mine = upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, mobile));
-    if (!mine.length) return reply({ knownCaller: false, hasUpcomingBooking: false });
+  let name = "";
+  let knownCaller = false;
+  let hasUpcomingBooking = false;
 
-    const name = firstName(String(mine[0]?.customerName ?? ""));
-    return reply({
-      knownCaller: true,
-      hasUpcomingBooking: true,
-      ...(name ? { name } : {}),
-      // Prompt guidance only — the assistant must still verify with reference + mobile
-      // via /voice/booking before reading any journey details.
-      sayHint:
-        "Greet them warmly by first name if we have it. Ask how we can help. Do not read booking details until they give the M-A-T booking reference and Booking Lookup verifies it.",
-    });
-  } catch (error) {
-    console.error("voice inbound lookup failed", error instanceof Error ? error.message : error);
-    // Safe empty context — never fail the call start because of a lookup error.
-    return reply({ knownCaller: false, hasUpcomingBooking: false });
+  if (store && mobile) {
+    try {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 180, limit: 250 });
+      const mine = upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, mobile));
+      if (mine.length) {
+        knownCaller = true;
+        hasUpcomingBooking = true;
+        name = firstName(String(mine[0]?.customerName ?? ""));
+      }
+    } catch (error) {
+      console.error("voice inbound lookup failed", error instanceof Error ? error.message : error);
+    }
   }
+
+  const { dayPart, greeting } = voiceOpeningGreeting({ firstName: name || undefined, now });
+  return reply({
+    dayPart,
+    greeting,
+    knownCaller,
+    hasUpcomingBooking,
+    ...(name ? { name } : {}),
+    sayHint:
+      "Speak the greeting field once (it already includes My Airport Taxi NI). After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",
+  });
 }

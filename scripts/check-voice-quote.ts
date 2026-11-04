@@ -60,9 +60,11 @@ if (ok.ok) {
   const say = voiceQuoteSay({ amount: 144, draft: ok.draft, requestOnly: false, shortNotice: false });
   assert.match(say, /144 pounds one way/);
   assert.match(say, /60 minutes/);
-  assert.match(say, /quotation is not a confirmed booking|secure link/i);
+  assert.match(say, /quotation|secure link/i);
+  assert.match(say, /more than 24 hours|within 24 hours/i);
   assert.doesNotMatch(say, /10 minutes/, "Airport pickup only mentions airport waiting");
   assert.doesNotMatch(say, /surcharge|night|weekend|evening/i, "Never mentions surcharges");
+  assert.doesNotMatch(say, /My Airport Taxi NI/i, "Spoken quote omits full business name");
   const home = voiceQuoteSay({ amount: 40, draft: { ...ok.draft, airportCode: null, fromAirport: false }, requestOnly: false, shortNotice: true });
   assert.match(home, /10 minutes/);
   assert.doesNotMatch(home, /60 minutes/);

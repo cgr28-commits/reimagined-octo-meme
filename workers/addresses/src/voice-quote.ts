@@ -6,6 +6,7 @@
  * link. Never prices from the request; never reveals surcharges. Answers fast (fonio waits ~5s).
  */
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
+import { VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
 import { whatsAppDraftToQuoteBody, whatsAppQuoteLinkHours, WHATSAPP_SHORT_NOTICE_LINK_HOURS } from "../shared/whatsapp-quote-bot";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
@@ -163,21 +164,25 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
     await markVoiceLinkSent(store, digits).catch(() => undefined);
     return reply({
       ok: true,
-      say: "Done — I've sent the booking link to your WhatsApp. Tap Book now to check the details and pay securely. Your driver is confirmed after payment.",
+      delivered: true,
+      channel: "whatsapp",
+      say: `${VOICE_LINK_SENT_SAY} Your driver is confirmed after payment.`,
     });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
   // The SMS backup still gets them the link, so don't also send a follow-up.
   await markVoiceLinkSent(store, digits).catch(() => undefined);
-  // WhatsApp couldn't send (template not approved yet, or not a WhatsApp number): text it instead.
+  // WhatsApp couldn't send: Fonio should Send SMS, then only confirm after SMS succeeds.
   if (memo.bookingUrl) {
     return reply({
       ok: false,
       sendBySms: true,
+      delivered: false,
       mobile: digits,
       smsText: smsText(memo, memo.bookingUrl),
-      say: "No bother — I'll text you the booking link instead. Your driver is confirmed after you pay on that secure link.",
+      sayAfterSmsSent: `${VOICE_LINK_SENT_SAY} Your driver is confirmed after payment.`,
+      say: "One moment — I'm texting you the booking link now.",
     });
   }
-  return reply({ ok: false, say: fallback });
+  return reply({ ok: false, delivered: false, say: fallback });
 }

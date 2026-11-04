@@ -47,6 +47,7 @@ assert.match(index, /\/voice\/message/);
 assert.match(index, /\/owner\/voice-calls/);
 assert.match(index, /VOICE_WEBHOOK_SECRET/);
 assert.match(readFileSync("workers/addresses/src/voice-inbound.ts", "utf8"), /hasUpcomingBooking/);
+assert.match(readFileSync("workers/addresses/src/voice-inbound.ts", "utf8"), /voiceOpeningGreeting/);
 assert.match(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /awaiting_payment/);
 assert.match(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /Never invents a fare|never marks paid|awaiting_payment/i);
 assert.doesNotMatch(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /status:\s*"paid"|markPaid|createSumUp/);
