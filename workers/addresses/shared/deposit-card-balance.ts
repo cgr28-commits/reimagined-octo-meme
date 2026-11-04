@@ -183,6 +183,17 @@ export function cardBalanceExplainer(balanceGbp: number, dueDateLabel: string): 
   );
 }
 
+/**
+ * One-line payment terms shown under the deposit choice before paying. Ticking the
+ * Terms & Conditions box covers agreement; no separate tick box (owner, Nov 2026).
+ */
+export function cardBalanceShortNote(balanceGbp: number, dueDateLabel: string): string {
+  return (
+    `Balance ${formatGbpAmountExact(balanceGbp)} by card — we'll email a secure link on ${dueDateLabel}. ` +
+    `If it isn't paid ${CARD_BALANCE_CANCEL_DAYS_BEFORE} days before pickup, we cancel and refund your deposit in full.`
+  );
+}
+
 export function cardBalanceAgreementLabel(balanceGbp: number): string {
   return (
     `I understand the remaining ${formatGbpAmountExact(balanceGbp)} must be paid by card ${CARD_BALANCE_DUE_DAYS_BEFORE} days before my journey, ` +

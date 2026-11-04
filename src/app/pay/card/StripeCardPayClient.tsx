@@ -125,7 +125,7 @@ export default function StripeCardPayClient() {
               rules: {
                 ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
                 ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
-                // Payment options list: our colours for the frame only. Klarna,
+                // Payment options list: our colours for the frame only. Revolut Pay,
                 // Revolut Pay, card brands etc. keep their own logo colours.
                 ".AccordionItem": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#0c2a52", boxShadow: "none" },
                 ".AccordionItem--selected": { borderColor: "#2fbf4a" },
@@ -268,7 +268,7 @@ export default function StripeCardPayClient() {
               ? "Payment links last 24 hours. Please get a new quote on our website, or contact us and we'll send you a fresh link."
               : message || "Please try again in a few minutes, or contact us and we'll help."}
           </p>
-          <Link href="/" className="btn-primary mt-4 inline-flex">
+          <Link href="/" className="btn-primary mt-4 inline-flex min-h-11 items-center px-6">
             Back to home
           </Link>
           <p className="mt-4 text-sm text-white/70">

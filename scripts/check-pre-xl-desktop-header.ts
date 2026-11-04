@@ -20,8 +20,8 @@ assert.match(
   header,
   /mx-auto flex max-w-7xl items-center justify-between gap-3[\s\S]*lg:grid lg:max-w-\[1400px\] lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/,
 );
-assert.match(header, /hidden items-center gap-6 md:flex lg:justify-center lg:gap-5 xl:gap-7/);
-assert.match(header, /hidden items-center gap-3 md:flex lg:justify-self-end/);
+assert.match(header, /hidden items-center lg:flex lg:justify-center lg:gap-5 xl:gap-7/);
+assert.match(header, /hidden items-center gap-3 lg:flex lg:justify-self-end/);
 assert.match(
   header,
   /rounded-full border border-white\/20[\s\S]*Manage Your Booking/,
@@ -33,19 +33,19 @@ assert.match(
 // Desktop header CTA must not use the tall btn-primary control (mobile drawer may still use it).
 assert.match(
   header,
-  /md:flex lg:justify-self-end[\s\S]*?rounded-full bg-emerald px-5 py-2[\s\S]*?Get a Quote[\s\S]*?<\/div>/,
+  /lg:flex lg:justify-self-end[\s\S]*?rounded-full bg-emerald px-5 py-2[\s\S]*?Get a Quote[\s\S]*?<\/div>/,
 );
 assert.doesNotMatch(
   header,
-  /md:flex lg:justify-self-end[\s\S]*?btn-primary[\s\S]*?Get a Quote/,
+  /lg:flex lg:justify-self-end[\s\S]*?btn-primary[\s\S]*?Get a Quote/,
 );
 assert.doesNotMatch(header, /xl:flex xl:justify-center/);
 assert.doesNotMatch(header, /aria-label="Laptop navigation"/);
 
-// Mobile chrome must remain strictly below md
-assert.match(header, /sm:gap-2 md:hidden/);
+// Phones and tablets (below 1024px) use the compact header + menu
+assert.match(header, /sm:gap-2 lg:hidden/);
 assert.match(header, /data-matni-whatsapp-quick/);
-assert.match(header, /fixed inset-0 z-\[80\][\s\S]*md:hidden/);
+assert.match(header, /fixed inset-0 z-\[80\][\s\S]*lg:hidden/);
 
 const hero = readFileSync(join(root, "src/components/HeroSlideshow.tsx"), "utf8");
 assert.match(hero, /md:pt-28/);
