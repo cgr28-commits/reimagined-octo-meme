@@ -37,6 +37,10 @@ import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
 import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
 import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
+import { handleVoiceInbound } from "./voice-inbound";
+import { handleVoiceProvisionalBooking } from "./voice-provisional";
+import { handleOwnerVoiceCalls } from "./voice-call-log-store";
+import { voiceAuthDenied } from "./voice-auth";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -694,6 +698,11 @@ type Env = {
   WHATSAPP_FOLLOW_UP_MINUTES?: string;
   /** Anthropic API key (Worker secret) — WhatsApp assistant answers customer questions. */
   ANTHROPIC_API_KEY?: string;
+  /**
+   * Shared secret fonio sends on every /voice/* request
+   * (Authorization: Bearer … or X-Voice-Secret). Worker secret only.
+   */
+  VOICE_WEBHOOK_SECRET?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -4685,21 +4694,35 @@ export default {
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed/rotate" && request.method === "POST") {
       return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), true);
     }
-    // Phone assistant (fonio) live quote — same pricing engine as the website and WhatsApp.
-    if ((url.pathname === "/voice/quote" || url.pathname === "/api/voice/quote") && request.method === "POST") {
+    // Phone assistant (fonio) — all /voice/* routes share VOICE_WEBHOOK_SECRET auth when set.
+    const voicePath = url.pathname.replace(/^\/api(?=\/voice\/)/, "");
+    if (voicePath.startsWith("/voice/")) {
+      const denied = voiceAuthDenied(request, env);
+      if (denied) return denied;
+    }
+    // Inbound Webhook: load minimal caller context before the conversation (≤5s).
+    if ((voicePath === "/voice/inbound") && (request.method === "POST" || request.method === "GET")) {
+      return handleVoiceInbound(request, env);
+    }
+    // Live quote — same pricing engine as the website and WhatsApp.
+    if (voicePath === "/voice/quote" && request.method === "POST") {
       return handleVoiceQuote(request, env);
     }
-    if ((url.pathname === "/voice/send-link" || url.pathname === "/api/voice/send-link") && request.method === "POST") {
+    if (voicePath === "/voice/send-link" && request.method === "POST") {
       return handleVoiceSendLink(request, env);
     }
-    // fonio "After the conversation" request: WhatsApp follow-up for dropped calls (with consent).
-    if ((url.pathname === "/voice/call-ended" || url.pathname === "/api/voice/call-ended") && request.method === "POST") {
+    // Unpaid provisional hold from a phone-priced quote (never marks paid).
+    if (voicePath === "/voice/provisional-booking" && request.method === "POST") {
+      return handleVoiceProvisionalBooking(request, env);
+    }
+    // After the conversation: call summary log + optional WhatsApp follow-up (with consent).
+    if (voicePath === "/voice/call-ended" && request.method === "POST") {
       return handleVoiceCallEnded(request, env);
     }
-    if ((url.pathname === "/voice/booking" || url.pathname === "/api/voice/booking") && request.method === "POST") {
+    if (voicePath === "/voice/booking" && request.method === "POST") {
       return handleVoiceBooking(request, env);
     }
-    if ((url.pathname === "/voice/booking-link" || url.pathname === "/api/voice/booking-link") && request.method === "POST") {
+    if (voicePath === "/voice/booking-link" && request.method === "POST") {
       return handleVoiceBookingLink(request, env);
     }
     if (url.pathname === "/ads/spend-report" && request.method === "POST") {
@@ -4707,6 +4730,9 @@ export default {
     }
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-spend" && request.method === "GET") {
       return handleOwnerAdsSpend(request, env, request.headers.get("Origin"));
+    }
+    if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/voice-calls" && request.method === "GET") {
+      return handleOwnerVoiceCalls(request, env, request.headers.get("Origin"));
     }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
