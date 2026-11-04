@@ -17,6 +17,7 @@
  * Email/calendar failures must never allow another monetary refund.
  */
 
+import { configureStripe } from "../shared/stripe-payments";
 import {
   processBookingRefundOrCancel,
   type ProcessRefundOptions,
@@ -24,6 +25,7 @@ import {
 } from "./refund-handlers";
 
 export type RefundCoordinatorEnv = {
+  STRIPE_SECRET_KEY?: string;
   SUMUP_API_KEY?: string;
   SUMUP_MERCHANT_CODE?: string;
   TRACKING_STORE?: KVNamespace;
@@ -88,7 +90,11 @@ export class RefundCoordinator implements DurableObject {
   constructor(
     private readonly ctx: DurableObjectState,
     private readonly env: RefundCoordinatorEnv,
-  ) {}
+  ) {
+    // Durable Objects run outside the Worker's fetch/scheduled handlers, so the
+    // Stripe key must be set here too (refunds and hold releases run in here).
+    configureStripe(env);
+  }
 
   async fetch(request: Request): Promise<Response> {
     if (request.method !== "POST") {

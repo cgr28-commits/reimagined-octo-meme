@@ -1,5 +1,5 @@
 import { cardPaymentsConfigured, createHostedCheckout, hostedCheckoutStillOpen, providerKeyFor } from "./payment-provider";
-import { isStripeCheckoutId } from "../shared/stripe-payments";
+import { configureStripe, isStripeCheckoutId } from "../shared/stripe-payments";
 import { ownerAuthorized } from "./driver-auth";
 import { airportPickupOffers, buildMeetGreetOfferEmail, meetGreetCheckoutReference, verifyMeetGreetPayment, MEET_GREET_EMAIL_DELAY_MS, type MeetGreetUpgrade } from "../shared/meet-greet-upgrade";
 import { meetGreetFeeGbp } from "../shared/meet-greet";
@@ -21,7 +21,10 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 
 /** Per-booking durable serialization: offers, checkout creation, attachment and retries. */
 export class MeetGreetCoordinator {
-  constructor(private state: DurableObjectState, private env: MeetGreetEnv) {}
+  constructor(private state: DurableObjectState, private env: MeetGreetEnv) {
+    // Durable Objects don't run the Worker fetch handler: set the Stripe key here.
+    configureStripe(env);
+  }
   async fetch(request: Request): Promise<Response> {
     return this.state.blockConcurrencyWhile(async () => {
       try { return await this.handle(request); } catch (error) { console.error("Meet & Greet action failed", error); return json({ error: "We couldn’t process this upgrade. Please retry or contact us." }, 503); }
