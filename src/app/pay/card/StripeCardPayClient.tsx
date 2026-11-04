@@ -125,7 +125,7 @@ export default function StripeCardPayClient() {
               rules: {
                 ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
                 ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
-                // Payment options list: our colours for the frame only. Klarna,
+                // Payment options list: our colours for the frame only. Revolut Pay,
                 // Revolut Pay, card brands etc. keep their own logo colours.
                 ".AccordionItem": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#0c2a52", boxShadow: "none" },
                 ".AccordionItem--selected": { borderColor: "#2fbf4a" },
