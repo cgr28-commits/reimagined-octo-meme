@@ -9,8 +9,23 @@ import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
 
 /** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
-const DESKTOP_MORE_HREFS = new Set(["/#vehicles", "/#flight-status", "/#areas", "/#why-us", "/#faq", "/#chauffeur", "/#driver-tracking"]);
+// Laptop/desktop bar: these sit under "More" so the links never run into the logo or
+// the phone number (the bar is capped at 1400px wide, so this holds on big screens too).
+const DESKTOP_MORE_HREFS = new Set([
+  "/belfast-grand-central-station-taxi/",
+  "/belfast-cruise-terminal-transfers/",
+  "/#vehicles",
+  "/#flight-status",
+  "/#areas",
+  "/#why-us",
+  "/#faq",
+  "/#chauffeur",
+  "/#driver-tracking",
+]);
 const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
+// Shown in the bar from 1280px; under "More" on smaller laptops.
+const WIDE_BAR_HREFS = new Set(["/tours/"]);
+const WIDE_BAR_LINKS = NAV_LINKS.filter((link) => WIDE_BAR_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
 
@@ -77,7 +92,7 @@ export default function Header() {
     mounted && menuOpen
       ? createPortal(
           <div
-            className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] flex-col md:hidden"
+            className="fixed inset-0 z-[80] flex h-[100dvh] max-h-[100dvh] flex-col lg:hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Site menu"
@@ -207,7 +222,7 @@ export default function Header() {
           </Link>
 
           <nav
-            className="hidden items-center gap-6 md:flex lg:justify-center lg:gap-5 xl:gap-7"
+            className="hidden items-center lg:flex lg:justify-center lg:gap-5 xl:gap-7"
             aria-label="Main navigation"
           >
             {NAV_LINKS.map((link) => (
@@ -215,7 +230,7 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={`whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald${
-                  DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : ""
+                  DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : WIDE_BAR_HREFS.has(link.href) ? " lg:hidden xl:inline" : ""
                 }`}
               >
                 {link.label}
@@ -230,7 +245,7 @@ export default function Header() {
                   </svg>
                 </summary>
                 <div className="absolute right-0 top-full z-50 mt-3 flex min-w-[12rem] flex-col rounded-xl border border-white/10 bg-navy p-2 shadow-2xl">
-                  {DESKTOP_MORE_LINKS.map((link) => (
+                  {[...WIDE_BAR_LINKS, ...DESKTOP_MORE_LINKS].map((link) => (
                     <SiteNavLink
                       key={link.href}
                       href={link.href}
@@ -239,7 +254,9 @@ export default function Header() {
                           document.querySelectorAll("details[data-desktop-nav-more][open]").forEach((d) => d.removeAttribute("open"));
                         }
                       }}
-                      className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-emerald"
+                      className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-emerald${
+                        WIDE_BAR_HREFS.has(link.href) ? " xl:hidden" : ""
+                      }`}
                     >
                       {link.label}
                     </SiteNavLink>
@@ -250,7 +267,7 @@ export default function Header() {
           </nav>
 
           {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
-          <div className="hidden items-center gap-3 md:flex lg:justify-self-end">
+          <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
             <a
               href={`tel:${SITE.officeLandline}`}
               data-header-call
@@ -258,7 +275,7 @@ export default function Header() {
               className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg"
             >
               <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
-              <span className="hidden lg:inline">{SITE.officeLandlineDisplay}</span>
+              <span className="hidden xl:inline">{SITE.officeLandlineDisplay}</span>
             </a>
             <SiteNavLink
               href="/manage-booking/"
@@ -273,7 +290,7 @@ export default function Header() {
           </div>
 
           {/* Mobile only (< md): logo + Call + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
-          <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 md:hidden">
+          <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 lg:hidden">
             <a
               href={`tel:${SITE.officeLandline}`}
               data-mobile-header-call

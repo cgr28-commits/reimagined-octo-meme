@@ -3,8 +3,7 @@
 import {
   CARD_BALANCE_BADGE,
   CARD_BALANCE_OPTION_LABEL,
-  cardBalanceAgreementLabel,
-  cardBalanceExplainer,
+  cardBalanceShortNote,
   cardBalanceOptionSubline,
   type CardBalanceQuote,
 } from "../../shared/deposit-card-balance";
@@ -14,10 +13,8 @@ type Props = {
   offer: CardBalanceQuote;
   dueDateLabel: string;
   depositSelected: boolean;
-  agreementAccepted: boolean;
   disabled?: boolean;
   onSelectDeposit: (deposit: boolean) => void;
-  onAgreementChange: (accepted: boolean) => void;
 };
 
 /** "Pay a deposit" vs "Pay in full" for bookings 30+ days ahead (held-price / quick-quote pages). */
@@ -25,10 +22,8 @@ export default function CardBalancePaymentChoice({
   offer,
   dueDateLabel,
   depositSelected,
-  agreementAccepted,
   disabled,
   onSelectDeposit,
-  onAgreementChange,
 }: Props) {
   const card = (active: boolean) =>
     `min-h-11 rounded-xl border px-3 py-2.5 text-left transition-colors ${
@@ -68,19 +63,9 @@ export default function CardBalancePaymentChoice({
         </button>
       </div>
       {depositSelected ? (
-        <div className="space-y-1.5 rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">
-          <p className="text-xs leading-snug text-white/80">{cardBalanceExplainer(offer.balanceGbp, dueDateLabel)}</p>
-          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm leading-snug text-white/92">
-            <input
-              type="checkbox"
-              checked={agreementAccepted}
-              aria-required="true"
-              onChange={(event) => onAgreementChange(event.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-navy-dark text-emerald focus:ring-emerald/30"
-            />
-            <span>{cardBalanceAgreementLabel(offer.balanceGbp)}</span>
-          </label>
-        </div>
+        <p data-card-balance-note className="text-xs leading-snug text-white/75">
+          {cardBalanceShortNote(offer.balanceGbp, dueDateLabel)}
+        </p>
       ) : null}
     </div>
   );

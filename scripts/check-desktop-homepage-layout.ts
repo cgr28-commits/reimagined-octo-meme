@@ -30,21 +30,21 @@ console.log("OK  hero uses balanced desktop grid + top-aligned columns (no max-w
 
 const header = read("src/components/Header.tsx");
 assert.match(header, /lg:grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
-assert.match(header, /hidden items-center gap-6 md:flex/);
-assert.match(header, /hidden items-center gap-3 md:flex/);
-assert.match(header, /sm:gap-2 md:hidden/);
+assert.match(header, /hidden items-center lg:flex lg:justify-center/);
+assert.match(header, /hidden items-center gap-3 lg:flex/);
+assert.match(header, /sm:gap-2 lg:hidden/);
 assert.match(header, /rounded-full bg-emerald px-5 py-2/);
 assert.match(header, /bg-gradient-to-b from-navy via-navy\/70 to-transparent/);
 assert.doesNotMatch(header, /aria-label="Laptop navigation"/);
 assert.doesNotMatch(header, /xl:flex xl:justify-center/);
 assert.doesNotMatch(
   header,
-  /md:flex lg:justify-self-end[\s\S]*?btn-primary[\s\S]*?Get a Quote/,
+  /lg:flex lg:justify-self-end[\s\S]*?btn-primary[\s\S]*?Get a Quote/,
 );
 assert.match(header, /Get a Quote/);
 assert.match(header, /Manage Your Booking/);
 assert.match(header, /aria-label="Main navigation"/);
-console.log("OK  header desktop grid at lg+; slim pre-xl CTAs; mobile chrome md:hidden only");
+console.log("OK  header desktop grid at lg+; slim pre-xl CTAs; phone/tablet chrome lg:hidden");
 
 const quote = read("src/components/QuoteCard.tsx");
 assert.match(quote, /lg:grid-cols-2/);

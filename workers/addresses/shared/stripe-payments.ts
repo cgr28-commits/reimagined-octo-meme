@@ -29,8 +29,8 @@ export const STRIPE_HOLD_CAPTURE_DELAY_HOURS_AFTER_PICKUP = 3;
 /** Never leave capture closer than this to the authorisation expiry. */
 export const STRIPE_HOLD_EXPIRY_MARGIN_HOURS = 12;
 
-/** Payment methods the business does not offer (Nov 2026: no Amazon Pay). */
-export const STRIPE_EXCLUDED_PAYMENT_METHODS = ["amazon_pay"] as const;
+/** Payment methods the business does not offer (owner, Nov 2026): no Amazon Pay, Klarna or Clearpay. */
+export const STRIPE_EXCLUDED_PAYMENT_METHODS = ["amazon_pay", "klarna", "afterpay_clearpay"] as const;
 
 let configuredSecretKey = "";
 
