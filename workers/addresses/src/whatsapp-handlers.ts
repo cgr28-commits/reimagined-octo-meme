@@ -34,7 +34,6 @@ import {
   verifyWhatsAppSignature,
   resolveWhatsAppProvider,
   whatsAppCloudConfigured,
-  whatsAppUses360dialog,
   whatsAppVerifyChallenge,
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
