@@ -28,14 +28,13 @@ jobs:
       - run: node --import tsx scripts/review-booking-flow-browser.cjs
         continue-on-error: true
       - name: Publish screenshots to review-shots branch
+        env:
+          TOKEN: ${{ github.token }}
         run: |
-          cp -r test-results/booking-review /tmp/booking-review
+          cd test-results/booking-review
+          git init -q -b review-shots
           git config user.name "booking-review-bot"
           git config user.email "booking-review-bot@users.noreply.github.com"
-          git checkout --orphan review-shots
-          git rm -rf -q . || true
-          rm -rf ./* .github 2>/dev/null || true
-          cp -r /tmp/booking-review/* .
           git add -A
           git commit -q -m "Booking flow review screenshots ${GITHUB_SHA::7}"
-          git push -f origin review-shots
+          git push -f -q "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" review-shots
