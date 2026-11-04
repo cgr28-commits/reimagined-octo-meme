@@ -11,6 +11,7 @@ import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { checkWhatsAppAvailability } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { markVoiceLinkSent } from "./voice-followup";
 
 type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & { TRACKING_STORE?: KVNamespace };
 
@@ -142,9 +143,12 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
     heldFor: memo.heldFor,
   });
   if (sent.sent || sent.reason === "already_sent") {
+    await markVoiceLinkSent(store, digits).catch(() => undefined);
     return reply({ ok: true, say: "Done – I've sent the booking link to your WhatsApp. Just tap Book now to check the details and pay." });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
+  // The SMS backup still gets them the link, so don't also send a follow-up.
+  await markVoiceLinkSent(store, digits).catch(() => undefined);
   // WhatsApp couldn't send (template not approved yet, or not a WhatsApp number): text it instead.
   if (memo.bookingUrl) {
     return reply({
