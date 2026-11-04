@@ -1,5 +1,3 @@
-const RETELL_WIDGET_SRC = "https://dashboard.retellai.com/retell-widget-v2.js";
-
 /**
  * Optional guidance panel for the Retell voice assistant.
  * The global widget is added by RetellVoiceWidget in the site layout.
