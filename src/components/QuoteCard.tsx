@@ -7400,7 +7400,6 @@ function QuoteCard({
                         aria-pressed={paymentMethod === PAYMENT_METHOD_DEPOSIT_CASH}
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_DEPOSIT_CASH);
-                          setCardBalanceAgreementAccepted(false);
                           setPaymentError((prev) =>
                             prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE ? "" : prev,
                           );
@@ -7433,7 +7432,6 @@ function QuoteCard({
                         onClick={() => {
                           setPaymentMethod(PAYMENT_METHOD_FULL_ONLINE);
                           setCashAgreementAccepted(false);
-                          setCardBalanceAgreementAccepted(false);
                           setPaymentError((prev) =>
                             prev === CASH_AGREEMENT_REQUIRED_MESSAGE ||
                             prev === CARD_BALANCE_AGREEMENT_REQUIRED_MESSAGE
