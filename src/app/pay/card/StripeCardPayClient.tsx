@@ -51,7 +51,8 @@ export default function StripeCardPayClient() {
   const checkoutRef = useRef<StripeCheckout | null>(null);
   const startedRef = useRef(false);
 
-  async function confirmPayment() {
+  // Apple Pay / Google Pay / Link must pass their confirm event to Stripe.
+  async function confirmPayment(expressEvent?: Record<string, unknown>) {
     const checkout = checkoutRef.current;
     if (!checkout) return;
     setMessage("");
@@ -62,7 +63,9 @@ export default function StripeCardPayClient() {
         throw new Error(loaded.error?.message || "Payment could not start. Please try again.");
       }
       // On success Stripe redirects to /booking-confirmed/ (return_url).
-      const result = await loaded.actions.confirm();
+      const result = await loaded.actions.confirm(
+        expressEvent ? { expressCheckoutConfirmEvent: expressEvent } : undefined,
+      );
       if (result.type === "error") {
         throw new Error(result.error?.message || "Your payment didn't go through. Please try again.");
       }
@@ -139,15 +142,15 @@ export default function StripeCardPayClient() {
           // "always" shows the button even before the customer has a saved card,
           // and Apple Pay on non-Safari browsers uses Apple's QR-code flow.
           paymentMethods: { applePay: "always", googlePay: "always" },
-        buttonTheme: { applePay: "white-outline", googlePay: "white" },
+          buttonTheme: { applePay: "white-outline", googlePay: "white" },
           layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
         });
         express.on("ready", (event) => {
           const methods = event.availablePaymentMethods as Record<string, boolean> | undefined;
           setWalletsShown(Boolean(methods && Object.values(methods).some(Boolean)));
         });
-        express.on("confirm", () => {
-          void confirmPayment();
+        express.on("confirm", (event) => {
+          void confirmPayment(event);
         });
         express.mount("#stripe-express-checkout");
 
