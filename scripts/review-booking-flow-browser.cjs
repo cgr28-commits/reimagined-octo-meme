@@ -101,6 +101,17 @@ async function run() {
           await page.locator('[data-quote-result-card] #quote-book-now-button').waitFor({ timeout: 15000 });
           await page.waitForTimeout(500);
           await shot(page, `${label}-2-quote`, report);
+          const panel = page.locator('[data-quote-result-card] #quote-price-summary').first();
+          if (await panel.count()) {
+            await panel.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(1200);
+            await panel.screenshot({ path: `${OUT}/${label}-2b-price-panel.png` }).catch(() => {});
+            const colours = await page.evaluate(() => {
+              const pick = (sel) => { const el = document.querySelector(sel); if (!el) return null; const cs = getComputedStyle(el); return `${cs.color} on ${cs.backgroundColor} opacity ${cs.opacity}`; };
+              return { reassurance: pick('[data-quote-reassurance]'), panel: pick('#quote-price-summary'), figure: pick('#quote-price-summary .quote-price-figure') };
+            });
+            report.push(`- price panel colours: ${JSON.stringify(colours)}`);
+          }
           await page.locator('[data-quote-result-card] #quote-book-now-button').click();
           await page.getByPlaceholder('John Smith').waitFor({ timeout: 10000 });
           await page.waitForTimeout(400);
