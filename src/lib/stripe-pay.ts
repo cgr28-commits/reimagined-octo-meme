@@ -56,15 +56,18 @@ export async function fetchStripeSession(checkoutId: string): Promise<StripeSess
 }
 
 /** Load Stripe.js from js.stripe.com (required for PCI compliance — never bundle it). */
+const STRIPE_LOAD_FAILED_MESSAGE =
+  "The secure payment form couldn't load. Please check your connection (or pause any ad blocker for this page) and try again.";
+
 export function loadStripeJs(): Promise<StripeGlobal> {
   const w = window as unknown as { Stripe?: StripeGlobal };
   if (w.Stripe) return Promise.resolve(w.Stripe);
   return new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>('script[data-stripe-js="1"]');
     const script = existing ?? document.createElement("script");
-    const done = () => (w.Stripe ? resolve(w.Stripe) : reject(new Error("Stripe failed to load")));
+    const done = () => (w.Stripe ? resolve(w.Stripe) : reject(new Error(STRIPE_LOAD_FAILED_MESSAGE)));
     script.addEventListener("load", done, { once: true });
-    script.addEventListener("error", () => reject(new Error("Stripe failed to load")), { once: true });
+    script.addEventListener("error", () => reject(new Error(STRIPE_LOAD_FAILED_MESSAGE)), { once: true });
     if (!existing) {
       // Versioned Stripe.js (Elements with Checkout Sessions needs a current release).
       script.src = "https://js.stripe.com/endive/stripe.js";
