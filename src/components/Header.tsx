@@ -9,7 +9,19 @@ import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
 
 /** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
-const DESKTOP_MORE_HREFS = new Set(["/#vehicles", "/#flight-status", "/#areas", "/#why-us", "/#faq", "/#chauffeur", "/#driver-tracking"]);
+// Laptop/desktop bar: these sit under "More" so the links never run into the logo or
+// the phone number (the bar is capped at 1400px wide, so this holds on big screens too).
+const DESKTOP_MORE_HREFS = new Set([
+  "/belfast-grand-central-station-taxi/",
+  "/belfast-cruise-terminal-transfers/",
+  "/#vehicles",
+  "/#flight-status",
+  "/#areas",
+  "/#why-us",
+  "/#faq",
+  "/#chauffeur",
+  "/#driver-tracking",
+]);
 const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
