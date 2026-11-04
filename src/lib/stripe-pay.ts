@@ -81,7 +81,9 @@ type StripeElement = {
   on(event: string, handler: (event: Record<string, unknown>) => void): void;
   destroy?: () => void;
 };
-type StripeActions = { confirm(): Promise<{ type: string; error?: { message?: string } }> };
+type StripeActions = {
+  confirm(options?: { expressCheckoutConfirmEvent?: Record<string, unknown> }): Promise<{ type: string; error?: { message?: string } }>;
+};
 export type StripeCheckout = {
   createPaymentElement(options?: Record<string, unknown>): StripeElement;
   createExpressCheckoutElement(options?: Record<string, unknown>): StripeElement;
