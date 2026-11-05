@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   compact-schedule-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -93,7 +93,7 @@ jobs:
           if-no-files-found: warn
 
   browser-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
