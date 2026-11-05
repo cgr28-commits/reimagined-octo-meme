@@ -77,7 +77,64 @@ export const WHATSAPP_BUTTONS = {
   menuQuote: { id: "txt:menu quote", title: "🚕 Get a quote" },
   menuQuestion: { id: "txt:menu question", title: "💬 Ask a question" },
   menuBooking: { id: "txt:menu booking", title: "📋 My booking" },
+  today: { id: "txt:today", title: "📅 Today" },
+  tomorrow: { id: "txt:tomorrow", title: "📅 Tomorrow" },
 } as const satisfies Record<string, WhatsAppBotButton>;
+
+/** Tap-to-choose list (max 10 rows) behind one button. */
+export type WhatsAppBotList = {
+  button: string;
+  rows: Array<{ id: string; title: string; description?: string }>;
+};
+
+// Rows send full phrases ("2 passengers", "to Dublin Airport"), not bare numbers, so a tap on
+// an older list further up the chat still fills the right detail.
+export const WHATSAPP_PASSENGER_LIST: WhatsAppBotList = {
+  button: "Choose passengers",
+  rows: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
+    const label = `${n} ${n === 1 ? "passenger" : "passengers"}`;
+    return { id: `txt:${label}`, title: label };
+  }),
+};
+
+export const WHATSAPP_SUITCASE_LIST: WhatsAppBotList = {
+  button: "Choose suitcases",
+  rows: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
+    const label = n === 0 ? "No suitcases" : `${n} ${n === 1 ? "suitcase" : "suitcases"}`;
+    return { id: `txt:${label}`, title: label };
+  }),
+};
+
+export const WHATSAPP_AIRPORT_LIST: WhatsAppBotList = {
+  button: "Choose airport",
+  rows: [
+    { id: "txt:to Belfast International Airport", title: "Belfast International", description: "Aldergrove (BFS)" },
+    { id: "txt:to George Best Belfast City Airport", title: "Belfast City Airport", description: "George Best (BHD)" },
+    { id: "txt:to Dublin Airport", title: "Dublin Airport", description: "Dublin (DUB)" },
+  ],
+};
+
+/** Quick-tap choices for the detail being asked for; typing the answer always works too. */
+export function whatsAppChoicesForField(
+  field: WhatsAppQuoteField,
+  draft: WhatsAppQuoteDraft,
+): { buttons?: WhatsAppBotButton[]; list?: WhatsAppBotList } {
+  switch (field) {
+    case "returnJourney":
+      return { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] };
+    case "outboundDate":
+      return { buttons: [WHATSAPP_BUTTONS.today, WHATSAPP_BUTTONS.tomorrow] };
+    case "passengers":
+      return { list: WHATSAPP_PASSENGER_LIST };
+    case "suitcases":
+      return { list: WHATSAPP_SUITCASE_LIST };
+    case "dropoffAddress":
+      // Picked up at an airport means going to an address, so only offer airports otherwise.
+      return draft.airportCode ? {} : { list: WHATSAPP_AIRPORT_LIST };
+    default:
+      return {};
+  }
+}
 
 export type WhatsAppBotDecision = {
   conversation: WhatsAppConversation;
@@ -85,6 +142,8 @@ export type WhatsAppBotDecision = {
   action: WhatsAppBotAction;
   /** Optional reply buttons (max 3); the reply text still works without them. */
   buttons?: WhatsAppBotButton[];
+  /** Optional tap-to-choose list (instead of buttons); typing still works without it. */
+  list?: WhatsAppBotList;
   /** With action "answer": what the AI reply should do besides responding naturally. */
   ai?: WhatsAppAiTask;
 };
@@ -1145,7 +1204,7 @@ export function isWhatsAppQuestion(text: string): boolean {
 export function decideWhatsAppReply(
   existing: WhatsAppConversation | null,
   text: string,
-  options: { now?: Date; profileName?: string } = {},
+  options: WhatsAppDecideOptions = {},
 ): WhatsAppBotDecision {
   const decision = decideJourneyReply(existing, text, options);
   if (decision.action !== "none" || !decision.kind) return stripKind(decision);
@@ -1181,10 +1240,17 @@ function stripKind(decision: KindedDecision): WhatsAppBotDecision {
   return rest;
 }
 
+export type WhatsAppDecideOptions = {
+  now?: Date;
+  profileName?: string;
+  /** Quick-tap choices when asking for details (default on); false keeps only one way / return. */
+  quickChoices?: boolean;
+};
+
 function decideJourneyReply(
   existing: WhatsAppConversation | null,
   text: string,
-  options: { now?: Date; profileName?: string } = {},
+  options: WhatsAppDecideOptions = {},
 ): KindedDecision {
   const now = options.now ?? new Date();
   const conversation: WhatsAppConversation = existing
@@ -1306,7 +1372,11 @@ function decideJourneyReply(
       reply: repeat ? `Sorry, I didn't catch that. ${question}` : question,
       action: "none",
       kind: changed ? "ask" : "askRepeat",
-      ...(missing === "returnJourney" ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] } : {}),
+      ...(options.quickChoices === false
+        ? missing === "returnJourney"
+          ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] }
+          : {}
+        : whatsAppChoicesForField(missing, conversation.draft)),
     };
   }
 

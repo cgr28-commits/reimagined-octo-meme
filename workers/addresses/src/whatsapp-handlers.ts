@@ -22,10 +22,12 @@
 
 import {
   D360_WEBHOOK_SECRET_HEADER,
+  normalizeWhatsAppNumber,
   parseWhatsAppWebhook,
   register360dialogWebhook,
   sendWhatsAppButtons,
   sendWhatsAppImage,
+  sendWhatsAppList,
   sendWhatsAppLocation,
   sendWhatsAppText,
   update360dialogBusinessProfile,
@@ -38,6 +40,7 @@ import {
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
   type WhatsAppReplyButton,
+  type WhatsAppReplyList,
 } from "../shared/whatsapp-cloud";
 import {
   buildWhatsAppAlternativeTimeButtons,
@@ -143,7 +146,22 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   BOOKING_TO_EMAIL?: string;
   /** Worker secret: lets the assistant answer customer questions with Claude. */
   ANTHROPIC_API_KEY?: string;
+  /**
+   * Quick-tap choices (passenger/suitcase/airport lists, Today/Tomorrow buttons). Unset or "off":
+   * nobody; "all": everyone; otherwise comma-separated numbers to pilot with (e.g. "447700900123").
+   * Set as a Worker secret so it survives deploys.
+   */
+  WHATSAPP_QUICK_CHOICES?: string;
 };
+
+/** Whether this customer gets the quick-tap choices (see WHATSAPP_QUICK_CHOICES). */
+export function whatsAppQuickChoicesEnabled(env: WhatsAppEnv, phone: string): boolean {
+  const setting = env.WHATSAPP_QUICK_CHOICES?.trim().toLowerCase();
+  if (!setting || setting === "off") return false;
+  if (setting === "all") return true;
+  const pilot = setting.split(",").map(normalizeWhatsAppNumber).filter(Boolean);
+  return pilot.includes(normalizeWhatsAppNumber(phone));
+}
 
 /** Matches the WhatsApp customer service window — free-form replies are allowed inside it. */
 const CONVERSATION_TTL_SECONDS = 60 * 60 * 24;
@@ -199,6 +217,10 @@ export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> 
         providerSetting: env.WHATSAPP_PROVIDER?.trim() || null,
         botEnabled: env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() !== "false",
         teamNumberSet: Boolean(env.WHATSAPP_TEAM_NUMBER?.trim()),
+        // "off" | "all" | "pilot" — never lists the pilot numbers.
+        quickChoices: ((s) => (!s || s === "off" ? "off" : s === "all" ? "all" : "pilot"))(
+          env.WHATSAPP_QUICK_CHOICES?.trim().toLowerCase(),
+        ),
         ...(diag ?? {}),
       },
       null,
@@ -477,10 +499,15 @@ async function handleInboundMessage(
   }
 
   const existing = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
-  const decision = decideWhatsAppReply(existing, message.text, { profileName: message.profileName });
+  const decision = decideWhatsAppReply(existing, message.text, {
+    profileName: message.profileName,
+    quickChoices: whatsAppQuickChoicesEnabled(env, phone),
+  });
   const conversation = decision.conversation;
   let text = decision.reply;
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
+  // Only set when asking for a journey detail; the quote/discount/handoff paths never carry one.
+  let list: WhatsAppReplyList | undefined = decision.list;
 
   if (decision.action === "handoff") {
     if (isTeamPhone) {
@@ -504,8 +531,11 @@ async function handleInboundMessage(
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
         conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
       }
-      if (answered.handoff && !isTeamPhone) {
-        await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
+      if (answered.handoff) {
+        // Handing over to the team: no "choose" options under that message.
+        buttons = undefined;
+        list = undefined;
+        if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
       }
     }
   }
@@ -635,7 +665,7 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text, buttons);
+  if (text) await reply(env, phone, text, buttons, list);
 }
 
 /**
@@ -1055,8 +1085,21 @@ async function reply(
   phone: string,
   text: string,
   buttons?: WhatsAppReplyButton[],
+  list?: WhatsAppReplyList,
 ): Promise<void> {
   const store = env.TRACKING_STORE;
+  if (list?.rows.length) {
+    const withList = await sendWhatsAppList(env, phone, text, list);
+    if (withList.sent) {
+      await recordDiag(store, { lastReplyOkAt: nowIso() });
+      await appendWhatsAppChat(store, phone, {
+        from: "assistant",
+        text: `${text}\n[List: ${list.rows.map((r) => r.title).join(" | ")}]`,
+      });
+      return;
+    }
+    logEvent("whatsapp_list_failed", phone, { error: withList.error });
+  }
   if (buttons?.length) {
     const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
     if (withButtons.sent) {
