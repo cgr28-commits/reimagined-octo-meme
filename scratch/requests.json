@@ -1,0 +1,11 @@
+{"searches": [
+ {"slug": "bfs-market", "q": "Belfast Christmas market"},
+ {"slug": "bfs-cityhall", "q": "Belfast City Hall Christmas"},
+ {"slug": "bfs-xmas", "q": "Belfast Christmas lights", "keep": 6},
+ {"slug": "dub-grafton", "q": "Grafton Street Christmas"},
+ {"slug": "dub-lights", "q": "Dublin Christmas lights"},
+ {"slug": "dub-market", "q": "Dublin Christmas market", "keep": 6},
+ {"slug": "hotel-xmas", "q": "hotel lobby Christmas tree", "keep": 6},
+ {"slug": "nye", "q": "New Year fireworks Dublin OR Belfast", "keep": 6},
+ {"slug": "dinner", "q": "Christmas dinner table restaurant", "keep": 6}
+]}
