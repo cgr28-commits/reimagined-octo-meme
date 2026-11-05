@@ -26,6 +26,10 @@ import {
   type SavedQuoteRecord,
 } from "../shared/saved-quote";
 import {
+  attributionForSavedQuoteStorage,
+  parseMeasurementConsent,
+} from "../shared/saved-quote-ads-attribution";
+import {
   formatQuickQuoteAmount,
   isApprovedQuickQuoteStoredFare,
   parseQuickQuoteVehicleChoice,
@@ -575,6 +579,10 @@ export async function handleCreateSavedQuote(
   };
 
   const heldPrice = await createSavedQuoteHeldPrice(env, journey, pricing, settings.validityDays);
+  const storedAttribution = attributionForSavedQuoteStorage({
+    attribution: body.attribution,
+    measurementConsent: parseMeasurementConsent(body.measurementConsent),
+  });
 
   let record: SavedQuoteRecord;
   try {
@@ -585,6 +593,7 @@ export async function handleCreateSavedQuote(
       journey,
       pricing,
       ...(heldPrice ? { heldPrice } : {}),
+      ...storedAttribution,
     });
   } catch (err) {
     console.error("[saved-quote] create failed", err);

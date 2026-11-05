@@ -5,6 +5,7 @@ import {
   sanitizeAdsAttribution,
   type AdsAttribution,
 } from "../../shared/ads-attribution";
+import type { MeasurementConsentState } from "../../shared/saved-quote-ads-attribution";
 import { hasMarketingCookieConsent, readCookieConsent } from "@/lib/cookie-consent";
 
 const ATTR_STORAGE_KEY = "matni-ads-attribution-v1";
@@ -259,4 +260,27 @@ export function bookingWithConsentedAdsAttribution<T extends { attribution?: Ads
     return next;
   }
   return { ...booking, attribution: fromAd ? { ...attribution, ad_click: "google" } : attribution };
+}
+
+/** Current measurement-cookie choice for Worker save/pay attribution gates. */
+export function currentMeasurementConsent(): MeasurementConsentState {
+  const choice = readCookieConsent();
+  if (choice === "accepted" || choice === "rejected") return choice;
+  return "unanswered";
+}
+
+/**
+ * Attribution + consent state for Save My Quote. Click IDs only when accepted;
+ * otherwise at most the non-identifying ad_click marker.
+ */
+export function saveQuoteAdsFields(): {
+  measurementConsent: MeasurementConsentState;
+  attribution?: AdsAttribution;
+} {
+  const measurementConsent = currentMeasurementConsent();
+  const withAttr = bookingWithConsentedAdsAttribution<{ attribution?: AdsAttribution }>({});
+  return {
+    measurementConsent,
+    ...(withAttr.attribution ? { attribution: withAttr.attribution } : {}),
+  };
 }

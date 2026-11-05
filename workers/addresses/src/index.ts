@@ -65,6 +65,10 @@ import {
   sanitizeAdsAttribution,
 } from "../shared/ads-attribution";
 import {
+  mergeSavedQuoteAttributionForPayment,
+  parseMeasurementConsent,
+} from "../shared/saved-quote-ads-attribution";
+import {
   createSerializedQuoteLeadMarkerStore,
   runQuoteLeadNotification,
   sanitizeQuoteLeadAutomaticPrice,
@@ -2627,8 +2631,18 @@ async function handlePaymentRequest(
         return json(buildFareMismatchPaymentError(accepted, amount), 409, origin);
       }
       // Still attach token so finalize can mark booked; price is the requoted amount.
+      const restoredAttribution = mergeSavedQuoteAttributionForPayment({
+        bookingAttribution: booking.attribution,
+        savedAttribution: sq.attribution,
+        savedAttributionConsent: sq.attributionConsent,
+        measurementConsent: parseMeasurementConsent(body.measurementConsent),
+      });
+      const {
+        attribution: _discardBookingAttribution,
+        ...bookingWithoutAttribution
+      } = booking as typeof booking & { attribution?: unknown };
       booking = {
-        ...booking,
+        ...bookingWithoutAttribution,
         pickupLabel: sj.pickupLabel,
         dropoffLabel: sj.dropoffLabel,
         returnJourney: Boolean(sj.returnJourney),
@@ -2652,6 +2666,7 @@ async function handlePaymentRequest(
         pickupLng: sj.pickupLng,
         dropoffLat: sj.dropoffLat,
         dropoffLng: sj.dropoffLng,
+        ...(restoredAttribution ? { attribution: restoredAttribution } : {}),
       };
     }
   }
