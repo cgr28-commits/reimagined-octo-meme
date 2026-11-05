@@ -84,7 +84,8 @@ async function main() {
   assert.match(quoteHandler, /messageStatus: "generated"/);
   assert.match(quoteHandler, /messageStatus: "accepted"/);
   assert.match(quoteHandler, /sayAfterSmsAccepted/);
-  assert.match(VOICE_LINK_SENT_SAY, /We've sent you a secure link/);
+  assert.match(VOICE_LINK_SENT_SAY, /I've sent you a secure link/);
+  assert.match(readFileSync("shared/voice-greeting.ts", "utf8"), /VOICE_STAY_ON_LINE_ASK/);
   assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/);
   assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign|driver has been assigned/i);
   assert.doesNotMatch(quoteHandler, /Your driver is confirmed after payment/);

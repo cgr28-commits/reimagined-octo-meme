@@ -61,7 +61,9 @@ if (ok.ok) {
   assert.match(say, /144 pounds one way/);
   assert.match(say, /60 minutes/);
   assert.match(say, /quotation|secure link/i);
-  assert.match(say, /more than 24 hours|within 24 hours/i);
+  assert.match(say, /text, WhatsApp, or email/i);
+  assert.doesNotMatch(say, /That's grand/i);
+  assert.doesNotMatch(say, /non-refundable|cancel more than 24 hours/i, "Do not volunteer cancellation on the quote");
   assert.doesNotMatch(say, /10 minutes/, "Airport pickup only mentions airport waiting");
   assert.doesNotMatch(say, /surcharge|night|weekend|evening/i, "Never mentions surcharges");
   assert.doesNotMatch(say, /My Airport Taxi NI/i, "Spoken quote omits full business name");

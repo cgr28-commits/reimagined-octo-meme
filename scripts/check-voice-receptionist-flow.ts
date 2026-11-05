@@ -181,7 +181,7 @@ async function main() {
   assert.match(prompt, /Never promise that a driver has been assigned/i);
   assert.match(prompt, /If ok is false: do not quote any fare/i);
   assert.match(prompt, /Speak that greeting exactly once|once only/i);
-  assert.match(prompt, /more than 24 hours before pickup|within 24 hours/i);
+  assert.match(prompt, /Do \*\*not\*\* volunteer the cancellation policy|non-refundable within 24 hours/i);
   assert.match(prompt, /Stripe Checkout/i);
   assert.doesNotMatch(prompt, /SumUp/i);
   assert.match(prompt, /Belfast International|Dublin|return journey|urgent|interrupt/i);

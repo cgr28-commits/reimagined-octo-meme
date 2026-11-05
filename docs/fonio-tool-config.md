@@ -111,14 +111,17 @@ When `ok` is false, **do not quote a fare**. Follow `askNext` / `missing`, `unav
 {
   "quoteId": "{{quoteId}}",
   "mobile": "{{mobile}}",
+  "email": "{{email}}",
   "name": "{{name}}",
   "channel": "{{channel}}"
 }
 ```
 
-`channel` is `sms` or `whatsapp` (ask the caller which they want). Omit only if they have no preference (WhatsApp first, SMS fallback).
+`channel` is `sms` (UK 07 only), `whatsapp` (UK or international with country code), or `email`. Omit only if they have no preference (WhatsApp first; UK SMS fallback; otherwise offer email).
 
-Fonio template variables: `quoteId`, `mobile`, `name`, `channel`.
+Fonio template variables: `quoteId`, `mobile`, `email`, `name`, `channel`.
+
+After a successful send, tool `say` asks whether to stay on the line while they book and pay — speak that question; do not skip it.
 
 Message status fields (use accurate customer wording):
 

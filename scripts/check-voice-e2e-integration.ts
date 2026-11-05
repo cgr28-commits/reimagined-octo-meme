@@ -218,7 +218,8 @@ async function main() {
     });
     assert.match(say, /55 pounds/);
     assert.match(say, /quotation|secure link/i);
-    assert.match(say, /more than 24 hours|within 24 hours/i);
+    assert.match(say, /text, WhatsApp, or email/i);
+    assert.doesNotMatch(say, /That's grand|non-refundable/i);
     assert.doesNotMatch(say, /surcharge|night|weekend/i);
     assert.equal(whatsAppQuoteLinkHours(draft.draft, now), 24);
   });
@@ -253,10 +254,11 @@ async function main() {
     assert.equal(sms.delivered, false);
     assert.equal(sms.sendBySms, true);
     assert.match(sms.smsText, /book-quote/);
-    assert.match(sms.sayAfterSmsAccepted, /We've (sent|texted) you a (secure link|WhatsApp)/i);
+    assert.match(sms.sayAfterSmsAccepted, /I've (sent|texted) you a (secure link|WhatsApp)/i);
     assert.match(sms.sayAfterSmsAccepted, /paid on that link|booking is confirmed/i);
     assert.doesNotMatch(sms.sayAfterSmsAccepted, /never assign|driver has been assigned|Your driver is confirmed after payment/i);
-    assert.match(VOICE_LINK_SENT_SAY, /We've sent you a secure link/);
+    assert.match(VOICE_LINK_SENT_SAY, /I've sent you a secure link/);
+    assert.match(sms.sayAfterSmsAccepted, /stay on the line while you book and pay/i);
     assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/);
     assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign/i);
 
@@ -302,9 +304,78 @@ async function main() {
       assert.equal(wa.messageStatus, "accepted");
       assert.equal(wa.delivered, false);
       assert.equal(wa.channel, "whatsapp");
-      assert.doesNotMatch(wa.say, /delivered to your phone|handset/i);
+      assert.match(wa.say, /stay on the line while you book and pay/i);
+      assert.doesNotMatch(wa.say, /delivered to your phone|handset|non-refundable/i);
     } finally {
       globalThis.fetch = prevFetch;
+    }
+
+    // International mobile + channel=sms → offer WhatsApp or email (never UK-07 insistence).
+    const intlRes = await handleVoiceSendLink(
+      new Request("https://w/voice/send-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteId,
+          mobile: "+353871234567",
+          name: "Sam Test",
+          channel: "sms",
+        }),
+      }),
+      { TRACKING_STORE: store as unknown as KVNamespace, VOICE_ENABLE_BOOKING_TOOLS: "1" },
+    );
+    const intl = await intlRes.json();
+    assert.equal(intl.ok, false);
+    assert.match(intl.say, /WhatsApp or email|WhatsApp to your number/i);
+    assert.doesNotMatch(intl.say, /landline/i);
+
+    // Email channel with mocked outbound mail.
+    const storeEmail = memoryStore();
+    await storeEmail.put(
+      `voice:quote:${quoteId}`,
+      JSON.stringify({
+        amountLabel: "£45",
+        journeyLabel: "BFS to Bangor",
+        whenLabel: "20 Nov at 09:00",
+        heldFor: "24 hours",
+        bookingUrl,
+      }),
+    );
+    const prevFetchEmail = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      if (url.hostname.includes("mailchannels") || url.hostname.includes("resend")) {
+        return Response.json({ id: "email-test" });
+      }
+      return prevFetchEmail(input as never, init);
+    }) as typeof fetch;
+    try {
+      const emailRes = await handleVoiceSendLink(
+        new Request("https://w/voice/send-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            quoteId,
+            email: "sam.test@example.com",
+            name: "Sam Test",
+            channel: "email",
+          }),
+        }),
+        {
+          TRACKING_STORE: storeEmail as unknown as KVNamespace,
+          VOICE_ENABLE_BOOKING_TOOLS: "1",
+          EMAIL_ENABLED: "1",
+          RESEND_API_KEY: "re_test",
+        } as never,
+      );
+      const emailed = await emailRes.json();
+      assert.equal(emailed.ok, true);
+      assert.equal(emailed.channel, "email");
+      assert.equal(emailed.messageStatus, "accepted");
+      assert.match(emailed.say, /emailed you a secure link/i);
+      assert.match(emailed.say, /stay on the line while you book and pay/i);
+    } finally {
+      globalThis.fetch = prevFetchEmail;
     }
   });
 

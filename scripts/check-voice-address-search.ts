@@ -99,8 +99,8 @@ async function main() {
     mainText: "Hilton Belfast",
     secondaryText: "Lanyon Place",
   }) >= 0.6);
-  assert.match(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /That's grand.*Hilton Belfast/i);
-  assert.doesNotMatch(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /where are we taking you/i);
+  assert.match(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /Certainly.*Hilton Belfast/i);
+  assert.doesNotMatch(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /That's grand|where are we taking you/i);
   console.log("OK  need_more + brief confirmed say");
 
   // ——— Handler: confirm served airport without Google key ———
@@ -133,8 +133,8 @@ async function main() {
   assert.equal(typeof body.lng, "number");
   assert.match(body.formattedAddress, /Airport/i);
   assert.match(String(body.displayAddress ?? body.label ?? ""), /Airport|International/i);
-  assert.match(body.say, /That's grand/i);
-  assert.doesNotMatch(body.say, /where are we taking you/i);
+  assert.match(body.say, /Certainly/i);
+  assert.doesNotMatch(body.say, /That's grand|where are we taking you/i);
   console.log("OK  handler confirm → confirmed with coords (catalogue)");
 
   // ——— Handler: Google failure path ———

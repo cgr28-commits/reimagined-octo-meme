@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   VOICE_BOOKING_AFTER_PAYMENT_SAY,
   VOICE_LINK_SENT_SAY,
+  VOICE_STAY_ON_LINE_ASK,
   londonHourNow,
   voiceDayPart,
   voiceOpeningGreeting,
@@ -22,9 +23,11 @@ assert.match(morning.greeting, /^Good morning, My Airport Taxi NI\. How can we h
 const named = voiceOpeningGreeting({ firstName: "Aoife Byrne", now: new Date("2026-07-01T15:00:00Z") });
 assert.match(named.greeting, /^Good afternoon, My Airport Taxi NI — hello Aoife\. How can we help\?$/);
 assert.match(VOICE_LINK_SENT_SAY, /secure link/i);
-assert.doesNotMatch(VOICE_LINK_SENT_SAY, /WhatsApp|anything else/i);
+assert.doesNotMatch(VOICE_LINK_SENT_SAY, /WhatsApp|That's grand|anything else/i);
 assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/i);
 assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign|driver has been assigned|Your driver is confirmed after payment/i);
+assert.match(VOICE_STAY_ON_LINE_ASK, /stay on the line while you book and pay/i);
+assert.doesNotMatch(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /within 24 hours = non-refundable/);
 console.log("OK  Europe/London day parts + single-name greeting");
 
 async function inbound() {

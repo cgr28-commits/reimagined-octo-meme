@@ -168,8 +168,8 @@ export async function handleVoiceBookingLink(request: Request, env: Env): Promis
     delivered: false,
     mobile: booking.mobileNumber,
     smsText: voiceBookingSmsText(booking, manageUrl),
-    sayAfterSmsAccepted: "That's grand. I've texted your booking details and manage link.",
-    sayAfterSmsSent: "That's grand. I've texted your booking details and manage link.",
+    sayAfterSmsAccepted: "I've texted your booking details and manage link.",
+    sayAfterSmsSent: "I've texted your booking details and manage link.",
     say: "One moment — I've prepared a text with your booking details and I'm sending it now.",
   });
 }
