@@ -104,12 +104,17 @@ try {
       const req = route.request(), url = new URL(req.url());
       if (url.origin === new URL(base).origin) return route.continue();
       const json = (body) => route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
-      if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+      // >40 miles so Business Class stays offered on this Belfast airport journey.
+      if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:70000,duration:3600,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
       if (url.pathname.endsWith('/addresses')) {
         if (url.searchParams.has('id')) return json({placeId:'test-dublin-airport',address:'Dublin, Ireland',formattedAddress:'Dublin, Ireland',displayAddress:'Dublin, Ireland',placeName:'Dublin',lat:53.4264,lng:-6.2499,countryCode:'IE',postalCode:null});
         return json({suggestions:[{id:'test-dublin-airport',label:'Dublin Airport Terminal 2, Ireland',mainText:'Dublin Airport Terminal 2',secondaryText:'Ireland'}]});
       }
-      if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
+      if (url.pathname === '/pricing/public') {
+        const settings = defaultOwnerPricingSettings();
+        settings.minibus.publicEnabled = true;
+        return json({config:toPublicOwnerPricingConfig(settings)});
+      }
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
       if (url.pathname.endsWith('/quote/calculate')) {
         const journey = req.postDataJSON();

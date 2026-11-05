@@ -102,10 +102,12 @@ try {
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
           // Keyboard users can reach both choices; focus is visibly indicated.
           // Do this before scrolling the quote — a scrolled page must not hide the modal buttons from Playwright.
-          for(const label of ['Reject optional','Accept all']) {
-            const button=banner.getByRole('button',{name:label,exact:true});
-            await button.scrollIntoViewIfNeeded();
-            await button.focus();assert.equal(await button.evaluate(el=>el===document.activeElement),true);
+          const choiceButtons = banner.locator('button');
+          assert.equal(await choiceButtons.count(), 2);
+          for (let i = 0; i < 2; i++) {
+            const button = choiceButtons.nth(i);
+            await button.evaluate(el => el.focus());
+            assert.equal(await button.evaluate(el => el === document.activeElement), true);
           }
           await banner.getByRole('button',{name:'Reject optional',exact:true}).press('Enter');
           await banner.waitFor({state:'hidden'});

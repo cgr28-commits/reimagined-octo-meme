@@ -99,7 +99,7 @@ try {
   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
   await page.locator('#name').waitFor();
   const options=page.locator('[data-booking-payment-options]');await options.waitFor();
-  assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash to your driver on pickup/);
+  assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash on the day/);
   assert.doesNotMatch(await options.innerText(),/PAYMENT SUMMARY|Deposit \+ Cash selected/);
   const ack=options.getByRole('checkbox');
   const pay=page.getByRole('button',{name:'Pay £15.00 Deposit & Confirm Booking',exact:true});
