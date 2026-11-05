@@ -31,6 +31,7 @@ type Props = { params: Promise<{ slug: string }> };
  */
 const TRANSFER_TITLES_WITHOUT_BRAND_SUFFIX = new Set([
   "ballyclare-to-belfast-international",
+  "belfast-to-dublin-airport",
   "carrickfergus-to-belfast-international",
   "dublin-airport-to-belfast",
   "glengormley-to-belfast-international",

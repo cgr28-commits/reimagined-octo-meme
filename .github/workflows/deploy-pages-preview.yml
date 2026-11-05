@@ -30,6 +30,7 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
+      - seo/belfast-dublin-airport-ctr-20261105
 
 concurrency:
   group: pages-preview
