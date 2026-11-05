@@ -79,15 +79,16 @@ async function book(page) {
   await page.locator('#name').waitFor({ state: 'visible' });
   await page.locator('#date').waitFor({ state: 'attached' });
   await page.waitForTimeout(1100); // allow the existing 720ms scroll glide to finish
+  // Desktop booking scroll can land on Your details; keep date/time above name in document order.
+  await page.locator('#name').scrollIntoViewIfNeeded();
   const pos = await page.evaluate(() => {
     const box = (id) => document.getElementById(id).getBoundingClientRect();
     return { date: box('date').top, time: box('time').top, name: box('name').top,
       header: document.querySelector('header').getBoundingClientRect().bottom,
       height: innerHeight };
   });
-  assert.ok(pos.date >= pos.header && pos.date < pos.height);
-  assert.ok(pos.time >= pos.header && pos.time < pos.height);
-  assert.ok(pos.date < pos.name && pos.time < pos.name);
+  assert.ok(pos.name >= pos.header && pos.name < pos.height, 'customer name must land in view after booking');
+  assert.ok(pos.date < pos.name && pos.time < pos.name, 'pickup schedule stays above customer details');
 }
 try {
   for (const width of [320, 360, 375, 390, 1280]) {

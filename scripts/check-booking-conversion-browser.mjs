@@ -52,7 +52,8 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
   }
   if(req.method()==='POST'&&/payments$/.test(u.pathname)) {
    requests.push(req.postDataJSON());
-   return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Isolated test: payment not sent to SumUp'})});
+   // 4xx keeps the attempt retryable; 5xx marks payment uncertain and blocks a second pay.
+   return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Isolated test: payment not sent to SumUp'})});
   }
   return route.abort();
  });
@@ -119,8 +120,12 @@ try {
    await ack.check();await pay.click();
    for (let i = 0; i < 50 && q.requests.length < 1; i++) await page.waitForTimeout(100);
    assert.equal(q.requests.length,1);assert.equal(q.requests[0].amount,68);assert.equal(q.requests[0].paymentMethod,'DEPOSIT_CASH');assert.equal(q.requests[0].cashAgreementAccepted,true);
-   assert.match(await page.locator('body').innerText(),/Isolated test: payment not sent to SumUp|couldn.?t start payment|couldn.?t confirm whether your payment|payment link was created|try again/i);
-   await options.getByRole('button',{name:/Pay in Full Online/}).click();await page.getByRole('button',{name:'Pay £68.00 & Confirm Booking',exact:true}).click();
+   await page.getByText(/Isolated test: payment not sent to SumUp|couldn.?t start payment|couldn.?t confirm whether your payment|payment link was created|try again/i).waitFor({timeout:10000});
+   await options.getByRole('button',{name:/Pay in Full Online/}).click();
+   const fullPay=page.getByRole('button',{name:'Pay £68.00 & Confirm Booking',exact:true});
+   await fullPay.waitFor({state:'visible'});
+   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(btn=>/Pay £68\.00 & Confirm Booking/.test(btn.textContent||'')&&!btn.disabled),null,{timeout:10000});
+   await fullPay.click();
    await page.waitForTimeout(500);
    assert.equal(q.requests.length,2);assert.equal(q.requests[1].amount,68);assert.equal(q.requests[1].paymentMethod,'FULL_ONLINE');assert.equal(q.requests[1].cashAgreementAccepted,undefined);
    assert.equal(await page.getByRole('heading',{name:'Booking confirmed',exact:true}).count(),0);
