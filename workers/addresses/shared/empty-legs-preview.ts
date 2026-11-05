@@ -82,6 +82,9 @@ export type EmptyLegEconomics = {
   costsIncurredAnywayGbp: number | null;
   /** Detour fuel+wear + passenger-caused airport fees — decision-relevant. */
   incrementalCostGbp: number | null;
+  /** Extra waiting-time cost — null until modelled; never invent a figure. */
+  waitingTimeCostGbp: null;
+  waitingTimeStatus: "unavailable";
   suggestedRevenueGbp: number | null;
   /** suggestedRevenue − incrementalCost (null when unpriced). */
   contributionVsIncrementalGbp: number | null;
@@ -90,23 +93,36 @@ export type EmptyLegEconomics = {
   economicsNote: string;
 };
 
+export type EmptyLegCorridorDirection =
+  | "belfast_to_dublin"
+  | "dublin_to_belfast"
+  | "other";
+
 export type EmptyLegOpportunity = {
   id: string;
   type: EmptyLegOpportunityType;
   status: EmptyLegOpportunityStatus;
+  /** Owner-facing status line (pre-pickup uses the fixed unsupported copy). */
+  statusLabel: string;
   parentBookingId: string;
   parentTripDate: string;
   parentTripTime: string;
   parentDirectionLabel: string;
   opportunityDirectionLabel: string;
+  /** Filter key for empty-leg opportunity direction. */
+  opportunityCorridor: EmptyLegCorridorDirection;
+  parentCorridor: EmptyLegCorridorDirection;
   windowStartLocal: string | null;
   windowEndLocal: string | null;
+  estimatedDurationMinutes: number | null;
   estimatedEmptyMiles: number | null;
   normalJourneyFareGbp: number | null;
   normalTotalFareGbp: number | null;
   suggestedJourneyFareGbp: number | null;
   suggestedTotalFareGbp: number | null;
   suggestedSavingGbp: number | null;
+  /** Customer saving ÷ normal total, percent. Null when unpriced. */
+  effectiveDiscountPercent: number | null;
   airportFixedCostsGbp: number;
   estatePremiumGbp: number;
   alignment: number | null;
@@ -118,9 +134,23 @@ export type EmptyLegOpportunity = {
   notes: string;
 };
 
+export const PRE_PICKUP_STATUS_LABEL =
+  "Pre-pickup opportunity — pricing engine not yet available." as const;
+
 export type EmptyLegShadowReasonCount = {
   reason: string;
   count: number;
+};
+
+export type EmptyLegsPreviewTotals = {
+  upcomingPotential: number;
+  postDropoffCount: number;
+  prePickupCount: number;
+  previewPricedCount: number;
+  previewIneligibleCount: number;
+  estimatedAdditionalRevenuePotentialGbp: number;
+  emptyMilesPotentiallyConvertible: number;
+  actualMileagePotentiallyEliminated: number;
 };
 
 export type EmptyLegsPreviewReport = {
@@ -132,6 +162,7 @@ export type EmptyLegsPreviewReport = {
   toYmd: string;
   parentCount: number;
   opportunities: EmptyLegOpportunity[];
+  totals: EmptyLegsPreviewTotals;
   shadowReasonCounts: EmptyLegShadowReasonCount[];
   shadowSampleCount: number;
 };
@@ -159,18 +190,73 @@ function corridorLabel(fromLabel: string, toLabel: string): string {
   return `${from} → ${to}`;
 }
 
+export function classifyCorridorDirection(
+  fromLabel: string,
+  toLabel: string,
+  airportCode?: string | null,
+): EmptyLegCorridorDirection {
+  const from = String(fromLabel || "").toLowerCase();
+  const to = String(toLabel || "").toLowerCase();
+  const code = String(airportCode || "").toUpperCase();
+  const fromDub = /\bdublin\b|\bdub\b/.test(from) || (code === "DUB" && !/\bdublin\b|\bdub\b/.test(to));
+  const toDub = /\bdublin\b|\bdub\b/.test(to) || (code === "DUB" && !/\bdublin\b|\bdub\b/.test(from));
+  const fromBelfast = /\bbelfast\b|\bbfs\b|\bbhd\b/.test(from);
+  const toBelfast = /\bbelfast\b|\bbfs\b|\bbhd\b/.test(to);
+  if ((fromBelfast || (!fromDub && toDub)) && toDub) return "belfast_to_dublin";
+  if (fromDub && (toBelfast || !toDub)) return "dublin_to_belfast";
+  return "other";
+}
+
 function shortCorridor(fromLabel: string, toLabel: string, airportCode?: string | null): string {
-  const hay = `${fromLabel} ${toLabel} ${airportCode || ""}`.toLowerCase();
-  const hasDub = /\bdublin\b|\bdub\b/.test(hay) || String(airportCode || "").toUpperCase() === "DUB";
-  const hasBelfast = /\bbelfast\b|\bbfs\b|\bbhd\b/.test(hay);
-  if (hasDub && hasBelfast) {
-    const fromAirport =
-      /\bdublin\b|\bdub\b/.test(String(fromLabel || "").toLowerCase()) ||
-      (String(airportCode || "").toUpperCase() === "DUB" &&
-        !/\bdublin\b|\bdub\b/.test(String(toLabel || "").toLowerCase()));
-    return fromAirport ? "Dublin Airport → Greater Belfast" : "Greater Belfast → Dublin Airport";
-  }
+  const direction = classifyCorridorDirection(fromLabel, toLabel, airportCode);
+  if (direction === "dublin_to_belfast") return "Dublin Airport → Greater Belfast";
+  if (direction === "belfast_to_dublin") return "Greater Belfast → Dublin Airport";
   return corridorLabel(fromLabel, toLabel);
+}
+
+function effectiveDiscountPercent(
+  savingGbp: number | null,
+  normalTotalFareGbp: number | null,
+): number | null {
+  if (savingGbp == null || normalTotalFareGbp == null || normalTotalFareGbp <= 0) return null;
+  return Math.round((savingGbp / normalTotalFareGbp) * 1000) / 10;
+}
+
+export function summariseEmptyLegsTotals(
+  opportunities: EmptyLegOpportunity[],
+): EmptyLegsPreviewTotals {
+  let estimatedAdditionalRevenuePotentialGbp = 0;
+  let emptyMilesPotentiallyConvertible = 0;
+  let actualMileagePotentiallyEliminated = 0;
+  let postDropoffCount = 0;
+  let prePickupCount = 0;
+  let previewPricedCount = 0;
+  let previewIneligibleCount = 0;
+  for (const item of opportunities) {
+    if (item.type === "post_dropoff_return") postDropoffCount += 1;
+    if (item.type === "pre_pickup_positioning") prePickupCount += 1;
+    if (item.status === "preview_priced") previewPricedCount += 1;
+    if (item.status === "preview_ineligible") previewIneligibleCount += 1;
+    if (item.economics.contributionVsIncrementalGbp != null) {
+      estimatedAdditionalRevenuePotentialGbp += item.economics.contributionVsIncrementalGbp;
+    }
+    if (item.economics.emptyMilesConvertedToPaid != null) {
+      emptyMilesPotentiallyConvertible += item.economics.emptyMilesConvertedToPaid;
+    }
+    if (item.economics.actualMileageEliminated != null) {
+      actualMileagePotentiallyEliminated += item.economics.actualMileageEliminated;
+    }
+  }
+  return {
+    upcomingPotential: opportunities.length,
+    postDropoffCount,
+    prePickupCount,
+    previewPricedCount,
+    previewIneligibleCount,
+    estimatedAdditionalRevenuePotentialGbp: roundGbp(estimatedAdditionalRevenuePotentialGbp),
+    emptyMilesPotentiallyConvertible: roundMiles(emptyMilesPotentiallyConvertible),
+    actualMileagePotentiallyEliminated: roundMiles(actualMileagePotentiallyEliminated),
+  };
 }
 
 /** Build in-memory preview config. Never save this to KV. */
@@ -278,6 +364,8 @@ export function buildEmptyLegEconomics(input: {
     estimatedDetourMiles: baseline == null ? null : roundMiles(detour),
     costsIncurredAnywayGbp,
     incrementalCostGbp: incrementalForDecision,
+    waitingTimeCostGbp: null,
+    waitingTimeStatus: "unavailable",
     suggestedRevenueGbp: revenue,
     contributionVsIncrementalGbp: contribution,
     loadedOneWayOpCostReferenceGbp: loaded,
@@ -296,19 +384,24 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
     "id",
     "type",
     "status",
+    "statusLabel",
     "parentBookingId",
     "parentTripDate",
     "parentTripTime",
     "parentDirection",
+    "parentCorridor",
     "opportunityDirection",
+    "opportunityCorridor",
     "windowStartLocal",
     "windowEndLocal",
+    "estimatedDurationMinutes",
     "estimatedEmptyMiles",
     "normalJourneyFareGbp",
     "normalTotalFareGbp",
     "suggestedJourneyFareGbp",
     "suggestedTotalFareGbp",
     "suggestedSavingGbp",
+    "effectiveDiscountPercent",
     "airportFixedCostsGbp",
     "estatePremiumGbp",
     "alignment",
@@ -319,6 +412,8 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
     "estimatedDetourMiles",
     "costsIncurredAnywayGbp",
     "incrementalCostGbp",
+    "waitingTimeCostGbp",
+    "waitingTimeStatus",
     "suggestedRevenueGbp",
     "contributionVsIncrementalGbp",
     "loadedOneWayOpCostReferenceGbp",
@@ -332,19 +427,24 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
       item.id,
       item.type,
       item.status,
+      item.statusLabel,
       item.parentBookingId,
       item.parentTripDate,
       item.parentTripTime,
       item.parentDirectionLabel,
+      item.parentCorridor,
       item.opportunityDirectionLabel,
+      item.opportunityCorridor,
       item.windowStartLocal,
       item.windowEndLocal,
+      item.estimatedDurationMinutes,
       item.estimatedEmptyMiles,
       item.normalJourneyFareGbp,
       item.normalTotalFareGbp,
       item.suggestedJourneyFareGbp,
       item.suggestedTotalFareGbp,
       item.suggestedSavingGbp,
+      item.effectiveDiscountPercent,
       item.airportFixedCostsGbp,
       item.estatePremiumGbp,
       item.alignment,
@@ -355,6 +455,8 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
       item.economics.estimatedDetourMiles,
       item.economics.costsIncurredAnywayGbp,
       item.economics.incrementalCostGbp,
+      item.economics.waitingTimeCostGbp,
+      item.economics.waitingTimeStatus,
       item.economics.suggestedRevenueGbp,
       item.economics.contributionVsIncrementalGbp,
       item.economics.loadedOneWayOpCostReferenceGbp,
@@ -406,10 +508,12 @@ function buildPostDropoffOpportunity(input: {
     "Illustrative post-drop-off Smart Return preview. Live customer discounts remain OFF. Airport fees and Estate stay full; no stacking with the 5% return-booking discount.";
 
   if (!ready || journeyFare == null) {
+    const normalTotal = journeyFare != null ? roundGbp(journeyFare + airportFixed) : null;
     return {
       id: `return:${parent.id}`,
       type: "post_dropoff_return",
       status: "preview_ineligible",
+      statusLabel: "Preview ineligible — estimate only",
       parentBookingId: parent.id,
       parentTripDate: parent.tripDate,
       parentTripTime: parent.tripTime,
@@ -419,14 +523,26 @@ function buildPostDropoffOpportunity(input: {
         parent.pickupLabel,
         parent.airportCode,
       ),
+      opportunityCorridor: classifyCorridorDirection(
+        parent.dropoffLabel,
+        parent.pickupLabel,
+        parent.airportCode,
+      ),
+      parentCorridor: classifyCorridorDirection(
+        parent.pickupLabel,
+        parent.dropoffLabel,
+        parent.airportCode,
+      ),
       windowStartLocal: windowStart ? `${windowStart.tripDate}T${windowStart.tripTime}` : null,
       windowEndLocal: windowEnd ? `${windowEnd.tripDate}T${windowEnd.tripTime}` : null,
+      estimatedDurationMinutes: estimateDurationMinutes(parent),
       estimatedEmptyMiles: miles,
       normalJourneyFareGbp: journeyFare,
-      normalTotalFareGbp: journeyFare != null ? roundGbp(journeyFare + airportFixed) : null,
+      normalTotalFareGbp: normalTotal,
       suggestedJourneyFareGbp: null,
       suggestedTotalFareGbp: null,
       suggestedSavingGbp: null,
+      effectiveDiscountPercent: null,
       airportFixedCostsGbp: airportFixed,
       estatePremiumGbp: 0,
       alignment: null,
@@ -480,10 +596,14 @@ function buildPostDropoffOpportunity(input: {
     suggestedRevenueGbp: priced ? decision.finalSmartFareGbp : null,
     durationMinutes: estimateDurationMinutes(parent),
   });
+  const saving = priced ? decision.savingGbp : null;
   return {
     id: `return:${parent.id}`,
     type: "post_dropoff_return",
     status: priced ? "preview_priced" : "preview_ineligible",
+    statusLabel: priced
+      ? "Preview priced — estimate only"
+      : "Preview ineligible — estimate only",
     parentBookingId: parent.id,
     parentTripDate: parent.tripDate,
     parentTripTime: parent.tripTime,
@@ -493,14 +613,26 @@ function buildPostDropoffOpportunity(input: {
       parent.pickupLabel,
       parent.airportCode,
     ),
+    opportunityCorridor: classifyCorridorDirection(
+      parent.dropoffLabel,
+      parent.pickupLabel,
+      parent.airportCode,
+    ),
+    parentCorridor: classifyCorridorDirection(
+      parent.pickupLabel,
+      parent.dropoffLabel,
+      parent.airportCode,
+    ),
     windowStartLocal: windowStart ? `${windowStart.tripDate}T${windowStart.tripTime}` : null,
     windowEndLocal: windowEnd ? `${windowEnd.tripDate}T${windowEnd.tripTime}` : null,
+    estimatedDurationMinutes: estimateDurationMinutes(parent),
     estimatedEmptyMiles: miles,
     normalJourneyFareGbp: decision.normalJourneyFareGbp,
     normalTotalFareGbp: decision.finalNormalFareGbp,
     suggestedJourneyFareGbp: decision.smartJourneyFareGbp,
     suggestedTotalFareGbp: decision.finalSmartFareGbp,
-    suggestedSavingGbp: priced ? decision.savingGbp : null,
+    suggestedSavingGbp: saving,
+    effectiveDiscountPercent: effectiveDiscountPercent(saving, decision.finalNormalFareGbp),
     airportFixedCostsGbp: decision.airportFixedCostsGbp,
     estatePremiumGbp: decision.estatePremiumGbp,
     alignment: decision.alignment,
@@ -536,23 +668,35 @@ function buildPrePickupOpportunity(input: {
     durationMinutes: duration,
   });
 
+  const parentCorridor = classifyCorridorDirection(
+    parent.pickupLabel,
+    parent.dropoffLabel,
+    parent.airportCode,
+  );
+  // Pre-pickup fill travels toward the parent pickup, i.e. same direction as the parent.
+  const opportunityCorridor = parentCorridor;
   return {
     id: `positioning:${parent.id}`,
     type: "pre_pickup_positioning",
     status: "unsupported_unpriced",
+    statusLabel: PRE_PICKUP_STATUS_LABEL,
     parentBookingId: parent.id,
     parentTripDate: parent.tripDate,
     parentTripTime: parent.tripTime,
     parentDirectionLabel: shortCorridor(parent.pickupLabel, parent.dropoffLabel, parent.airportCode),
     opportunityDirectionLabel: `Toward parent pickup · ${shortCorridor(parent.pickupLabel, parent.dropoffLabel, parent.airportCode)}`,
+    opportunityCorridor,
+    parentCorridor,
     windowStartLocal: windowStart ? `${windowStart.tripDate}T${windowStart.tripTime}` : null,
     windowEndLocal: latestFinish ? `${latestFinish.tripDate}T${latestFinish.tripTime}` : null,
+    estimatedDurationMinutes: duration,
     estimatedEmptyMiles: miles,
     normalJourneyFareGbp: null,
     normalTotalFareGbp: null,
     suggestedJourneyFareGbp: null,
     suggestedTotalFareGbp: null,
     suggestedSavingGbp: null,
+    effectiveDiscountPercent: null,
     airportFixedCostsGbp: 0,
     estatePremiumGbp: 0,
     alignment: null,
@@ -623,6 +767,7 @@ export function buildEmptyLegsPreviewReport(input: {
     toYmd: input.toYmd,
     parentCount: parents.length,
     opportunities,
+    totals: summariseEmptyLegsTotals(opportunities),
     shadowReasonCounts: summariseShadowReturnReasons(input.shadow || []),
     shadowSampleCount: (input.shadow || []).length,
   };

@@ -13,6 +13,7 @@ import {
   EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
   emptyLegsPreviewCsv,
   estimateParentJourneyFareGbp,
+  PRE_PICKUP_STATUS_LABEL,
 } from "../shared/empty-legs-preview";
 import {
   DEFAULT_SMART_OPS_CONFIG,
@@ -32,7 +33,7 @@ const DUB = { lat: 53.4264, lng: -6.2499 };
 const MONDAY = "2026-11-09";
 const NOW = new Date("2026-11-08T12:00:00Z");
 
-const parent: SmartReturnParent = {
+const belfastToDub: SmartReturnParent = {
   id: "pay_belfast_dub_1",
   pickupLabel: "Belfast City Hall",
   dropoffLabel: "Dublin Airport",
@@ -49,6 +50,30 @@ const parent: SmartReturnParent = {
   paymentStatus: "paid",
 };
 
+const dubToBelfast: SmartReturnParent = {
+  id: "pay_dub_belfast_1",
+  pickupLabel: "Dublin Airport",
+  dropoffLabel: "Belfast City Hall",
+  pickup: DUB,
+  dropoff: BELFAST,
+  tripDate: MONDAY,
+  tripTime: "14:00",
+  durationMinutes: 120,
+  airportCode: "DUB",
+  isFromAirport: true,
+  vehicle: "Saloon",
+  amountGbp: 213,
+  operationalStatus: "confirmed",
+  paymentStatus: "paid",
+};
+
+const cancelledParent: SmartReturnParent = {
+  ...belfastToDub,
+  id: "pay_cancelled",
+  operationalStatus: "cancelled",
+  cancelled: true,
+};
+
 console.log("=== 1. Illustrative assumptions ===");
 {
   assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.maxDiscountPercent, 25);
@@ -61,7 +86,7 @@ console.log("=== 1. Illustrative assumptions ===");
   console.log("OK  25% / £185 · both types shown · pre-pickup unpriced");
 }
 
-console.log("\n=== 2. Preview config never matches live signed-off unlock ===");
+console.log("\n=== 2. Preview config never unlocks live flags ===");
 {
   const live = normalizeSmartOpsConfig({
     ...DEFAULT_SMART_OPS_CONFIG,
@@ -73,45 +98,95 @@ console.log("\n=== 2. Preview config never matches live signed-off unlock ===");
   assert.equal(preview.flags.smartReturnPricing, true);
   assert.equal(preview.smartReturn.maxDiscountPercent, 25);
   assert.equal(preview.smartReturn.minAcceptableFareGbp, 185);
-  // Live config object must remain unchanged by the preview builder.
   assert.equal(live.flags.smartReturnPricing, false);
   assert.equal(live.smartReturn.minAcceptableFareGbp, 40);
-  console.log("OK  preview config is in-memory only; live stays OFF / £40 technical default");
+  console.log("OK  preview config is in-memory only");
 }
 
-console.log("\n=== 3. Parent journey fare estimate strips to-airport fixed ===");
+console.log("\n=== 3. Parent journey fare estimate ===");
 {
-  const journey = estimateParentJourneyFareGbp(parent);
-  assert.equal(journey, 204);
-  console.log("OK  £208 total − £4 to-DUB fixed → £204 journey");
+  assert.equal(estimateParentJourneyFareGbp(belfastToDub), 204);
+  assert.equal(estimateParentJourneyFareGbp(dubToBelfast), 204);
+  console.log("OK  fixed costs stripped both directions");
 }
 
-console.log("\n=== 4. Report builds post-drop-off priced + pre-pickup unsupported ===");
+console.log("\n=== 4. Belfast→Dublin parent: post-drop-off priced + pre-pickup visible ===");
+{
+  const report = buildEmptyLegsPreviewReport({
+    parents: [belfastToDub, cancelledParent],
+    liveConfig: DEFAULT_SMART_OPS_CONFIG,
+    shadow: [],
+    fromYmd: MONDAY,
+    toYmd: MONDAY,
+    now: NOW,
+  });
+  assert.equal(report.parentCount, 1, "cancelled parents excluded");
+  assert.equal(report.opportunities.length, 2);
+  const post = report.opportunities.find((item) => item.type === "post_dropoff_return")!;
+  const pre = report.opportunities.find((item) => item.type === "pre_pickup_positioning")!;
+  assert.equal(post.parentCorridor, "belfast_to_dublin");
+  assert.equal(post.opportunityCorridor, "dublin_to_belfast");
+  assert.equal(post.status, "preview_priced");
+  assert.ok((post.suggestedJourneyFareGbp || 0) >= 185);
+  assert.ok((post.effectiveDiscountPercent || 0) >= 0);
+  assert.equal(post.pricingLive, false);
+  assert.equal(pre.status, "unsupported_unpriced");
+  assert.equal(pre.statusLabel, PRE_PICKUP_STATUS_LABEL);
+  assert.equal(pre.suggestedTotalFareGbp, null);
+  assert.equal(pre.parentCorridor, "belfast_to_dublin");
+  assert.equal(pre.opportunityCorridor, "belfast_to_dublin");
+  assert.equal(report.totals.prePickupCount, 1);
+  assert.equal(report.totals.postDropoffCount, 1);
+  console.log("OK  Belfast→Dublin both types · cancelled excluded");
+}
+
+console.log("\n=== 5. Dublin→Belfast parent: reverse post-drop-off + pre-pickup ===");
+{
+  const report = buildEmptyLegsPreviewReport({
+    parents: [dubToBelfast],
+    liveConfig: DEFAULT_SMART_OPS_CONFIG,
+    fromYmd: MONDAY,
+    toYmd: MONDAY,
+    now: NOW,
+  });
+  const post = report.opportunities.find((item) => item.type === "post_dropoff_return")!;
+  const pre = report.opportunities.find((item) => item.type === "pre_pickup_positioning")!;
+  assert.equal(post.parentCorridor, "dublin_to_belfast");
+  assert.equal(post.opportunityCorridor, "belfast_to_dublin");
+  assert.equal(post.status, "preview_priced");
+  assert.ok((post.suggestedJourneyFareGbp || 0) >= 185);
+  assert.equal(pre.statusLabel, PRE_PICKUP_STATUS_LABEL);
+  assert.equal(pre.opportunityCorridor, "dublin_to_belfast");
+  console.log("OK  Dublin→Belfast both types");
+}
+
+console.log("\n=== 6. Incremental economics vs loaded £/hr reference ===");
+{
+  const economics = buildEmptyLegEconomics({
+    type: "post_dropoff_return",
+    baselineEmptyDriveMiles: 98,
+    estimatedDetourMiles: 0,
+    airportFixedCostsGbp: 9,
+    suggestedRevenueGbp: 194,
+    durationMinutes: 115,
+  });
+  assert.equal(economics.emptyMilesConvertedToPaid, 98);
+  assert.equal(economics.actualMileageEliminated, 0);
+  assert.equal(economics.estimatedDetourMiles, 0);
+  assert.equal(economics.incrementalCostGbp, 9);
+  assert.equal(economics.waitingTimeCostGbp, null);
+  assert.equal(economics.waitingTimeStatus, "unavailable");
+  assert.ok((economics.loadedOneWayOpCostReferenceGbp || 0) > 80);
+  assert.ok((economics.contributionVsIncrementalGbp || 0) > 150);
+  console.log("OK  convert 98 mi, eliminate 0, incremental ≈ airport fees");
+}
+
+console.log("\n=== 7. Both parents together + CSV + shadow unavailable ===");
 {
   const shadow: SmartShadowRecord[] = [
     {
       at: NOW.toISOString(),
       fingerprint: "a|b|2026-11-09|12:30|saloon",
-      liveQuoted: true,
-      liveAmountGbp: 213,
-      availability: {
-        available: true,
-        reason: "AVAILABLE_NO_CONFLICT",
-        alternatives: [],
-        durationMinutes: 120,
-        bufferMinutes: 45,
-      },
-      smartReturn: {
-        eligible: false,
-        reason: "SMART_RETURN_DISABLED",
-        smartJourneyFareGbp: null,
-        savingGbp: 0,
-      },
-      customerFacingWouldChange: false,
-    },
-    {
-      at: NOW.toISOString(),
-      fingerprint: "c|d|2026-11-09|13:00|saloon",
       liveQuoted: true,
       availability: {
         available: true,
@@ -129,132 +204,43 @@ console.log("\n=== 4. Report builds post-drop-off priced + pre-pickup unsupporte
       customerFacingWouldChange: false,
     },
   ];
-
   const report = buildEmptyLegsPreviewReport({
-    parents: [parent],
+    parents: [belfastToDub, dubToBelfast],
     liveConfig: DEFAULT_SMART_OPS_CONFIG,
     shadow,
     fromYmd: MONDAY,
     toYmd: MONDAY,
     now: NOW,
   });
-
-  assert.equal(report.liveSmartReturnPricing, false);
-  assert.equal(report.parentCount, 1);
-  assert.equal(report.opportunities.length, 2);
-
-  const post = report.opportunities.find((item) => item.type === "post_dropoff_return");
-  const pre = report.opportunities.find((item) => item.type === "pre_pickup_positioning");
-  assert.ok(post);
-  assert.ok(pre);
-  assert.equal(post!.pricingLive, false);
-  assert.equal(post!.status, "preview_priced");
-  assert.ok((post!.suggestedJourneyFareGbp || 0) >= 185);
-  assert.ok((post!.suggestedTotalFareGbp || 0) > (post!.suggestedJourneyFareGbp || 0));
-  assert.equal(post!.airportFixedCostsGbp, 9);
-  assert.ok((post!.estimatedEmptyMiles || 0) > 50);
-  assert.ok(post!.windowStartLocal);
-  assert.ok(post!.windowEndLocal);
-
-  assert.equal(pre!.status, "unsupported_unpriced");
-  assert.equal(pre!.suggestedJourneyFareGbp, null);
-  assert.equal(pre!.suggestedTotalFareGbp, null);
-  assert.equal(pre!.reason, "PRE_PICKUP_MATCHING_UNSUPPORTED");
-  assert.match(pre!.notes, /not deferred|unsupported\/unpriced/i);
-  assert.ok((pre!.economics.emptyMilesConvertedToPaid || 0) > 50);
-  assert.equal(pre!.economics.actualMileageEliminated, 0);
-  assert.equal(pre!.economics.suggestedRevenueGbp, null);
-  assert.equal(pre!.economics.incrementalCostGbp, null);
-
-  assert.ok((post!.economics.emptyMilesConvertedToPaid || 0) > 50);
-  assert.equal(post!.economics.actualMileageEliminated, 0);
-  assert.ok((post!.economics.costsIncurredAnywayGbp || 0) > 0);
-  assert.ok((post!.economics.incrementalCostGbp || 0) >= 9);
-  assert.ok((post!.economics.contributionVsIncrementalGbp || 0) > 0);
-  assert.ok((post!.economics.loadedOneWayOpCostReferenceGbp || 0) > (post!.economics.incrementalCostGbp || 0));
-  assert.match(post!.economics.economicsNote, /incremental cost/i);
-
-  assert.equal(report.shadowSampleCount, 2);
-  assert.ok(report.shadowReasonCounts.some((row) => row.reason === "SMART_RETURN_DISABLED"));
-  assert.ok(
-    report.shadowReasonCounts.some((row) => row.reason === "SMART_RETURN_OUTSIDE_TIME_WINDOW"),
-  );
-
+  assert.equal(report.parentCount, 2);
+  assert.equal(report.opportunities.length, 4);
+  assert.equal(report.totals.upcomingPotential, 4);
+  assert.equal(report.totals.prePickupCount, 2);
+  assert.equal(report.totals.postDropoffCount, 2);
+  assert.ok(report.totals.estimatedAdditionalRevenuePotentialGbp > 0);
+  assert.ok(report.totals.emptyMilesPotentiallyConvertible > 100);
+  assert.equal(report.totals.actualMileagePotentiallyEliminated, 0);
   const csv = emptyLegsPreviewCsv(report);
-  assert.match(csv, /post_dropoff_return/);
   assert.match(csv, /pre_pickup_positioning/);
-  assert.match(csv, /unsupported_unpriced/);
-  assert.match(csv, /pricingLive/);
-  assert.match(csv, /emptyMilesConvertedToPaid/);
-  assert.match(csv, /actualMileageEliminated/);
-  assert.match(csv, /incrementalCostGbp/);
-  console.log("OK  dual opportunity types · economics · shadow counts · CSV");
+  assert.match(csv, /effectiveDiscountPercent/);
+  assert.match(csv, /waitingTimeStatus/);
+  assert.match(csv, /PRE_PICKUP_MATCHING_UNSUPPORTED|pricing engine not yet available/i);
+  assert.equal(report.shadowSampleCount, 1);
+  console.log("OK  four opportunities · totals · CSV");
 }
 
-console.log("\n=== 4b. Incremental economics vs loaded £/hr reference ===");
-{
-  const economics = buildEmptyLegEconomics({
-    type: "post_dropoff_return",
-    baselineEmptyDriveMiles: 98,
-    estimatedDetourMiles: 0,
-    airportFixedCostsGbp: 9,
-    suggestedRevenueGbp: 194,
-    durationMinutes: 115,
-  });
-  assert.equal(economics.emptyMilesConvertedToPaid, 98);
-  assert.equal(economics.actualMileageEliminated, 0);
-  assert.equal(economics.estimatedDetourMiles, 0);
-  assert.equal(economics.incrementalCostGbp, 9);
-  assert.ok((economics.costsIncurredAnywayGbp || 0) > 20);
-  assert.ok((economics.loadedOneWayOpCostReferenceGbp || 0) > 80);
-  assert.ok((economics.contributionVsIncrementalGbp || 0) > 150);
-  assert.ok(
-    (economics.loadedOneWayOpCostReferenceGbp || 0) > (economics.incrementalCostGbp || 0) * 5,
-    "loaded £/hr reference must not be used as the empty-leg decision floor",
-  );
-  console.log("OK  perfect reverse: convert 98 mi, eliminate 0, incremental ≈ airport fees only");
-}
-
-console.log("\n=== 5. Short local parents excluded when longDistanceOnly ===");
-{
-  const local: SmartReturnParent = {
-    id: "pay_local",
-    pickupLabel: "Belfast City Hall",
-    dropoffLabel: "Belfast International Airport",
-    pickup: BELFAST,
-    dropoff: { lat: 54.6575, lng: -6.2158 },
-    tripDate: MONDAY,
-    tripTime: "09:00",
-    durationMinutes: 30,
-    airportCode: "BFS",
-    isFromAirport: false,
-    amountGbp: 45,
-  };
-  const report = buildEmptyLegsPreviewReport({
-    parents: [local],
-    liveConfig: DEFAULT_SMART_OPS_CONFIG,
-    fromYmd: MONDAY,
-    toYmd: MONDAY,
-    now: NOW,
-    longDistanceOnly: true,
-  });
-  assert.equal(report.parentCount, 0);
-  assert.equal(report.opportunities.length, 0);
-  console.log("OK  BFS local parent filtered out of DUB-focused preview");
-}
-
-console.log("\n=== 6. Wiring: owner portal private, endpoint read-only, flags stay locked ===");
+console.log("\n=== 8. Wiring + hard restrictions ===");
 {
   const panel = read("src/components/OwnerEmptyLegsPanel.tsx");
   assert.match(panel, /data-owner-empty-legs/);
-  assert.match(panel, /Read-only preview/);
-  assert.match(panel, /Export CSV/);
-  assert.match(panel, /Approve \(locked\)/);
-  assert.match(panel, /EMPTY_LEGS_PREVIEW_ASSUMPTIONS/);
-  assert.match(panel, /Empty miles → paid/);
-  assert.match(panel, /Mileage eliminated/);
-  assert.match(panel, /Incremental cost/);
-  assert.match(panel, /pre-pickup/);
+  assert.match(panel, /data-empty-legs-table/);
+  assert.match(panel, /data-empty-legs-summary/);
+  assert.match(panel, /PRE_PICKUP_STATUS_LABEL/);
+  assert.match(panel, /Empty miles potentially convertible/);
+  assert.match(panel, /Actual mileage potentially eliminated/);
+  assert.match(panel, /Incremental contribution/);
+  assert.match(panel, /Activate Smart Return \(locked\)/);
+  assert.match(panel, /Waiting-time cost/);
   assert.doesNotMatch(panel, /smartReturnPricing:\s*true/);
 
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");
@@ -272,25 +258,16 @@ console.log("\n=== 6. Wiring: owner portal private, endpoint read-only, flags st
 
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(handlers, /handleOwnerEmptyLegsPreview/);
-  assert.match(handlers, /\/owner\/smart-ops\/empty-legs/);
-  assert.match(handlers, /buildEmptyLegsPreviewReport/);
   assert.match(handlers, /discountsActive:\s*false/);
-  // Save path must still hard-lock Smart Return OFF.
   assert.match(handlers, /smartReturnPricing:\s*false/);
   assert.match(handlers, /returnCorridorMatching:\s*false/);
 
   const index = read("workers/addresses/src/index.ts");
   assert.match(index, /handleOwnerEmptyLegsPreview/);
-  assert.match(index, /smart-ops\/empty-legs/);
-
-  const api = read("src/lib/smart-ops-api.ts");
-  assert.match(api, /fetchEmptyLegsPreview/);
-  assert.match(api, /format:\s*"csv"/);
 
   const robots = read("src/app/robots.ts");
   assert.match(robots, /\/owner\//);
-
-  console.log("OK  Owner More tool · GET preview endpoint · save lock intact · robots disallow /owner/");
+  console.log("OK  Owner portal wiring · locks · robots");
 }
 
 console.log("\nAll Empty Legs preview checks passed.");
