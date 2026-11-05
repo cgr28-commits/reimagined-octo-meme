@@ -89,6 +89,8 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 name = "EMAIL"
 
 [vars]
+# Phone receptionist: allow Send Booking Link + Provisional Booking on live Fonio tools.
+VOICE_ENABLE_BOOKING_TOOLS = "1"
 # Minutes after journey COMPLETE before automated Google review email (hourly cron sends when due).
 REVIEW_REQUEST_DELAY_MINUTES = "120"
 # Return Journey Offer delays (hours). JSON defaults live in shared/return-offer-config.json.

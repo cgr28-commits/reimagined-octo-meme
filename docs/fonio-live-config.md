@@ -1,7 +1,7 @@
 # Fonio live configuration (quotation + address search)
 
-**Approved for production:** receptionist prompt, Address Search, Get Quote, inbound greeting, Leave Message, After Call.  
-**Not enabled yet:** provisional booking, booking-link SMS / WhatsApp payment links (`VOICE_ENABLE_BOOKING_TOOLS` unset on Worker).
+**Live on Fonio (Olivia):** approved receptionist prompt, Inbound Webhook, Address Search, Get Quote (with Place IDs), Booking Lookup, Booking Link, Send Booking Link, Leave Message, Provisional Booking, After Call.  
+**Worker:** `VOICE_ENABLE_BOOKING_TOOLS=1` in production Worker vars so Send Booking Link / Provisional Booking are live (WhatsApp first; SMS fallback via Fonio Send SMS when returned).
 
 Base URL: `https://reimagined-octo-meme.cgr28.workers.dev`
 
@@ -25,7 +25,7 @@ Auth (once `VOICE_WEBHOOK_SECRET` is set on the Worker):
 | Leave Message | POST | `/voice/message` |
 | After Call | POST | `/voice/call-ended` |
 
-Do **not** add Provisional Booking or Send Booking Link in Fonio until booking tools are verified and `VOICE_ENABLE_BOOKING_TOOLS=1` is set on the Worker.
+Provisional Booking and Send Booking Link are configured in Fonio and enabled on the Worker via `VOICE_ENABLE_BOOKING_TOOLS=1`.
 
 ## Prompt
 
