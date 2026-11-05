@@ -1,6 +1,6 @@
 # Fonio end-to-end integration — PASS / FAIL report
 
-_Generated 2026-11-05T11:12:00.904Z by scripts/check-voice-e2e-integration.ts_
+_Generated 2026-11-05T11:14:36.773Z by scripts/check-voice-e2e-integration.ts_
 
 **Scope:** branch Worker handlers + shared quote/pricing rules + read-only production probes.
 **Not in scope this run:** live Fonio phone call, real SMS carrier delivery, real Stripe charges, production deploy.
