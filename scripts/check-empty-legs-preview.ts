@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  buildEmptyLegEconomics,
   buildEmptyLegsPreviewConfig,
   buildEmptyLegsPreviewReport,
   EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
@@ -55,7 +56,9 @@ console.log("=== 1. Illustrative assumptions ===");
   assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.noStackWithReturnBookingDiscount, true);
   assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.airportFeesUndiscounted, true);
   assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.estateSupplementUndiscounted, true);
-  console.log("OK  25% / £185 illustrative assumptions");
+  assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.showPrePickupOpportunities, true);
+  assert.equal(EMPTY_LEGS_PREVIEW_ASSUMPTIONS.pricePrePickupOpportunities, false);
+  console.log("OK  25% / £185 · both types shown · pre-pickup unpriced");
 }
 
 console.log("\n=== 2. Preview config never matches live signed-off unlock ===");
@@ -157,7 +160,19 @@ console.log("\n=== 4. Report builds post-drop-off priced + pre-pickup unsupporte
   assert.equal(pre!.suggestedJourneyFareGbp, null);
   assert.equal(pre!.suggestedTotalFareGbp, null);
   assert.equal(pre!.reason, "PRE_PICKUP_MATCHING_UNSUPPORTED");
-  assert.match(pre!.notes, /not implemented/i);
+  assert.match(pre!.notes, /not deferred|unsupported\/unpriced/i);
+  assert.ok((pre!.economics.emptyMilesConvertedToPaid || 0) > 50);
+  assert.equal(pre!.economics.actualMileageEliminated, 0);
+  assert.equal(pre!.economics.suggestedRevenueGbp, null);
+  assert.equal(pre!.economics.incrementalCostGbp, null);
+
+  assert.ok((post!.economics.emptyMilesConvertedToPaid || 0) > 50);
+  assert.equal(post!.economics.actualMileageEliminated, 0);
+  assert.ok((post!.economics.costsIncurredAnywayGbp || 0) > 0);
+  assert.ok((post!.economics.incrementalCostGbp || 0) >= 9);
+  assert.ok((post!.economics.contributionVsIncrementalGbp || 0) > 0);
+  assert.ok((post!.economics.loadedOneWayOpCostReferenceGbp || 0) > (post!.economics.incrementalCostGbp || 0));
+  assert.match(post!.economics.economicsNote, /incremental cost/i);
 
   assert.equal(report.shadowSampleCount, 2);
   assert.ok(report.shadowReasonCounts.some((row) => row.reason === "SMART_RETURN_DISABLED"));
@@ -170,7 +185,34 @@ console.log("\n=== 4. Report builds post-drop-off priced + pre-pickup unsupporte
   assert.match(csv, /pre_pickup_positioning/);
   assert.match(csv, /unsupported_unpriced/);
   assert.match(csv, /pricingLive/);
-  console.log("OK  dual opportunity types · shadow counts · CSV");
+  assert.match(csv, /emptyMilesConvertedToPaid/);
+  assert.match(csv, /actualMileageEliminated/);
+  assert.match(csv, /incrementalCostGbp/);
+  console.log("OK  dual opportunity types · economics · shadow counts · CSV");
+}
+
+console.log("\n=== 4b. Incremental economics vs loaded £/hr reference ===");
+{
+  const economics = buildEmptyLegEconomics({
+    type: "post_dropoff_return",
+    baselineEmptyDriveMiles: 98,
+    estimatedDetourMiles: 0,
+    airportFixedCostsGbp: 9,
+    suggestedRevenueGbp: 194,
+    durationMinutes: 115,
+  });
+  assert.equal(economics.emptyMilesConvertedToPaid, 98);
+  assert.equal(economics.actualMileageEliminated, 0);
+  assert.equal(economics.estimatedDetourMiles, 0);
+  assert.equal(economics.incrementalCostGbp, 9);
+  assert.ok((economics.costsIncurredAnywayGbp || 0) > 20);
+  assert.ok((economics.loadedOneWayOpCostReferenceGbp || 0) > 80);
+  assert.ok((economics.contributionVsIncrementalGbp || 0) > 150);
+  assert.ok(
+    (economics.loadedOneWayOpCostReferenceGbp || 0) > (economics.incrementalCostGbp || 0) * 5,
+    "loaded £/hr reference must not be used as the empty-leg decision floor",
+  );
+  console.log("OK  perfect reverse: convert 98 mi, eliminate 0, incremental ≈ airport fees only");
 }
 
 console.log("\n=== 5. Short local parents excluded when longDistanceOnly ===");
@@ -209,6 +251,10 @@ console.log("\n=== 6. Wiring: owner portal private, endpoint read-only, flags st
   assert.match(panel, /Export CSV/);
   assert.match(panel, /Approve \(locked\)/);
   assert.match(panel, /EMPTY_LEGS_PREVIEW_ASSUMPTIONS/);
+  assert.match(panel, /Empty miles → paid/);
+  assert.match(panel, /Mileage eliminated/);
+  assert.match(panel, /Incremental cost/);
+  assert.match(panel, /pre-pickup/);
   assert.doesNotMatch(panel, /smartReturnPricing:\s*true/);
 
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");

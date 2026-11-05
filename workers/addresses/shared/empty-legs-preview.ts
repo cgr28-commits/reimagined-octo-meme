@@ -30,7 +30,10 @@ import {
 } from "./smart-return";
 import type { SmartShadowRecord } from "./smart-shadow";
 
-/** Approved Phase 0 illustrative assumptions — preview only, never persisted. */
+/**
+ * Approved preview assumptions — simulation only, never persisted to live pricing.
+ * Both opportunity types are shown; only post-drop-off can be priced today.
+ */
 export const EMPTY_LEGS_PREVIEW_ASSUMPTIONS = {
   maxDiscountPercent: 25,
   minAcceptableFareGbp: 185,
@@ -38,6 +41,18 @@ export const EMPTY_LEGS_PREVIEW_ASSUMPTIONS = {
   noStackWithReturnBookingDiscount: true,
   airportFeesUndiscounted: true,
   estateSupplementUndiscounted: true,
+  showPrePickupOpportunities: true,
+  pricePrePickupOpportunities: false,
+  /** Variable £/mi for empty-leg economics (fuel + wear). Excludes £/hr wage. */
+  variableCostPerMileGbp: 0.293,
+  /**
+   * Reference loaded one-way op-cost rate uses £40/hr — shown only as context.
+   * Empty-leg decisions use incremental cost, not this loaded figure.
+   */
+  loadedHourlyReferenceGbp: 40,
+  dieselGbpPerLitre: 2,
+  vehicleMpg: 47,
+  wearPerMileGbp: 0.1,
 } as const;
 
 export type EmptyLegOpportunityType = "post_dropoff_return" | "pre_pickup_positioning";
@@ -46,6 +61,34 @@ export type EmptyLegOpportunityStatus =
   | "preview_priced"
   | "preview_ineligible"
   | "unsupported_unpriced";
+
+/**
+ * Empty-leg economics: separate miles already happening from extra passenger cost,
+ * and empty-miles-converted from true odometer reduction.
+ */
+export type EmptyLegEconomics = {
+  /** Empty corridor miles that become paid if this match sells. */
+  emptyMilesConvertedToPaid: number | null;
+  /**
+   * Miles removed from the odometer vs a separate empty positioning trip.
+   * Pure reverse fills usually 0 — converting empty→paid does not shrink total miles.
+   */
+  actualMileageEliminated: number | null;
+  /** Empty drive that would happen anyway without a passenger. */
+  baselineEmptyDriveMiles: number | null;
+  /** Extra miles vs the pure reverse / pure positioning path. */
+  estimatedDetourMiles: number | null;
+  /** Fuel+wear on baseline empty drive (sunk if already committed). No £/hr wage. */
+  costsIncurredAnywayGbp: number | null;
+  /** Detour fuel+wear + passenger-caused airport fees — decision-relevant. */
+  incrementalCostGbp: number | null;
+  suggestedRevenueGbp: number | null;
+  /** suggestedRevenue − incrementalCost (null when unpriced). */
+  contributionVsIncrementalGbp: number | null;
+  /** Reference only: fuel+wear+£40/hr on full one-way — not the empty-leg decision basis. */
+  loadedOneWayOpCostReferenceGbp: number | null;
+  economicsNote: string;
+};
 
 export type EmptyLegOpportunity = {
   id: string;
@@ -68,6 +111,7 @@ export type EmptyLegOpportunity = {
   estatePremiumGbp: number;
   alignment: number | null;
   deviationMiles: number | null;
+  economics: EmptyLegEconomics;
   reason: string;
   liveReleaseOpen: boolean;
   pricingLive: false;
@@ -172,6 +216,75 @@ function reverseAirportFixedGbp(parent: SmartReturnParent): number {
   return getAirportLegFixedCostGbp(code, parent.isFromAirport !== true);
 }
 
+function variableCostPerMileGbp(): number {
+  const fuel =
+    (EMPTY_LEGS_PREVIEW_ASSUMPTIONS.dieselGbpPerLitre * 4.54609) /
+    EMPTY_LEGS_PREVIEW_ASSUMPTIONS.vehicleMpg;
+  return roundGbp(fuel + EMPTY_LEGS_PREVIEW_ASSUMPTIONS.wearPerMileGbp);
+}
+
+function loadedOneWayOpCostReferenceGbp(miles: number, durationMinutes: number): number {
+  const hourly =
+    (Math.max(0, durationMinutes) / 60) * EMPTY_LEGS_PREVIEW_ASSUMPTIONS.loadedHourlyReferenceGbp;
+  return roundGbp(miles * variableCostPerMileGbp() + hourly);
+}
+
+/**
+ * Build empty-leg economics.
+ * Post-drop-off: baseline empty return would happen anyway; only detour + passenger airport fees are incremental.
+ * Pre-pickup: baseline is unpaid positioning toward the parent pickup; matching engine still unpriced.
+ */
+export function buildEmptyLegEconomics(input: {
+  type: EmptyLegOpportunityType;
+  baselineEmptyDriveMiles: number | null;
+  estimatedDetourMiles: number | null;
+  airportFixedCostsGbp: number;
+  suggestedRevenueGbp: number | null;
+  durationMinutes: number;
+}): EmptyLegEconomics {
+  const baseline = input.baselineEmptyDriveMiles;
+  const detour = Math.max(0, Number(input.estimatedDetourMiles) || 0);
+  const rate = variableCostPerMileGbp();
+  const costsIncurredAnywayGbp =
+    baseline != null ? roundGbp(baseline * rate) : null;
+  const detourCost = roundGbp(detour * rate);
+  const incrementalCostGbp = roundGbp(detourCost + Math.max(0, input.airportFixedCostsGbp || 0));
+  const converted = baseline != null ? roundMiles(baseline) : null;
+  // Reverse/positioning fills usually do not shrink total odometer — they convert empty→paid.
+  // Detours are tracked separately as estimatedDetourMiles (odometer increase).
+  const actualMileageEliminated = baseline == null ? null : 0;
+  const revenue = input.suggestedRevenueGbp;
+  const priced = revenue != null;
+  const incrementalForDecision =
+    input.type === "pre_pickup_positioning" || !priced ? null : incrementalCostGbp;
+  const contribution =
+    priced && incrementalForDecision != null
+      ? roundGbp(revenue - incrementalForDecision)
+      : null;
+  const loaded =
+    baseline != null
+      ? loadedOneWayOpCostReferenceGbp(baseline, input.durationMinutes)
+      : null;
+
+  const economicsNote =
+    input.type === "post_dropoff_return"
+      ? "Decision basis = incremental cost (detour fuel/wear + passenger airport fees), not the full loaded £/hr one-way cost. Empty miles converted ≠ mileage eliminated."
+      : "Pre-pickup shown for planning (not deferred). Matching/pricing engine not developed — no suggested fare. Miles shown are the empty positioning corridor that could convert later.";
+
+  return {
+    emptyMilesConvertedToPaid: converted,
+    actualMileageEliminated,
+    baselineEmptyDriveMiles: baseline,
+    estimatedDetourMiles: baseline == null ? null : roundMiles(detour),
+    costsIncurredAnywayGbp,
+    incrementalCostGbp: incrementalForDecision,
+    suggestedRevenueGbp: revenue,
+    contributionVsIncrementalGbp: contribution,
+    loadedOneWayOpCostReferenceGbp: loaded,
+    economicsNote,
+  };
+}
+
 function csvEscape(value: string | number | boolean | null | undefined): string {
   const text = value == null ? "" : String(value);
   if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
@@ -200,6 +313,15 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
     "estatePremiumGbp",
     "alignment",
     "deviationMiles",
+    "emptyMilesConvertedToPaid",
+    "actualMileageEliminated",
+    "baselineEmptyDriveMiles",
+    "estimatedDetourMiles",
+    "costsIncurredAnywayGbp",
+    "incrementalCostGbp",
+    "suggestedRevenueGbp",
+    "contributionVsIncrementalGbp",
+    "loadedOneWayOpCostReferenceGbp",
     "reason",
     "liveReleaseOpen",
     "pricingLive",
@@ -227,6 +349,15 @@ export function emptyLegsPreviewCsv(report: EmptyLegsPreviewReport): string {
       item.estatePremiumGbp,
       item.alignment,
       item.deviationMiles,
+      item.economics.emptyMilesConvertedToPaid,
+      item.economics.actualMileageEliminated,
+      item.economics.baselineEmptyDriveMiles,
+      item.economics.estimatedDetourMiles,
+      item.economics.costsIncurredAnywayGbp,
+      item.economics.incrementalCostGbp,
+      item.economics.suggestedRevenueGbp,
+      item.economics.contributionVsIncrementalGbp,
+      item.economics.loadedOneWayOpCostReferenceGbp,
       item.reason,
       item.liveReleaseOpen,
       item.pricingLive,
@@ -300,6 +431,14 @@ function buildPostDropoffOpportunity(input: {
       estatePremiumGbp: 0,
       alignment: null,
       deviationMiles: null,
+      economics: buildEmptyLegEconomics({
+        type: "post_dropoff_return",
+        baselineEmptyDriveMiles: miles,
+        estimatedDetourMiles: 0,
+        airportFixedCostsGbp: airportFixed,
+        suggestedRevenueGbp: null,
+        durationMinutes: estimateDurationMinutes(parent),
+      }),
       reason:
         journeyFare == null
           ? "PARENT_FARE_UNKNOWN"
@@ -333,6 +472,14 @@ function buildPostDropoffOpportunity(input: {
   });
 
   const priced = decision.eligible && decision.finalSmartFareGbp != null;
+  const economics = buildEmptyLegEconomics({
+    type: "post_dropoff_return",
+    baselineEmptyDriveMiles: miles,
+    estimatedDetourMiles: decision.deviationMiles,
+    airportFixedCostsGbp: decision.airportFixedCostsGbp,
+    suggestedRevenueGbp: priced ? decision.finalSmartFareGbp : null,
+    durationMinutes: estimateDurationMinutes(parent),
+  });
   return {
     id: `return:${parent.id}`,
     type: "post_dropoff_return",
@@ -358,12 +505,13 @@ function buildPostDropoffOpportunity(input: {
     estatePremiumGbp: decision.estatePremiumGbp,
     alignment: decision.alignment,
     deviationMiles: decision.deviationMiles,
+    economics,
     reason: decision.reason,
     liveReleaseOpen,
     pricingLive: false,
     notes: liveReleaseOpen
-      ? baseNotes
-      : `${baseNotes} Live release window is not open yet under current owner settings.`,
+      ? `${baseNotes} ${economics.economicsNote}`
+      : `${baseNotes} Live release window is not open yet under current owner settings. ${economics.economicsNote}`,
   };
 }
 
@@ -379,6 +527,14 @@ function buildPrePickupOpportunity(input: {
     ? addMinutesToTrip(latestFinish.tripDate, latestFinish.tripTime, -duration)
     : null;
   const miles = estimateEmptyMilesForParent(parent);
+  const economics = buildEmptyLegEconomics({
+    type: "pre_pickup_positioning",
+    baselineEmptyDriveMiles: miles,
+    estimatedDetourMiles: 0,
+    airportFixedCostsGbp: 0,
+    suggestedRevenueGbp: null,
+    durationMinutes: duration,
+  });
 
   return {
     id: `positioning:${parent.id}`,
@@ -401,11 +557,12 @@ function buildPrePickupOpportunity(input: {
     estatePremiumGbp: 0,
     alignment: null,
     deviationMiles: null,
+    economics,
     reason: "PRE_PICKUP_MATCHING_UNSUPPORTED",
     liveReleaseOpen: false,
     pricingLive: false,
     notes:
-      "Pre-pickup positioning empty-leg matching is not implemented. Listed for planning only — no suggested fare. Conflict/positioning maths exist for availability, not for discounted offers.",
+      "Pre-pickup positioning is shown (not deferred) but unsupported/unpriced until its matching engine is developed. Conflict/positioning maths exist for availability only.",
   };
 }
 

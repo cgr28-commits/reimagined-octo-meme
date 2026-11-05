@@ -120,10 +120,17 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
       <div className="rounded-2xl border border-amber-200/25 bg-amber-100/10 p-4">
         <p className="text-sm font-bold text-amber-100">Read-only preview — discounts not active</p>
         <p className="mt-2 text-sm text-white/75">
-          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. Assumptions: max discount{" "}
+          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. Approved simulation assumptions: max discount{" "}
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.maxDiscountPercent}%, Belfast–Dublin journey floor £
-          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.minAcceptableFareGbp}. Airport fees and Estate stay full.
-          No stacking with the 5% return-booking discount. Live Smart Return stays locked OFF.
+          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.minAcceptableFareGbp}. Both post-drop-off and pre-pickup
+          opportunities are listed; only post-drop-off can be priced today. Airport fees and Estate
+          stay full. No stacking with the 5% return-booking discount. Live Smart Return stays locked
+          OFF.
+        </p>
+        <p className="mt-2 text-xs text-white/55">
+          Empty-leg contribution uses incremental cost (detour + passenger airport fees), not a full
+          loaded £{EMPTY_LEGS_PREVIEW_ASSUMPTIONS.loadedHourlyReferenceGbp}/hr one-way cost. Empty
+          miles converted ≠ mileage eliminated.
         </p>
         {notice ? <p className="mt-2 text-xs text-white/55">{notice}</p> : null}
       </div>
@@ -314,6 +321,56 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
                 <dd>{item.liveReleaseOpen ? "Yes" : "No"}</dd>
               </div>
             </dl>
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white/45">
+                Empty-leg economics
+              </p>
+              <dl className="mt-2 grid gap-2 text-sm text-white/75 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-white/45">Empty miles → paid</dt>
+                  <dd>
+                    {item.economics.emptyMilesConvertedToPaid != null
+                      ? `${item.economics.emptyMilesConvertedToPaid} mi`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/45">Mileage eliminated</dt>
+                  <dd>
+                    {item.economics.actualMileageEliminated != null
+                      ? `${item.economics.actualMileageEliminated} mi`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/45">Detour vs pure path</dt>
+                  <dd>
+                    {item.economics.estimatedDetourMiles != null
+                      ? `${item.economics.estimatedDetourMiles} mi`
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/45">Costs incurred anyway</dt>
+                  <dd>{money(item.economics.costsIncurredAnywayGbp)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/45">Incremental cost</dt>
+                  <dd>{money(item.economics.incrementalCostGbp)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-white/45">Contribution vs incremental</dt>
+                  <dd>{money(item.economics.contributionVsIncrementalGbp)}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs text-white/45">
+                    Loaded one-way op-cost reference (not decision basis)
+                  </dt>
+                  <dd>{money(item.economics.loadedOneWayOpCostReferenceGbp)}</dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs text-white/45">{item.economics.economicsNote}</p>
+            </div>
             <p className="mt-3 text-xs text-white/45">{item.notes}</p>
           </article>
         ))}
