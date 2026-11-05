@@ -40,15 +40,17 @@ Use `name` / `sayHint` only as guidance. Never invent booking details from inbou
 - URL: `…/voice/address-search`
 - Method: POST
 - When: caller gives a place that is not yet a confirmed Google location (hotel, landmark, village, incomplete address, airport name). **Do not demand a full postcode first** — search first.
+- Fonio **template variables** must declare `place_query`, `place_role`, and `placeId` (otherwise the tool sends empty/`{{…}}` placeholders and lookups fail).
 
 ```json
 {
   "query": "{{place_query}}",
-  "role": "{{place_role}}"
+  "role": "{{place_role}}",
+  "placeId": "{{placeId}}"
 }
 ```
 
-`role` is `pickup` or `dropoff`.
+`role` / `place_role` is `pickup` or `dropoff`. Leave `placeId` empty on the first search.
 
 | `status` | Action |
 |----------|--------|
