@@ -42,7 +42,11 @@ export async function handleVoiceInbound(request: Request, env: Env, now = new D
   let input: Record<string, unknown> = {};
   if (request.method === "GET") {
     const url = new URL(request.url);
-    input = Object.fromEntries(url.searchParams.entries());
+    const params: Record<string, unknown> = {};
+    url.searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+    input = params;
   } else {
     input = flatten(await request.json().catch(() => null));
   }
