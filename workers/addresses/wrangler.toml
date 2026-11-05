@@ -105,6 +105,8 @@ RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS = "24"
 DAILY_QUOTE_REPORT_LONDON_HOUR = "19"
 # WhatsApp quick-tap choices (passenger/suitcase/airport lists, Today/Tomorrow). "off" to disable.
 WHATSAPP_QUICK_CHOICES = "all"
+# WhatsApp: confirm addresses typed without a postcode via Google (full address + postcode). "off" to disable.
+WHATSAPP_ADDRESS_CHECK = "all"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
 # 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.

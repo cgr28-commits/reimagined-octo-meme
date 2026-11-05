@@ -62,10 +62,25 @@ import {
   whatsAppDraftToQuoteBody,
   whatsAppQuoteLinkHours,
   type WhatsAppAiTask,
+  type WhatsAppAddressCheck,
+  type WhatsAppAddressField,
+  type WhatsAppAddressPick,
   type WhatsAppConversation,
   type WhatsAppJourneyLeg,
   type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
+import {
+  WHATSAPP_ADDRESS_MAX_OPTIONS,
+  buildWhatsAppAddressPrompt,
+  buildWhatsAppAddressRetry,
+  clearStaleWhatsAppPlaces,
+  parseWhatsAppAddressReply,
+  whatsAppAddressFieldToCheck,
+  whatsAppFullAddress,
+} from "../shared/whatsapp-address-check";
+import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { voiceAddressMatchScore } from "../shared/voice-address-search";
+import { collectVoiceAddressSuggestions } from "./voice-address";
 import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { formatExpressDropOffGbp, resolveExpressDropOff } from "../shared/express-drop-off";
@@ -152,15 +167,104 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * Set as a Worker secret so it survives deploys.
    */
   WHATSAPP_QUICK_CHOICES?: string;
+  /**
+   * Google address check: an address typed without a postcode is looked up and the customer
+   * confirms the full address. Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
+   */
+  WHATSAPP_ADDRESS_CHECK?: string;
 };
+
+/** Pilot switch: unset/"off" nobody, "all" everyone, else comma-separated numbers. */
+function whatsAppPilotEnabled(setting: string | undefined, phone: string): boolean {
+  const value = setting?.trim().toLowerCase();
+  if (!value || value === "off") return false;
+  if (value === "all") return true;
+  const pilot = value.split(",").map(normalizeWhatsAppNumber).filter(Boolean);
+  return pilot.includes(normalizeWhatsAppNumber(phone));
+}
+
+function pilotSettingLabel(setting: string | undefined): "off" | "all" | "pilot" {
+  const value = setting?.trim().toLowerCase();
+  return !value || value === "off" ? "off" : value === "all" ? "all" : "pilot";
+}
 
 /** Whether this customer gets the quick-tap choices (see WHATSAPP_QUICK_CHOICES). */
 export function whatsAppQuickChoicesEnabled(env: WhatsAppEnv, phone: string): boolean {
-  const setting = env.WHATSAPP_QUICK_CHOICES?.trim().toLowerCase();
-  if (!setting || setting === "off") return false;
-  if (setting === "all") return true;
-  const pilot = setting.split(",").map(normalizeWhatsAppNumber).filter(Boolean);
-  return pilot.includes(normalizeWhatsAppNumber(phone));
+  return whatsAppPilotEnabled(env.WHATSAPP_QUICK_CHOICES, phone);
+}
+
+/** Whether typed addresses are checked on Google for this customer (see WHATSAPP_ADDRESS_CHECK). */
+export function whatsAppAddressCheckEnabled(env: WhatsAppEnv, phone: string): boolean {
+  return whatsAppPilotEnabled(env.WHATSAPP_ADDRESS_CHECK, phone);
+}
+
+const ADDRESS_LOOKUPS_PER_CUSTOMER_PER_HOUR = 20;
+
+/**
+ * Google calls used by the address check (the phone receptionist's lookup + Place Details).
+ * Replaceable in checks so no real Google requests are made.
+ */
+export const whatsAppAddressLookup = {
+  suggest: (env: WhatsAppEnv, query: string, bias: string) => collectVoiceAddressSuggestions(env, query, bias),
+  details: (env: WhatsAppEnv, placeId: string, bias: string, typed: string) =>
+    resolveGooglePlaceDetails(env.GOOGLE_PLACES_API_KEY!.trim(), placeId, bias, undefined, typed),
+};
+
+/**
+ * Look the typed address up on Google: up to three full addresses with postcode, or null
+ * (no key, rate limited, no match, Google down) — then the chat carries on as before.
+ */
+async function lookUpWhatsAppAddress(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  conversation: WhatsAppConversation,
+  field: WhatsAppAddressField,
+): Promise<WhatsAppAddressCheck | null> {
+  if (!env.GOOGLE_PLACES_API_KEY?.trim()) return null;
+  const typed = conversation.draft[field]!.trim();
+  try {
+    const quota = await consumeQuickQuoteCreateQuota(
+      store,
+      `whatsapp-address:${phone}`,
+      ADDRESS_LOOKUPS_PER_CUSTOMER_PER_HOUR,
+    );
+    if (quota === "limited") return null;
+    // Same bias as the website's address box: the journey's airport, else island-wide.
+    const bias = conversation.draft.airportCode ?? "A2A";
+    const { suggestions } = await whatsAppAddressLookup.suggest(env, typed, bias);
+    // The phone receptionist's scoring: one clear winner is confirmed on its own. Unlike the
+    // phone, same-street matches in different towns stay separate — on screen they're readable.
+    const scored = suggestions
+      .filter((s) => s.id && s.label)
+      .map((s) => ({
+        placeId: s.id,
+        score: voiceAddressMatchScore(typed, {
+          placeId: s.id,
+          label: s.label,
+          mainText: s.mainText || s.label,
+          secondaryText: s.secondaryText ?? "",
+        }),
+      }))
+      .sort((a, b) => b.score - a.score);
+    const [top, second] = scored;
+    if (!top) return null;
+    const clearWinner =
+      scored.length === 1 ||
+      (top.score >= 0.6 && (!second || top.score - second.score >= 0.25 || second.score < 0.45));
+    const candidates = clearWinner ? [top] : scored.slice(0, WHATSAPP_ADDRESS_MAX_OPTIONS);
+    const places = await Promise.all(
+      candidates.map((c) => whatsAppAddressLookup.details(env, c.placeId, bias, typed).catch(() => null)),
+    );
+    const options = places
+      .filter((p): p is NonNullable<typeof p> => Boolean(p?.placeId))
+      .map((p) => ({ placeId: p.placeId, address: whatsAppFullAddress(p) }))
+      .filter((o) => o.address);
+    return options.length ? { field, typed, options } : null;
+  } catch (error) {
+    console.error("whatsapp address lookup failed", error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 /** Matches the WhatsApp customer service window — free-form replies are allowed inside it. */
@@ -218,9 +322,8 @@ export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> 
         botEnabled: env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() !== "false",
         teamNumberSet: Boolean(env.WHATSAPP_TEAM_NUMBER?.trim()),
         // "off" | "all" | "pilot" — never lists the pilot numbers.
-        quickChoices: ((s) => (!s || s === "off" ? "off" : s === "all" ? "all" : "pilot"))(
-          env.WHATSAPP_QUICK_CHOICES?.trim().toLowerCase(),
-        ),
+        quickChoices: pilotSettingLabel(env.WHATSAPP_QUICK_CHOICES),
+        addressCheck: pilotSettingLabel(env.WHATSAPP_ADDRESS_CHECK),
         ...(diag ?? {}),
       },
       null,
@@ -498,12 +601,67 @@ async function handleInboundMessage(
     return;
   }
 
-  const existing = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+  const stored = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+  let existing = stored;
+  // Answer to "Is this the right address?": a tapped match goes on the quote, "no" asks
+  // again for the full address, anything else is handled as normal journey text.
+  let addressPick: WhatsAppAddressPick | undefined;
+  if (stored?.addressCheck) {
+    const check = stored.addressCheck;
+    const { addressCheck: _pending, ...rest } = stored;
+    existing = { ...rest, draft: { ...stored.draft } };
+    const answer = parseWhatsAppAddressReply(message.text, check);
+    if (answer?.kind === "pick") {
+      addressPick = { field: check.field, ...answer.option };
+      logEvent("whatsapp_address_confirmed", phone);
+    } else {
+      existing.addressChecked = [...(existing.addressChecked ?? []), check.typed];
+      if (answer?.kind === "none") {
+        delete existing.draft[check.field];
+        delete existing.draft[check.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"];
+        existing.stage = "collecting";
+        existing.awaiting = check.field;
+        existing.updatedAt = nowIso();
+        await store.put(conversationKey(phone), JSON.stringify(existing), {
+          expirationTtl: CONVERSATION_TTL_SECONDS,
+        });
+        logEvent("whatsapp_address_declined", phone);
+        await reply(env, phone, buildWhatsAppAddressRetry(check.field));
+        return;
+      }
+    }
+  }
   const decision = decideWhatsAppReply(existing, message.text, {
     profileName: message.profileName,
     quickChoices: whatsAppQuickChoicesEnabled(env, phone),
+    addressPick,
   });
   const conversation = decision.conversation;
+  clearStaleWhatsAppPlaces(conversation, existing);
+
+  // A pickup / destination typed without a postcode: confirm the full Google address
+  // (with postcode) before it goes on the quote. No match or no Google: carry on as before.
+  if (
+    (decision.action === "answer" || decision.action === "none" || decision.action === "quote") &&
+    whatsAppAddressCheckEnabled(env, phone)
+  ) {
+    const field = whatsAppAddressFieldToCheck(conversation);
+    if (field) {
+      const check = await lookUpWhatsAppAddress(env, store, phone, conversation, field);
+      if (check) {
+        conversation.addressCheck = check;
+        conversation.stage = "collecting";
+        await store.put(conversationKey(phone), JSON.stringify(conversation), {
+          expirationTtl: CONVERSATION_TTL_SECONDS,
+        });
+        logEvent("whatsapp_address_check", phone, { options: check.options.length });
+        const prompt = buildWhatsAppAddressPrompt(check);
+        await reply(env, phone, prompt.text, prompt.buttons, prompt.list);
+        return;
+      }
+      conversation.addressChecked = [...(conversation.addressChecked ?? []), conversation.draft[field]!.trim()];
+    }
+  }
   let text = decision.reply;
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
   // Only set when asking for a journey detail; the quote/discount/handoff paths never carry one.
