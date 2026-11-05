@@ -42,7 +42,7 @@ try {
     await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
     await page.screenshot({path:`test-results/greater-belfast-ireland/${engine}/${width}-${destination}.png`});
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
-    await page.locator('#date').waitFor({state:'visible'});
+    await page.locator('#name').waitFor({state:'visible'});
     assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
     assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

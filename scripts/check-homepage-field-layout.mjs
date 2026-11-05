@@ -82,7 +82,8 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       }
       await page.locator('#quote-section-passengers').selectOption('2');
       await page.locator('#quote-section-suitcases').selectOption('2');
-      await page.locator('h1').click();
+      // Blur without clicking h1 — the fixed header can intercept that click.
+      await page.locator('#quote-section-passengers').evaluate(el=>el.blur());
       await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
       for(const selector of fieldSelectors.slice(2)) {
         await page.waitForFunction(selector=>getComputedStyle(document.querySelector(selector)).color==='rgb(255, 255, 255)',selector);

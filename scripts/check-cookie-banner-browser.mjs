@@ -100,11 +100,11 @@ try {
             else assert.ok(m.banner.height<=91,'mobile slim-height target without device safe-area inset');
           }
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
-          await page.locator('[data-homepage-quote-fields]').scrollIntoViewIfNeeded();
-          await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}-quote.png`)});
           // Keyboard users can reach both choices; focus is visibly indicated.
+          // Do this before scrolling the quote — a scrolled page must not hide the modal buttons from Playwright.
           for(const label of ['Reject optional','Accept all']) {
             const button=banner.getByRole('button',{name:label,exact:true});
+            await button.scrollIntoViewIfNeeded();
             await button.focus();assert.equal(await button.evaluate(el=>el===document.activeElement),true);
           }
           await banner.getByRole('button',{name:'Reject optional',exact:true}).press('Enter');
@@ -114,6 +114,8 @@ try {
           await page.reload({waitUntil:'networkidle'});
           assert.equal(await banner.count(),0,'rejected preference persists');
           await page.evaluate(()=>scrollTo(0,0));
+          await page.locator('[data-homepage-quote-fields]').scrollIntoViewIfNeeded();
+          await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}-quote.png`)});
           snapshots[`${variant}Underlying`]=await underlyingPage(page);
           // Existing reset/reopen behaviour: clearing stored choice and reloading.
           // There is no separate preferences/withdrawal control in unchanged main.
