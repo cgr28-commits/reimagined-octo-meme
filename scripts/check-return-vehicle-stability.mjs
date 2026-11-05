@@ -25,14 +25,15 @@ try {
    const req=route.request(),url=new URL(req.url());
    if(url.origin===new URL(base).origin) return route.continue();
    const json=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
-   if(url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+   // Keep the mock over 40 miles so Business Class stays offered.
+   if(url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:70000,duration:3600,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
    if(url.pathname==='/pricing/public') return json({config:toPublicOwnerPricingConfig(settings)});
    if(url.pathname==='/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
    if(url.pathname==='/quote/calculate') {
     const body=req.postDataJSON(),vehicle=body.vehicleType;
     if(!allowed.has(vehicle)) await new Promise(resolve=>{const list=pending.get(vehicle)||[];list.push(resolve);pending.set(vehicle,list)});
     const fare=vehicle===SALOON_VEHICLE?60:vehicle===ESTATE_VEHICLE?70:vehicle===EXECUTIVE_VEHICLE?100:95;
-    return json({ok:true,amount:fare,journeyFareGbp:fare,airportFixedCostsGbp:13,nightWeekendSurchargeGbp:0,vehicleType:vehicle,returnJourney:body.returnJourney,outboundOneWayBeforeAccessGbp:fare/2,returnOneWayBeforeAccessGbp:fare/2});
+    return json({ok:true,amount:fare,journeyFareGbp:fare,airportFixedCostsGbp:13,nightWeekendSurchargeGbp:0,vehicleType:vehicle,returnJourney:body.returnJourney,outboundOneWayBeforeAccessGbp:fare/2,returnOneWayBeforeAccessGbp:fare/2,distanceKm:70,durationMinutes:60});
    }
    return route.abort();
   });
