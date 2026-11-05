@@ -51,14 +51,22 @@ export function voiceOpeningGreeting(input: { firstName?: string; now?: Date } =
 
 /**
  * After WhatsApp/SMS was accepted for sending (not handset delivery proof).
- * Do not append driver-assignment promises — payment verifies booking status only.
+ * Keep this customer-facing — no internal policy about driver assignment.
  */
 export const VOICE_LINK_SENT_SAY =
   "That's grand. We've sent you a secure link where you can check the details and complete your booking.";
 
-/** After payment is verified by our backend — booking status only, not driver assignment. */
+/** Short customer line after sending the link — booking confirms on payment; driver details come later. */
 export const VOICE_BOOKING_AFTER_PAYMENT_SAY =
-  "Once payment is verified on our system, your booking is confirmed. Your driver details follow closer to pickup — we never assign a named driver just because payment went through.";
+  "Once you've paid on that link, your booking is confirmed, and your driver details follow closer to pickup.";
+
+/** Spoken when the caller asked for a text (SMS), after Fonio Send SMS accepts it. */
+export const VOICE_LINK_SENT_SMS_SAY =
+  "That's grand. We've texted you a secure link where you can check the details and complete your booking.";
+
+/** Spoken when the caller asked for WhatsApp. */
+export const VOICE_LINK_SENT_WHATSAPP_SAY =
+  "That's grand. We've sent you a WhatsApp with a secure link where you can check the details and complete your booking.";
 
 /** Spoken cancellation policy — aligned with shared/cancellation-policy.ts. */
 export const VOICE_CANCELLATION_SAY =

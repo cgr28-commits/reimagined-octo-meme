@@ -7,7 +7,12 @@
  * request; never reveals surcharges; never collects cards. Answers fast (fonio waits ~5s).
  */
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
-import { VOICE_BOOKING_AFTER_PAYMENT_SAY, VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
+import {
+  VOICE_BOOKING_AFTER_PAYMENT_SAY,
+  VOICE_LINK_SENT_SAY,
+  VOICE_LINK_SENT_SMS_SAY,
+  VOICE_LINK_SENT_WHATSAPP_SAY,
+} from "../shared/voice-greeting";
 import { whatsAppDraftToQuoteBody, whatsAppQuoteLinkHours, WHATSAPP_SHORT_NOTICE_LINK_HOURS } from "../shared/whatsapp-quote-bot";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
 import { servedAirportFromPlaceId } from "../shared/served-airports";
@@ -57,19 +62,38 @@ function readInput(body: unknown): VoiceQuoteInput {
   return root as VoiceQuoteInput;
 }
 
+/**
+ * Resolve a confirmed Place ID to the customer-facing journey label.
+ * Prefer displayAddress so hotel/business names are kept (Google's formattedAddress
+ * is often street-only, e.g. "15 Hope Street" without the hotel name).
+ */
 async function resolveVoicePlaceLabel(
   env: Env,
   placeId: string,
-): Promise<{ formattedAddress: string; placeId: string } | null> {
+  suggestionName?: string,
+): Promise<{ label: string; formattedAddress: string; placeId: string; placeName: string | null } | null> {
   const id = placeId.trim();
   if (!id) return null;
   const served = servedAirportFromPlaceId(id);
-  if (served) return { formattedAddress: served.formattedAddress, placeId: served.placeId };
+  if (served) {
+    return {
+      label: served.formattedAddress,
+      formattedAddress: served.formattedAddress,
+      placeId: served.placeId,
+      placeName: served.name,
+    };
+  }
   const key = env.GOOGLE_PLACES_API_KEY?.trim();
   if (!key) return null;
-  const details = await resolveGooglePlaceDetails(key, id, "A2A");
+  const details = await resolveGooglePlaceDetails(key, id, "A2A", undefined, undefined, suggestionName);
   if (!details?.formattedAddress) return null;
-  return { formattedAddress: details.formattedAddress, placeId: details.placeId };
+  const label = (details.displayAddress || details.formattedAddress).trim();
+  return {
+    label,
+    formattedAddress: details.formattedAddress,
+    placeId: details.placeId,
+    placeName: details.placeName,
+  };
 }
 
 export async function handleVoiceQuote(request: Request, env: Env): Promise<Response> {
@@ -88,21 +112,22 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
   const dropoffPlaceId = String(input.dropoffPlaceId ?? "").trim();
 
   // Prefer verified Google / catalogue places when Fonio already confirmed them.
+  // Use display labels (hotel name + street) so /book-quote shows the venue, not street alone.
   let pickupText = String(input.pickup ?? "").trim();
   let dropoffText = String(input.dropoff ?? "").trim();
   let resolvedPickupPlaceId = pickupPlaceId;
   let resolvedDropoffPlaceId = dropoffPlaceId;
   if (pickupPlaceId) {
-    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId);
+    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId, pickupText || undefined);
     if (resolved) {
-      pickupText = resolved.formattedAddress;
+      pickupText = resolved.label;
       resolvedPickupPlaceId = resolved.placeId;
     }
   }
   if (dropoffPlaceId) {
-    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId);
+    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId, dropoffText || undefined);
     if (resolved) {
-      dropoffText = resolved.formattedAddress;
+      dropoffText = resolved.label;
       resolvedDropoffPlaceId = resolved.placeId;
     }
   }
@@ -180,9 +205,19 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
   });
 }
 
+function preferredLinkChannel(raw: unknown): "sms" | "whatsapp" | "auto" {
+  const value = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (/^(sms|text|txt|message)$/.test(value) || value.includes("text")) return "sms";
+  if (/^(whats?app|wa)$/.test(value) || value.includes("whatsapp")) return "whatsapp";
+  return "auto";
+}
+
 /**
- * POST /voice/send-link — WhatsApp the caller the booking link for a quote this phone line just
- * gave. Only quotes made by /voice/quote in the last 3 hours, once each, to a UK mobile.
+ * POST /voice/send-link — send the booking link for a quote this phone line just gave.
+ * Only quotes made by /voice/quote in the last 3 hours, once each, to a UK mobile.
+ * Pass `channel`: `sms` | `whatsapp` | omit/auto (WhatsApp first, SMS fallback).
  */
 export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppTemplateEnv): Promise<Response> {
   if (!voiceBookingToolsEnabled(env)) {
@@ -193,13 +228,14 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
     });
   }
   const store = env.TRACKING_STORE;
-  const fallback = "No problem – the team will send you the booking link on WhatsApp shortly.";
+  const fallback = "No problem – the team will send you the booking link shortly.";
   if (!store) return reply({ ok: false, say: fallback });
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const input = (body && typeof body === "object" ? (body.parameters as Record<string, unknown>) ?? body : {}) as Record<string, unknown>;
   const quoteId = String(input.quoteId ?? "").trim();
   const mobile = String(input.mobile ?? "").trim();
   const name = String(input.name ?? "").trim().slice(0, 40);
+  const channel = preferredLinkChannel(input.channel ?? input.preferredChannel ?? input.sendVia);
   if (!/^[a-f0-9]{16,64}$/i.test(quoteId)) {
     return reply({ ok: false, say: "Let me get the fixed price first, then I can send you the booking link." });
   }
@@ -207,33 +243,63 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   if (!memo) return reply({ ok: false, say: "That price has timed out. Let me get a fresh one, then I'll send the link." });
   const digits = mobile.replace(/[^\d+]/g, "");
   if (!/^(\+?44|0)7\d{9}$/.test(digits)) {
-    return reply({ ok: false, missing: ["mobile"], say: "What's the best mobile for the link? It should start with 07." });
-  }
-  const sent = await sendQuoteLinkWhatsApp(env, {
-    quoteId,
-    customerName: name,
-    mobile: digits,
-    journeyLabel: memo.journeyLabel,
-    whenLabel: memo.whenLabel,
-    amountLabel: memo.amountLabel,
-    heldFor: memo.heldFor,
-  });
-  if (sent.sent || sent.reason === "already_sent") {
-    await markVoiceLinkSent(store, digits).catch(() => undefined);
-    // WhatsApp API accepted the outbound message — not handset delivery proof.
     return reply({
-      ok: true,
-      channel: "whatsapp",
-      messageStatus: "accepted",
-      delivered: false,
-      say: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      ok: false,
+      missing: ["mobile"],
+      say: "What's the best mobile for the link? A UK mobile starting with 07 is grand.",
     });
   }
-  console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
-  // The SMS backup still gets them the link, so don't also send a follow-up.
-  await markVoiceLinkSent(store, digits).catch(() => undefined);
-  // SMS text generated for Fonio Send SMS — not yet accepted/delivered.
+
+  const afterPayment = VOICE_BOOKING_AFTER_PAYMENT_SAY;
+  const wantSms = channel === "sms";
+  const wantWhatsApp = channel === "whatsapp" || channel === "auto";
+
+  if (wantWhatsApp && !wantSms) {
+    const sent = await sendQuoteLinkWhatsApp(env, {
+      quoteId,
+      customerName: name,
+      mobile: digits,
+      journeyLabel: memo.journeyLabel,
+      whenLabel: memo.whenLabel,
+      amountLabel: memo.amountLabel,
+      heldFor: memo.heldFor,
+    });
+    if (sent.sent || sent.reason === "already_sent") {
+      await markVoiceLinkSent(store, digits).catch(() => undefined);
+      return reply({
+        ok: true,
+        channel: "whatsapp",
+        messageStatus: "accepted",
+        delivered: false,
+        say: `${VOICE_LINK_SENT_WHATSAPP_SAY} ${afterPayment}`,
+      });
+    }
+    console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4), preferred: channel }));
+    // Caller asked for WhatsApp but it failed — fall through to SMS only when auto.
+    if (channel === "whatsapp") {
+      if (memo.bookingUrl) {
+        await markVoiceLinkSent(store, digits).catch(() => undefined);
+        return reply({
+          ok: false,
+          sendBySms: true,
+          channel: "sms",
+          messageStatus: "generated",
+          delivered: false,
+          mobile: digits,
+          smsText: smsText(memo, memo.bookingUrl),
+          whatsappFailed: true,
+          sayAfterSmsAccepted: `${VOICE_LINK_SENT_SMS_SAY} ${afterPayment}`,
+          sayAfterSmsSent: `${VOICE_LINK_SENT_SMS_SAY} ${afterPayment}`,
+          say: "WhatsApp didn't go through just now — I've prepared a text with the booking link instead and I'm sending that.",
+        });
+      }
+      return reply({ ok: false, say: "I couldn't send that on WhatsApp just now. Can I text it instead?" });
+    }
+  }
+
+  // Explicit SMS, or WhatsApp failed in auto mode.
   if (memo.bookingUrl) {
+    await markVoiceLinkSent(store, digits).catch(() => undefined);
     return reply({
       ok: false,
       sendBySms: true,
@@ -242,9 +308,8 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
       delivered: false,
       mobile: digits,
       smsText: smsText(memo, memo.bookingUrl),
-      sayAfterSmsAccepted: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
-      // Keep legacy alias for older Fonio tool configs until they are re-pasted.
-      sayAfterSmsSent: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      sayAfterSmsAccepted: `${VOICE_LINK_SENT_SMS_SAY} ${afterPayment}`,
+      sayAfterSmsSent: `${VOICE_LINK_SENT_SMS_SAY} ${afterPayment}`,
       say: "One moment — I've prepared a text with your booking link and I'm sending it now.",
     });
   }

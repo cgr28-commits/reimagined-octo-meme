@@ -1,7 +1,7 @@
 # Fonio live configuration (quotation + address search)
 
 **Live on Fonio (Olivia):** approved receptionist prompt, Inbound Webhook, Address Search, Get Quote (with Place IDs), Booking Lookup, Booking Link, Send Booking Link, Leave Message, Provisional Booking, After Call.  
-**Worker:** `VOICE_ENABLE_BOOKING_TOOLS=1` in production Worker vars so Send Booking Link / Provisional Booking are live (WhatsApp first; SMS fallback via Fonio Send SMS when returned).
+**Worker:** `VOICE_ENABLE_BOOKING_TOOLS=1` in production Worker vars so Send Booking Link / Provisional Booking are live. Ask text vs WhatsApp (`channel`: `sms` | `whatsapp`); omit only when no preference (WhatsApp first, SMS fallback). Never tell callers they are on a landline — inbound CLI is often the diverted business line.
 
 Base URL: `https://reimagined-octo-meme.cgr28.workers.dev`
 
@@ -33,7 +33,7 @@ Paste the latest copy from `docs/fonio-receptionist-prompt.md` into the Fonio as
 
 ## Stripe
 
-Unchanged: quotations may include `/book-quote/?id=…` in tool JSON for later use, but Send Booking Link stays disabled so the phone line will not push payment SMS until approved.
+Quotations include `/book-quote/?id=…`. Send Booking Link is live: ask which UK mobile, then text or WhatsApp, then send. Customer-facing “after payment” line confirms the booking only — no internal driver-assignment policy read-out.
 
 ## Speech recognition (Northern Irish accents)
 

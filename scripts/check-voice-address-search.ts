@@ -99,8 +99,9 @@ async function main() {
     mainText: "Hilton Belfast",
     secondaryText: "Lanyon Place",
   }) >= 0.6);
-  assert.match(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /where are we taking you/i);
-  console.log("OK  need_more + confirmed follow-on say");
+  assert.match(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /That's grand.*Hilton Belfast/i);
+  assert.doesNotMatch(voiceAddressConfirmedSay("Hilton Belfast, Lanyon Place", "pickup"), /where are we taking you/i);
+  console.log("OK  need_more + brief confirmed say");
 
   // ——— Handler: confirm served airport without Google key ———
   const store = memoryStore();
@@ -131,7 +132,9 @@ async function main() {
   assert.equal(typeof body.lat, "number");
   assert.equal(typeof body.lng, "number");
   assert.match(body.formattedAddress, /Airport/i);
-  assert.match(body.say, /where are we taking you/i);
+  assert.match(String(body.displayAddress ?? body.label ?? ""), /Airport|International/i);
+  assert.match(body.say, /That's grand/i);
+  assert.doesNotMatch(body.say, /where are we taking you/i);
   console.log("OK  handler confirm → confirmed with coords (catalogue)");
 
   // ——— Handler: Google failure path ———
@@ -222,12 +225,63 @@ async function main() {
   }
   console.log("OK  mocked Google Hilton search + Place Details confirm");
 
+  // ——— Hotel whose Google formattedAddress is street-only (Hope Street pattern) ———
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("places.googleapis.com/v1/places/")) {
+      return Response.json({
+        id: "ChIJhopeHotel",
+        // Street only — displayName carries the hotel.
+        formattedAddress: "15 Hope Street, Belfast BT12 5AH, UK",
+        displayName: { text: "Fitzwilliam Hotel Belfast" },
+        types: ["lodging", "establishment", "point_of_interest"],
+        location: { latitude: 54.594, longitude: -5.935 },
+        addressComponents: [
+          { longText: "United Kingdom", shortText: "GB", types: ["country"] },
+          { longText: "Belfast", shortText: "Belfast", types: ["locality"] },
+          { longText: "BT12 5AH", shortText: "BT12 5AH", types: ["postal_code"] },
+          { longText: "15", shortText: "15", types: ["street_number"] },
+          { longText: "Hope Street", shortText: "Hope Street", types: ["route"] },
+        ],
+      });
+    }
+    return Response.json({}, { status: 404 });
+  }) as typeof fetch;
+
+  try {
+    res = await handleVoiceAddressSearch(
+      new Request("https://w/voice/address-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ placeId: "ChIJhopeHotel", role: "dropoff" }),
+      }),
+      {
+        TRACKING_STORE: memoryStore() as unknown as KVNamespace,
+        GOOGLE_PLACES_API_KEY: "test-key-not-real",
+      },
+    );
+    body = await res.json();
+    assert.equal(body.status, "confirmed");
+    assert.match(String(body.displayAddress ?? ""), /Fitzwilliam Hotel Belfast/i);
+    assert.match(String(body.label ?? ""), /Fitzwilliam Hotel Belfast/i);
+    assert.match(String(body.displayAddress ?? ""), /15 Hope Street/i);
+    assert.match(String(body.formattedAddress ?? ""), /15 Hope Street/i);
+    assert.doesNotMatch(String(body.formattedAddress ?? ""), /Fitzwilliam/i);
+    assert.match(String(body.say ?? ""), /Fitzwilliam/i);
+  } finally {
+    globalThis.fetch = prevFetch;
+  }
+  console.log("OK  Hope Street hotel confirm keeps venue name on displayAddress/label");
+
   // ——— Wiring ———
   const index = readFileSync("workers/addresses/src/index.ts", "utf8");
   assert.match(index, /\/voice\/address-search/);
   assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /pickupPlaceId/);
+  assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /displayAddress|resolved\.label/);
   assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /address-search/);
-  assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /Do \*\*not\*\* demand a full postcode/);
+  assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /displayAddress/);
+  assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /no postcode required/i);
+  assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /displayAddress/);
   assert.match(readFileSync("workers/addresses/src/voice-address.ts", "utf8"), /GOOGLE_PLACES_API_KEY/);
   assert.doesNotMatch(readFileSync("workers/addresses/src/voice-address.ts", "utf8"), /NEXT_PUBLIC_GOOGLE/);
   console.log("OK  route + Get Quote placeId + docs; key stays server-side");

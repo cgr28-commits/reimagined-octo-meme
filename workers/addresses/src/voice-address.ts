@@ -203,8 +203,13 @@ export async function handleVoiceAddressSearch(request: Request, env: Env): Prom
       status: "confirmed",
       role,
       place: placePayload(place),
+      // Customer-facing label (includes hotel/business name when Google has one).
+      displayAddress: display,
+      // Keep postal formattedAddress for geos; Get Quote should prefer displayAddress.
       formattedAddress: place.formattedAddress,
+      label: display,
       placeId: place.placeId,
+      placeName: place.placeName,
       lat: place.lat,
       lng: place.lng,
       say: voiceAddressConfirmedSay(display, role),

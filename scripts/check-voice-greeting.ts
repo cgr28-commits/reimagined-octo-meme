@@ -23,8 +23,8 @@ const named = voiceOpeningGreeting({ firstName: "Aoife Byrne", now: new Date("20
 assert.match(named.greeting, /^Good afternoon, My Airport Taxi NI — hello Aoife\. How can we help\?$/);
 assert.match(VOICE_LINK_SENT_SAY, /secure link/i);
 assert.doesNotMatch(VOICE_LINK_SENT_SAY, /WhatsApp|anything else/i);
-assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /payment is verified/i);
-assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /driver has been assigned|Your driver is confirmed after payment/i);
+assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/i);
+assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign|driver has been assigned|Your driver is confirmed after payment/i);
 console.log("OK  Europe/London day parts + single-name greeting");
 
 async function inbound() {
@@ -51,8 +51,9 @@ inbound()
   .then(() => {
     assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /sayAfterSmsAccepted/);
     assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /messageStatus: "accepted"/);
-    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /VOICE_LINK_SENT_SAY/);
+    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /VOICE_LINK_SENT_WHATSAPP_SAY|VOICE_LINK_SENT_SMS_SAY/);
     assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /VOICE_BOOKING_AFTER_PAYMENT_SAY/);
+    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /preferredLinkChannel|channel === "sms"/);
     console.log("OK  inbound greeting once + Europe/London; SMS accepted ≠ delivered");
     console.log("check-voice-greeting: OK");
   })
