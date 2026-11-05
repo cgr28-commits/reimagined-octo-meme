@@ -99,3 +99,6 @@ When changing Fonio prompt copy, spoken `say` strings, or related docs
 - Inbound greeting is Europe/London local time and must be spoken once only.
 - Do **not** deploy or paste changes into the live Fonio assistant without explicit approval.
   Review copies live in `docs/fonio-receptionist-prompt.md`.
+- In every Fonio-related reply to the user, end with **one copyable** block: the full current
+  receptionist prompt from `docs/fonio-receptionist-prompt.md` inside a single ` ```text ` fence
+  (for ChatGPT / Fonio paste). Do not ask them to open the file for the prompt text.
