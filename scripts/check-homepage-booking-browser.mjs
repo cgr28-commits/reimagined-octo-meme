@@ -56,15 +56,17 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   if (returning) {
     const returnDate = page.locator('#returnDate');
     const returnTime = page.locator('#returnTime');
-    await returnDate.waitFor({ state: 'visible' });
+    // Checkout/quote return fields can sit under opacity:0 styling like #date.
+    await returnDate.waitFor({ state: 'attached' });
+    await returnTime.waitFor({ state: 'attached' });
     if (!(await returnDate.inputValue()) || !(await returnTime.inputValue())) {
-      if (!(await returnDate.inputValue())) await returnDate.fill(futureDate(7));
+      if (!(await returnDate.inputValue())) await returnDate.fill(futureDate(7), { force: true });
       await trigger.click();
       assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
         'a return journey must require return time before showing a fare');
       if (!(await returnTime.inputValue())) {
         assert.ok(await returnTime.evaluate(input => input.validity.valueMissing));
-        await returnTime.fill('14:00');
+        await returnTime.fill('14:00', { force: true });
       }
     }
   }
@@ -227,11 +229,11 @@ try {
     await page.getByRole('button',{name:/Return SAVE/}).click();
     await requestFixedPrice(page,{returning:true});
     await book(page);
-    await page.locator('#returnDate').waitFor({state:'visible'});
-    await page.locator('#returnTime').waitFor({state:'visible'});
+    await page.locator('#returnDate').waitFor({state:'attached'});
+    await page.locator('#returnTime').waitFor({state:'attached'});
     const nextDate=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
-    await page.locator('#date').fill(nextDate); await page.locator('#time').fill('10:00');
-    await page.locator('#returnDate').fill(nextDate); await page.locator('#returnTime').fill('09:00');
+    await page.locator('#date').fill(nextDate,{force:true}); await page.locator('#time').fill('10:00',{force:true});
+    await page.locator('#returnDate').fill(nextDate,{force:true}); await page.locator('#returnTime').fill('09:00',{force:true});
     assert.equal(await page.locator('#returnTime').evaluate((input) => input.validity.valid), false,
       'a return pickup earlier than the outbound pickup must fail native field validation');
     assert.deepEqual(writes,[]);
