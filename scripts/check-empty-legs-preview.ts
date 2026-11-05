@@ -11,9 +11,11 @@ import {
   buildEmptyLegsPreviewConfig,
   buildEmptyLegsPreviewReport,
   EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
+  EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS,
   emptyLegsPreviewCsv,
   estimateParentJourneyFareGbp,
   PRE_PICKUP_STATUS_LABEL,
+  validateEmptyLegsPreviewDateRange,
 } from "../shared/empty-legs-preview";
 import {
   DEFAULT_SMART_OPS_CONFIG,
@@ -236,11 +238,15 @@ console.log("\n=== 8. Wiring + hard restrictions ===");
   assert.match(panel, /data-empty-legs-table/);
   assert.match(panel, /data-empty-legs-summary/);
   assert.match(panel, /PRE_PICKUP_STATUS_LABEL/);
-  assert.match(panel, /Empty miles potentially convertible/);
-  assert.match(panel, /Actual mileage potentially eliminated/);
+  assert.match(panel, /Empty miles converted into paid miles/);
+  assert.match(panel, /Estimated mileage potentially eliminated/);
+  assert.doesNotMatch(panel, />Mileage eliminated</);
   assert.match(panel, /Incremental contribution/);
   assert.match(panel, /Activate Smart Return \(locked\)/);
   assert.match(panel, /Waiting-time cost/);
+  assert.match(panel, /validateEmptyLegsPreviewDateRange/);
+  assert.match(panel, /EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS/);
+  assert.match(panel, /Maximum range/);
   assert.doesNotMatch(panel, /smartReturnPricing:\s*true/);
 
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");
@@ -258,6 +264,7 @@ console.log("\n=== 8. Wiring + hard restrictions ===");
 
   const handlers = read("workers/addresses/src/smart-ops-handlers.ts");
   assert.match(handlers, /handleOwnerEmptyLegsPreview/);
+  assert.match(handlers, /validateEmptyLegsPreviewDateRange/);
   assert.match(handlers, /discountsActive:\s*false/);
   assert.match(handlers, /smartReturnPricing:\s*false/);
   assert.match(handlers, /returnCorridorMatching:\s*false/);
@@ -268,6 +275,24 @@ console.log("\n=== 8. Wiring + hard restrictions ===");
   const robots = read("src/app/robots.ts");
   assert.match(robots, /\/owner\//);
   console.log("OK  Owner portal wiring · locks · robots");
+}
+
+console.log("\n=== 9. Date-range validation (max 90 days) ===");
+{
+  assert.equal(EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS, 90);
+  assert.equal(validateEmptyLegsPreviewDateRange("2026-11-01", "2026-11-21").ok, true);
+  assert.equal(validateEmptyLegsPreviewDateRange("2026-11-01", "2026-10-31").ok, false);
+  assert.match(
+    String((validateEmptyLegsPreviewDateRange("2026-11-01", "2026-10-31") as { error: string }).error),
+    /earlier than From/i,
+  );
+  const exactly90 = validateEmptyLegsPreviewDateRange("2026-01-01", "2026-04-01");
+  assert.equal(exactly90.ok, true);
+  const over90 = validateEmptyLegsPreviewDateRange("2026-01-01", "2026-04-02");
+  assert.equal(over90.ok, false);
+  assert.match(String((over90 as { error: string }).error), /90 days/i);
+  assert.equal(validateEmptyLegsPreviewDateRange("bad", "2026-11-01").ok, false);
+  console.log("OK  from≤to · max 90 days · malformed rejected");
 }
 
 console.log("\nAll Empty Legs preview checks passed.");

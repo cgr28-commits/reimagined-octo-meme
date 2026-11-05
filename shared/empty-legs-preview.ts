@@ -55,6 +55,59 @@ export const EMPTY_LEGS_PREVIEW_ASSUMPTIONS = {
   wearPerMileGbp: 0.1,
 } as const;
 
+/** Maximum inclusive calendar span (to − from) allowed for Empty Legs preview queries. */
+export const EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS = 90;
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseYmdUtc(ymd: string): Date | null {
+  if (!YMD_RE.test(ymd)) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return dt;
+}
+
+/**
+ * Validate Empty Legs preview date range (server + UI).
+ * Rejects malformed dates, end before start, and spans over 90 days.
+ */
+export function validateEmptyLegsPreviewDateRange(
+  fromYmd: string,
+  toYmd: string,
+): { ok: true; fromYmd: string; toYmd: string } | { ok: false; error: string } {
+  const from = String(fromYmd || "").trim();
+  const to = String(toYmd || "").trim();
+  const fromDate = parseYmdUtc(from);
+  const toDate = parseYmdUtc(to);
+  if (!fromDate || !toDate) {
+    return {
+      ok: false,
+      error: "Choose valid From and To dates (YYYY-MM-DD).",
+    };
+  }
+  if (toDate.getTime() < fromDate.getTime()) {
+    return {
+      ok: false,
+      error: "To date cannot be earlier than From date.",
+    };
+  }
+  const spanDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
+  if (spanDays > EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS) {
+    return {
+      ok: false,
+      error: `Date range cannot exceed ${EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS} days (selected ${spanDays} days).`,
+    };
+  }
+  return { ok: true, fromYmd: from, toYmd: to };
+}
+
 export type EmptyLegOpportunityType = "post_dropoff_return" | "pre_pickup_positioning";
 
 export type EmptyLegOpportunityStatus =

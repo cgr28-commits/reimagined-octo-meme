@@ -7,8 +7,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
+  EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS,
   emptyLegsPreviewCsv,
   PRE_PICKUP_STATUS_LABEL,
+  validateEmptyLegsPreviewDateRange,
   type EmptyLegCorridorDirection,
   type EmptyLegOpportunity,
   type EmptyLegsPreviewReport,
@@ -96,8 +98,15 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
     setLoading(true);
     setError("");
     setNotice("");
+    const range = validateEmptyLegsPreviewDateRange(from, to);
+    if (!range.ok) {
+      setReport(null);
+      setError(range.error);
+      setLoading(false);
+      return;
+    }
     try {
-      const result = await fetchEmptyLegsPreview(ownerKey, from, to);
+      const result = await fetchEmptyLegsPreview(ownerKey, range.fromYmd, range.toYmd);
       setReport(result.report);
       setNotice(result.message);
     } catch (err) {
@@ -160,8 +169,8 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
         </p>
         <p className="mt-2 text-xs text-white/55">
           Contribution = discounted revenue − incremental costs (detour + passenger airport fees).
-          Waiting-time cost is marked unavailable until modelled. Empty miles converted ≠ mileage
-          eliminated.
+          Waiting-time cost is marked unavailable until modelled. Empty miles converted into paid
+          miles ≠ estimated mileage potentially eliminated.
         </p>
         {notice ? <p className="mt-2 text-xs text-white/55">{notice}</p> : null}
       </div>
@@ -182,6 +191,8 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
             <input
               type="date"
               value={to}
+              min={from}
+              max={addDaysYmd(from, EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS)}
               onChange={(event) => setTo(event.target.value)}
               className="mt-1 block min-h-11 rounded-xl border border-white/15 bg-navy px-3 text-sm text-white"
             />
@@ -254,10 +265,14 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
             Export CSV
           </button>
         </div>
+        <p className="mt-3 text-xs text-white/45">
+          Maximum range {EMPTY_LEGS_PREVIEW_MAX_RANGE_DAYS} days. To cannot be earlier than From.
+          Invalid ranges are blocked in the dashboard and by the Owner API.
+        </p>
       </div>
 
       {error ? (
-        <p className="rounded-2xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+        <p className="rounded-2xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100" role="alert">
           {error}
         </p>
       ) : null}
@@ -280,11 +295,11 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
           value={money(totals?.estimatedAdditionalRevenuePotentialGbp)}
         />
         <SummaryCard
-          label="Empty miles potentially convertible"
+          label="Empty miles converted into paid miles"
           value={miles(totals?.emptyMilesPotentiallyConvertible)}
         />
         <SummaryCard
-          label="Actual mileage potentially eliminated"
+          label="Estimated mileage potentially eliminated"
           value={miles(totals?.actualMileagePotentiallyEliminated)}
         />
       </div>
@@ -352,7 +367,7 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
                 <th className="px-3 py-3 font-semibold">Normal fare</th>
                 <th className="px-3 py-3 font-semibold">Suggested fare</th>
                 <th className="px-3 py-3 font-semibold">Incremental contribution</th>
-                <th className="px-3 py-3 font-semibold">Convertible empty mi</th>
+                <th className="px-3 py-3 font-semibold">Empty mi → paid</th>
                 <th className="px-3 py-3 font-semibold">Status</th>
               </tr>
             </thead>
@@ -477,11 +492,13 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
                               <p>{item.liveReleaseOpen ? "Yes" : "No"}</p>
                             </div>
                             <div>
-                              <p className="text-xs text-white/45">Empty miles → paid</p>
+                              <p className="text-xs text-white/45">Empty miles converted into paid miles</p>
                               <p>{miles(item.economics.emptyMilesConvertedToPaid)}</p>
                             </div>
                             <div>
-                              <p className="text-xs text-white/45">Mileage eliminated</p>
+                              <p className="text-xs text-white/45">
+                                Estimated mileage potentially eliminated
+                              </p>
                               <p>{miles(item.economics.actualMileageEliminated)}</p>
                             </div>
                             <div>

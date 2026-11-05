@@ -38,6 +38,7 @@ import {
   buildEmptyLegsPreviewReport,
   emptyLegsPreviewCsv,
   EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
+  validateEmptyLegsPreviewDateRange,
 } from "../shared/empty-legs-preview";
 import {
   customerSmartAvailabilityPreviewRequested as previewRequestedFromRequest,
@@ -529,27 +530,31 @@ export async function handleOwnerEmptyLegsPreview(request: Request, env: SmartOp
   const url = new URL(request.url);
   const from = url.searchParams.get("from") || londonYmd();
   const to = url.searchParams.get("to") || addDaysYmd(from, 21);
+  const range = validateEmptyLegsPreviewDateRange(from, to);
+  if (!range.ok) {
+    return { error: range.error, status: 400 };
+  }
   const format = String(url.searchParams.get("format") || "json").toLowerCase();
   const state = await getSmartOpsState(env.TRACKING_STORE);
   const shadow = await listSmartShadowRecords(env.TRACKING_STORE);
   const { occupied, parents } = await loadOccupied(env.TRACKING_STORE, {
-    fromYmd: addDaysYmd(from, -1),
-    toYmd: addDaysYmd(to, 1),
+    fromYmd: addDaysYmd(range.fromYmd, -1),
+    toYmd: addDaysYmd(range.toYmd, 1),
   });
   const report = buildEmptyLegsPreviewReport({
     parents,
     occupied,
     liveConfig: state.config,
     shadow,
-    fromYmd: from,
-    toYmd: to,
+    fromYmd: range.fromYmd,
+    toYmd: range.toYmd,
   });
 
   if (format === "csv") {
     return {
       ok: true as const,
       csv: emptyLegsPreviewCsv(report),
-      filename: `empty-legs-preview-${from}-to-${to}.csv`,
+      filename: `empty-legs-preview-${range.fromYmd}-to-${range.toYmd}.csv`,
       assumptions: EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
       liveSmartReturnPricing: report.liveSmartReturnPricing,
       liveReturnCorridorMatching: report.liveReturnCorridorMatching,
