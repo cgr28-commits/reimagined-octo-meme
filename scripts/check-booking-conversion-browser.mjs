@@ -58,10 +58,13 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
   return route.abort();
  });
  const page=await context.newPage();
- await page.goto(`${url}/?previewJourney=bfs`);
- await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
+ // Swap control was removed from the homepage; seed collection via previewCollection.
+ await page.goto(`${url}/?previewJourney=bfs${collection?'&previewCollection=1':''}`);
+ await page.waitForFunction((wantCollection)=>{
+  const pickup=document.getElementById('pickup')?.value||'';
+  return wantCollection ? /Airport|International/i.test(pickup) : pickup.includes('City Hall');
+ },collection);
  if(returnTrip) await page.getByRole('button',{name:/Return.*5%/}).first().click();
- if(collection) await page.getByRole('button',{name:'Swap pickup and drop-off',exact:true}).click();
  await page.locator('#quote-section-passengers').selectOption('2');
  await page.locator('#quote-section-suitcases').selectOption('1');
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
