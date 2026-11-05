@@ -28,8 +28,9 @@ async function main() {
    if (u.startsWith('http://127.0.0.1:3094/')) return r.continue();
    if (u.includes('/saved-quotes/settings')) return r.fulfill({ json: { ok: true, settings: { enabled: true, popupEnabled: false, popupDelaySeconds: 20, validityDays: 7, emailEnabled: true, whatsappEnabled: true } } });
    if (u.includes('/pricing/public')) return r.fulfill({ json: { ok: true, config } });
-   if (u.includes('/quote/calculate')) { const q = r.request().postDataJSON(); await new Promise(r => setTimeout(r, 450)); return r.fulfill({ json: { ok: true, amount: 50, journeyFareGbp: 50, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0, vehicleType: q.vehicleType, distanceKm: 25, durationMinutes: 25 } }); }
-   if (u.includes('/route/v1/')) return r.fulfill({ json: { code: 'Ok', routes: [{ distance: 25000, duration: 1500, geometry: { coordinates: [] } }] } });
+   // Keep the mock route over 40 miles so Business Class stays offered (gated otherwise).
+   if (u.includes('/quote/calculate')) { const q = r.request().postDataJSON(); await new Promise(r => setTimeout(r, 450)); return r.fulfill({ json: { ok: true, amount: 50, journeyFareGbp: 50, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0, vehicleType: q.vehicleType, distanceKm: 70, durationMinutes: 60 } }); }
+   if (u.includes('/route/v1/')) return r.fulfill({ json: { code: 'Ok', routes: [{ distance: 70000, duration: 3600, geometry: { coordinates: [] } }] } });
    if (u.includes('workers.dev')) return r.fulfill({ json: { ok: true, available: true, blocked: false, settings: {} } });
    return r.abort();
   });

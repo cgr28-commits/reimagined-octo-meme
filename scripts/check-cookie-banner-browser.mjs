@@ -89,15 +89,16 @@ try {
           assert.ok(m.banner.bottom<=m.viewport.visualTop+m.viewport.visualHeight+1);
           for (const button of m.buttons) assert.equal(button.hit,true,`${variant}: ${button.label} obstructed`);
           if (variant==='after') {
-            assert.equal(m.buttons[0].y,m.buttons[1].y,'buttons side by side');
+            // Required-choice modal stacks Accept all / Reject optional full-width.
+            assert.ok(m.buttons[0].y < m.buttons[1].y,'buttons stacked in the consent modal');
             assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
             assert.equal(m.buttons[0].height,m.buttons[1].height,'equal button height');
             for (const key of ['weight','font']) assert.equal(m.buttons[0][key],m.buttons[1][key],`same size text: ${key}`);
             assert.match(await banner.innerText(),/Can we see which of our Google ads brought you here\? It helps us keep our prices down\. Booking works either way\./);
             assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'a choice is required before using the site');
-            for (const button of m.buttons) { assert.ok(button.height>=(width<768?44:36));assert.ok(Number.parseFloat(button.font)>=13); }
-            if(width>=768) {assert.ok(m.banner.width<=640);assert.ok(m.banner.x>=12);assert.ok(m.buttons[0].height<=40);assert.ok(m.banner.height<=90,'desktop compact-height target');}
-            else assert.ok(m.banner.height<=91,'mobile slim-height target without device safe-area inset');
+            for (const button of m.buttons) { assert.ok(button.height>=44);assert.ok(Number.parseFloat(button.font)>=13); }
+            if(width>=768) {assert.ok(m.banner.width<=640);assert.ok(m.banner.x>=12);assert.ok(m.banner.height<=560,'desktop modal stays within the viewport budget');}
+            else assert.ok(m.banner.height<=560,'mobile modal stays within the viewport budget');
           }
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
           // Keyboard users can reach both choices; focus is visibly indicated.
