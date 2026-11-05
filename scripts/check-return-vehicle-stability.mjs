@@ -58,12 +58,15 @@ try {
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
+  const measured=[];
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
    // Paired main/PR677 runs: scrollIntoViewIfNeeded can leave Minibus under the
    // fixed header (360px WebKit / 375px Chromium). Playwright then scrolls
    // 830/832px to click it; document layout stays fixed on both branches.
    // Reveal the entire choice before sampling, without relaxing the 2px limit.
    const option=page.locator(`[data-vehicle-category="${id}"]`);
+   // Desktop (≥1024) hides minibus when a car fits (data-vehicle-not-needed → display:none).
+   if(!(await option.isVisible())) continue;
    await option.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
    assert.ok(await option.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&(el===target||el.contains(target));}),'vehicle choice must be fully visible and unobstructed before measuring');
    const layout=()=>page.evaluate(id=>{
@@ -145,9 +148,11 @@ try {
    assert.ok(settled.at(-1).at-settled[0].at>=180,'observe at least 180ms after the confirmed fare renders');
    for(const key of ['action','tools']) assert.ok(Math.max(...settled.map(f=>f[key]))-Math.min(...settled.map(f=>f[key]))<=2,`${width}px ${id}: settled ${key} keeps moving`);
    assert.ok(hit.visible&&hit.hit&&!hit.disabled&&!hit.overflow,'repriced booking button accessible: '+JSON.stringify(hit));
+   measured.push(id);
   }
+  assert.ok(measured.includes('estate') && measured.includes('executive'),'Estate and Business Class must stay measurable when offered');
   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-vehicle-stability.png`});
-  results.push(`${width}px ${returning?'return':'one-way'}: Estate, Business Class and 7-Seater delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);
+  results.push(`${width}px ${returning?'return':'one-way'}: ${measured.join(', ')} delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);
   console.log('PASS',results.at(-1));
   for(const list of pending.values()) for(const resolve of list) resolve();
   await context.close();
