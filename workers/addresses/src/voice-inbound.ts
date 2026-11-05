@@ -78,6 +78,6 @@ export async function handleVoiceInbound(request: Request, env: Env, now = new D
     hasUpcomingBooking,
     ...(name ? { name } : {}),
     sayHint:
-      "Speak the greeting field once (it already includes My Airport Taxi NI). After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",
+      "Speak the greeting field once only — it is already Europe/London local time (including daylight saving) and includes My Airport Taxi NI once. Do not rebuild or repeat the greeting. After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",
   });
 }

@@ -7,7 +7,7 @@
  * request; never reveals surcharges; never collects cards. Answers fast (fonio waits ~5s).
  */
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
-import { VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
+import { VOICE_BOOKING_AFTER_PAYMENT_SAY, VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
 import { whatsAppDraftToQuoteBody, whatsAppQuoteLinkHours, WHATSAPP_SHORT_NOTICE_LINK_HOURS } from "../shared/whatsapp-quote-bot";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
@@ -163,27 +163,33 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   });
   if (sent.sent || sent.reason === "already_sent") {
     await markVoiceLinkSent(store, digits).catch(() => undefined);
+    // WhatsApp API accepted the outbound message — not handset delivery proof.
     return reply({
       ok: true,
-      delivered: true,
       channel: "whatsapp",
-      say: `${VOICE_LINK_SENT_SAY} Your driver is confirmed after payment.`,
+      messageStatus: "accepted",
+      delivered: false,
+      say: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
     });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
   // The SMS backup still gets them the link, so don't also send a follow-up.
   await markVoiceLinkSent(store, digits).catch(() => undefined);
-  // WhatsApp couldn't send: Fonio should Send SMS, then only confirm after SMS succeeds.
+  // SMS text generated for Fonio Send SMS — not yet accepted/delivered.
   if (memo.bookingUrl) {
     return reply({
       ok: false,
       sendBySms: true,
+      channel: "sms",
+      messageStatus: "generated",
       delivered: false,
       mobile: digits,
       smsText: smsText(memo, memo.bookingUrl),
-      sayAfterSmsSent: `${VOICE_LINK_SENT_SAY} Your driver is confirmed after payment.`,
-      say: "One moment — I'm texting you the booking link now.",
+      sayAfterSmsAccepted: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      // Keep legacy alias for older Fonio tool configs until they are re-pasted.
+      sayAfterSmsSent: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      say: "One moment — I've prepared a text with your booking link and I'm sending it now.",
     });
   }
-  return reply({ ok: false, delivered: false, say: fallback });
+  return reply({ ok: false, messageStatus: "generated", delivered: false, say: fallback });
 }

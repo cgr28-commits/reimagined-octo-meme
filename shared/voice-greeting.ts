@@ -49,10 +49,20 @@ export function voiceOpeningGreeting(input: { firstName?: string; now?: Date } =
   return { dayPart, greeting };
 }
 
-/** Suggested confirmation only after a booking link was actually delivered. */
+/**
+ * After WhatsApp/SMS was accepted for sending (not handset delivery proof).
+ * Do not append driver-assignment promises — payment verifies booking status only.
+ */
 export const VOICE_LINK_SENT_SAY =
   "That's grand. We've sent you a secure link where you can check the details and complete your booking.";
+
+/** After payment is verified by our backend — booking status only, not driver assignment. */
+export const VOICE_BOOKING_AFTER_PAYMENT_SAY =
+  "Once payment is verified on our system, your booking is confirmed. Your driver details follow closer to pickup — we never assign a named driver just because payment went through.";
 
 /** Spoken cancellation policy — aligned with shared/cancellation-policy.ts. */
 export const VOICE_CANCELLATION_SAY =
   "You can cancel more than 24 hours before pickup for a full refund. Cancellations within 24 hours of pickup are non-refundable.";
+
+/** SMS / WhatsApp link pipeline statuses for Fonio (customer wording must match). */
+export type VoiceLinkMessageStatus = "generated" | "accepted" | "delivered";

@@ -90,5 +90,12 @@ When changing Fonio prompt copy, spoken `say` strings, or related docs
 - Phone booking links use the existing website `/book-quote` → Stripe Checkout path. Never collect
   card details on the call; never say paid until backend Stripe verification updates the booking.
   Do not rebuild payment code for Fonio — reuse the working Stripe integration.
+- Never promise a driver has been assigned because Stripe payment succeeded — confirm only booking
+  status verified by Booking Lookup; driver details follow closer to pickup.
+- Distinguish SMS/WhatsApp link statuses accurately: `generated` (prepared, not sent), `accepted`
+  (accepted for sending — may say “we've sent the link”), `delivered` (handset delivery only when
+  the tool returns it). Prefer `sayAfterSmsAccepted` after a successful Fonio SMS send.
+- When Get Quote returns `ok=false`, do not quote a fare — follow `askNext` / missing / error fields.
+- Inbound greeting is Europe/London local time and must be spoken once only.
 - Do **not** deploy or paste changes into the live Fonio assistant without explicit approval.
   Review copies live in `docs/fonio-receptionist-prompt.md`.

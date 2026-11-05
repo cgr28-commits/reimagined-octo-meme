@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  VOICE_BOOKING_AFTER_PAYMENT_SAY,
   VOICE_LINK_SENT_SAY,
   londonHourNow,
   voiceDayPart,
@@ -22,6 +23,8 @@ const named = voiceOpeningGreeting({ firstName: "Aoife Byrne", now: new Date("20
 assert.match(named.greeting, /^Good afternoon, My Airport Taxi NI — hello Aoife\. How can we help\?$/);
 assert.match(VOICE_LINK_SENT_SAY, /secure link/i);
 assert.doesNotMatch(VOICE_LINK_SENT_SAY, /WhatsApp|anything else/i);
+assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /payment is verified/i);
+assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /driver has been assigned|Your driver is confirmed after payment/i);
 console.log("OK  Europe/London day parts + single-name greeting");
 
 async function inbound() {
@@ -40,13 +43,17 @@ async function inbound() {
   assert.equal(body.knownCaller, false);
   // Only one occurrence of the full name in the greeting string.
   assert.equal((body.greeting.match(/My Airport Taxi NI/g) || []).length, 1);
+  assert.match(body.sayHint, /once only|Speak the greeting field once/i);
+  assert.match(body.sayHint, /Europe\/London/);
 }
 
 inbound()
   .then(() => {
-    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /sayAfterSmsSent/);
+    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /sayAfterSmsAccepted/);
+    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /messageStatus: "accepted"/);
     assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /VOICE_LINK_SENT_SAY/);
-    console.log("OK  inbound always returns greeting; SMS confirm only after delivery");
+    assert.match(readFileSync("workers/addresses/src/voice-quote.ts", "utf8"), /VOICE_BOOKING_AFTER_PAYMENT_SAY/);
+    console.log("OK  inbound greeting once + Europe/London; SMS accepted ≠ delivered");
     console.log("check-voice-greeting: OK");
   })
   .catch((e) => {

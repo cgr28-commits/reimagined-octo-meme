@@ -30,8 +30,8 @@ Execution sentence for every during-call tool:
 }
 ```
 
-Speak returned `greeting` once (Europe/London morning/afternoon/evening + full business name once).  
-Use `name` / `sayHint` only as guidance. Never invent booking details from inbound context.
+Speak returned `greeting` **once only** (Europe/London morning/afternoon/evening, including daylight saving, + full business name once).  
+Use `name` / `sayHint` only as guidance. Never invent booking details from inbound context. Do not rebuild or repeat the greeting later in the call.
 
 ---
 
@@ -57,7 +57,8 @@ Use `name` / `sayHint` only as guidance. Never invent booking details from inbou
 }
 ```
 
-Speak only `say`. Honour `askNext`, `unavailable`, `needsClearerAddress`, `toolFailed`.
+When `ok` is true, speak only `say` (that is the fare).  
+When `ok` is false, **do not quote a fare**. Follow `askNext` / `missing`, `unavailable`, `needsClearerAddress`, `toolFailed`, or `say` — never invent or reuse a previous amount.
 
 ---
 
@@ -74,8 +75,15 @@ Speak only `say`. Honour `askNext`, `unavailable`, `needsClearerAddress`, `toolF
 }
 ```
 
-If `sendBySms` is true, trigger Fonio Send SMS to Caller with `smsText` (requires SMS add-on).  
-Only after SMS succeeds, speak `sayAfterSmsSent` (do not claim delivery from the initial `say`).  
+Message status fields (use accurate customer wording):
+
+| `messageStatus` | Meaning | What to say |
+|-----------------|---------|-------------|
+| `generated` | Link/SMS text prepared; not yet handed to the carrier | Speak `say` (“I'm sending it now”). If `sendBySms`, run Fonio Send SMS with `smsText`. Do **not** claim the text arrived. |
+| `accepted` | WhatsApp/SMS API accepted the message for sending | Speak `say` or, after SMS, `sayAfterSmsAccepted` (legacy alias: `sayAfterSmsSent`). You may say we have sent the secure link. Do **not** claim handset delivery. |
+| `delivered` | Handset delivery confirmed (only if the tool returns this) | Only then say the message was delivered. |
+
+Never promise a named/assigned driver because Stripe payment succeeded — payment verifies booking status via Booking Lookup only.  
 The booking URL is our genuine `/book-quote/?id=…` link; customers pay via the existing Stripe Checkout flow. Never invent payment URLs or collect card details on the call.
 
 ---

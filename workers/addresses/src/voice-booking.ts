@@ -151,16 +151,25 @@ export async function handleVoiceBookingLink(request: Request, env: Env): Promis
   });
   console.log(JSON.stringify({ event: "voice_booking_link", sent: sent.sent, reason: sent.sent ? null : sent.reason }));
   if (sent.sent || sent.reason === "already_sent") {
+    // WhatsApp API accepted for sending — not handset delivery proof.
     return reply({
       ok: true,
+      channel: "whatsapp",
+      messageStatus: "accepted",
+      delivered: false,
       say: "Done – I've sent your booking details to your WhatsApp. Tap Manage booking to view, change or cancel it.",
     });
   }
   return reply({
     ok: false,
     sendBySms: true,
+    channel: "sms",
+    messageStatus: "generated",
+    delivered: false,
     mobile: booking.mobileNumber,
     smsText: voiceBookingSmsText(booking, manageUrl),
-    say: "I'll text you your booking details and link instead.",
+    sayAfterSmsAccepted: "That's grand. I've texted your booking details and manage link.",
+    sayAfterSmsSent: "That's grand. I've texted your booking details and manage link.",
+    say: "One moment — I've prepared a text with your booking details and I'm sending it now.",
   });
 }

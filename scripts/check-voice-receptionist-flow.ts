@@ -79,15 +79,21 @@ async function main() {
   assert.match(quoteHandler, /needsClearerAddress: true/);
   assert.match(quoteHandler, /toolFailed: true/);
   assert.match(quoteHandler, /sendBySms: true/);
-  assert.match(quoteHandler, /Your driver is confirmed after payment/);
-  console.log("OK  unavailable, clearer-address, tool-failure and SMS fallback wired");
+  assert.match(quoteHandler, /messageStatus: "generated"/);
+  assert.match(quoteHandler, /messageStatus: "accepted"/);
+  assert.match(quoteHandler, /sayAfterSmsAccepted/);
+  assert.match(quoteHandler, /VOICE_BOOKING_AFTER_PAYMENT_SAY/);
+  assert.doesNotMatch(quoteHandler, /Your driver is confirmed after payment/);
+  assert.doesNotMatch(quoteHandler, /driver has been assigned/i);
+  console.log("OK  unavailable, clearer-address, tool-failure and SMS status fields wired");
 
   // 4) Provisional copy stresses unpaid hold.
   const provisional = readFileSync("workers/addresses/src/voice-provisional.ts", "utf8");
-  assert.match(provisional, /not confirmed until you pay|That's a hold only/i);
+  assert.match(provisional, /not confirmed until payment is verified|That's a hold only/i);
   assert.match(provisional, /awaiting_payment/);
   assert.doesNotMatch(provisional, /createSumUp|createStripeCheckoutSession|status:\s*"paid"/);
   assert.match(provisional, /Stripe payment|\/payments path/);
+  assert.doesNotMatch(provisional, /Your driver is confirmed after payment/);
   console.log("OK  provisional hold never marks paid; reuses Stripe /payments path");
 
   // 5) Existing booking verification copy.
@@ -170,12 +176,20 @@ async function main() {
   assert.match(prompt, /daylight saving|Europe\/London|Inbound Webhook/i);
   assert.match(prompt, /Do NOT ask “Is there anything else I can help you with\?”/);
   assert.match(prompt, /answer truthfully|Do not pretend to be human/i);
-  assert.match(prompt, /sayAfterSmsSent|Only after SMS succeeds/i);
+  assert.match(prompt, /messageStatus=generated|messageStatus=accepted|messageStatus=delivered/i);
+  assert.match(prompt, /sayAfterSmsAccepted|sayAfterSmsSent/i);
+  assert.match(prompt, /Never promise that a driver has been assigned/i);
+  assert.match(prompt, /If ok is false: do not quote any fare/i);
+  assert.match(prompt, /Speak that greeting exactly once|once only/i);
   assert.match(prompt, /more than 24 hours before pickup|within 24 hours/i);
   assert.match(prompt, /Stripe Checkout/i);
   assert.doesNotMatch(prompt, /SumUp/i);
   assert.match(prompt, /Belfast International|Dublin|return journey|urgent|interrupt/i);
-  assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /sayAfterSmsSent/);
+  const toolConfig = readFileSync("docs/fonio-tool-config.md", "utf8");
+  assert.match(toolConfig, /sayAfterSmsAccepted|sayAfterSmsSent/);
+  assert.match(toolConfig, /messageStatus/);
+  assert.match(toolConfig, /When `ok` is false.*do not quote a fare/is);
+  assert.match(toolConfig, /Speak returned `greeting` \*\*once only\*\*/);
   assert.match(readFileSync("workers/addresses/src/index.ts", "utf8"), /\/voice\/message/);
   assert.doesNotMatch(
     readFileSync("workers/addresses/src/voice-message.ts", "utf8"),
