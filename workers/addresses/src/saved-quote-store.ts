@@ -2,6 +2,7 @@
  * KV persistence for Saved Quotes (TRACKING_STORE).
  */
 
+import type { AdsAttribution } from "../shared/ads-attribution";
 import {
   SAVED_QUOTE_TTL_SECONDS,
   generateSavedQuoteId,
@@ -18,6 +19,7 @@ import {
   type SavedQuotePricingSnapshot,
   type SavedQuoteRecord,
 } from "../shared/saved-quote";
+import type { SavedQuoteAttributionConsent } from "../shared/saved-quote-ads-attribution";
 
 type OpenIndex = { tokens: string[]; updatedAt: string };
 
@@ -77,6 +79,8 @@ export async function createSavedQuote(
     journey: SavedQuoteJourneySnapshot;
     pricing: SavedQuotePricingSnapshot;
     heldPrice?: SavedQuoteHeldPrice;
+    attribution?: AdsAttribution;
+    attributionConsent?: SavedQuoteAttributionConsent;
   },
 ): Promise<SavedQuoteRecord> {
   const now = new Date();
@@ -103,6 +107,8 @@ export async function createSavedQuote(
     createdAt,
     expiresAt: computeSavedQuoteExpiresAt(now, input.validityDays),
     ...(input.heldPrice ? { heldPrice: input.heldPrice } : {}),
+    ...(input.attribution ? { attribution: input.attribution } : {}),
+    ...(input.attributionConsent ? { attributionConsent: input.attributionConsent } : {}),
   };
 
   await saveSavedQuoteRecord(store, record);

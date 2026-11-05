@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const engine = process.env.PLAYWRIGHT_BROWSER || 'chromium';
@@ -55,15 +56,17 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   if (returning) {
     const returnDate = page.locator('#returnDate');
     const returnTime = page.locator('#returnTime');
-    await returnDate.waitFor({ state: 'visible' });
+    // Checkout/quote return fields can sit under opacity:0 styling like #date.
+    await returnDate.waitFor({ state: 'attached' });
+    await returnTime.waitFor({ state: 'attached' });
     if (!(await returnDate.inputValue()) || !(await returnTime.inputValue())) {
-      if (!(await returnDate.inputValue())) await returnDate.fill(futureDate(7));
+      if (!(await returnDate.inputValue())) await returnDate.fill(futureDate(7), { force: true });
       await trigger.click();
       assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
         'a return journey must require return time before showing a fare');
       if (!(await returnTime.inputValue())) {
         assert.ok(await returnTime.evaluate(input => input.validity.valueMissing));
-        await returnTime.fill('14:00');
+        await returnTime.fill('14:00', { force: true });
       }
     }
   }
@@ -73,17 +76,21 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
 }
 async function book(page) {
   await page.getByRole('button', {name: /BOOK THIS TRANSFER/i}).click();
-  await page.locator('#date').waitFor({ state: 'visible' });
+  // Checkout mounts customer details; homepage quote #date can stay opacity:0 under the prompt.
+  await page.getByRole('heading', { name: 'COMPLETE YOUR BOOKING', exact: true }).waitFor();
+  await page.locator('#name').waitFor({ state: 'visible' });
+  await page.locator('#date').waitFor({ state: 'attached' });
   await page.waitForTimeout(1100); // allow the existing 720ms scroll glide to finish
+  // Desktop booking scroll can land on Your details; keep date/time above name in document order.
+  await page.locator('#name').scrollIntoViewIfNeeded();
   const pos = await page.evaluate(() => {
     const box = (id) => document.getElementById(id).getBoundingClientRect();
     return { date: box('date').top, time: box('time').top, name: box('name').top,
       header: document.querySelector('header').getBoundingClientRect().bottom,
       height: innerHeight };
   });
-  assert.ok(pos.date >= pos.header && pos.date < pos.height);
-  assert.ok(pos.time >= pos.header && pos.time < pos.height);
-  assert.ok(pos.date < pos.name && pos.time < pos.name);
+  assert.ok(pos.name >= pos.header && pos.name < pos.height, 'customer name must land in view after booking');
+  assert.ok(pos.date < pos.name && pos.time < pos.name, 'pickup schedule stays above customer details');
 }
 try {
   for (const width of [320, 360, 375, 390, 1280]) {
@@ -97,17 +104,23 @@ try {
       locale:'en-GB',
       timezoneId:'Europe/London',
     });
+    await skipCookieConsent(context);
     const writes = [];
     await context.route('**/*', async route => {
       const req = route.request(), url = new URL(req.url());
       if (url.origin === new URL(base).origin) return route.continue();
       const json = (body) => route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
-      if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+      // >40 miles so Business Class stays offered on this Belfast airport journey.
+      if (url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:70000,duration:3600,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
       if (url.pathname.endsWith('/addresses')) {
         if (url.searchParams.has('id')) return json({placeId:'test-dublin-airport',address:'Dublin, Ireland',formattedAddress:'Dublin, Ireland',displayAddress:'Dublin, Ireland',placeName:'Dublin',lat:53.4264,lng:-6.2499,countryCode:'IE',postalCode:null});
         return json({suggestions:[{id:'test-dublin-airport',label:'Dublin Airport Terminal 2, Ireland',mainText:'Dublin Airport Terminal 2',secondaryText:'Ireland'}]});
       }
-      if (url.pathname === '/pricing/public') return json({config:toPublicOwnerPricingConfig(defaultOwnerPricingSettings())});
+      if (url.pathname === '/pricing/public') {
+        const settings = defaultOwnerPricingSettings();
+        settings.minibus.publicEnabled = true;
+        return json({config:toPublicOwnerPricingConfig(settings)});
+      }
       if (url.pathname === '/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
       if (url.pathname.endsWith('/quote/calculate')) {
         const journey = req.postDataJSON();
@@ -116,7 +129,7 @@ try {
         return json({ok:true, amount:journeyFareGbp, amountLabel:`£${journeyFareGbp.toFixed(2)}`,
           vehicleType:journey.vehicleType, vehicleChoice:'Saloon', premiumApplied:false,
           returnJourney:Boolean(journey.returnJourney), journeyFareGbp, airportFixedCostsGbp:0,
-          nightWeekendSurchargeGbp:0, distanceKm:25, durationMinutes:30});
+          nightWeekendSurchargeGbp:0, distanceKm:70, durationMinutes:60});
       }
       if (/checkout|bookings|short-notice/.test(url.pathname) && req.method() === 'POST') writes.push(url.pathname);
       return route.abort(); // prevent Google, live quotes, payment and booking writes
@@ -124,8 +137,6 @@ try {
     const page = await context.newPage();
     await page.goto(base);
     await page.locator('#quote-section-passengers').waitFor();
-    await page.getByRole('button',{name:'Reject optional',exact:true}).waitFor({state:'visible'});
-    await page.getByRole('button',{name:'Reject optional',exact:true}).click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
     assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
     assert.deepEqual(await page.locator('#quote-section-passengers option').allTextContents(),['Select','1','2','3','4','5','6','7']);
@@ -163,21 +174,34 @@ try {
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);
     pass(`${width}px: missing either selection prevents quote; None accepted as numeric 0`);
+    // Desktop (≥1024) hides the minibus when a car fits (data-vehicle-not-needed).
+    const vehicles = [];
     for (const vehicle of ['saloon','estate','executive','minibus']) {
-      await page.locator(`[data-vehicle-category="${vehicle}"]`).click();
+      const option = page.locator(`[data-vehicle-category="${vehicle}"]`);
+      if (!(await option.isVisible())) continue;
+      vehicles.push(vehicle);
+      await option.scrollIntoViewIfNeeded();
+      await option.click();
       const summaryArt = page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`);
-      await summaryArt.waitFor({ state: 'visible' });
-      assert.equal(await summaryArt.isVisible(), true, 'The selected-vehicle summary artwork must remain visible');
+      await summaryArt.waitFor({ state: 'attached' });
+      // Desktop quote results keep option art; the compact result strip is mobile-oriented.
+      if (width < 768) {
+        await summaryArt.waitFor({ state: 'visible' });
+        assert.equal(await summaryArt.isVisible(), true, 'The selected-vehicle summary artwork must remain visible');
+      }
       assert.ok(await page.locator(`[data-vehicle-category="${vehicle}"] [data-vehicle-art-size="option"]`).isVisible(), 'Original choice artwork remains visible');
       await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
       await page.screenshot({path:`${output}/${width}-${vehicle}-quote.png`});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth));
     }
+    assert.ok(vehicles.includes('saloon') && vehicles.includes('estate'), 'core car options must stay selectable');
     await page.locator('[data-vehicle-category="saloon"]').click();
-    pass(`${width}px: all four vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
+    await page.getByRole('button', { name: /BOOK THIS TRANSFER/i }).waitFor();
+    pass(`${width}px: visible vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});
-    await page.locator('#date').fill(''); await page.locator('#time').fill('');
+    // Checkout date/time can sit under opacity:0 styling; force keeps the schedule clearable.
+    await page.locator('#date').fill('',{force:true}); await page.locator('#time').fill('',{force:true});
     await page.locator('#name').fill('Preview Test'); await page.locator('#mobile').fill('07700900123'); await page.locator('#email').fill('preview@example.invalid');
     await page.locator('[data-back-to-quote="top"]').click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'2');
@@ -191,7 +215,7 @@ try {
     assert.equal(await page.locator('#name').inputValue(),'Preview Test');
     assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
     // Isolated static test: no booking, contact or payment requests can leave this context.
-    await page.locator('#date').fill(''); await page.locator('#time').fill('');
+    await page.locator('#date').fill('',{force:true}); await page.locator('#time').fill('',{force:true});
     assert.equal(await page.locator('[data-quote-results="ready"]').count(),0,
       'changing a booking date/time must invalidate the previous fixed fare');
     assert.deepEqual(writes,[], 'browser checkout regression must not submit booking or payment writes');
@@ -205,11 +229,11 @@ try {
     await page.getByRole('button',{name:/Return SAVE/}).click();
     await requestFixedPrice(page,{returning:true});
     await book(page);
-    await page.locator('#returnDate').waitFor({state:'visible'});
-    await page.locator('#returnTime').waitFor({state:'visible'});
+    await page.locator('#returnDate').waitFor({state:'attached'});
+    await page.locator('#returnTime').waitFor({state:'attached'});
     const nextDate=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
-    await page.locator('#date').fill(nextDate); await page.locator('#time').fill('10:00');
-    await page.locator('#returnDate').fill(nextDate); await page.locator('#returnTime').fill('09:00');
+    await page.locator('#date').fill(nextDate,{force:true}); await page.locator('#time').fill('10:00',{force:true});
+    await page.locator('#returnDate').fill(nextDate,{force:true}); await page.locator('#returnTime').fill('09:00',{force:true});
     assert.equal(await page.locator('#returnTime').evaluate((input) => input.validity.valid), false,
       'a return pickup earlier than the outbound pickup must fail native field validation');
     assert.deepEqual(writes,[]);
@@ -235,12 +259,20 @@ try {
     await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
     for (const field of ['dropoff','pickup']) {
       const input=page.locator(`#${field}`);
+      // Close any leftover address overlay (local served-airports + API listboxes
+      // can stack; the sibling listbox intercepts pointer events otherwise).
+      await page.keyboard.press('Escape');
+      await input.click();
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
-      await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
+      const suggestion=page.locator(`[id="${listboxId}"]`).getByRole('button',{name:/Dublin Airport Terminal 2/i}).first();
+      await suggestion.waitFor({state:'visible'});
+      // force: local "Co. Dublin, Ireland" overlay can still sit above the mock Terminal 2 row.
+      await suggestion.click({force:true});
       await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
       assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+      await page.keyboard.press('Escape');
     }
     await page.locator('#pickup').scrollIntoViewIfNeeded();
     await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});

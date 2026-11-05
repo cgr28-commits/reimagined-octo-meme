@@ -6,6 +6,8 @@
  * never the quote reference alone, never the price in the URL.
  */
 
+import type { AdsAttribution } from "./ads-attribution";
+import type { SavedQuoteAttributionConsent } from "./saved-quote-ads-attribution";
 import { parseLondonLocalDateTime } from "./uk-time";
 
 export const SAVED_QUOTE_VALIDITY_DAYS = 7;
@@ -129,6 +131,14 @@ export type SavedQuoteRecord = {
   lastEmailError?: string;
   /** Fixed-price booking link, when the journey had a pickup date and time. */
   heldPrice?: SavedQuoteHeldPrice;
+  /**
+   * Private Ads attribution for later paid booking. Never exposed on public quote APIs,
+   * customer emails, WhatsApp messages, or quote URLs. Click IDs only when
+   * attributionConsent is "accepted".
+   */
+  attribution?: AdsAttribution;
+  /** Set only when click IDs / full attribution were stored after measurement consent. */
+  attributionConsent?: SavedQuoteAttributionConsent;
 };
 
 /** Public customer-safe view (never includes internal error strings). */

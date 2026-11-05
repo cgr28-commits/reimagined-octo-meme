@@ -18,7 +18,10 @@ import {
 import { getPaymentBookingBlockers } from "../../shared/paid-booking-gate";
 import { getAirportPickupFlightNumberBlockers } from "../../shared/flight-lookup";
 import { resolvePaymentAirportContextFromAddresses } from "../../shared/open-website-payment-fares";
-import { bookingWithConsentedAdsAttribution } from "@/lib/ads-attribution";
+import {
+  bookingWithConsentedAdsAttribution,
+  currentMeasurementConsent,
+} from "@/lib/ads-attribution";
 import {
   customerSmartAvailabilityPreviewHeaders,
   withCustomerSmartAvailabilityPreviewUrl,
@@ -352,6 +355,7 @@ export async function createPaymentCheckout(
       meetGreetSelected: request.meetGreetSelected === true,
       checkoutReference: request.checkoutReference,
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
+      measurementConsent: currentMeasurementConsent(),
       ...(booking ? { booking } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.a2aQuoteToken ? { a2aQuoteToken: request.a2aQuoteToken } : {}),

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const base=process.env.TEST_BASE_URL||'http://localhost:3000';
 const output=`test-results/homepage-booking/${engine}`;
@@ -11,6 +12,7 @@ try {
  for (const width of [390,1280]) {
   let state='paid',calls=0;
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
+  await skipCookieConsent(context);
   await context.route('**/*',async route=>{
    const req=route.request(),url=new URL(req.url());
    if(url.origin===new URL(base).origin)return route.continue();
@@ -27,8 +29,6 @@ try {
   await page.getByRole('heading',{name:'Checking your payment',exact:true}).waitFor();
   assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
   assert.equal(calls,0);
-  const cookie=page.getByRole('button',{name:'Reject optional',exact:true});
-  if(await cookie.isVisible())await cookie.click();
   for(const test of ['paid','deposit','error','pending']) {
    state=test;
    await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=test-${width}-${test}`);

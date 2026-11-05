@@ -33,8 +33,9 @@ permissions:
 
 jobs:
   compact-schedule-browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ubuntu-24.04
+    # Two Next builds + Playwright install can exceed 25m when browser download stalls.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,7 +44,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build updated quote flow
-        run: GITHUB_PAGES=true npm run build
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - name: Check out reviewed inline form for before/after measurements
         uses: actions/checkout@v4
         with:
@@ -53,7 +60,12 @@ jobs:
         working-directory: baseline
         run: |
           npm ci
-          GITHUB_PAGES=true npm run build
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && break
+            echo "baseline build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+          done
           python3 -m http.server 3001 --directory out > "$RUNNER_TEMP/matni-baseline-server.log" 2>&1 &
           for attempt in {1..30}; do
             if curl --silent --fail http://127.0.0.1:3001/ > /dev/null; then break; fi
@@ -93,8 +105,8 @@ jobs:
           if-no-files-found: warn
 
   browser-review:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -110,7 +122,14 @@ jobs:
           node --import tsx scripts/check-bfs-bhd-roi-instant-quote.ts
           node --import tsx scripts/check-profitability-floor.ts
           node --import tsx scripts/check-dublin-city-profitability.ts
-      - run: GITHUB_PAGES=true npm run build
+      - name: Build static export
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
       - run: node --import tsx scripts/check-dublin-airport-label.ts

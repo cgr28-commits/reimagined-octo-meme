@@ -12,7 +12,7 @@ permissions:
   contents: read
 jobs:
   conversion:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses
@@ -36,7 +36,14 @@ jobs:
           node --import tsx scripts/check-sumup-booking-conversion.ts
           node --import tsx scripts/check-pricing-vehicle-quote-flow.ts
           node --import tsx scripts/check-quote-checkout-page.ts
-      - run: npm run build
+      - name: Build Next.js app
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -44,8 +51,12 @@ jobs:
       - name: Build unchanged PR base for height comparison
         working-directory: baseline
         run: |
-          npm ci
-          npm run build
+          for attempt in 1 2 3; do
+            npm ci && npm run build && exit 0
+            echo "baseline build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
       - name: Verify mobile and desktop flow in Chromium and WebKit

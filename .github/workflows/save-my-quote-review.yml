@@ -13,7 +13,7 @@ permissions:
   contents: read
 jobs:
   isolated-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -30,11 +30,18 @@ jobs:
       - run: npm ci --prefix workers/addresses
       - run: npm --prefix workers/addresses run build
       - run: npm run lint
-      - run: npm run build
+      - name: Build Next.js app
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_ADDRESSES_API_URL: http://localhost:8787/addresses
           NEXT_PUBLIC_BOOKINGS_API_URL: http://localhost:8787/bookings
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm install --no-save --package-lock=false playwright@1.56.1
       - run: npx playwright install --with-deps chromium
       - run: node --import tsx scripts/check-save-my-quote-browser.mjs
