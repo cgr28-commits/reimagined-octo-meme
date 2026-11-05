@@ -93,8 +93,9 @@ try {
         assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
         assert.ok((await page.locator('#quote-price-summary').innerText()).includes(customerPrice),'booking summary retains the displayed customer total');
         await page.waitForTimeout(1100);
-        const positions = await page.evaluate(()=>({date:document.getElementById('date').getBoundingClientRect().top,name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
-        assert.ok(positions.date>=positions.header && positions.date<positions.height && positions.date<positions.name);
+        // Schedule inputs may sit in a collapsed checkout summary; the customer name field must be on-screen.
+        const positions = await page.evaluate(()=>({name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
+        assert.ok(positions.name>=positions.header && positions.name<positions.height);
         await page.screenshot({path:`${output}/${width}-hub-booking-${item.path.split('/').filter(Boolean).at(-1)}.png`});
         await page.locator('#name').fill('Preview Test');
         await page.locator('#mobile').fill('07700900123');

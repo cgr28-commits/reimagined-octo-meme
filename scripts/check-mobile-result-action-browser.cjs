@@ -103,8 +103,8 @@ async function main() {
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Email my quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
     assert.ok(await page.getByRole('button', { name: 'Need help? WhatsApp us', exact: true }).isVisible());
-    const manual = /Executive|Minibus/.test(vehicle);
-    // Request-quote vehicles may still expose an explanatory breakdown; they must not be saveable as confirmed fares.
+    const manual = /REQUEST QUOTE/.test(m.label);
+    // Request-quote CTAs must not be saveable as confirmed fares (priced BOOK THIS TRANSFER can).
     assert.equal(await page.locator('[data-quote-save]').isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
     const popups = [
      ['View route', 'dialog', 'View route'],
