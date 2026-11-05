@@ -311,6 +311,34 @@ export async function rescheduleQuickQuote(
   return payload.quote as QuickQuotePublicSummary;
 }
 
+/** Customer changed pickup/destination on a quote link: Worker re-prices via the website engine. */
+export async function rerouteQuickQuote(
+  id: string,
+  route: {
+    pickupAddress: string;
+    dropoffAddress: string;
+    pickupPlaceId?: string;
+    dropoffPlaceId?: string;
+  },
+): Promise<QuickQuotePublicSummary> {
+  const response = await fetch(`${WORKER_BASE}/quick-quotes/reroute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ id: id.trim(), ...route }),
+    cache: "no-store",
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.quote || typeof payload.quote !== "object") {
+    throw new Error(
+      String(
+        payload.error ||
+          "We couldn't update the price for those addresses. Please try again or contact My Airport Taxi NI.",
+      ),
+    );
+  }
+  return payload.quote as QuickQuotePublicSummary;
+}
+
 /** A transient route/provider error retries once without changing fare or journey inputs. */
 export async function calculateServerQuote(
   journey: QuickQuoteJourney & QuickQuoteRoutePayload & { vehicleChoice?: QuickQuoteVehicleChoice },

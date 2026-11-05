@@ -483,7 +483,9 @@ import {
   handleOwnerCreateQuickQuote,
   handlePublicQuickQuoteLookup,
   handlePublicQuickQuoteReschedule,
+  handlePublicQuickQuoteReroute,
   parseQuickQuoteSchedule,
+  quickQuoteRouteChanged,
   quickQuoteScheduleChanged,
 } from "./quick-quote-handlers";
 import {
@@ -2462,6 +2464,29 @@ async function handlePaymentRequest(
           {
             error: "The price needs updating for your new pickup time. Please check the updated price and try again.",
             code: "quick_quote_reschedule_required",
+          },
+          409,
+          origin,
+        );
+      }
+    }
+
+    // A changed pickup/destination must be re-priced first (POST /quick-quotes/reroute).
+    // Never charge Stripe/SumUp against a stale route fare.
+    {
+      const requestedPickup = String(booking.pickupLabel || record.journey.pickupAddress).trim();
+      const requestedDropoff = String(booking.dropoffLabel || record.journey.dropoffAddress).trim();
+      if (
+        quickQuoteRouteChanged(record.journey, {
+          pickupAddress: requestedPickup,
+          dropoffAddress: requestedDropoff,
+        })
+      ) {
+        return json(
+          {
+            error:
+              "The price needs updating for your new addresses. Please check the updated fare and try again.",
+            code: "quick_quote_reroute_required",
           },
           409,
           origin,
@@ -4819,6 +4844,13 @@ export default {
       (request.method === "POST" || request.method === "OPTIONS")
     ) {
       return handlePublicQuickQuoteReschedule(request, env, origin);
+    }
+
+    if (
+      (url.pathname === "/quick-quotes/reroute" || url.pathname === "/api/quick-quotes/reroute") &&
+      (request.method === "POST" || request.method === "OPTIONS")
+    ) {
+      return handlePublicQuickQuoteReroute(request, env, origin);
     }
 
     if (

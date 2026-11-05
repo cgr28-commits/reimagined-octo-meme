@@ -741,10 +741,198 @@ export async function handlePublicQuickQuoteReschedule(
   return json({ ok: true, quote: toQuickQuotePublicSummary(result.record) }, 200, origin);
 }
 
+export type QuickQuoteRouteAmendment = {
+  pickupAddress: string;
+  dropoffAddress: string;
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
+};
+
+/** Validated new pickup/dropoff for a quote link, or an error. */
+export function parseQuickQuoteRouteAmendment(body: Record<string, unknown>): QuickQuoteRouteAmendment | { error: string } {
+  const pickupAddress = String(body.pickupAddress ?? body.pickup ?? "").trim();
+  const dropoffAddress = String(body.dropoffAddress ?? body.dropoff ?? "").trim();
+  if (pickupAddress.length < 3) return { error: "Please choose a valid pickup address." };
+  if (dropoffAddress.length < 3) return { error: "Please choose a valid destination." };
+  if (pickupAddress.toLowerCase() === dropoffAddress.toLowerCase()) {
+    return { error: "Pickup and destination need to be different places." };
+  }
+  const pickupPlaceId = String(body.pickupPlaceId ?? "").trim() || undefined;
+  const dropoffPlaceId = String(body.dropoffPlaceId ?? "").trim() || undefined;
+  return { pickupAddress, dropoffAddress, pickupPlaceId, dropoffPlaceId };
+}
+
+export function quickQuoteRouteChanged(journey: QuickQuoteJourney, next: QuickQuoteRouteAmendment): boolean {
+  return (
+    journey.pickupAddress.trim() !== next.pickupAddress.trim() ||
+    journey.dropoffAddress.trim() !== next.dropoffAddress.trim()
+  );
+}
+
+/**
+ * Re-price a quote after the customer changes pickup or destination on the booking link.
+ * Always runs the website pricing engine (airports, mins, supplements, 5% return discount).
+ * Clears any unpaid checkout so Stripe/SumUp cannot charge the previous fare.
+ * Keeps schedule, party size, flights and any Owner discretionary discount.
+ */
+export async function rerouteQuickQuote(
+  record: QuickQuoteRecord,
+  next: QuickQuoteRouteAmendment,
+  env: { TRACKING_STORE: KVNamespace; SITE_ORIGIN?: string; GOOGLE_PLACES_API_KEY?: string } & NonNullable<MainQuoteEnv>,
+): Promise<{ ok: true; record: QuickQuoteRecord } | { ok: false; status: number; error: string; reason?: string }> {
+  const j = record.journey;
+  const priced = await priceQuickQuoteBody(
+    {
+      pickupAddress: next.pickupAddress,
+      dropoffAddress: next.dropoffAddress,
+      ...(next.pickupPlaceId ? { pickupPlaceId: next.pickupPlaceId } : {}),
+      ...(next.dropoffPlaceId ? { dropoffPlaceId: next.dropoffPlaceId } : {}),
+      returnJourney: j.returnJourney,
+      journeyMode: j.returnJourney ? "return" : "one-way",
+      outboundDate: j.outboundDate,
+      outboundTime: j.outboundTime,
+      returnDate: j.returnDate,
+      returnTime: j.returnTime,
+      passengers: j.passengers,
+      suitcases: j.suitcases,
+      childSeatRequired: j.childSeatRequired === true,
+      flightNumber: j.flightNumber,
+      returnFlightNumber: j.returnFlightNumber,
+      vehicleChoice: j.vehicleChoice ?? j.vehicleType,
+      priceSource: "website-pricing-engine",
+      discountType: record.discountType ?? "none",
+      discountValue: record.discountValue ?? 0,
+      expressDropOffSelected: j.expressDropOffSelected !== false,
+    },
+    env,
+    { createdByOwner: false },
+  );
+  if (!priced.ok) {
+    return {
+      ok: false,
+      status: priced.status,
+      error:
+        priced.error ||
+        "We couldn't price that journey. Please choose addresses we serve, or contact My Airport Taxi NI.",
+      reason: priced.reason,
+    };
+  }
+  const { journey, vehicleTypeLabel, discounted, expressFields, composed } = priced.pricing;
+  return {
+    ok: true,
+    record: {
+      ...record,
+      journey: {
+        ...j,
+        pickupAddress: journey.pickupAddress,
+        dropoffAddress: journey.dropoffAddress,
+        airportCode: journey.airportCode,
+        fromAirport: journey.fromAirport,
+        vehicleType: vehicleTypeLabel,
+        vehicleChoice: journey.vehicleChoice ?? j.vehicleChoice,
+        expressDropOffSelected: expressFields.expressDropOffSelected,
+        expressDropOffFee: expressFields.expressDropOffFee,
+        expressDropOffAirport: expressFields.expressDropOffAirport,
+      },
+      quotedAmount: composed.totalGbp,
+      quotedAmountLabel: formatQuickQuoteAmount(composed.totalGbp),
+      calculatedAmount: discounted.calculatedFare,
+      calculatedAmountLabel: formatQuickQuoteAmount(discounted.calculatedFare),
+      discountType: discounted.discountType,
+      discountValue: discounted.discountValue,
+      discountAmount: discounted.discountAmount,
+      pricingSource: "website-pricing-engine",
+      // Drop unpaid checkout — old session amount must never be charged.
+      status: "open",
+      checkoutId: undefined,
+      checkoutReference: undefined,
+      paymentUrl: undefined,
+    },
+  };
+}
+
+/** Refresh phone-quote memo labels so provisional SMS copy matches the amended journey. */
+async function refreshVoiceQuoteMemoAfterReroute(
+  store: KVNamespace,
+  record: QuickQuoteRecord,
+): Promise<void> {
+  const key = `voice:quote:${record.id}`;
+  const memo = await store.get<{
+    amountLabel?: string;
+    journeyLabel?: string;
+    whenLabel?: string;
+    heldFor?: string;
+    bookingUrl?: string;
+  }>(key, "json");
+  if (!memo || typeof memo !== "object") return;
+  const short = (label: string) => label.split(",")[0]!.trim() || label;
+  const next = {
+    ...memo,
+    amountLabel: record.quotedAmountLabel,
+    journeyLabel: `${short(record.journey.pickupAddress)} to ${short(record.journey.dropoffAddress)}${
+      record.journey.returnJourney ? " (return)" : ""
+    }`,
+  };
+  await store.put(key, JSON.stringify(next), { expirationTtl: 3 * 60 * 60 }).catch(() => undefined);
+}
+
+/** POST /quick-quotes/reroute — customer changed pickup/destination on a quote link. */
+export async function handlePublicQuickQuoteReroute(
+  request: Request,
+  env: { TRACKING_STORE?: KVNamespace; SITE_ORIGIN?: string; GOOGLE_PLACES_API_KEY?: string } & NonNullable<MainQuoteEnv>,
+  origin: string | null,
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
+  const store = env.TRACKING_STORE;
+  if (!store) return json({ error: "Quote store is not configured" }, 503, origin);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid request." }, 400, origin);
+  }
+  const id = normalizeQuickQuoteId(String(body.id ?? ""));
+  if (!id) return json({ error: "Missing quote id." }, 400, origin);
+  const record = await getQuickQuote(store, id);
+  if (!record) return json({ error: "This quote link is invalid or no longer available." }, 404, origin);
+  if (record.status === "paid") return json({ error: "This quote has already been paid." }, 409, origin);
+  if (isQuickQuoteExpired(record) || record.status === "expired" || record.status === "cancelled") {
+    return json({ error: "This quote link has expired. Please contact My Airport Taxi NI for a new quote." }, 410, origin);
+  }
+  const next = parseQuickQuoteRouteAmendment(body);
+  if ("error" in next) return json({ error: next.error }, 400, origin);
+  if (!quickQuoteRouteChanged(record.journey, next)) {
+    return json({ ok: true, quote: toQuickQuotePublicSummary(record) }, 200, origin);
+  }
+  if ((await consumeQuickQuoteCreateQuota(store, `reroute:${id}`, 20)) === "limited") {
+    return json({ error: "Too many address changes on this quote. Please try again later." }, 429, origin);
+  }
+  const result = await rerouteQuickQuote(record, next, { ...env, TRACKING_STORE: store });
+  if (!result.ok) {
+    return json(
+      {
+        error: result.error,
+        ...(result.reason ? { reason: result.reason } : {}),
+        code: "quick_quote_reroute_unavailable",
+      },
+      result.status,
+      origin,
+    );
+  }
+  await saveQuickQuote(store, result.record);
+  await refreshVoiceQuoteMemoAfterReroute(store, result.record);
+  return json({ ok: true, quote: toQuickQuotePublicSummary(result.record) }, 200, origin);
+}
+
 export function isQuickQuotePath(pathname: string): boolean {
   return (
     pathname === "/quick-quotes/reschedule" ||
     pathname === "/api/quick-quotes/reschedule" ||
+    pathname === "/quick-quotes/reroute" ||
+    pathname === "/api/quick-quotes/reroute" ||
     pathname === "/owner/quick-quotes" ||
     pathname === "/api/owner/quick-quotes" ||
     pathname === "/quick-quotes/by-id" ||
