@@ -61,6 +61,18 @@ async function main() {
   r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", followUpConsent: "yes" }), env, t0)).json();
   assert.equal(r.queued, false, "one follow-up per number per day");
 
+  // Diverted landline calls: caller ID is our landline, the mobile comes from the call.
+  {
+    const s3 = memoryStore();
+    const env3 = { ...env, TRACKING_STORE: s3 as unknown as KVNamespace };
+    const r3 = await (await handleVoiceCallEnded(call({ fromNumber: "+442896022952", mobile: "07700 900789", followUpConsent: "yes", pickup: "Hampton by Hilton Belfast", destination: "Dublin Airport" }), env3, t0)).json();
+    assert.equal(r3.queued, true, "uses the mobile given on the call when caller ID is the landline");
+    const q3 = JSON.parse(s3.kv.get(VOICE_FOLLOWUP_QUEUE_KEY)!);
+    assert.equal(q3[0].mobile, "447700900789");
+    const r4 = await (await handleVoiceCallEnded(call({ fromNumber: "+442896022952", mobile: "{{mobile}}", followUpConsent: "yes" }), env3, t0)).json();
+    assert.equal(r4.queued, false, "no mobile given on a diverted call → nothing to send");
+  }
+
   // Not due for 5 minutes; idle run is one read.
   const before = store.reads();
   let p = await processVoiceFollowUps(env, new Date(t0.getTime() + 2 * 60 * 1000));
