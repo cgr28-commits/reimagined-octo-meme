@@ -34,7 +34,8 @@ permissions:
 jobs:
   compact-schedule-browser:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # Two Next builds + Playwright install can exceed 25m when browser download stalls.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -105,7 +106,7 @@ jobs:
 
   browser-review:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

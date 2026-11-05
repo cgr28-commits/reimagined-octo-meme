@@ -17,7 +17,8 @@ concurrency:
 jobs:
   isolated-browser-review:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # Baseline+candidate builds plus Playwright install can stall past 25m.
+    timeout-minutes: 40
     env:
       GITHUB_PAGES: 'true'
       NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:3198/isolated-api/addresses
