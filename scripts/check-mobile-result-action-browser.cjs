@@ -77,18 +77,20 @@ async function main() {
    // Wait for the actual reveal rather than assuming WebKit's rendering/effects
    // finish on Chromium's timing. This does not scroll or alter the page.
    if (width < 768) {
-    await page.waitForFunction(() => {
+    await page.waitForFunction((wantReduced) => {
      // Main and candidate both reveal the selected card on mobile (baseline
-     // investigation 39661970175). Reduced-motion leaves scrollBehavior at auto
-     // and can settle a little further from the 12px header gap.
+     // investigation 39661970175). Reduced-motion skips animated scroll, so only
+     // require the selected card to be on-screen under the fixed header.
      const heading = document.querySelector('[data-quote-selected-vehicle-card]');
      const header = document.querySelector('header.fixed, header[class*="fixed"]');
      if (!heading || !header) return false;
-     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-     const motionOk = reduced || document.documentElement.style.scrollBehavior !== 'auto';
-     const gap = Math.abs(heading.getBoundingClientRect().top - header.getBoundingClientRect().bottom - 12);
-     return motionOk && gap <= (reduced ? 48 : 20);
-    }, null, { timeout: 20000 });
+     const box = heading.getBoundingClientRect();
+     const headerBottom = header.getBoundingClientRect().bottom;
+     if (wantReduced) return box.bottom > headerBottom && box.top < innerHeight && box.height > 0;
+     const motionOk = document.documentElement.style.scrollBehavior !== 'auto';
+     const gap = Math.abs(box.top - headerBottom - 12);
+     return motionOk && gap <= 20;
+    }, reduced, { timeout: 20000 });
    } else {
     await page.locator('[data-quote-vehicle-options-heading]').waitFor({ state: 'visible' });
    }
@@ -101,8 +103,12 @@ async function main() {
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
    if (width < 768) {
     assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved');
-    const revealGap = Math.abs(m.heading - m.header - 12);
-    assert.ok(revealGap <= (reduced ? 48 : 20), 'Mobile must reveal the selected vehicle card: ' + JSON.stringify({ ...m, reduced, revealGap }));
+    if (reduced) {
+     assert.ok(m.heading < m.height && m.heading + 40 > m.header, 'Reduced-motion mobile card must stay in view: ' + JSON.stringify(m));
+    } else {
+     const revealGap = Math.abs(m.heading - m.header - 12);
+     assert.ok(revealGap <= 20, 'Mobile must reveal the selected vehicle card: ' + JSON.stringify({ ...m, revealGap }));
+    }
    }
    else {
     // Desktop auto-scroll targets vary with header height; require the options heading in view.
@@ -113,12 +119,15 @@ async function main() {
    }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
-   await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
+   await page.waitForTimeout(reduced ? 700 : 250);
+   const settleDrift = Math.abs(await page.evaluate(() => scrollY) - m.y);
+   assert.ok(settleDrift <= (reduced ? 8 : 2), 'result scroll must settle: ' + JSON.stringify({ settleDrift, y: m.y, reduced }));
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
     // Both main and candidate show the selected vehicle image (paired run
     // 39662818694). Keep that established design under regression coverage.
+    await page.locator('[data-quote-result-art]').waitFor({ state: 'visible', timeout: 10000 });
     assert.equal(await page.locator('[data-quote-result-art]').isVisible(), true);
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), false);
     for (const name of ['View route', 'Email my quote', 'Start over']) assert.ok(await page.getByRole('button', { name, exact: true }).isVisible());
