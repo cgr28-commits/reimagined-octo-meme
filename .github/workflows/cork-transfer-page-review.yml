@@ -21,7 +21,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: GITHUB_PAGES=true npm run build
+      - name: Build Next.js app
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: node --import tsx scripts/check-cork-transfer-pages.ts
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium
