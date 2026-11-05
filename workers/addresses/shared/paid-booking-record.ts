@@ -3,6 +3,7 @@ import type { MeetGreetUpgrade } from "./meet-greet-upgrade";
 import type { RefundAuditEntry, PaidBookingMoneyStatus } from "./refund-ops";
 import type { DateTimeAmendmentAuditEntry } from "./booking-amendment";
 import type { AdsAttribution } from "./ads-attribution";
+import type { HowHeardSourceKey } from "./how-heard-source";
 
 export type PaidBookingStatus = PaidBookingMoneyStatus;
 
@@ -231,6 +232,14 @@ export type PaidBookingRecord = {
   cancellationPolicyVersion?: string;
   /** Consented campaign attribution retained for owner reporting. */
   attribution?: AdsAttribution;
+  /**
+   * Customer self-reported “how did you hear about us?” from WhatsApp.
+   * Separate from Google Ads click attribution — never used for Ads uploads.
+   */
+  howHeardSource?: HowHeardSourceKey;
+  howHeardSourceLabel?: string;
+  howHeardRecordedAt?: string;
+  howHeardChannel?: "whatsapp";
   /**
    * Server-side Google Ads Paid Booking click conversion (UploadClickConversions).
    * Set only after SumUp PAID finalize attempts an upload — used for idempotency.

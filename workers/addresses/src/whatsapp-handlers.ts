@@ -82,6 +82,12 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
 import {
+  howHeardAlreadyRecordedReply,
+  howHeardThankYouReply,
+  parseHowHeardReply,
+} from "../shared/how-heard-source";
+import { recordHowHeardFromWhatsApp } from "./how-heard-handlers";
+import {
   WHATSAPP_BOOKING_NOT_FOUND_REPLY,
   WHATSAPP_PICKUP_NOT_FOUND_REPLY,
   buildWhatsAppBookingDetails,
@@ -414,6 +420,34 @@ async function handleInboundMessage(
   const phone = message.from;
   const teamNumber = env.WHATSAPP_TEAM_NUMBER?.trim() ? resolveWhatsAppTeamNumber(env.WHATSAPP_TEAM_NUMBER) : undefined;
   const isTeamPhone = Boolean(teamNumber) && teamNumber === phone;
+
+  // How-heard survey reply (1–6) after booking confirmation — stored separately from Ads tracking.
+  const howHeard = message.text ? parseHowHeardReply(message.text) : null;
+  if (howHeard) {
+    try {
+      const recorded = await recordHowHeardFromWhatsApp({ store, phone, option: howHeard });
+      if (recorded.ok) {
+        await reply(
+          env,
+          phone,
+          recorded.alreadyRecorded ? howHeardAlreadyRecordedReply() : howHeardThankYouReply(),
+        );
+        logEvent("whatsapp_how_heard_recorded", phone, {
+          source: howHeard.key,
+          alreadyRecorded: recorded.alreadyRecorded,
+          paymentReference: recorded.booking.paymentReference,
+        });
+        return;
+      }
+      logEvent("whatsapp_how_heard_no_booking", phone, { source: howHeard.key });
+      // No matching booking — fall through so the quote bot can still help.
+    } catch (err) {
+      logEvent("whatsapp_how_heard_failed", phone, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   // Quote reminder: never while they are still chatting, never after "stop" / NEW.
   const followUpDelay = whatsAppFollowUpDelayMs(env.WHATSAPP_FOLLOW_UP_MINUTES);
   if (message.text && (isWhatsAppFollowUpOptOut(message.text) || detectWhatsAppIntent(message.text) === "reset")) {

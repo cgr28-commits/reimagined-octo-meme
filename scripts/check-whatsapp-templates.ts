@@ -91,6 +91,11 @@ const varCount = (name: string) => {
   return new Set(body.text.match(/\{\{\d+\}\}/g)).size;
 };
 assert.equal(varCount("mat_booking_confirmed"), 5);
+assert.equal(varCount("mat_booking_confirmed_v2"), 5);
+assert.match(
+  (defs.find((d) => d.name === "mat_booking_confirmed_v2")!.components.find((c) => c.type === "BODY") as { text: string }).text,
+  /Google Sponsored Listing \(Advert\)/,
+);
 assert.equal(varCount("mat_driver_on_the_way"), 3);
 assert.equal(varCount("mat_driver_details"), 5);
 assert.equal(varCount("mat_review_request"), 2);
@@ -153,6 +158,38 @@ async function main() {
     assert.equal(body.template.components[1].parameters[0].text, "a".repeat(48));
   }
   console.log("OK  approved booking confirmation sends once with the right details");
+
+  // When v2 (survey footer) is approved, prefer it; still one send per booking.
+  {
+    const calls: Call[] = [];
+    const env = { D360_API_KEY: "k", TRACKING_STORE: memoryKv() };
+    const f = fake360(
+      { mat_booking_confirmed: "APPROVED", mat_booking_confirmed_v2: "APPROVED" },
+      calls,
+    );
+    const input = {
+      paymentReference: "SUMUP-V2",
+      customerReference: "MAT-2042",
+      customerName: "Sarah Jones",
+      mobile: "07377 515059",
+      tripDate: "2026-10-31",
+      tripTime: "05:30",
+      pickupLabel: "12 Main Street, Lisburn",
+      dropoffLabel: "Belfast International Airport",
+      manageToken: "b".repeat(48),
+    };
+    const first = await sendBookingConfirmedWhatsApp(env, input, f);
+    assert.equal(first.sent, true);
+    const second = await sendBookingConfirmedWhatsApp(env, input, f);
+    assert.equal(second.sent, false);
+    const sends = calls.filter((c) => c.url.endsWith("/messages"));
+    assert.equal(sends.length, 1);
+    assert.equal(
+      (sends[0].body as { template: { name: string } }).template.name,
+      "mat_booking_confirmed_v2",
+    );
+  }
+  console.log("OK  approved v2 confirmation (with how-heard survey) is preferred");
 
   // Kill switch.
   {

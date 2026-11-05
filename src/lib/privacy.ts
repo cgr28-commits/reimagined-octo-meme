@@ -34,6 +34,7 @@ export const PRIVACY_SECTIONS = [
       "Marketing preferences if you opt in to receive updates (optional)",
       "Limited technical signals for security, fraud prevention and advertising abuse monitoring (such as hashed network identifiers, coarse browser/device category, landing page, referrer host, and advertising campaign parameters when present)",
       "Whether your visit came from one of our Google ads, kept as a simple yes/no note on your booking so we can tell which advertising brings bookings. Unless you accept measurement cookies, this note holds no Google click identifier, sets no cookie and is not sent to Google",
+      "If you reply to our optional WhatsApp question about how you heard about us, we store that self-reported answer on your booking. It is kept separately from Google Ads click tracking and is not sent to Google as an advertising conversion identifier",
     ],
   },
   {

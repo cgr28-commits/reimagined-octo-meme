@@ -1677,6 +1677,19 @@ export default function OwnerPaidBookingsPanel({
                 )}
               </span>
             </p>
+            <p className="mt-2 mb-1 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+              How they heard (customer reply)
+            </p>
+            <p className="text-sm text-white/70" data-how-heard-source>
+              {booking.howHeardSourceLabel
+                ? booking.howHeardSourceLabel
+                : "Not answered yet"}
+            </p>
+            {booking.howHeardSourceLabel ? (
+              <p className="mt-1 text-xs text-white/55">
+                Self-reported via WhatsApp — kept separate from Google Ads click tracking.
+              </p>
+            ) : null}
             {booking.googleAdsPaidConversionClickIdType ? (
               <p className="mt-1 text-xs text-white/55">
                 Click ID captured: {booking.googleAdsPaidConversionClickIdType}
