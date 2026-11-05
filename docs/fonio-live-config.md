@@ -34,3 +34,7 @@ Paste the latest copy from `docs/fonio-receptionist-prompt.md` into the Fonio as
 ## Stripe
 
 Unchanged: quotations may include `/book-quote/?id=…` in tool JSON for later use, but Send Booking Link stays disabled so the phone line will not push payment SMS until approved.
+
+## Speech recognition (Northern Irish accents)
+
+Live Fonio Olivia uses **Deepgram** STT with `en-GB`, expanded NI place `keyTerms`, and high-precision examples for postcodes/flights/mobiles. Prompt asks her to request a repeat when unclear.
