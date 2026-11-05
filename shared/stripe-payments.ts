@@ -9,7 +9,8 @@
  *
  * Holds ("pre-authorise"): bookings whose journey is within the card
  * authorisation window are created with `capture_method=manual`. The card is
- * authorised at booking and captured after the journey by the Worker cron.
+ * authorised at booking and captured by the Worker cron once the first pickup
+ * is less than 24 hours away (when the booking stops being refundable).
  * A refund on an uncaptured hold cancels (full) or captures less (partial).
  *
  * Secrets: STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET are Worker secrets only.
@@ -24,8 +25,8 @@ const STRIPE_API = "https://api.stripe.com/v1";
 
 /** Online card holds are valid for 7 days; keep a safety margin. */
 export const STRIPE_HOLD_MAX_HOURS_BEFORE_LAST_PICKUP = 6 * 24 - 12; // 132h
-/** Capture this long after the last pickup time (covers waiting / extras). */
-export const STRIPE_HOLD_CAPTURE_DELAY_HOURS_AFTER_PICKUP = 3;
+/** Capture this long before the first pickup: the free-cancellation cut-off (owner, Nov 2026). */
+export const STRIPE_HOLD_CAPTURE_HOURS_BEFORE_FIRST_PICKUP = 24;
 /** Never leave capture closer than this to the authorisation expiry. */
 export const STRIPE_HOLD_EXPIRY_MARGIN_HOURS = 12;
 
@@ -184,7 +185,7 @@ export type StripeCheckoutRequest = {
   /** Where Stripe sends the customer after paying. `{CHECKOUT_SESSION_ID}` is filled in. */
   returnUrl: string;
   customerEmail?: string;
-  /** Authorise only — capture after the journey. */
+  /** Authorise only — captured 24 hours before the first pickup. */
   manualCapture?: boolean;
   /** Site origin for the on-site payment page link. */
   siteOrigin: string;
@@ -515,23 +516,31 @@ export async function getStripeTransactionDetails(
 // ---------------------------------------------------------------------------
 
 /**
- * Hold (authorise now, capture after the journey) only when every leg is
- * inside the authorisation window. Bookings further ahead are charged as now
- * (full payment or the 20% deposit flow).
+ * Hold (authorise now, capture 24 hours before the first pickup) only when
+ * every leg is inside the authorisation window. Bookings further ahead are
+ * charged as now (full payment or the 20% deposit flow), and bookings already
+ * inside the 24-hour no-refund window are charged straight away.
  */
 export function shouldUseStripeHold(input: {
   lastPickupAt: Date | null;
+  /** First pickup (outbound leg). Within 24 hours → charge now, no hold. */
+  firstPickupAt?: Date | null;
   now?: Date;
   enabled: boolean;
 }): boolean {
   if (!input.enabled || !input.lastPickupAt) return false;
   const now = input.now ?? new Date();
   const hoursAhead = (input.lastPickupAt.getTime() - now.getTime()) / 3_600_000;
+  if (input.firstPickupAt) {
+    const firstHoursAhead = (input.firstPickupAt.getTime() - now.getTime()) / 3_600_000;
+    if (firstHoursAhead <= STRIPE_HOLD_CAPTURE_HOURS_BEFORE_FIRST_PICKUP) return false;
+  }
   return hoursAhead > 0 && hoursAhead <= STRIPE_HOLD_MAX_HOURS_BEFORE_LAST_PICKUP;
 }
 
 export function stripeHoldCaptureAt(input: {
-  lastPickupAt: Date | null;
+  /** First pickup of the booking (outbound leg). */
+  firstPickupAt: Date | null;
   captureBefore: Date | null;
   authorisedAt?: Date;
 }): Date {
@@ -539,10 +548,13 @@ export function stripeHoldCaptureAt(input: {
   const expiry =
     input.captureBefore ?? new Date(authorisedAt.getTime() + 7 * 24 * 3_600_000);
   const latestSafe = new Date(expiry.getTime() - STRIPE_HOLD_EXPIRY_MARGIN_HOURS * 3_600_000);
-  const afterJourney = input.lastPickupAt
-    ? new Date(input.lastPickupAt.getTime() + STRIPE_HOLD_CAPTURE_DELAY_HOURS_AFTER_PICKUP * 3_600_000)
+  // Charge as soon as the booking is inside the 24-hour no-refund window
+  // (immediately when it already is at booking time).
+  const cutOff = input.firstPickupAt
+    ? new Date(input.firstPickupAt.getTime() - STRIPE_HOLD_CAPTURE_HOURS_BEFORE_FIRST_PICKUP * 3_600_000)
     : latestSafe;
-  return afterJourney.getTime() < latestSafe.getTime() ? afterJourney : latestSafe;
+  const due = cutOff.getTime() < latestSafe.getTime() ? cutOff : latestSafe;
+  return due.getTime() < authorisedAt.getTime() ? authorisedAt : due;
 }
 
 // ---------------------------------------------------------------------------

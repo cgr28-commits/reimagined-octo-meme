@@ -1,9 +1,10 @@
 /**
- * Stripe card holds ("pre-authorise now, charge after the journey").
+ * Stripe card holds ("pre-authorise now, charge 24 hours before pickup").
  *
  * When a paid Stripe checkout is still an uncaptured hold, finalisation records
- * it here. The Worker cron then captures each hold after the last pickup (or
- * safely before the authorisation expires, whichever is sooner).
+ * it here. The Worker cron then captures each hold once the first pickup is
+ * less than 24 hours away (or safely before the authorisation expires,
+ * whichever is sooner).
  *
  * Cancellations go through the normal refund flow: refundStripePayment cancels
  * a hold (full) or captures less (partial), and the next cron run drops it.
@@ -47,6 +48,12 @@ type BookingTimes = {
   customerName?: string;
 };
 
+/** First pickup of the booking (outbound leg). */
+export function firstPickupAtForBooking(booking: BookingTimes | null | undefined): Date | null {
+  if (!booking) return null;
+  return parseLondonLocalDateTime(booking.tripDate ?? "", booking.tripTime ?? "");
+}
+
 /** Last pickup of the booking (return leg when there is one). */
 export function lastPickupAtForBooking(booking: BookingTimes | null | undefined): Date | null {
   if (!booking) return null;
@@ -77,7 +84,7 @@ export async function recordStripeHoldIfAny(
 
   const captureBefore = hold.captureBefore ? new Date(hold.captureBefore) : null;
   const captureAt = stripeHoldCaptureAt({
-    lastPickupAt: lastPickupAtForBooking(booking),
+    firstPickupAt: firstPickupAtForBooking(booking),
     captureBefore,
   });
   const record: StripeHoldRecord = {

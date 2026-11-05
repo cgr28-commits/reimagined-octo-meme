@@ -17,9 +17,17 @@ assert.equal(sp.shouldUseStripeHold({enabled:true,lastPickupAt:new Date("2026-11
 assert.equal(sp.shouldUseStripeHold({enabled:true,lastPickupAt:new Date("2026-11-10T12:00:00Z"),now}), false);
 assert.equal(sp.shouldUseStripeHold({enabled:false,lastPickupAt:new Date("2026-11-05T12:00:00Z"),now}), false);
 assert.equal(sp.shouldUseStripeHold({enabled:true,lastPickupAt:null,now}), false);
-const cap = sp.stripeHoldCaptureAt({lastPickupAt:new Date("2026-11-05T12:00:00Z"),captureBefore:new Date("2026-11-10T12:00:00Z"),authorisedAt:now});
-assert.equal(cap.toISOString(),"2026-11-05T15:00:00.000Z");
-const cap2 = sp.stripeHoldCaptureAt({lastPickupAt:new Date("2026-11-09T23:00:00Z"),captureBefore:new Date("2026-11-10T00:00:00Z"),authorisedAt:now});
+// first pickup inside 24h → charge now, no hold
+assert.equal(sp.shouldUseStripeHold({enabled:true,lastPickupAt:new Date("2026-11-05T12:00:00Z"),firstPickupAt:new Date("2026-11-04T06:00:00Z"),now}), false);
+assert.equal(sp.shouldUseStripeHold({enabled:true,lastPickupAt:new Date("2026-11-05T12:00:00Z"),firstPickupAt:new Date("2026-11-05T12:00:00Z"),now}), true);
+// capture 24h before first pickup
+const cap = sp.stripeHoldCaptureAt({firstPickupAt:new Date("2026-11-05T12:00:00Z"),captureBefore:new Date("2026-11-10T12:00:00Z"),authorisedAt:now});
+assert.equal(cap.toISOString(),"2026-11-04T12:00:00.000Z");
+// already inside 24h at booking → capture straight away
+const capNow = sp.stripeHoldCaptureAt({firstPickupAt:new Date("2026-11-04T06:00:00Z"),captureBefore:new Date("2026-11-10T12:00:00Z"),authorisedAt:now});
+assert.equal(capNow.toISOString(),now.toISOString());
+// never past the authorisation expiry margin
+const cap2 = sp.stripeHoldCaptureAt({firstPickupAt:new Date("2026-11-10T23:00:00Z"),captureBefore:new Date("2026-11-10T00:00:00Z"),authorisedAt:now});
 assert.equal(cap2.toISOString(),"2026-11-09T12:00:00.000Z");
 // mapping
 const base = {id:"cs_test_1",object:"checkout.session",status:"complete",payment_status:"unpaid",amount_total:4550,currency:"gbp",client_reference_id:"MAT-1",created:1762171200,expires_at:0} as any;
