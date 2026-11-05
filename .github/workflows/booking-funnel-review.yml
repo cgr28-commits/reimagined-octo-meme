@@ -40,7 +40,14 @@ jobs:
       - run: node --import tsx scripts/check-daily-quote-report.ts
       - run: npm --prefix workers/addresses run typecheck
       - run: npm run lint
-      - run: GITHUB_PAGES=true npm run build
+      - name: Build static export
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm install --no-save --package-lock=false playwright@1.56.1
       - run: npx playwright install --with-deps chromium
       - run: node --import tsx scripts/check-booking-funnel-browser.cjs

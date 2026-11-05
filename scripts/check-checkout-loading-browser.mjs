@@ -74,9 +74,9 @@ try {
   const feedbackMs=Date.now()-started;
   assert.ok(feedbackMs<600,`Immediate feedback: ${feedbackMs}ms`);
   assert.equal(await pay.isDisabled(),true);
-  assert.equal(await page.locator('#payment-loading-status').innerText(),'Please wait. We’re connecting you securely to SumUp.');
+  assert.equal(await page.locator('#payment-loading-status').innerText(),'Please wait. We’re connecting you to secure payment.');
   if(scenario==='slow') {
-    await page.getByText('Still connecting securely to SumUp. Please wait…',{exact:true}).waitFor({timeout:11000});
+    await page.getByText('Still connecting to secure payment. Please wait…',{exact:true}).waitFor({timeout:11000});
     await page.locator('#step3-payment-actions').screenshot({path:`test-results/checkout-loading/${width}-${method}-slow.png`});
   }
   if(scenario==='uncertain') {

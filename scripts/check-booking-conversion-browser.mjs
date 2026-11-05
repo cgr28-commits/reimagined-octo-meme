@@ -47,8 +47,8 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
   if(u.pathname==='/quote/availability')return json({blocked:false,available:true,alternativeTimes:[]});
   if(u.pathname.endsWith('/quote/calculate')) {
    const j=req.postDataJSON();
-   // The unchanged frontend adds the configured £5 BFS Express access fee.
-   return json({ok:true,amount:total-5,amountLabel:`£${total-5}`,vehicleType:j.vehicleType,vehicleChoice:'Saloon',premiumApplied:false,returnJourney:false,journeyFareGbp:total-5,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,distanceKm:25,durationMinutes:30,depositCash:publicDepositCashOffer(total-5,settings)});
+   // Belfast Free Airport Access is the default; Express is optional and not auto-added.
+   return json({ok:true,amount:total,amountLabel:`£${total}`,vehicleType:j.vehicleType,vehicleChoice:'Saloon',premiumApplied:false,returnJourney:false,journeyFareGbp:total,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,distanceKm:25,durationMinutes:30,depositCash:publicDepositCashOffer(total,settings)});
   }
   if(req.method()==='POST'&&/payments$/.test(u.pathname)) {
    requests.push(req.postDataJSON());

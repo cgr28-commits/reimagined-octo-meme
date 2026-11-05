@@ -56,7 +56,10 @@ try {
       assert.ok(heading.y < 844, "Quote heading must be in the viewport");
       assert.ok(await page.locator("#quote").innerText().then(text => text.includes("Select")));
       await page.screenshot({ path: `test-results/cork-transfer-pages/${width}-${direction}-quote.png` });
-      const faq = page.locator("details").first();
+      // Prefer the landing FAQ details — header also has a desktop-only <details>.
+      const faqQuestion = CORK_TRANSFER_PAGES[direction].faqs[0].question;
+      const faq = page.locator("details").filter({ has: page.getByText(faqQuestion, { exact: true }) }).first();
+      await faq.scrollIntoViewIfNeeded();
       await faq.locator("summary").click();
       assert.equal(await faq.getAttribute("open"), "");
       await page.locator("h1").scrollIntoViewIfNeeded();
