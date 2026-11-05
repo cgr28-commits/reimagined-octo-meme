@@ -68,3 +68,34 @@ bookings/addresses/tracking against your own backend.
 - The `SITE_OFFLINE` flag in `src/lib/data.ts` gates the whole public site behind a holding page when
   `enabled: true`. It is currently `false` (full site shows). If a future run sees only a holding
   page, check that flag.
+
+### Fonio phone receptionist (natural business name)
+When changing Fonio prompt copy, spoken `say` strings, or related docs
+(`docs/fonio-receptionist-prompt.md`, `docs/fonio-tool-config.md`, `/voice/*`):
+
+- Use the full business name **My Airport Taxi NI once** in the opening greeting only
+  (e.g. “Good morning, My Airport Taxi NI. How can we help?”).
+- After the greeting, speak as **we / us / our**. Do not repeat the full name when asking
+  questions, quoting, confirming, sending links or ending calls.
+- Only repeat the full name if the caller asks who they are speaking to, or clarification is
+  genuinely needed.
+- Avoid robotic closings such as “Thank you for choosing My Airport Taxi NI”.
+- Prefer short warm phrases (“No problem at all”, “Certainly”, “That’s grand”, “We can check
+  that for you”) without overusing them.
+- Do **not** ask “Is there anything else I can help you with?” after every answer; offer further
+  help only when the topic is finished or the caller seems unsure.
+- Never introduce as an AI unless asked directly (then answer truthfully).
+- SMS/WhatsApp bodies may still prefix **My Airport Taxi NI:** so the sender is clear in text —
+  that does not apply to spoken phone turns.
+- Phone booking links use the existing website `/book-quote` → Stripe Checkout path. Never collect
+  card details on the call; never say paid until backend Stripe verification updates the booking.
+  Do not rebuild payment code for Fonio — reuse the working Stripe integration.
+- Never promise a driver has been assigned because Stripe payment succeeded — confirm only booking
+  status verified by Booking Lookup; driver details follow closer to pickup.
+- Distinguish SMS/WhatsApp link statuses accurately: `generated` (prepared, not sent), `accepted`
+  (accepted for sending — may say “we've sent the link”), `delivered` (handset delivery only when
+  the tool returns it). Prefer `sayAfterSmsAccepted` after a successful Fonio SMS send.
+- When Get Quote returns `ok=false`, do not quote a fare — follow `askNext` / missing / error fields.
+- Inbound greeting is Europe/London local time and must be spoken once only.
+- Do **not** deploy or paste changes into the live Fonio assistant without explicit approval.
+  Review copies live in `docs/fonio-receptionist-prompt.md`.

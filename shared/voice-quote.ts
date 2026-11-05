@@ -3,16 +3,20 @@
  *
  * The voice assistant collects the journey in conversation and sends the fields here. Prices
  * always come from the same engine as the website and WhatsApp quotes — never from the model.
- * Spoken replies are short, never mention surcharges or how the price is made up, and only
- * mention the waiting time that applies to the caller's pickup.
+ * Spoken replies are short, company voice (“we”), never invent fares or surcharges, and ask
+ * only one clarifying question at a time.
  */
 import { parseAirportCode, parseQuickQuoteMessage } from "./quick-quote-parse";
 import { todayLondonDate } from "./uk-time";
+import { VOICE_CANCELLATION_SAY } from "./voice-greeting";
 import { extractClockTimes, type WhatsAppQuoteDraft } from "./whatsapp-quote-bot";
 
 export type VoiceQuoteInput = {
   pickup?: unknown;
   dropoff?: unknown;
+  /** Google Place ID from /voice/address-search (preferred over free-text geocode). */
+  pickupPlaceId?: unknown;
+  dropoffPlaceId?: unknown;
   date?: unknown;
   time?: unknown;
   passengers?: unknown;
@@ -74,11 +78,44 @@ export function voiceTime(value: unknown, now = new Date()): string | undefined 
   return parseQuickQuoteMessage(`pickup at ${raw}`, now).outboundTime.value ?? undefined;
 }
 
+/** One spoken question per missing field — keeps phone turns short. */
+export const VOICE_QUOTE_QUESTIONS: Record<string, string> = {
+  pickup: "Where would you like us to pick you up from?",
+  dropoff: "And where's the destination?",
+  date: "What date do you need the car?",
+  time: "What time would you like the pickup?",
+  passengers: "How many passengers will there be?",
+  returnDate: "What date is the return journey?",
+  returnTime: "And what time for the return pickup?",
+  suitcases: "How many suitcases are you bringing?",
+};
+
+const FIELD_LABEL: Record<string, string> = {
+  pickup: "the pickup address",
+  dropoff: "the destination",
+  date: "the date",
+  time: "the pickup time",
+  passengers: "how many passengers",
+  returnDate: "the return date",
+  returnTime: "the return pickup time",
+  suitcases: "how many suitcases",
+};
+
 export type VoiceDraftResult =
   | { ok: true; draft: WhatsAppQuoteDraft }
-  | { ok: false; missing: string[]; say: string };
+  | { ok: false; missing: string[]; askNext?: string; say: string };
 
-/** Build and check the journey. Missing or unclear details come back as a short question. */
+function askNextMissing(fields: string[]): VoiceDraftResult {
+  const askNext = fields[0]!;
+  return {
+    ok: false,
+    missing: fields.map((f) => FIELD_LABEL[f] ?? f),
+    askNext,
+    say: VOICE_QUOTE_QUESTIONS[askNext] ?? `Could I just check ${FIELD_LABEL[askNext] ?? askNext}?`,
+  };
+}
+
+/** Build and check the journey. Missing or unclear details come back as one short question. */
 export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): VoiceDraftResult {
   const pickup = text(input.pickup);
   const dropoff = text(input.dropoff);
@@ -88,46 +125,57 @@ export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): Voice
   const returnDate = returnJourney ? voiceDate(input.returnDate, now) : undefined;
   const returnTime = returnJourney ? voiceTime(input.returnTime, now) : undefined;
   const passengers = count(input.passengers);
-  const suitcases = count(input.suitcases) ?? 0;
+  const suitcasesRaw = input.suitcases;
+  const suitcasesProvided = suitcasesRaw != null && String(suitcasesRaw).trim() !== "";
+  const suitcases = suitcasesProvided ? count(suitcasesRaw) : undefined;
 
-  const missing: string[] = [];
-  if (!pickup) missing.push("the pickup address");
-  if (!dropoff) missing.push("the destination");
-  if (!outboundDate) missing.push("the date");
-  if (!outboundTime) missing.push("the pickup time");
-  if (passengers == null || passengers < 1) missing.push("how many passengers");
-  if (returnJourney && !returnDate) missing.push("the return date");
-  if (returnJourney && !returnTime) missing.push("the return pickup time");
-  if (missing.length) {
-    return { ok: false, missing, say: `I just need ${missing.join(", ")} to get the price.` };
-  }
+  const missingFields: string[] = [];
+  if (!pickup) missingFields.push("pickup");
+  if (!dropoff) missingFields.push("dropoff");
+  if (!outboundDate) missingFields.push("date");
+  if (!outboundTime) missingFields.push("time");
+  if (passengers == null || passengers < 1) missingFields.push("passengers");
+  if (!suitcasesProvided) missingFields.push("suitcases");
+  if (returnJourney && !returnDate) missingFields.push("returnDate");
+  if (returnJourney && !returnTime) missingFields.push("returnTime");
+  if (missingFields.length) return askNextMissing(missingFields);
 
   const today = todayLondonDate(now);
   if (outboundDate! < today) {
-    return { ok: false, missing: ["date"], say: "That date looks like it's already passed. What date do you need the car?" };
+    return { ok: false, missing: ["the date"], askNext: "date", say: "That date looks like it's already passed. What date do you need the car?" };
   }
   if (returnJourney && returnDate! < outboundDate!) {
-    return { ok: false, missing: ["returnDate"], say: "The return date is before the outward date. What date is the return?" };
+    return {
+      ok: false,
+      missing: ["the return date"],
+      askNext: "returnDate",
+      say: "The return looks earlier than the outward trip. What date is the return?",
+    };
   }
-  if (suitcases > 4) {
+  if ((suitcases ?? 0) > 4) {
     return {
       ok: false,
       missing: [],
-      say: "With more than four suitcases we arrange a larger vehicle, so the team will confirm that price for you. Can I take your name and number?",
+      say: "With more than four suitcases we arrange a larger vehicle, so the team will confirm that price for you. Can I take your name and mobile number?",
     };
   }
   if (passengers! > 4) {
     return {
       ok: false,
       missing: [],
-      say: "For more than four passengers we arrange a larger vehicle, so the team will confirm that price for you. Can I take your name and number?",
+      say: "For more than four passengers we arrange a larger vehicle, so the team will confirm that price for you. Can I take your name and mobile number?",
     };
   }
 
   const pickupAirport = parseAirportCode(pickup);
   const dropoffAirport = parseAirportCode(dropoff);
   if (pickupAirport && pickupAirport === dropoffAirport) {
-    return { ok: false, missing: ["dropoff"], say: "Both places are the same airport. Where are you travelling to or from?" };
+    return {
+      ok: false,
+      missing: ["the destination"],
+      askNext: "dropoff",
+      say: "Both places sound like the same airport. Where are you travelling to or from?",
+    };
   }
   const airportCode = pickupAirport ?? dropoffAirport ?? null;
   const flightNumber = text(input.flightNumber, 12).toUpperCase().replace(/\s+/g, "");
@@ -144,7 +192,7 @@ export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): Voice
       outboundTime,
       ...(returnJourney ? { returnDate, returnTime } : {}),
       passengers,
-      suitcases,
+      suitcases: suitcases ?? 0,
       ...(flightNumber ? { flightNumber } : {}),
     },
   };
@@ -187,15 +235,17 @@ export function voiceQuoteSay(input: {
         ? "Airport pickups include up to 60 minutes' waiting, and address pickups 10 minutes."
         : "That includes 10 minutes' free waiting at pickup.";
   const parts = [
-    `The fixed price is ${spokenGbp(input.amount)} ${trip}, and that's everything included.`,
+    `That's grand — the fixed price is ${spokenGbp(input.amount)} ${trip}, and that's everything included.`,
     voiceVehicleSentence(input.vehicle, draft.suitcases ?? 0),
     waiting,
-    "You can cancel up to 24 hours before for a full refund.",
+    VOICE_CANCELLATION_SAY,
   ];
   if (input.requestOnly) {
     parts.push("For that date and time we need to confirm we can do it before you pay, so the team will confirm with you.");
   } else if (input.shortNotice) {
     parts.push("Because it's less than 24 hours away, that price is held for 2 hours.");
+  } else {
+    parts.push("That's a quotation until you pay on the secure link — would you like the booking link by text?");
   }
   return parts.join(" ");
 }

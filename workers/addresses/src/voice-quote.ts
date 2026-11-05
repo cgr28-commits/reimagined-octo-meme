@@ -3,17 +3,26 @@
  *
  * Same path as WhatsApp quotes: availability rules first, then the website pricing engine via
  * createPricedQuickQuote, which also stores a Quick Quote so the caller can be sent a booking
- * link. Never prices from the request; never reveals surcharges. Answers fast (fonio waits ~5s).
+ * link (`/book-quote/?id=…` → existing Stripe Checkout via /payments). Never prices from the
+ * request; never reveals surcharges; never collects cards. Answers fast (fonio waits ~5s).
  */
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
+import { VOICE_BOOKING_AFTER_PAYMENT_SAY, VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
 import { whatsAppDraftToQuoteBody, whatsAppQuoteLinkHours, WHATSAPP_SHORT_NOTICE_LINK_HOURS } from "../shared/whatsapp-quote-bot";
+import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { servedAirportFromPlaceId } from "../shared/served-airports";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { checkWhatsAppAvailability } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
+import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
 
-type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & { TRACKING_STORE?: KVNamespace };
+type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & {
+  TRACKING_STORE?: KVNamespace;
+  GOOGLE_PLACES_API_KEY?: string;
+  VOICE_ENABLE_BOOKING_TOOLS?: string;
+};
 
 /** What a phone quote priced, so "send me the link" can only send links this endpoint made. */
 type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: string; heldFor: string; bookingUrl?: string };
@@ -48,40 +57,100 @@ function readInput(body: unknown): VoiceQuoteInput {
   return root as VoiceQuoteInput;
 }
 
+async function resolveVoicePlaceLabel(
+  env: Env,
+  placeId: string,
+): Promise<{ formattedAddress: string; placeId: string } | null> {
+  const id = placeId.trim();
+  if (!id) return null;
+  const served = servedAirportFromPlaceId(id);
+  if (served) return { formattedAddress: served.formattedAddress, placeId: served.placeId };
+  const key = env.GOOGLE_PLACES_API_KEY?.trim();
+  if (!key) return null;
+  const details = await resolveGooglePlaceDetails(key, id, "A2A");
+  if (!details?.formattedAddress) return null;
+  return { formattedAddress: details.formattedAddress, placeId: details.placeId };
+}
+
 export async function handleVoiceQuote(request: Request, env: Env): Promise<Response> {
   const store = env.TRACKING_STORE;
-  if (!store) return reply({ ok: false, say: "I can't get a price right now. The team will text you the price shortly." }, 503);
+  if (!store) {
+    return reply({
+      ok: false,
+      toolFailed: true,
+      say: "I'm sorry — I can't get a price right now. Can I take your name and mobile so the team can text you back?",
+    }, 503);
+  }
 
   const body = await request.json().catch(() => null);
   const input = readInput(body);
-  const checked = voiceQuoteDraft(input);
-  if (!checked.ok) return reply({ ok: false, missing: checked.missing, say: checked.say });
+  const pickupPlaceId = String(input.pickupPlaceId ?? "").trim();
+  const dropoffPlaceId = String(input.dropoffPlaceId ?? "").trim();
+
+  // Prefer verified Google / catalogue places when Fonio already confirmed them.
+  let pickupText = String(input.pickup ?? "").trim();
+  let dropoffText = String(input.dropoff ?? "").trim();
+  let resolvedPickupPlaceId = pickupPlaceId;
+  let resolvedDropoffPlaceId = dropoffPlaceId;
+  if (pickupPlaceId) {
+    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId);
+    if (resolved) {
+      pickupText = resolved.formattedAddress;
+      resolvedPickupPlaceId = resolved.placeId;
+    }
+  }
+  if (dropoffPlaceId) {
+    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId);
+    if (resolved) {
+      dropoffText = resolved.formattedAddress;
+      resolvedDropoffPlaceId = resolved.placeId;
+    }
+  }
+
+  const checked = voiceQuoteDraft({ ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff });
+  if (!checked.ok) {
+    return reply({
+      ok: false,
+      missing: checked.missing,
+      ...(checked.askNext ? { askNext: checked.askNext } : {}),
+      say: checked.say,
+    });
+  }
   const draft = checked.draft;
 
   if ((await consumeQuickQuoteCreateQuota(store, "voice:fonio", VOICE_QUOTES_PER_HOUR)) === "limited") {
-    return reply({ ok: false, say: "I can't get a price just now. Can I take your details so the team can text you the price?" });
+    return reply({
+      ok: false,
+      say: "I've given a lot of prices just now. Can I take your name and mobile so the team can text you the price?",
+    });
   }
 
   const availability = await checkWhatsAppAvailability(draft, store);
   if (!availability.ok) {
     const say =
       availability.reason === "notice"
-        ? "That's a bit too soon for us to guarantee a car. Can I take your details so the team can see if they can fit you in?"
+        ? "That's a bit soon for us to guarantee a car. Can I take your name and mobile so the team can see if they can fit you in?"
         : availability.reason === "closed"
-          ? "We're not taking bookings for that time. Can I take your details so the team can get back to you?"
-          : "We're fully booked at that time. Would a slightly earlier or later pickup work?";
+          ? "We're not taking bookings for that time. Can I take a message and have the team call you back?"
+          : "We're fully booked at that time. Would a slightly earlier or later pickup work for you?";
     return reply({ ok: false, unavailable: availability.reason, say });
   }
 
+  const quoteBody = {
+    ...whatsAppDraftToQuoteBody(draft),
+    ...(resolvedPickupPlaceId ? { pickupPlaceId: resolvedPickupPlaceId } : {}),
+    ...(resolvedDropoffPlaceId ? { dropoffPlaceId: resolvedDropoffPlaceId } : {}),
+  };
   const priced = await createPricedQuickQuote(
-    whatsAppDraftToQuoteBody(draft),
+    quoteBody,
     { ...env, TRACKING_STORE: store },
     { createdByOwner: false },
   );
   if (!priced.ok) {
     return reply({
       ok: false,
-      say: "I couldn't work out that journey. Could you give me the full address or postcode for the pickup and the destination?",
+      needsClearerAddress: true,
+      say: "I couldn't quite place that journey. Could you confirm the hotel or street name, or a postcode?",
     });
   }
 
@@ -116,6 +185,13 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
  * gave. Only quotes made by /voice/quote in the last 3 hours, once each, to a UK mobile.
  */
 export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppTemplateEnv): Promise<Response> {
+  if (!voiceBookingToolsEnabled(env)) {
+    return reply({
+      ok: false,
+      bookingToolsDisabled: true,
+      say: VOICE_BOOKING_TOOLS_DISABLED_SAY,
+    });
+  }
   const store = env.TRACKING_STORE;
   const fallback = "No problem – the team will send you the booking link on WhatsApp shortly.";
   if (!store) return reply({ ok: false, say: fallback });
@@ -125,13 +201,13 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   const mobile = String(input.mobile ?? "").trim();
   const name = String(input.name ?? "").trim().slice(0, 40);
   if (!/^[a-f0-9]{16,64}$/i.test(quoteId)) {
-    return reply({ ok: false, say: "I need to get the price first, then I can send the link." });
+    return reply({ ok: false, say: "Let me get the fixed price first, then I can send you the booking link." });
   }
   const memo = await store.get<VoiceQuoteMemo>(memoKey(quoteId), "json");
-  if (!memo) return reply({ ok: false, say: "That price has expired, so let me get it again before I send the link." });
+  if (!memo) return reply({ ok: false, say: "That price has timed out. Let me get a fresh one, then I'll send the link." });
   const digits = mobile.replace(/[^\d+]/g, "");
   if (!/^(\+?44|0)7\d{9}$/.test(digits)) {
-    return reply({ ok: false, missing: ["mobile"], say: "What's the best mobile number for WhatsApp? It should start with 07." });
+    return reply({ ok: false, missing: ["mobile"], say: "What's the best mobile for the link? It should start with 07." });
   }
   const sent = await sendQuoteLinkWhatsApp(env, {
     quoteId,
@@ -144,20 +220,33 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   });
   if (sent.sent || sent.reason === "already_sent") {
     await markVoiceLinkSent(store, digits).catch(() => undefined);
-    return reply({ ok: true, say: "Done – I've sent the booking link to your WhatsApp. Just tap Book now to check the details and pay." });
+    // WhatsApp API accepted the outbound message — not handset delivery proof.
+    return reply({
+      ok: true,
+      channel: "whatsapp",
+      messageStatus: "accepted",
+      delivered: false,
+      say: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+    });
   }
   console.log(JSON.stringify({ event: "voice_send_link_failed", reason: sent.reason, phoneSuffix: digits.slice(-4) }));
   // The SMS backup still gets them the link, so don't also send a follow-up.
   await markVoiceLinkSent(store, digits).catch(() => undefined);
-  // WhatsApp couldn't send (template not approved yet, or not a WhatsApp number): text it instead.
+  // SMS text generated for Fonio Send SMS — not yet accepted/delivered.
   if (memo.bookingUrl) {
     return reply({
       ok: false,
       sendBySms: true,
+      channel: "sms",
+      messageStatus: "generated",
+      delivered: false,
       mobile: digits,
       smsText: smsText(memo, memo.bookingUrl),
-      say: "I'll text you the booking link instead.",
+      sayAfterSmsAccepted: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      // Keep legacy alias for older Fonio tool configs until they are re-pasted.
+      sayAfterSmsSent: `${VOICE_LINK_SENT_SAY} ${VOICE_BOOKING_AFTER_PAYMENT_SAY}`,
+      say: "One moment — I've prepared a text with your booking link and I'm sending it now.",
     });
   }
-  return reply({ ok: false, say: fallback });
+  return reply({ ok: false, messageStatus: "generated", delivered: false, say: fallback });
 }

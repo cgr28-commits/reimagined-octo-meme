@@ -15,7 +15,15 @@ assert.equal(voiceTime("5.30pm", now), "17:30");
 console.log("OK  dates and times the assistant may send");
 
 const ok = voiceQuoteDraft(
-  { pickup: "Belfast International Airport", dropoff: "12 Main Street, Bangor BT20", date: "2026-11-14", time: "08:15", passengers: "2", suitcases: 2, returnJourney: "no" },
+  {
+    pickup: "Belfast International Airport",
+    dropoff: "12 Main Street, Bangor BT20",
+    date: "2026-11-14",
+    time: "08:15",
+    passengers: "2",
+    suitcases: 2,
+    returnJourney: "no",
+  },
   now,
 );
 assert.ok(ok.ok);
@@ -26,14 +34,25 @@ if (ok.ok) {
   assert.equal(ok.draft.passengers, 2);
 }
 const missing = voiceQuoteDraft({ pickup: "Lisburn", passengers: 1 }, now);
-assert.ok(!missing.ok && /destination/.test(missing.say) && /date/.test(missing.say));
-const past = voiceQuoteDraft({ pickup: "a", dropoff: "b", date: "2026-10-01", time: "10:00", passengers: 1 }, now);
+assert.ok(!missing.ok);
+assert.match(missing.say, /destination/i);
+assert.doesNotMatch(missing.say, /date|time|passenger|suitcase/i, "One question at a time");
+assert.equal(!missing.ok && "askNext" in missing ? missing.askNext : "", "dropoff");
+const needBags = voiceQuoteDraft(
+  { pickup: "Lisburn", dropoff: "BFS", date: "2026-11-14", time: "10:00", passengers: 2 },
+  now,
+);
+assert.ok(!needBags.ok && /suitcase/i.test(needBags.say));
+const past = voiceQuoteDraft({ pickup: "a", dropoff: "b", date: "2026-10-01", time: "10:00", passengers: 1, suitcases: 0 }, now);
 assert.ok(!past.ok && /passed/.test(past.say));
-const big = voiceQuoteDraft({ pickup: "a", dropoff: "b", date: "2026-11-14", time: "10:00", passengers: 6 }, now);
+const big = voiceQuoteDraft({ pickup: "a", dropoff: "b", date: "2026-11-14", time: "10:00", passengers: 6, suitcases: 0 }, now);
 assert.ok(!big.ok && /larger vehicle/.test(big.say));
-const same = voiceQuoteDraft({ pickup: "Belfast International", dropoff: "Aldergrove airport", date: "2026-11-14", time: "10:00", passengers: 1 }, now);
+const same = voiceQuoteDraft(
+  { pickup: "Belfast International", dropoff: "Aldergrove airport", date: "2026-11-14", time: "10:00", passengers: 1, suitcases: 0 },
+  now,
+);
 assert.ok(!same.ok);
-console.log("OK  missing, past, large-group and same-airport cases ask instead of pricing");
+console.log("OK  one-question missing prompts; past, large-group and same-airport ask instead of pricing");
 
 assert.equal(spokenGbp(65), "65 pounds");
 assert.equal(spokenGbp(64.5), "64 pounds 50");
@@ -41,8 +60,11 @@ if (ok.ok) {
   const say = voiceQuoteSay({ amount: 144, draft: ok.draft, requestOnly: false, shortNotice: false });
   assert.match(say, /144 pounds one way/);
   assert.match(say, /60 minutes/);
+  assert.match(say, /quotation|secure link/i);
+  assert.match(say, /more than 24 hours|within 24 hours/i);
   assert.doesNotMatch(say, /10 minutes/, "Airport pickup only mentions airport waiting");
   assert.doesNotMatch(say, /surcharge|night|weekend|evening/i, "Never mentions surcharges");
+  assert.doesNotMatch(say, /My Airport Taxi NI/i, "Spoken quote omits full business name");
   const home = voiceQuoteSay({ amount: 40, draft: { ...ok.draft, airportCode: null, fromAirport: false }, requestOnly: false, shortNotice: true });
   assert.match(home, /10 minutes/);
   assert.doesNotMatch(home, /60 minutes/);

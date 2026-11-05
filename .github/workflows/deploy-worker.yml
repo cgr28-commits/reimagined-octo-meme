@@ -89,6 +89,8 @@ jobs:
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           AD_FRAUD_HASH_SALT: ${{ secrets.AD_FRAUD_HASH_SALT }}
+          VOICE_WEBHOOK_SECRET: ${{ secrets.VOICE_WEBHOOK_SECRET }}
+          VOICE_ENABLE_BOOKING_TOOLS: ${{ secrets.VOICE_ENABLE_BOOKING_TOOLS }}
           GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
           GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
           GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
@@ -174,6 +176,18 @@ jobs:
             printf '%s' "$AD_FRAUD_HASH_SALT" | npx wrangler secret put AD_FRAUD_HASH_SALT
           else
             echo "::notice::AD_FRAUD_HASH_SALT not set — Ad Fraud ingest returns 503 until the Worker secret is configured."
+          fi
+          if [ -n "$VOICE_WEBHOOK_SECRET" ]; then
+            echo "Syncing VOICE_WEBHOOK_SECRET secret…"
+            printf '%s' "$VOICE_WEBHOOK_SECRET" | npx wrangler secret put VOICE_WEBHOOK_SECRET
+          else
+            echo "::notice::VOICE_WEBHOOK_SECRET not set — /voice/* stays open until the shared fonio secret is configured (see docs/fonio-integration.md)."
+          fi
+          if [ -n "$VOICE_ENABLE_BOOKING_TOOLS" ]; then
+            echo "Syncing VOICE_ENABLE_BOOKING_TOOLS secret…"
+            printf '%s' "$VOICE_ENABLE_BOOKING_TOOLS" | npx wrangler secret put VOICE_ENABLE_BOOKING_TOOLS
+          else
+            echo "::notice::VOICE_ENABLE_BOOKING_TOOLS not set — provisional booking + send-link stay disabled (quotation/address-search only)."
           fi
           if [ -n "$GOOGLE_ADS_DEVELOPER_TOKEN" ] \
             && [ -n "$GOOGLE_ADS_CLIENT_ID" ] \
