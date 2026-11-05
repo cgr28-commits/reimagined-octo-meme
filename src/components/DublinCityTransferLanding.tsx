@@ -7,8 +7,10 @@ import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
-import { DUBLIN_CITY_TRANSFER_PAGE as page, DUBLIN_CITY_TRANSFER_PATH as path } from "@/lib/dublin-city-transfer-content";
+import { DUBLIN_CITY_TRANSFER_PAGE, DUBLIN_CITY_TRANSFER_PATH } from "@/lib/dublin-city-transfer-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+
+const CHRISTMAS_PATH = "/transfers/belfast-dublin-christmas-taxi/";
 
 const cardClass = "rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7";
 
@@ -21,7 +23,36 @@ const hero = {
   licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
 };
 
-export default function DublinCityTransferLanding() {
+type LandingFaq = { readonly question: string; readonly answer: string };
+
+export type BelfastDublinLandingContent = {
+  readonly title: string;
+  readonly h1: string;
+  readonly description: string;
+  readonly eyebrow: string;
+  readonly intro: string;
+  readonly heroHighlights: readonly string[];
+  readonly journeyTitle: string;
+  readonly journeyText: string;
+  readonly belfastToDublinTitle: string;
+  readonly belfastToDublinText: string;
+  readonly dublinToBelfastTitle: string;
+  readonly dublinToBelfastText: string;
+  readonly timeTitle: string;
+  readonly timeText: string;
+  readonly quoteText: string;
+  readonly faqs: readonly LandingFaq[];
+  readonly quoteHeading?: string;
+  readonly whatsappMessage?: string;
+};
+
+type Props = { page?: BelfastDublinLandingContent; path?: string };
+
+/** Belfast ⇄ Dublin city landing. Defaults to the Dublin city page; seasonal pages pass their own content. */
+export default function DublinCityTransferLanding({
+  page = DUBLIN_CITY_TRANSFER_PAGE,
+  path = DUBLIN_CITY_TRANSFER_PATH,
+}: Props = {}) {
   const schemas = [
     getBreadcrumbJsonLd([
       { name: "Home", path: "/" },
@@ -38,7 +69,9 @@ export default function DublinCityTransferLanding() {
     getFaqPageJsonLd(page.faqs),
   ];
   const whatsappNumber = SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp;
-  const whatsappText = encodeURIComponent("Hello, I would like a quote for a taxi between Belfast and Dublin city.");
+  const whatsappText = encodeURIComponent(
+    page.whatsappMessage ?? "Hello, I would like a quote for a taxi between Belfast and Dublin city.",
+  );
 
   return (
     <>
@@ -138,6 +171,13 @@ export default function DublinCityTransferLanding() {
               <div className="mt-4 flex flex-wrap gap-4 text-sm font-semibold text-emerald">
                 <Link className="underline underline-offset-4" href="/transfers/belfast-to-dublin-airport/">Belfast to Dublin Airport</Link>
                 <Link className="underline underline-offset-4" href="/transfers/dublin-airport-to-belfast/">Dublin Airport to Belfast</Link>
+                {path !== CHRISTMAS_PATH ? (
+                  <Link className="underline underline-offset-4" href={CHRISTMAS_PATH}>Christmas trips Belfast ⇄ Dublin</Link>
+                ) : null}
+                {path !== DUBLIN_CITY_TRANSFER_PATH ? (
+                  <Link className="underline underline-offset-4" href={DUBLIN_CITY_TRANSFER_PATH}>Belfast to Dublin city</Link>
+                ) : null}
+                <Link className="underline underline-offset-4" href="/transfers/business-class-dublin-airport/">Business Class to Dublin</Link>
                 <Link className="underline underline-offset-4" href="/long-distance-transfers/">All long-distance transfers</Link>
               </div>
             </nav>
@@ -147,7 +187,7 @@ export default function DublinCityTransferLanding() {
             <a href={hero.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.license}</a>. Resized and cropped for display.
           </p>
         </div>
-        <LocationQuoteSection heading="Get your Belfast–Dublin city fixed quote" eyebrow="Your journey" description={page.quoteText} />
+        <LocationQuoteSection heading={page.quoteHeading ?? "Get your Belfast–Dublin city fixed quote"} eyebrow="Your journey" description={page.quoteText} />
       </main>
       <Footer />
     </>

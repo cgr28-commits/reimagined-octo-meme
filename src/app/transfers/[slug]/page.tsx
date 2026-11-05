@@ -460,6 +460,17 @@ export default async function TransferRoutePage({ params }: Props) {
                 </Link>{" "}
                 sets out what is included on a pickup and on a drop-off.
               </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Going between Belfast and Dublin city instead? See{" "}
+                <Link href="/transfers/belfast-to-dublin-city/" className="text-emerald hover:text-emerald-light">
+                  Belfast to Dublin city taxi
+                </Link>
+                , or{" "}
+                <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald hover:text-emerald-light">
+                  Christmas shopping, markets and work party trips between Belfast and Dublin
+                </Link>
+                .
+              </p>
               <EmergeDiscoveryPromo description="Flying into Dublin for EMERGE? Pre-book your airport, hotel or return transfer for 29–30 August 2026." />
             </>
           ) : null}
@@ -485,6 +496,17 @@ export default async function TransferRoutePage({ params }: Props) {
                   Business Class Belfast–Dublin executive transfers
                 </Link>{" "}
                 sets out what is included on a pickup and on a drop-off.
+              </p>
+              <p className="mt-4 text-sm leading-relaxed text-white/65">
+                Going between Belfast and Dublin city instead? See{" "}
+                <Link href="/transfers/belfast-to-dublin-city/" className="text-emerald hover:text-emerald-light">
+                  Belfast to Dublin city taxi
+                </Link>
+                , or{" "}
+                <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald hover:text-emerald-light">
+                  Christmas shopping, markets and work party trips between Belfast and Dublin
+                </Link>
+                .
               </p>
             </>
           ) : null}
