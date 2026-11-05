@@ -467,7 +467,7 @@ export default async function TransferRoutePage({ params }: Props) {
                 </Link>
                 , or{" "}
                 <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald hover:text-emerald-light">
-                  Christmas shopping, markets and work party trips between Belfast and Dublin
+                  Christmas shopping, markets, work parties and New Year trips between Belfast and Dublin
                 </Link>
                 .
               </p>
@@ -504,7 +504,7 @@ export default async function TransferRoutePage({ params }: Props) {
                 </Link>
                 , or{" "}
                 <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald hover:text-emerald-light">
-                  Christmas shopping, markets and work party trips between Belfast and Dublin
+                  Christmas shopping, markets, work parties and New Year trips between Belfast and Dublin
                 </Link>
                 .
               </p>

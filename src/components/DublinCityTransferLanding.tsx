@@ -5,6 +5,7 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
+import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import { DUBLIN_CITY_TRANSFER_PAGE, DUBLIN_CITY_TRANSFER_PATH } from "@/lib/dublin-city-transfer-content";
@@ -25,6 +26,17 @@ const hero = {
 
 type LandingFaq = { readonly question: string; readonly answer: string };
 
+/** A freely licensed photo with the attribution its licence requires. */
+export type CreditedPhoto = {
+  readonly base: string;
+  readonly alt: string;
+  readonly caption?: string;
+  readonly author: string;
+  readonly source: string;
+  readonly license: string;
+  readonly licenseUrl: string;
+};
+
 export type BelfastDublinLandingContent = {
   readonly title: string;
   readonly h1: string;
@@ -43,6 +55,10 @@ export type BelfastDublinLandingContent = {
   readonly quoteText: string;
   readonly faqs: readonly LandingFaq[];
   readonly quoteHeading?: string;
+  readonly hero?: CreditedPhoto;
+  readonly gallery?: readonly CreditedPhoto[];
+  readonly galleryTitle?: string;
+  readonly extraSections?: readonly { readonly title: string; readonly text: string }[];
   readonly whatsappMessage?: string;
 };
 
@@ -53,6 +69,7 @@ export default function DublinCityTransferLanding({
   page = DUBLIN_CITY_TRANSFER_PAGE,
   path = DUBLIN_CITY_TRANSFER_PATH,
 }: Props = {}) {
+  const heroImage: CreditedPhoto = page.hero ?? hero;
   const schemas = [
     getBreadcrumbJsonLd([
       { name: "Home", path: "/" },
@@ -89,7 +106,7 @@ export default function DublinCityTransferLanding({
         }
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_CLASS} dublin-city-transfer-page`}>
-        <LandingHeroMedia baseName={hero.base} alt={hero.alt} />
+        <LandingHeroMedia baseName={heroImage.base} alt={heroImage.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
             items={[
@@ -135,10 +152,42 @@ export default function DublinCityTransferLanding({
                 <p className="mt-4 leading-relaxed text-white/75">{page.dublinToBelfastText}</p>
               </section>
             </div>
+            {page.gallery && page.gallery.length > 0 ? (
+              <section aria-labelledby="landing-gallery-title">
+                <h2 id="landing-gallery-title" className="text-xl font-bold text-white sm:text-2xl">
+                  {page.galleryTitle ?? "Photos"}
+                </h2>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {page.gallery.map((photo) => (
+                    <figure key={photo.base} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                      <div className="relative aspect-video">
+                        <OptimizedHeroPicture
+                          baseName={photo.base}
+                          alt={photo.alt}
+                          widths={[960]}
+                          width={960}
+                          height={540}
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      </div>
+                      {photo.caption ? (
+                        <figcaption className="px-4 py-3 text-sm text-white/75">{photo.caption}</figcaption>
+                      ) : null}
+                    </figure>
+                  ))}
+                </div>
+              </section>
+            ) : null}
             <section className={cardClass}>
               <h2 className="text-xl font-bold text-white sm:text-2xl">{page.timeTitle}</h2>
               <p className="mt-4 leading-relaxed text-white/75">{page.timeText}</p>
             </section>
+            {(page.extraSections ?? []).map((section) => (
+              <section key={section.title} className={cardClass}>
+                <h2 className="text-xl font-bold text-white sm:text-2xl">{section.title}</h2>
+                <p className="mt-4 leading-relaxed text-white/75">{section.text}</p>
+              </section>
+            ))}
             <section className="rounded-2xl border border-[#d7e0ec] bg-white p-5 text-navy sm:p-7">
               <h2 className="text-xl font-bold sm:text-2xl">Flying in or out of Dublin Airport?</h2>
               <p className="mt-4 leading-relaxed">
@@ -172,7 +221,7 @@ export default function DublinCityTransferLanding({
                 <Link className="underline underline-offset-4" href="/transfers/belfast-to-dublin-airport/">Belfast to Dublin Airport</Link>
                 <Link className="underline underline-offset-4" href="/transfers/dublin-airport-to-belfast/">Dublin Airport to Belfast</Link>
                 {path !== CHRISTMAS_PATH ? (
-                  <Link className="underline underline-offset-4" href={CHRISTMAS_PATH}>Christmas trips Belfast ⇄ Dublin</Link>
+                  <Link className="underline underline-offset-4" href={CHRISTMAS_PATH}>Christmas &amp; New Year trips Belfast ⇄ Dublin</Link>
                 ) : null}
                 {path !== DUBLIN_CITY_TRANSFER_PATH ? (
                   <Link className="underline underline-offset-4" href={DUBLIN_CITY_TRANSFER_PATH}>Belfast to Dublin city</Link>
@@ -182,10 +231,15 @@ export default function DublinCityTransferLanding({
               </div>
             </nav>
           </div>
-          <p className="mt-8 text-xs leading-relaxed text-white/45">
-            Photo: <a href={hero.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.author}</a>{" · "}
-            <a href={hero.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.license}</a>. Resized and cropped for display.
-          </p>
+          <div className="mt-8 space-y-1 text-xs leading-relaxed text-white/45">
+            {[heroImage, ...(page.gallery ?? [])].map((photo) => (
+              <p key={photo.base}>
+                Photo{photo.caption ? ` (${photo.caption})` : ""}:{" "}
+                <a href={photo.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.author}</a>{" · "}
+                <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.license}</a>. Resized and cropped for display.
+              </p>
+            ))}
+          </div>
         </div>
         <LocationQuoteSection heading={page.quoteHeading ?? "Get your Belfast–Dublin city fixed quote"} eyebrow="Your journey" description={page.quoteText} />
       </main>
