@@ -198,7 +198,8 @@ try {
     pass(`${width}px: visible vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});
-    await page.locator('#date').fill(''); await page.locator('#time').fill('');
+    // Checkout date/time can sit under opacity:0 styling; force keeps the schedule clearable.
+    await page.locator('#date').fill('',{force:true}); await page.locator('#time').fill('',{force:true});
     await page.locator('#name').fill('Preview Test'); await page.locator('#mobile').fill('07700900123'); await page.locator('#email').fill('preview@example.invalid');
     await page.locator('[data-back-to-quote="top"]').click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'2');
@@ -212,7 +213,7 @@ try {
     assert.equal(await page.locator('#name').inputValue(),'Preview Test');
     assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');
     // Isolated static test: no booking, contact or payment requests can leave this context.
-    await page.locator('#date').fill(''); await page.locator('#time').fill('');
+    await page.locator('#date').fill('',{force:true}); await page.locator('#time').fill('',{force:true});
     assert.equal(await page.locator('[data-quote-results="ready"]').count(),0,
       'changing a booking date/time must invalidate the previous fixed fare');
     assert.deepEqual(writes,[], 'browser checkout regression must not submit booking or payment writes');
@@ -259,7 +260,9 @@ try {
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
-      await page.locator(`[id="${listboxId}"]`).getByRole('button',{name:'Dublin Airport Terminal 2 Ireland',exact:true}).click();
+      const suggestion=page.locator(`[id="${listboxId}"]`).getByRole('button',{name:/Dublin Airport Terminal 2/i}).first();
+      await suggestion.waitFor({state:'visible'});
+      await suggestion.click();
       await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
       assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
     }
