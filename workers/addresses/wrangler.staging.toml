@@ -1,0 +1,88 @@
+# Staging Worker for Meta WhatsApp Cloud API testing.
+# DO NOT deploy until the resources below are approved by the owner.
+# Production (wrangler.toml) stays on 360dialog and must not receive these secrets.
+#
+# Proposed Cloudflare resources (approval required before create/deploy):
+# 1. Worker name: reimagined-octo-meme-whatsapp-staging
+# 2. KV namespace: TRACKING_STORE (new isolated namespace — never reuse production id 53fa3cc2…)
+# 3. KV namespace: BOOKING_COUNTER (new isolated namespace — never reuse production id 2e02004d…)
+# 4. Secrets (staging only, Meta TEST number credentials — never production number):
+#      WHATSAPP_ACCESS_TOKEN
+#      WHATSAPP_PHONE_NUMBER_ID
+#      WHATSAPP_APP_SECRET
+#      WHATSAPP_VERIFY_TOKEN
+#      WHATSAPP_BUSINESS_ACCOUNT_ID
+#      ANTHROPIC_API_KEY (optional — only if testing AI replies on staging)
+# 5. Meta Developer App webhook Callback URL after deploy:
+#      https://reimagined-octo-meme-whatsapp-staging.<subdomain>.workers.dev/whatsapp/webhook
+# 6. Subscribe webhook fields: messages, smb_message_echoes (if coexistence/test supports it)
+#
+# Hard rules:
+# - Do not set D360_API_KEY on staging.
+# - Do not point Meta or 360dialog production webhooks at this Worker.
+# - Do not bind production KV namespaces.
+# - Do not migrate, disconnect, or register the live Coexistence number 07549 815538 here.
+# - Deploy via: node scripts/setup-whatsapp-staging.mjs (requires CF token + Meta TEST secrets).
+# - Live migration blocked until Meta confirms Coexistence is retained on direct Cloud API hosting.
+
+name = "reimagined-octo-meme-whatsapp-staging"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
+
+# Replace REPLACE_WITH_STAGING_* after creating isolated KV namespaces (owner approval first).
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "REPLACE_WITH_STAGING_TRACKING_STORE_ID"
+
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "REPLACE_WITH_STAGING_BOOKING_COUNTER_ID"
+
+# Minimal Durable Object bindings so the Worker boots; staging WhatsApp tests should not
+# exercise production booking/payment flows against real customers.
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
+
+[[durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"
+
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]
+
+[[migrations]]
+tag = "v2-quote-lead-coordinator"
+new_sqlite_classes = ["QuoteLeadCoordinator"]
+
+[[migrations]]
+tag = "v3-meet-greet-coordinator"
+new_sqlite_classes = ["MeetGreetCoordinator"]
+
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
+
+[build]
+command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
+
+[observability]
+enabled = true
+
+[vars]
+WHATSAPP_PROVIDER = "meta"
+WHATSAPP_BOT_ENABLED = "true"
+WHATSAPP_TEMPLATES_ENABLED = "true"
+WHATSAPP_GRAPH_VERSION = "v23.0"
+# Site origin for profile/links in staging replies (public marketing site is fine).
+SITE_ORIGIN = "https://www.myairporttaxini.co.uk"

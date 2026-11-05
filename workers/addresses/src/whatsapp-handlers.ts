@@ -32,8 +32,8 @@ import {
   upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
   verifyWhatsAppSignature,
+  resolveWhatsAppProvider,
   whatsAppCloudConfigured,
-  whatsAppUses360dialog,
   whatsAppVerifyChallenge,
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
@@ -190,11 +190,13 @@ export function isWhatsAppStatusPath(pathname: string): boolean {
 /** Owner troubleshooting: is the webhook arriving, and are replies being accepted? */
 export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> {
   const diag = env.TRACKING_STORE ? await env.TRACKING_STORE.get<WhatsAppDiag>(DIAG_KEY, "json") : null;
+  const provider = resolveWhatsAppProvider(env);
   return new Response(
     JSON.stringify(
       {
         configured: whatsAppCloudConfigured(env),
-        provider: whatsAppUses360dialog(env) ? "360dialog" : "meta",
+        provider: provider ?? "none",
+        providerSetting: env.WHATSAPP_PROVIDER?.trim() || null,
         botEnabled: env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() !== "false",
         teamNumberSet: Boolean(env.WHATSAPP_TEAM_NUMBER?.trim()),
         ...(diag ?? {}),
@@ -280,6 +282,14 @@ const CONNECT_COOLDOWN_SECONDS = 60;
 
 /** Owner opens /whatsapp/connect once after adding D360_API_KEY. */
 export async function handleWhatsAppConnect(request: Request, env: WhatsAppEnv): Promise<Response> {
+  const explicit = env.WHATSAPP_PROVIDER?.trim().toLowerCase();
+  if (explicit === "meta") {
+    return plain(
+      "WHATSAPP_PROVIDER=meta: /whatsapp/connect is for 360dialog only. " +
+        "Configure the Meta app webhook (Callback URL + Verify Token) in Meta Developer settings instead.",
+      400,
+    );
+  }
   const apiKey = env.D360_API_KEY?.trim();
   if (!apiKey) {
     return plain("D360_API_KEY is not set yet. Add it in Cloudflare (Variables and Secrets), then try again.", 503);
@@ -330,16 +340,20 @@ export async function handleWhatsAppWebhook(
   }
 
   const rawBody = await request.text();
-  const validSignature = whatsAppUses360dialog(env)
-    ? await verify360dialogWebhookSecret(
-        request.headers.get(D360_WEBHOOK_SECRET_HEADER),
-        env.D360_API_KEY!,
-      )
-    : await verifyWhatsAppSignature(
-        rawBody,
-        request.headers.get("X-Hub-Signature-256"),
-        env.WHATSAPP_APP_SECRET!.trim(),
-      );
+  const provider = resolveWhatsAppProvider(env);
+  const validSignature =
+    provider === "360dialog"
+      ? await verify360dialogWebhookSecret(
+          request.headers.get(D360_WEBHOOK_SECRET_HEADER),
+          env.D360_API_KEY!,
+        )
+      : provider === "meta"
+        ? await verifyWhatsAppSignature(
+            rawBody,
+            request.headers.get("X-Hub-Signature-256"),
+            env.WHATSAPP_APP_SECRET!.trim(),
+          )
+        : false;
   if (!validSignature) {
     console.warn(JSON.stringify({ event: "whatsapp_webhook_bad_signature" }));
     if (request.headers.get(D360_WEBHOOK_SECRET_HEADER) || request.headers.get("X-Hub-Signature-256")) {
