@@ -22,6 +22,8 @@ console.log("=== 1. Top tool switcher ===");
   assert.match(switcher, /"personal-quotes"/);
   assert.match(switcher, /"same-fare"/);
   assert.match(switcher, /Same Fare Test/);
+  assert.match(switcher, /"empty-legs"/);
+  assert.match(switcher, /Empty Legs/);
   assert.match(switcher, /role="tablist"/);
 
   const page = read("src/app/driver/DriverPageClient.tsx");
@@ -31,6 +33,8 @@ console.log("=== 1. Top tool switcher ===");
   assert.match(page, /ownerToolTab === "pricing"/);
   assert.match(page, /tab === "pricing"/);
   assert.match(page, /OwnerPricingPanel/);
+  assert.match(page, /OwnerEmptyLegsPanel/);
+  assert.match(page, /ownerToolTab === "empty-legs"/);
   assert.match(page, /ownerToolTab === "personal-quotes"/);
   assert.match(page, /ownerToolTab === "same-fare"/);
   assert.match(page, /ownerToolTab === "jobs"/);

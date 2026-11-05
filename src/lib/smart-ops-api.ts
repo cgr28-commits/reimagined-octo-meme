@@ -69,3 +69,41 @@ export async function fetchSmartOpsCalendar(ownerKey: string, from: string, to: 
   const params = new URLSearchParams({ from, to });
   return ownerFetch(`/owner/smart-ops/calendar?${params.toString()}`, ownerKey);
 }
+
+export type EmptyLegsPreviewResponse = {
+  ok: true;
+  report: import("../../shared/empty-legs-preview").EmptyLegsPreviewReport;
+  discountsActive: false;
+  unlockBlocked: true;
+  message: string;
+};
+
+export type EmptyLegsPreviewCsvResponse = {
+  ok: true;
+  csv: string;
+  filename: string;
+  assumptions: import("../../shared/empty-legs-preview").EmptyLegsPreviewReport["assumptions"];
+  liveSmartReturnPricing: boolean;
+  liveReturnCorridorMatching: boolean;
+};
+
+export async function fetchEmptyLegsPreview(
+  ownerKey: string,
+  from: string,
+  to: string,
+): Promise<EmptyLegsPreviewResponse> {
+  const params = new URLSearchParams({ from, to });
+  return ownerFetch(`/owner/smart-ops/empty-legs?${params.toString()}`, ownerKey) as Promise<EmptyLegsPreviewResponse>;
+}
+
+export async function fetchEmptyLegsPreviewCsv(
+  ownerKey: string,
+  from: string,
+  to: string,
+): Promise<EmptyLegsPreviewCsvResponse> {
+  const params = new URLSearchParams({ from, to, format: "csv" });
+  return ownerFetch(
+    `/owner/smart-ops/empty-legs?${params.toString()}`,
+    ownerKey,
+  ) as Promise<EmptyLegsPreviewCsvResponse>;
+}

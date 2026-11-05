@@ -30,6 +30,7 @@ import OwnerDashboardToolSwitcher, {
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
 import OwnerSmartAvailabilityPanel from "@/components/OwnerSmartAvailabilityPanel";
+import OwnerEmptyLegsPanel from "@/components/OwnerEmptyLegsPanel";
 import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import OwnerPostcodePricingPanel from "@/components/OwnerPostcodePricingPanel";
@@ -3466,6 +3467,13 @@ export default function DriverPageClient({
                   aria-labelledby="owner-tool-tab-pricing"
                 >
                   <OwnerPricingPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "empty-legs" ? (
+                <div id="owner-tool-panel-empty-legs" role="tabpanel" aria-label="Empty Legs">
+                  <OwnerToolBackBar title="Empty Legs" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerEmptyLegsPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 
