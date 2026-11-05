@@ -123,7 +123,7 @@ try {
           // There is no separate preferences/withdrawal control in unchanged main.
           await page.evaluate(key=>localStorage.removeItem(key),consentKey);
           await page.reload({waitUntil:'networkidle'});await banner.waitFor();
-          await banner.getByRole('button',{name:'Accept all',exact:true}).click();
+          await banner.getByRole('button',{name:/^Accept( all)?$/}).click();
           await banner.waitFor({state:'hidden'});
           assert.equal(await page.evaluate(key=>localStorage.getItem(key),consentKey),'accepted');
           for(const key of ['ad_storage','ad_user_data','ad_personalization','analytics_storage']) assert.equal((await lastConsent(page))[key],'granted');

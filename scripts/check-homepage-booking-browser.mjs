@@ -123,7 +123,7 @@ try {
         return json({ok:true, amount:journeyFareGbp, amountLabel:`£${journeyFareGbp.toFixed(2)}`,
           vehicleType:journey.vehicleType, vehicleChoice:'Saloon', premiumApplied:false,
           returnJourney:Boolean(journey.returnJourney), journeyFareGbp, airportFixedCostsGbp:0,
-          nightWeekendSurchargeGbp:0, distanceKm:25, durationMinutes:30});
+          nightWeekendSurchargeGbp:0, distanceKm:70, durationMinutes:60});
       }
       if (/checkout|bookings|short-notice/.test(url.pathname) && req.method() === 'POST') writes.push(url.pathname);
       return route.abort(); // prevent Google, live quotes, payment and booking writes
@@ -171,8 +171,12 @@ try {
     for (const vehicle of ['saloon','estate','executive','minibus']) {
       await page.locator(`[data-vehicle-category="${vehicle}"]`).click();
       const summaryArt = page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`);
-      await summaryArt.waitFor({ state: 'visible' });
-      assert.equal(await summaryArt.isVisible(), true, 'The selected-vehicle summary artwork must remain visible');
+      await summaryArt.waitFor({ state: 'attached' });
+      // Desktop quote results keep option art; the compact result strip is mobile-oriented.
+      if (width < 768) {
+        await summaryArt.waitFor({ state: 'visible' });
+        assert.equal(await summaryArt.isVisible(), true, 'The selected-vehicle summary artwork must remain visible');
+      }
       assert.ok(await page.locator(`[data-vehicle-category="${vehicle}"] [data-vehicle-art-size="option"]`).isVisible(), 'Original choice artwork remains visible');
       await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
       await page.screenshot({path:`${output}/${width}-${vehicle}-quote.png`});

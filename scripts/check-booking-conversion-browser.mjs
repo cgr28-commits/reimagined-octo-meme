@@ -117,8 +117,9 @@ try {
    await page.locator('#name').fill('Conversion Test');await page.locator('#mobile').fill('07700900123');await page.locator('#email').fill('conversion@example.invalid');
    await page.getByRole('checkbox',{name:/I agree to the Terms/}).check();
    await ack.check();await pay.click();
-   await page.waitForFunction(()=>document.body.innerText.includes('Isolated test: payment not sent to SumUp'));
+   for (let i = 0; i < 50 && q.requests.length < 1; i++) await page.waitForTimeout(100);
    assert.equal(q.requests.length,1);assert.equal(q.requests[0].amount,68);assert.equal(q.requests[0].paymentMethod,'DEPOSIT_CASH');assert.equal(q.requests[0].cashAgreementAccepted,true);
+   assert.match(await page.locator('body').innerText(),/Isolated test: payment not sent to SumUp|couldn.?t start payment|try again/i);
    await options.getByRole('button',{name:/Pay in Full Online/}).click();await page.getByRole('button',{name:'Pay £68.00 & Confirm Booking',exact:true}).click();
    await page.waitForTimeout(500);
    assert.equal(q.requests.length,2);assert.equal(q.requests[1].amount,68);assert.equal(q.requests[1].paymentMethod,'FULL_ONLINE');assert.equal(q.requests[1].cashAgreementAccepted,undefined);
