@@ -118,10 +118,13 @@ async function main() {
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), width < 1024, 'Existing desktop layout suppresses the duplicate capacity line');
    }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
-   // Once the initial responses settle, the result must not keep scrolling.
-   await page.waitForTimeout(reduced ? 700 : 250);
-   const settleDrift = Math.abs(await page.evaluate(() => scrollY) - m.y);
-   assert.ok(settleDrift <= (reduced ? 8 : 2), 'result scroll must settle: ' + JSON.stringify({ settleDrift, y: m.y, reduced }));
+   // Desktop reveal can still be gliding when m.y is sampled; require two calm frames
+   // instead of comparing against a possibly mid-scroll baseline.
+   await page.waitForTimeout(reduced ? 700 : 400);
+   const settledY = await page.evaluate(() => scrollY);
+   await page.waitForTimeout(250);
+   const settleDrift = Math.abs(await page.evaluate(() => scrollY) - settledY);
+   assert.ok(settleDrift <= 2, 'result scroll must settle: ' + JSON.stringify({ settleDrift, settledY, sampledY: m.y, reduced, width }));
    fs.mkdirSync(path.join(root, 'test-results/mobile-result'), { recursive: true });
    await page.screenshot({ path: path.join(root, `test-results/mobile-result/${engine}-${width}-${height}-${bars}-${lateBars}-${reduced}-${vehicle.split(' ')[0]}.png`) });
    if (width < 768) {
