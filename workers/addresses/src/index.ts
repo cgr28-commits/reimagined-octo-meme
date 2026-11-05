@@ -19,6 +19,7 @@ import {
 import { captureCheckoutHold } from "./stripe-holds";
 import { paymentProviderStatus, stripeActiveFor } from "./payment-provider";
 import {
+  firstPickupAtForBooking,
   lastPickupAtForBooking,
   processDueStripeHolds,
   recordStripeHoldIfAny,
@@ -642,7 +643,7 @@ type Env = {
   STRIPE_SECRET_KEY?: string;
   STRIPE_PUBLISHABLE_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
-  /** "false" turns off card holds (authorise now, charge after the journey). */
+  /** "false" turns off card holds (authorise now, charge 24 hours before pickup). */
   STRIPE_HOLDS_ENABLED?: string;
   /** "false" stops holding the card when a short-notice request is sent. */
   STRIPE_SHORT_NOTICE_HOLDS?: string;
@@ -3859,6 +3860,7 @@ async function handlePaymentRequest(
           shouldUseStripeHold({
             enabled: env.STRIPE_HOLDS_ENABLED?.trim().toLowerCase() !== "false",
             lastPickupAt: lastPickupAtForBooking(booking),
+            firstPickupAt: firstPickupAtForBooking(booking),
           });
         const stripeCheckout = await createStripeCheckoutSession({
           amount: Math.round(amount * 100) / 100,
@@ -4663,7 +4665,7 @@ async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
         to: ownerInbox(env),
         subject: "Card hold could not be charged — please check Stripe",
         body:
-          `The website tried to charge the following card hold(s) after the journey and Stripe refused:\n\n` +
+          `The website tried to charge the following card hold(s) 24 hours before pickup and Stripe refused:\n\n` +
           `${lines.join("\n")}\n\n` +
           `It will keep retrying every 5 minutes. Please check the payment in your Stripe Dashboard ` +
           `(Payments) and capture it there if needed before the hold expires.`,

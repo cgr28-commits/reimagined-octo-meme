@@ -214,8 +214,8 @@ export default function StripeCardPayClient() {
             </p>
           ) : info?.cardHold ? (
             <p className="mt-2 rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-xs leading-snug text-white/90">
-              Held now, charged after your journey. Cancel 24 hours or more before pickup and the
-              hold is released.
+              Held now, charged 24 hours before pickup. Cancel before then and the hold is released
+              — you pay nothing.
             </p>
           ) : null}
 
