@@ -58,7 +58,15 @@ import {
   ownerReplyToWhatsAppChat,
   processWhatsAppWebhook,
   resumeWhatsAppAssistant,
+  whatsAppAddressLookup,
 } from "../workers/addresses/src/whatsapp-handlers";
+import {
+  buildWhatsAppAddressPrompt,
+  hasFullPostcode,
+  parseWhatsAppAddressReply,
+  whatsAppAddressFieldToCheck,
+  whatsAppFullAddress,
+} from "../shared/whatsapp-address-check";
 import { getWhatsAppChat } from "../workers/addresses/src/whatsapp-chat-log";
 
 async function main() {
@@ -762,6 +770,227 @@ async function main() {
       assert.equal(out.at(-1)!.type, "text");
       assert.equal(out.at(-1)!.to, "447700900322");
     } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  console.log("=== Address check: rules ===");
+  {
+    assert.equal(hasFullPostcode("7 Glen Manor Road, Glengormley BT36 5DS"), true);
+    assert.equal(hasFullPostcode("7 Glen Manor Road bt365ds"), true);
+    assert.equal(hasFullPostcode("1 Main Street, Dublin D02 X285"), true);
+    assert.equal(hasFullPostcode("7 Glen Manor Road"), false);
+    assert.equal(hasFullPostcode("BT36"), false);
+
+    const conv = (draft: Record<string, unknown>, extra: Partial<WhatsAppConversation> = {}) =>
+      ({ stage: "collecting", draft, updatedAt: "", ...extra }) as WhatsAppConversation;
+    assert.equal(whatsAppAddressFieldToCheck(conv({ pickupAddress: "7 Glen Manor Road" })), "pickupAddress");
+    assert.equal(
+      whatsAppAddressFieldToCheck(conv({ pickupAddress: "Belfast International Airport", airportCode: "BFS", fromAirport: true, dropoffAddress: "7 Glen Manor Road" })),
+      "dropoffAddress",
+      "airport end is never looked up",
+    );
+    assert.equal(whatsAppAddressFieldToCheck(conv({ pickupAddress: "7 Glen Manor Road, BT36 5DS" })), null, "has postcode");
+    assert.equal(whatsAppAddressFieldToCheck(conv({ pickupAddress: "7 Glen Manor Road", pickupPlaceId: "p1" })), null, "confirmed");
+    assert.equal(
+      whatsAppAddressFieldToCheck(conv({ pickupAddress: "7 Glen Manor Road" }, { addressChecked: ["7 Glen Manor Road"] })),
+      null,
+      "never asked twice",
+    );
+
+    assert.equal(
+      whatsAppFullAddress({ formattedAddress: "7 Glen Manor Rd, Glengormley, Newtownabbey BT36 5DS, UK", postalCode: "BT36 5DS" }),
+      "7 Glen Manor Rd, Glengormley, Newtownabbey BT36 5DS",
+    );
+    assert.equal(
+      whatsAppFullAddress({ displayAddress: "Europa Hotel, Great Victoria St, Belfast", postalCode: "BT2 7AP" }),
+      "Europa Hotel, Great Victoria St, Belfast BT2 7AP",
+      "postcode added when the display address lacks it",
+    );
+
+    const one = { field: "pickupAddress" as const, typed: "7 glen manor road", options: [{ placeId: "p1", address: "7 Glen Manor Rd, Glengormley BT36 5DS" }] };
+    const three = {
+      ...one,
+      options: [
+        { placeId: "p1", address: "7 Glen Manor Rd, Glengormley BT36 5DS" },
+        { placeId: "p2", address: "7 Glen Manor Park, Lisburn BT28 2XX" },
+        { placeId: "p3", address: "7 Glen Manor Ave, Bangor BT20 4YY" },
+      ],
+    };
+    const p1 = buildWhatsAppAddressPrompt(one);
+    assert.match(p1.text, /Is this the right pickup address\?[\s\S]*BT36 5DS/);
+    assert.deepEqual(p1.buttons?.map((b) => b.id), ["txt:address 1", "txt:address none"]);
+    for (const b of p1.buttons!) assert.ok(b.title.length <= 20, b.title);
+    const p3 = buildWhatsAppAddressPrompt(three);
+    assert.match(p3.text, /1\. 7 Glen Manor Rd[\s\S]*2\. 7 Glen Manor Park[\s\S]*3\. 7 Glen Manor Ave/);
+    assert.equal(p3.list?.rows.length, 4);
+    assert.equal(p3.list?.rows.at(-1)?.id, "txt:address none");
+    for (const r of p3.list!.rows) {
+      assert.ok(r.title.length <= 24, r.title);
+      assert.ok((r.description ?? "").length <= 72);
+    }
+
+    assert.deepEqual(parseWhatsAppAddressReply("address 2", three), { kind: "pick", option: three.options[1] });
+    assert.deepEqual(parseWhatsAppAddressReply("Yes", one), { kind: "pick", option: one.options[0] });
+    assert.equal(parseWhatsAppAddressReply("yes", three), null, "'yes' is ambiguous with several matches");
+    assert.deepEqual(parseWhatsAppAddressReply("address none", three), { kind: "none" });
+    assert.deepEqual(parseWhatsAppAddressReply("No", one), { kind: "none" });
+    assert.equal(parseWhatsAppAddressReply("address 9", three), null);
+    assert.equal(parseWhatsAppAddressReply("actually it's 9 Glen Manor Road", one), null);
+
+    assert.equal(whatsAppDraftToQuoteBody({ pickupAddress: "x", pickupPlaceId: "p1" } as never).pickupPlaceId, "p1");
+    assert.equal("pickupPlaceId" in whatsAppDraftToQuoteBody({ pickupAddress: "x" } as never), false);
+  }
+
+  console.log("=== Address check: conversations ===");
+  {
+    const akv = new Map<string, string>();
+    const astore = {
+      async get(key: string, type?: string) {
+        const v = akv.get(key);
+        if (v == null) return null;
+        return type === "json" ? JSON.parse(v) : v;
+      },
+      async put(key: string, value: string) {
+        akv.set(key, value);
+      },
+      async delete(key: string) {
+        akv.delete(key);
+      },
+    } as unknown as KVNamespace;
+    const sentMsgs: Array<Record<string, any>> = [];
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      if (String(url).startsWith("https://graph.facebook.com/")) {
+        sentMsgs.push(JSON.parse(String(init?.body)));
+        return new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 });
+      }
+      return new Response("{}", { status: 500 });
+    }) as typeof fetch;
+
+    // Google stubbed: "glen manor" has one strong match; "main street" has three.
+    const suggestion = (id: string, mainText: string, secondaryText: string) => ({
+      id, label: `${mainText}, ${secondaryText}`, address: `${mainText}, ${secondaryText}`, mainText, secondaryText,
+    });
+    const places: Record<string, { formattedAddress: string; postalCode: string }> = {
+      gm: { formattedAddress: "7 Glen Manor Rd, Glengormley, Newtownabbey BT36 5DS, UK", postalCode: "BT36 5DS" },
+      m1: { formattedAddress: "12 Main St, Lisburn BT28 1AA, UK", postalCode: "BT28 1AA" },
+      m2: { formattedAddress: "12 Main St, Ballyclare BT39 9AA, UK", postalCode: "BT39 9AA" },
+      m3: { formattedAddress: "12 Main St, Larne BT40 1AA, UK", postalCode: "BT40 1AA" },
+    };
+    let lookups = 0;
+    const realLookup = { ...whatsAppAddressLookup };
+    whatsAppAddressLookup.suggest = async (_env, query) => {
+      lookups++;
+      if (/glen manor/i.test(query)) return { suggestions: [suggestion("gm", "7 Glen Manor Road", "Newtownabbey, UK")], unavailable: false, configured: true };
+      if (/main st/i.test(query)) {
+        return {
+          suggestions: [
+            suggestion("m1", "12 Main Street", "Lisburn, UK"),
+            suggestion("m2", "12 Main Street", "Ballyclare, UK"),
+            suggestion("m3", "12 Main Street", "Larne, UK"),
+          ],
+          unavailable: false,
+          configured: true,
+        };
+      }
+      if (/boom/i.test(query)) throw new Error("Google down");
+      return { suggestions: [], unavailable: false, configured: true };
+    };
+    whatsAppAddressLookup.details = async (_env, placeId) => {
+      const p = places[placeId];
+      return p
+        ? ({ placeId, formattedAddress: p.formattedAddress, displayAddress: "", postalCode: p.postalCode } as never)
+        : null;
+    };
+
+    const aenv = {
+      TRACKING_STORE: astore,
+      WHATSAPP_ACCESS_TOKEN: "t",
+      WHATSAPP_PHONE_NUMBER_ID: "123",
+      WHATSAPP_APP_SECRET: "s",
+      WHATSAPP_VERIFY_TOKEN: "v",
+      GOOGLE_PLACES_API_KEY: "g",
+      WHATSAPP_ADDRESS_CHECK: "all",
+    };
+    const ats = String(Math.floor(Date.now() / 1000));
+    const said = (id: string, text: string, from: string) => ({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [{ id, from, timestamp: ats, type: "text", text: { body: text } }] } }] }],
+    });
+    const tapped = (id: string, replyId: string, from: string) => ({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [{ id, from, timestamp: ats, type: "interactive", interactive: { type: "button_reply", button_reply: { id: replyId, title: "x" } } }] } }] }],
+    });
+    const convo = (phone: string) => JSON.parse(akv.get(`whatsapp:conversation:${phone}`) ?? akv.get([...akv.keys()].find((k) => k.includes("conv") && k.includes(phone))!)!) as WhatsAppConversation;
+    const bodyOf = (m: Record<string, any>) => m.text?.body ?? m.interactive?.body?.text ?? "";
+    const journey = "From 7 Glen Manor Road to Belfast International Airport tomorrow at 9am";
+
+    try {
+      // One match: Yes / No buttons with the full address and postcode.
+      await processWhatsAppWebhook(said("a1", journey, "447700900401"), aenv);
+      const ask = sentMsgs.at(-1)!;
+      assert.equal(ask.interactive?.type, "button");
+      assert.match(bodyOf(ask), /Is this the right pickup address\?[\s\S]*7 Glen Manor Rd, Glengormley, Newtownabbey BT36 5DS/);
+      assert.equal(convo("447700900401").addressCheck?.options.length, 1);
+
+      // Tap Yes: the full address and its Google place go on the quote; the chat carries on.
+      await processWhatsAppWebhook(tapped("a2", "txt:address 1", "447700900401"), aenv);
+      let c = convo("447700900401");
+      assert.equal(c.draft.pickupAddress, "7 Glen Manor Rd, Glengormley, Newtownabbey BT36 5DS");
+      assert.equal(c.draft.pickupPlaceId, "gm");
+      assert.equal(c.addressCheck, undefined);
+      assert.equal(c.draft.airportCode, "BFS", "rest of the journey kept");
+      assert.equal(c.draft.outboundTime, "09:00");
+      assert.doesNotMatch(bodyOf(sentMsgs.at(-1)!), /right pickup address/);
+      const lookupsAfterConfirm = lookups;
+
+      // Later messages don't look it up again.
+      await processWhatsAppWebhook(said("a3", "2 passengers", "447700900401"), aenv);
+      assert.equal(lookups, lookupsAfterConfirm);
+      c = convo("447700900401");
+      assert.equal(c.draft.passengers, 2);
+      assert.equal(c.draft.pickupPlaceId, "gm");
+
+      // Several matches: numbered full addresses + "Choose address" list with "None of these".
+      await processWhatsAppWebhook(said("b1", "From 12 Main Street to Dublin Airport tomorrow at 9am", "447700900402"), aenv);
+      const several = sentMsgs.at(-1)!;
+      assert.equal(several.interactive?.type, "list");
+      assert.match(bodyOf(several), /1\. 12 Main St, Lisburn BT28 1AA[\s\S]*2\. 12 Main St, Ballyclare[\s\S]*3\. 12 Main St, Larne/);
+      assert.equal(several.interactive.action.sections[0].rows.at(-1).title, "None of these");
+
+      // None of these: asks for the full address with postcode; that one isn't looked up.
+      await processWhatsAppWebhook(tapped("b2", "txt:address none", "447700900402"), aenv);
+      assert.match(bodyOf(sentMsgs.at(-1)!), /full pickup address, including the postcode/);
+      c = convo("447700900402");
+      assert.equal(c.draft.pickupAddress, undefined);
+      assert.equal(c.awaiting, "pickupAddress");
+      assert.equal(c.draft.airportCode, "DUB", "destination kept");
+      const before = lookups;
+      await processWhatsAppWebhook(said("b3", "12 Main Street, Antrim BT41 4AA", "447700900402"), aenv);
+      assert.equal(lookups, before, "address with a postcode is used as typed");
+      assert.equal(convo("447700900402").draft.pickupAddress, "12 Main Street, Antrim BT41 4AA");
+
+      // Typing something else instead of answering: handled normally, never re-asked.
+      await processWhatsAppWebhook(said("c1", journey, "447700900403"), aenv);
+      await processWhatsAppWebhook(said("c2", "3 passengers", "447700900403"), aenv);
+      c = convo("447700900403");
+      assert.equal(c.draft.passengers, 3);
+      assert.equal(c.addressCheck, undefined);
+      assert.ok(c.addressChecked?.includes("7 Glen Manor Road"));
+      assert.doesNotMatch(bodyOf(sentMsgs.at(-1)!), /right pickup address/);
+
+      // Google down / no match: the chat carries on exactly as before.
+      await processWhatsAppWebhook(said("d1", "From 5 Boom Road to Belfast International Airport tomorrow at 9am", "447700900404"), aenv);
+      assert.doesNotMatch(bodyOf(sentMsgs.at(-1)!), /right pickup address/);
+      assert.equal(convo("447700900404").addressCheck, undefined);
+
+      // Switch off (default): no lookups at all.
+      const offBefore = lookups;
+      await processWhatsAppWebhook(said("e1", journey, "447700900405"), { ...aenv, WHATSAPP_ADDRESS_CHECK: undefined });
+      assert.equal(lookups, offBefore);
+      assert.doesNotMatch(bodyOf(sentMsgs.at(-1)!), /right pickup address/);
+    } finally {
+      Object.assign(whatsAppAddressLookup, realLookup);
       globalThis.fetch = realFetch;
     }
   }

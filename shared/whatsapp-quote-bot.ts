@@ -34,7 +34,25 @@ export type WhatsAppQuoteDraft = {
   passengers?: number;
   suitcases?: number;
   flightNumber?: string;
+  /** Google place of a customer-confirmed address (cleared if that address changes). */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
 };
+
+export type WhatsAppAddressField = "pickupAddress" | "dropoffAddress";
+
+/** One Google match offered to the customer: full address with postcode. */
+export type WhatsAppAddressOption = { placeId: string; address: string };
+
+/** Waiting for the customer to confirm / choose the address they typed. */
+export type WhatsAppAddressCheck = {
+  field: WhatsAppAddressField;
+  typed: string;
+  options: WhatsAppAddressOption[];
+};
+
+/** A confirmed address: applied to the draft with its Google place. */
+export type WhatsAppAddressPick = { field: WhatsAppAddressField } & WhatsAppAddressOption;
 
 export type WhatsAppQuoteField =
   | "pickupAddress"
@@ -56,6 +74,10 @@ export type WhatsAppConversation = {
   lastQuoteAmountLabel?: string;
   /** The one-time 5% "book now" offer was made for this journey (only after "too expensive"). */
   discountOffered?: boolean;
+  /** Google matches shown for an address the customer typed, awaiting their tap. */
+  addressCheck?: WhatsAppAddressCheck;
+  /** Typed addresses already looked up (no match, declined or moved on) — never asked twice. */
+  addressChecked?: string[];
   updatedAt: string;
 };
 
@@ -978,6 +1000,9 @@ export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft, now = new Da
   return {
     pickupAddress: draft.pickupAddress,
     dropoffAddress: draft.dropoffAddress,
+    // Confirmed addresses price from the exact Google place, as on the website.
+    ...(draft.pickupPlaceId ? { pickupPlaceId: draft.pickupPlaceId } : {}),
+    ...(draft.dropoffPlaceId ? { dropoffPlaceId: draft.dropoffPlaceId } : {}),
     airportCode: draft.airportCode ?? null,
     fromAirport: draft.fromAirport ?? null,
     journeyMode: draft.returnJourney ? "return" : "one-way",
@@ -1245,6 +1270,8 @@ export type WhatsAppDecideOptions = {
   profileName?: string;
   /** Quick-tap choices when asking for details (default on); false keeps only one way / return. */
   quickChoices?: boolean;
+  /** The message confirmed a looked-up address: apply it instead of parsing the text. */
+  addressPick?: WhatsAppAddressPick;
 };
 
 function decideJourneyReply(
@@ -1316,7 +1343,15 @@ function decideJourneyReply(
   }
 
   const isNew = !existing || Object.keys(existing.draft).length === 0;
-  const changed = applyCustomerMessage(conversation, text, now);
+  const pick = options.addressPick;
+  let changed: boolean;
+  if (pick) {
+    conversation.draft[pick.field] = pick.address;
+    conversation.draft[pick.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"] = pick.placeId;
+    changed = true;
+  } else {
+    changed = applyCustomerMessage(conversation, text, now);
+  }
 
   if (!changed) {
     if (isNew) {
