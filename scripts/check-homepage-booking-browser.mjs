@@ -168,8 +168,14 @@ try {
     await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);
     pass(`${width}px: missing either selection prevents quote; None accepted as numeric 0`);
+    // Desktop (≥1024) hides the minibus when a car fits (data-vehicle-not-needed).
+    const vehicles = [];
     for (const vehicle of ['saloon','estate','executive','minibus']) {
-      await page.locator(`[data-vehicle-category="${vehicle}"]`).click();
+      const option = page.locator(`[data-vehicle-category="${vehicle}"]`);
+      if (!(await option.isVisible())) continue;
+      vehicles.push(vehicle);
+      await option.scrollIntoViewIfNeeded();
+      await option.click();
       const summaryArt = page.locator(`[data-vehicle-art="${vehicle}"][data-vehicle-art-size="result"]`);
       await summaryArt.waitFor({ state: 'attached' });
       // Desktop quote results keep option art; the compact result strip is mobile-oriented.
@@ -182,8 +188,9 @@ try {
       await page.screenshot({path:`${output}/${width}-${vehicle}-quote.png`});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth));
     }
+    assert.ok(vehicles.includes('saloon') && vehicles.includes('estate'), 'core car options must stay selectable');
     await page.locator('[data-vehicle-category="saloon"]').click();
-    pass(`${width}px: all four vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
+    pass(`${width}px: visible vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});
     await page.locator('#date').fill(''); await page.locator('#time').fill('');
