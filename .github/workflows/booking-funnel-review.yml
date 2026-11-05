@@ -20,7 +20,7 @@ permissions:
   contents: read
 jobs:
   booking-funnel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # Compile the owner API client as production does, but target only mocked test services.

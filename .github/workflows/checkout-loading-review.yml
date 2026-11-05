@@ -13,7 +13,7 @@ permissions:
   contents: read
 jobs:
   checkout-loading:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       NEXT_PUBLIC_BOOKINGS_API_URL: https://mock.invalid/bookings

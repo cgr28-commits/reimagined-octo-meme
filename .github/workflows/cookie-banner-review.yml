@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   isolated-browser-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       GITHUB_PAGES: 'true'
