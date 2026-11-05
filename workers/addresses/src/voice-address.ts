@@ -54,11 +54,25 @@ function flatten(body: unknown): Record<string, unknown> {
 }
 
 function text(value: unknown, max = 200): string {
-  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max) : "";
+  if (typeof value !== "string") return "";
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+  // Unresolved Fonio/template placeholders must not be treated as real input
+  // (e.g. "{{place_query}}" or "{{placeId}}").
+  if (/^\{\{[^}]+\}\}$/.test(cleaned)) return "";
+  return cleaned.slice(0, max);
+}
+
+function firstText(values: unknown[], max = 200): string {
+  for (const value of values) {
+    const got = text(value, max);
+    if (got) return got;
+  }
+  return "";
 }
 
 function roleOf(value: unknown): VoiceAddressRole {
-  return /^drop|dest/i.test(String(value ?? "")) ? "dropoff" : "pickup";
+  const raw = text(value, 32).toLowerCase();
+  return /^drop|dest/.test(raw) ? "dropoff" : "pickup";
 }
 
 function placePayload(place: ResolvedGooglePlace) {
@@ -152,10 +166,15 @@ export async function collectVoiceAddressSuggestions(
 export async function handleVoiceAddressSearch(request: Request, env: Env): Promise<Response> {
   const store = env.TRACKING_STORE;
   const input = flatten(await request.json().catch(() => null));
-  const query = text(input.query ?? input.q ?? input.address ?? input.place, 200);
-  const role = roleOf(input.role ?? input.side ?? input.field);
-  const placeId = text(input.placeId ?? input.confirmPlaceId ?? input.id, 128);
-  const airportBias = text(input.airportHint ?? input.airportCode ?? input.airport, 8).toUpperCase() || DEFAULT_AIRPORT_BIAS;
+  // Accept Fonio aliases (place_query / place_role) plus common fallbacks.
+  const query = firstText(
+    [input.query, input.place_query, input.placeQuery, input.q, input.address, input.place, input.pickup, input.dropoff],
+    200,
+  );
+  const role = roleOf(input.role ?? input.place_role ?? input.placeRole ?? input.side ?? input.field);
+  const placeId = firstText([input.placeId, input.confirmPlaceId, input.id], 128);
+  const airportBias =
+    firstText([input.airportHint, input.airportCode, input.airport], 8).toUpperCase() || DEFAULT_AIRPORT_BIAS;
 
   if (store && (await consumeQuickQuoteCreateQuota(store, "voice:address", SEARCHES_PER_HOUR)) === "limited") {
     return reply({
