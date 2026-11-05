@@ -11,6 +11,7 @@
  * mat_call_followup template. One small KV queue key; an idle cron run is one read.
  */
 import { sendCallFollowUpWhatsApp, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { appendVoiceCallLog } from "./voice-call-log-store";
 
 export const VOICE_FOLLOWUP_QUEUE_KEY = "voice:followup:queue";
 const LINK_SENT_PREFIX = "voice:link-sent:";
@@ -96,44 +97,98 @@ function enquiryLabel(pickup: string, destination: string): string {
 export async function handleVoiceCallEnded(request: Request, env: Env, now = new Date()): Promise<Response> {
   const store = env.TRACKING_STORE;
   if (!store) return reply({ ok: false }, 503);
-  const secret = env.VOICE_WEBHOOK_SECRET?.trim();
-  if (secret && request.headers.get("X-Voice-Secret")?.trim() !== secret) return reply({ ok: false }, 401);
+  // Auth is enforced in the Worker router via voiceAuthDenied (Bearer or X-Voice-Secret).
 
   const input = flatten(await request.json().catch(() => null));
-  const mobile = ukMobileForFollowUp(
-    pick(input, ["fromNumber", "from_number", "callerNumber", "caller_number", "from", "phone", "mobile"]),
-  );
+  // Calls reach the assistant diverted from our landline, so caller ID is usually
+  // 028 9602 2952. Prefer the mobile the caller gave on the call, then caller ID.
+  const mobile =
+    [
+      "mobile",
+      "callerMobile",
+      "caller_mobile",
+      "customerMobile",
+      "customer_mobile",
+      "fromNumber",
+      "from_number",
+      "callerNumber",
+      "caller_number",
+      "from",
+      "phone",
+      "personNumber",
+    ]
+      .map((key) => ukMobileForFollowUp(pick(input, [key])))
+      .find(Boolean) ?? "";
   const consent = truthy(pick(input, ["followUpConsent", "followup_consent", "follow_up_consent", "consent"]));
   const linkSentOnCall = truthy(pick(input, ["bookingLinkSent", "booking_link_sent", "link_sent"]));
   const existingBooking = truthy(pick(input, ["existingBooking", "existing_booking", "about_existing_booking"]));
   const name = pick(input, ["name", "callerName", "caller_name", "firstName"]).slice(0, 40);
   const pickup = pick(input, ["pickup", "pickupAddress", "pickup_address", "from_location"]);
   const destination = pick(input, ["destination", "dropoff", "destination_address", "to_location"]);
+  const summary = pick(input, ["summary", "plainTranscript", "transcript", "callSummary", "conversationSummary"]);
+  const conversationId = pick(input, ["conversationId", "conversation_id", "id", "callId", "call_id"]);
+  const direction = pick(input, ["direction", "callDirection"]) || "inbound";
+  const quoteId = pick(input, ["quoteId", "quote_id"]);
+  const bookingReference = pick(input, ["bookingReference", "booking_reference"]);
+  const enquiry = enquiryLabel(pickup, destination);
 
-  const skip = (reason: string) => {
+  let followUpQueued = false;
+  let followUpReason = "";
+
+  const skip = async (reason: string) => {
+    followUpReason = reason;
     console.log(JSON.stringify({ event: "voice_followup_skipped", reason, phoneSuffix: mobile.slice(-4) }));
-    return reply({ ok: true, queued: false, reason });
   };
-  if (!mobile) return skip("not a UK mobile");
-  if (!consent) return skip("no consent");
-  if (linkSentOnCall || existingBooking) return skip(linkSentOnCall ? "link sent on call" : "existing booking");
-  if (await store.get(`${LINK_SENT_PREFIX}${mobile}`)) return skip("link sent on call");
 
-  const t = now.getTime();
-  const queue = prune(await readQueue(store), t);
-  if (queue.some((e) => e.mobile === mobile && t - Date.parse(e.createdAt) < 24 * 60 * 60 * 1000)) {
-    return skip("already queued today");
+  if (!mobile) await skip("not a UK mobile");
+  else if (!consent) await skip("no consent");
+  else if (linkSentOnCall || existingBooking) await skip(linkSentOnCall ? "link sent on call" : "existing booking");
+  else if (await store.get(`${LINK_SENT_PREFIX}${mobile}`)) await skip("link sent on call");
+  else {
+    const t = now.getTime();
+    const queue = prune(await readQueue(store), t);
+    if (queue.some((e) => e.mobile === mobile && t - Date.parse(e.createdAt) < 24 * 60 * 60 * 1000)) {
+      await skip("already queued today");
+    } else {
+      queue.push({
+        mobile,
+        name,
+        enquiry,
+        createdAt: now.toISOString(),
+        dueAt: new Date(t + DELAY_MS).toISOString(),
+      });
+      await store.put(VOICE_FOLLOWUP_QUEUE_KEY, JSON.stringify(queue));
+      followUpQueued = true;
+      console.log(JSON.stringify({ event: "voice_followup_queued", phoneSuffix: mobile.slice(-4) }));
+    }
   }
-  queue.push({
-    mobile,
-    name,
-    enquiry: enquiryLabel(pickup, destination),
-    createdAt: now.toISOString(),
-    dueAt: new Date(t + DELAY_MS).toISOString(),
-  });
-  await store.put(VOICE_FOLLOWUP_QUEUE_KEY, JSON.stringify(queue));
-  console.log(JSON.stringify({ event: "voice_followup_queued", phoneSuffix: mobile.slice(-4) }));
-  return reply({ ok: true, queued: true });
+
+  const outcome = followUpQueued
+    ? "follow_up_queued"
+    : linkSentOnCall
+      ? "booking_link_sent"
+      : existingBooking
+        ? "existing_booking"
+        : followUpReason || "logged";
+
+  try {
+    await appendVoiceCallLog(store, {
+      mobile,
+      conversationId,
+      direction,
+      summary: summary || (name ? `Call with ${name}: ${enquiry}` : enquiry),
+      outcome,
+      followUpQueued,
+      quoteId,
+      bookingReference,
+      enquiry,
+      now,
+    });
+  } catch (error) {
+    console.error("voice call log failed", error instanceof Error ? error.message : error);
+  }
+
+  return reply({ ok: true, queued: followUpQueued, ...(followUpQueued ? {} : { reason: followUpReason || "logged" }), logged: true });
 }
 
 /** 5-minute cron: send due follow-ups. Empty or not-yet-due queue costs one read. */

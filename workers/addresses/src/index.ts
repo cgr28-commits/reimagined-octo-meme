@@ -37,6 +37,12 @@ import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
 import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
 import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
+import { handleVoiceInbound } from "./voice-inbound";
+import { handleVoiceProvisionalBooking } from "./voice-provisional";
+import { handleVoiceMessage } from "./voice-message";
+import { handleVoiceAddressSearch } from "./voice-address";
+import { handleOwnerVoiceCalls } from "./voice-call-log-store";
+import { voiceAuthDenied } from "./voice-auth";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
@@ -58,6 +64,10 @@ import {
   formatAdsAttributionForOwner,
   sanitizeAdsAttribution,
 } from "../shared/ads-attribution";
+import {
+  mergeSavedQuoteAttributionForPayment,
+  parseMeasurementConsent,
+} from "../shared/saved-quote-ads-attribution";
 import {
   createSerializedQuoteLeadMarkerStore,
   runQuoteLeadNotification,
@@ -229,6 +239,7 @@ import { formatLondonClockTime } from "../shared/uk-time";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
+  handleOwnerEmptyLegsPreview,
   handleOwnerEvaluateSmartOps,
   handleOwnerGetSmartOps,
   handleOwnerSaveSmartOps,
@@ -698,6 +709,16 @@ type Env = {
   WHATSAPP_FOLLOW_UP_MINUTES?: string;
   /** Anthropic API key (Worker secret) — WhatsApp assistant answers customer questions. */
   ANTHROPIC_API_KEY?: string;
+  /**
+   * Shared secret fonio sends on every /voice/* request
+   * (Authorization: Bearer … or X-Voice-Secret). Worker secret only.
+   */
+  VOICE_WEBHOOK_SECRET?: string;
+  /**
+   * When "1"/"true"/"yes", allow /voice/send-link and /voice/provisional-booking.
+   * Leave unset while live-testing quotation + address search only.
+   */
+  VOICE_ENABLE_BOOKING_TOOLS?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {
@@ -2614,8 +2635,18 @@ async function handlePaymentRequest(
         return json(buildFareMismatchPaymentError(accepted, amount), 409, origin);
       }
       // Still attach token so finalize can mark booked; price is the requoted amount.
+      const restoredAttribution = mergeSavedQuoteAttributionForPayment({
+        bookingAttribution: booking.attribution,
+        savedAttribution: sq.attribution,
+        savedAttributionConsent: sq.attributionConsent,
+        measurementConsent: parseMeasurementConsent(body.measurementConsent),
+      });
+      const {
+        attribution: _discardBookingAttribution,
+        ...bookingWithoutAttribution
+      } = booking as typeof booking & { attribution?: unknown };
       booking = {
-        ...booking,
+        ...bookingWithoutAttribution,
         pickupLabel: sj.pickupLabel,
         dropoffLabel: sj.dropoffLabel,
         returnJourney: Boolean(sj.returnJourney),
@@ -2639,6 +2670,7 @@ async function handlePaymentRequest(
         pickupLng: sj.pickupLng,
         dropoffLat: sj.dropoffLat,
         dropoffLng: sj.dropoffLng,
+        ...(restoredAttribution ? { attribution: restoredAttribution } : {}),
       };
     }
   }
@@ -4689,21 +4721,43 @@ export default {
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-feed/rotate" && request.method === "POST") {
       return handleOwnerAdsFeed(request, env, request.headers.get("Origin"), true);
     }
-    // Phone assistant (fonio) live quote — same pricing engine as the website and WhatsApp.
-    if ((url.pathname === "/voice/quote" || url.pathname === "/api/voice/quote") && request.method === "POST") {
+    // Phone assistant (fonio) — all /voice/* routes share VOICE_WEBHOOK_SECRET auth when set.
+    const voicePath = url.pathname.replace(/^\/api(?=\/voice\/)/, "");
+    if (voicePath.startsWith("/voice/")) {
+      const denied = voiceAuthDenied(request, env);
+      if (denied) return denied;
+    }
+    // Inbound Webhook: load minimal caller context before the conversation (≤5s).
+    if ((voicePath === "/voice/inbound") && (request.method === "POST" || request.method === "GET")) {
+      return handleVoiceInbound(request, env);
+    }
+    // Google Places address lookup for incomplete / conversational places (hotels, landmarks, airports).
+    if (voicePath === "/voice/address-search" && request.method === "POST") {
+      return handleVoiceAddressSearch(request, env);
+    }
+    // Live quote — same pricing engine as the website and WhatsApp.
+    if (voicePath === "/voice/quote" && request.method === "POST") {
       return handleVoiceQuote(request, env);
     }
-    if ((url.pathname === "/voice/send-link" || url.pathname === "/api/voice/send-link") && request.method === "POST") {
+    if (voicePath === "/voice/send-link" && request.method === "POST") {
       return handleVoiceSendLink(request, env);
     }
-    // fonio "After the conversation" request: WhatsApp follow-up for dropped calls (with consent).
-    if ((url.pathname === "/voice/call-ended" || url.pathname === "/api/voice/call-ended") && request.method === "POST") {
+    // Unpaid provisional hold from a phone-priced quote (never marks paid).
+    if (voicePath === "/voice/provisional-booking" && request.method === "POST") {
+      return handleVoiceProvisionalBooking(request, env);
+    }
+    // Callback / urgent / unclear enquiry message for the team (never creates a paid booking).
+    if (voicePath === "/voice/message" && request.method === "POST") {
+      return handleVoiceMessage(request, env);
+    }
+    // After the conversation: call summary log + optional WhatsApp follow-up (with consent).
+    if (voicePath === "/voice/call-ended" && request.method === "POST") {
       return handleVoiceCallEnded(request, env);
     }
-    if ((url.pathname === "/voice/booking" || url.pathname === "/api/voice/booking") && request.method === "POST") {
+    if (voicePath === "/voice/booking" && request.method === "POST") {
       return handleVoiceBooking(request, env);
     }
-    if ((url.pathname === "/voice/booking-link" || url.pathname === "/api/voice/booking-link") && request.method === "POST") {
+    if (voicePath === "/voice/booking-link" && request.method === "POST") {
       return handleVoiceBookingLink(request, env);
     }
     if (url.pathname === "/ads/spend-report" && request.method === "POST") {
@@ -4711,6 +4765,9 @@ export default {
     }
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/ads-spend" && request.method === "GET") {
       return handleOwnerAdsSpend(request, env, request.headers.get("Origin"));
+    }
+    if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/voice-calls" && request.method === "GET") {
+      return handleOwnerVoiceCalls(request, env, request.headers.get("Origin"));
     }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
@@ -5147,6 +5204,15 @@ export default {
         request.method === "GET"
       ) {
         const result = await handleOwnerSmartOpsCalendar(request, smartEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/empty-legs" ||
+          url.pathname === "/api/owner/smart-ops/empty-legs") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerEmptyLegsPreview(request, smartEnv);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }

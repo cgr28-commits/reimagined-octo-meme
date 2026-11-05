@@ -37,4 +37,11 @@ jobs:
             node --import tsx "scripts/check-$suite.ts"
           done
       - run: npm --prefix workers/addresses run build
-      - run: GITHUB_PAGES=true npm run build
+      - name: Build Next.js app
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1

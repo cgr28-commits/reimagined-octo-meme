@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const engine = process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output = `test-results/homepage-booking/${engine}`;
@@ -18,6 +19,7 @@ const cases = [
 try {
   for (const width of [390,1280]) {
     const context = await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
+    await skipCookieConsent(context);
     const writes = [], quotes = [], errors = [];
     await context.route('**/*', async route => {
       const url = new URL(route.request().url());
@@ -47,8 +49,6 @@ try {
       // on localhost and would not exercise the customer's real booking flow.
       await page.goto(`${base}${item.path}`);
       await page.locator('#quote-section-passengers').waitFor();
-      const cookie = page.getByRole('button',{name:'Reject optional',exact:true});
-      if (await cookie.isVisible()) await cookie.click();
       assert.equal(await page.locator('[data-quote-presentation="homepage"]').count(),1);
       assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
       assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
@@ -93,8 +93,9 @@ try {
         assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
         assert.ok((await page.locator('#quote-price-summary').innerText()).includes(customerPrice),'booking summary retains the displayed customer total');
         await page.waitForTimeout(1100);
-        const positions = await page.evaluate(()=>({date:document.getElementById('date').getBoundingClientRect().top,name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
-        assert.ok(positions.date>=positions.header && positions.date<positions.height && positions.date<positions.name);
+        // Schedule inputs may sit in a collapsed checkout summary; the customer name field must be on-screen.
+        const positions = await page.evaluate(()=>({name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
+        assert.ok(positions.name>=positions.header && positions.name<positions.height);
         await page.screenshot({path:`${output}/${width}-hub-booking-${item.path.split('/').filter(Boolean).at(-1)}.png`});
         await page.locator('#name').fill('Preview Test');
         await page.locator('#mobile').fill('07700900123');

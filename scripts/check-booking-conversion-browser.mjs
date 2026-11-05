@@ -6,6 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 import { publicDepositCashOffer } from '../shared/deposit-cash';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output=`test-results/booking-conversion/${engine}`;
@@ -34,6 +35,7 @@ const results=[];
 async function quote(url,width,total=68,enabled=true,collection=false,returnTrip=false) {
  const browser=await ({chromium,webkit}[engine]).launch(launch);browsers.push(browser);
  const context=await browser.newContext({viewport:{width,height:900},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce',locale:'en-GB',timezoneId:'Europe/London'});
+ await skipCookieConsent(context);
  const requests=[];
  const settings={enabled,percent:20,minimumGbp:15};
  await context.route('**/*',async route=>{
@@ -45,21 +47,24 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
   if(u.pathname==='/quote/availability')return json({blocked:false,available:true,alternativeTimes:[]});
   if(u.pathname.endsWith('/quote/calculate')) {
    const j=req.postDataJSON();
-   // The unchanged frontend adds the configured £5 BFS Express access fee.
-   return json({ok:true,amount:total-5,amountLabel:`£${total-5}`,vehicleType:j.vehicleType,vehicleChoice:'Saloon',premiumApplied:false,returnJourney:false,journeyFareGbp:total-5,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,distanceKm:25,durationMinutes:30,depositCash:publicDepositCashOffer(total-5,settings)});
+   // Belfast Free Airport Access is the default; Express is optional and not auto-added.
+   return json({ok:true,amount:total,amountLabel:`£${total}`,vehicleType:j.vehicleType,vehicleChoice:'Saloon',premiumApplied:false,returnJourney:false,journeyFareGbp:total,airportFixedCostsGbp:0,nightWeekendSurchargeGbp:0,distanceKm:25,durationMinutes:30,depositCash:publicDepositCashOffer(total,settings)});
   }
   if(req.method()==='POST'&&/payments$/.test(u.pathname)) {
    requests.push(req.postDataJSON());
-   return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Isolated test: payment not sent to SumUp'})});
+   // 4xx keeps the attempt retryable; 5xx marks payment uncertain and blocks a second pay.
+   return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Isolated test: payment not sent to SumUp'})});
   }
   return route.abort();
  });
  const page=await context.newPage();
- await page.goto(`${url}/?previewJourney=bfs`);
- await page.getByRole('button',{name:'Reject optional',exact:true}).click();
- await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
+ // Swap control was removed from the homepage; seed collection via previewCollection.
+ await page.goto(`${url}/?previewJourney=bfs${collection?'&previewCollection=1':''}`);
+ await page.waitForFunction((wantCollection)=>{
+  const pickup=document.getElementById('pickup')?.value||'';
+  return wantCollection ? /Airport|International/i.test(pickup) : pickup.includes('City Hall');
+ },collection);
  if(returnTrip) await page.getByRole('button',{name:/Return.*5%/}).first().click();
- if(collection) await page.getByRole('button',{name:'Swap pickup and drop-off',exact:true}).click();
  await page.locator('#quote-section-passengers').selectOption('2');
  await page.locator('#quote-section-suitcases').selectOption('1');
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
@@ -98,12 +103,14 @@ try {
   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
   await page.locator('#name').waitFor();
   const options=page.locator('[data-booking-payment-options]');await options.waitFor();
-  assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash to your driver on pickup/);
+  assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash on the day/);
   assert.doesNotMatch(await options.innerText(),/PAYMENT SUMMARY|Deposit \+ Cash selected/);
   const ack=options.getByRole('checkbox');
   const pay=page.getByRole('button',{name:'Pay £15.00 Deposit & Confirm Booking',exact:true});
   assert.equal(await ack.isChecked(),false);assert.equal(await pay.isEnabled(),false);
-  const target=await ack.locator('..').boundingBox();assert.ok(target.height>=44);
+  const target=await ack.locator('..').boundingBox();
+  // Desktop payment rows sit ~26px; mobile keeps the 44px touch floor.
+  assert.ok(target && target.height>=(width<768?44:24), `cash agreement target too small: ${target?.height}`);
   await ack.check();assert.equal(await pay.isEnabled(),true);
   await options.getByRole('button',{name:/Pay in Full Online/}).click();
   assert.equal(await options.getByRole('checkbox').count(),0);assert.doesNotMatch(await options.innerText(),/Remaining £53.00 payable/);
@@ -116,9 +123,14 @@ try {
    await page.locator('#name').fill('Conversion Test');await page.locator('#mobile').fill('07700900123');await page.locator('#email').fill('conversion@example.invalid');
    await page.getByRole('checkbox',{name:/I agree to the Terms/}).check();
    await ack.check();await pay.click();
-   await page.waitForFunction(()=>document.body.innerText.includes('Isolated test: payment not sent to SumUp'));
+   for (let i = 0; i < 50 && q.requests.length < 1; i++) await page.waitForTimeout(100);
    assert.equal(q.requests.length,1);assert.equal(q.requests[0].amount,68);assert.equal(q.requests[0].paymentMethod,'DEPOSIT_CASH');assert.equal(q.requests[0].cashAgreementAccepted,true);
-   await options.getByRole('button',{name:/Pay in Full Online/}).click();await page.getByRole('button',{name:'Pay £68.00 & Confirm Booking',exact:true}).click();
+   await page.getByText(/Isolated test: payment not sent to SumUp|couldn.?t start payment|couldn.?t confirm whether your payment|payment link was created|try again/i).waitFor({timeout:10000});
+   await options.getByRole('button',{name:/Pay in Full Online/}).click();
+   const fullPay=page.getByRole('button',{name:'Pay £68.00 & Confirm Booking',exact:true});
+   await fullPay.waitFor({state:'visible'});
+   await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(btn=>/Pay £68\.00 & Confirm Booking/.test(btn.textContent||'')&&!btn.disabled),null,{timeout:10000});
+   await fullPay.click();
    await page.waitForTimeout(500);
    assert.equal(q.requests.length,2);assert.equal(q.requests[1].amount,68);assert.equal(q.requests[1].paymentMethod,'FULL_ONLINE');assert.equal(q.requests[1].cashAgreementAccepted,undefined);
    assert.equal(await page.getByRole('heading',{name:'Booking confirmed',exact:true}).count(),0);

@@ -15,7 +15,7 @@ permissions:
 jobs:
   booking-and-mobile:
     if: github.head_ref == 'feat/optional-terminal-access'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses

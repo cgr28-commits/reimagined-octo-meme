@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 import { SALOON_VEHICLE, ESTATE_VEHICLE, EXECUTIVE_VEHICLE, MINIBUS_VEHICLE } from '../src/lib/vehicle-selection';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base=process.env.TEST_BASE_URL || 'http://localhost:3000';
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output=`test-results/homepage-booking/${engine}`;
@@ -16,6 +17,7 @@ assert.ok(widths.every(width=>[320,360,375,390,430,1280].includes(width)));
 try {
  for (const width of widths) for (const returning of [false,true]) {
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
+  await skipCookieConsent(context);
   const settings=defaultOwnerPricingSettings(); settings.minibus.publicEnabled=true;
   await context.addInitScript(settings=>localStorage.setItem('matni:preview-pricing-settings',JSON.stringify(settings)),settings);
   const allowed=new Set([SALOON_VEHICLE]), pending=new Map();
@@ -23,14 +25,15 @@ try {
    const req=route.request(),url=new URL(req.url());
    if(url.origin===new URL(base).origin) return route.continue();
    const json=body=>route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
-   if(url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:26000,duration:1800,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
+   // Keep the mock over 40 miles so Business Class stays offered.
+   if(url.pathname.includes('/route/v1/driving')) return json({code:'Ok',routes:[{distance:70000,duration:3600,geometry:{coordinates:[[-5.9302,54.5964],[-6.2158,54.6575]],type:'LineString'}}]});
    if(url.pathname==='/pricing/public') return json({config:toPublicOwnerPricingConfig(settings)});
    if(url.pathname==='/quote/availability') return json({blocked:false,available:true,alternativeTimes:[]});
    if(url.pathname==='/quote/calculate') {
     const body=req.postDataJSON(),vehicle=body.vehicleType;
     if(!allowed.has(vehicle)) await new Promise(resolve=>{const list=pending.get(vehicle)||[];list.push(resolve);pending.set(vehicle,list)});
     const fare=vehicle===SALOON_VEHICLE?60:vehicle===ESTATE_VEHICLE?70:vehicle===EXECUTIVE_VEHICLE?100:95;
-    return json({ok:true,amount:fare,journeyFareGbp:fare,airportFixedCostsGbp:13,nightWeekendSurchargeGbp:0,vehicleType:vehicle,returnJourney:body.returnJourney,outboundOneWayBeforeAccessGbp:fare/2,returnOneWayBeforeAccessGbp:fare/2});
+    return json({ok:true,amount:fare,journeyFareGbp:fare,airportFixedCostsGbp:13,nightWeekendSurchargeGbp:0,vehicleType:vehicle,returnJourney:body.returnJourney,outboundOneWayBeforeAccessGbp:fare/2,returnOneWayBeforeAccessGbp:fare/2,distanceKm:70,durationMinutes:60});
    }
    return route.abort();
   });
@@ -38,8 +41,6 @@ try {
   await page.goto(`${base}/?previewJourney=bfs`);
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
   await page.evaluate(()=>document.fonts.ready);
-  await page.getByRole('button',{name:'Reject optional',exact:true}).click();
-  await page.getByRole('dialog',{name:'Cookie consent'}).waitFor({state:'hidden'});
   if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('0');
@@ -57,12 +58,15 @@ try {
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
+  const measured=[];
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
    // Paired main/PR677 runs: scrollIntoViewIfNeeded can leave Minibus under the
    // fixed header (360px WebKit / 375px Chromium). Playwright then scrolls
    // 830/832px to click it; document layout stays fixed on both branches.
    // Reveal the entire choice before sampling, without relaxing the 2px limit.
    const option=page.locator(`[data-vehicle-category="${id}"]`);
+   // Desktop (≥1024) hides minibus when a car fits (data-vehicle-not-needed → display:none).
+   if(!(await option.isVisible())) continue;
    await option.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
    assert.ok(await option.evaluate(el=>{const r=el.getBoundingClientRect(),target=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=document.querySelector('header').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&(el===target||el.contains(target));}),'vehicle choice must be fully visible and unobstructed before measuring');
    const layout=()=>page.evaluate(id=>{
@@ -144,9 +148,11 @@ try {
    assert.ok(settled.at(-1).at-settled[0].at>=180,'observe at least 180ms after the confirmed fare renders');
    for(const key of ['action','tools']) assert.ok(Math.max(...settled.map(f=>f[key]))-Math.min(...settled.map(f=>f[key]))<=2,`${width}px ${id}: settled ${key} keeps moving`);
    assert.ok(hit.visible&&hit.hit&&!hit.disabled&&!hit.overflow,'repriced booking button accessible: '+JSON.stringify(hit));
+   measured.push(id);
   }
+  assert.ok(measured.includes('estate') && measured.includes('executive'),'Estate and Business Class must stay measurable when offered');
   await page.screenshot({path:`${output}/${width}-${returning?'return':'one-way'}-vehicle-stability.png`});
-  results.push(`${width}px ${returning?'return':'one-way'}: Estate, Business Class and 7-Seater delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);
+  results.push(`${width}px ${returning?'return':'one-way'}: ${measured.join(', ')} delayed authoritative repricing keeps vehicle heading and scroll position within 2px`);
   console.log('PASS',results.at(-1));
   for(const list of pending.values()) for(const resolve of list) resolve();
   await context.close();

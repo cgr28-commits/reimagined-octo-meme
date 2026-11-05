@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import sharp from 'sharp';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base = process.env.TEST_BASE_URL || 'http://localhost:38845';
 await mkdir('test-results/homepage-fields', { recursive: true });
 for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[process.env.PLAYWRIGHT_BROWSER]: {chromium, webkit}[process.env.PLAYWRIGHT_BROWSER]} : {chromium, webkit})) {
@@ -10,12 +11,12 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
   try {
     for (const width of [320, 375, 390, 430, 768, 1280]) {
       const context = await browser.newContext({viewport:{width,height:900},isMobile:width<768,hasTouch:width<768,locale:'en-GB'});
+      await skipCookieConsent(context);
       await context.route('**/*', route => new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort());
       const page = await context.newPage();
       await page.goto(base);
       await page.locator('#date').waitFor();
-      const cookie = page.getByRole('button', {name:'Reject optional',exact:true});
-      if (await cookie.isVisible()) await cookie.click();
+      await page.evaluate(() => document.fonts.ready);
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Airport Transfers');
       // The "Private airport transfers" eyebrow was removed from the hero (PR #699).
       assert.equal(await page.locator('.homepage-hero .section-eyebrow').count(), 0, 'hero has no eyebrow line');
@@ -81,7 +82,8 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       }
       await page.locator('#quote-section-passengers').selectOption('2');
       await page.locator('#quote-section-suitcases').selectOption('2');
-      await page.locator('h1').click();
+      // Blur without clicking h1 — the fixed header can intercept that click.
+      await page.locator('#quote-section-passengers').evaluate(el=>el.blur());
       await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
       for(const selector of fieldSelectors.slice(2)) {
         await page.waitForFunction(selector=>getComputedStyle(document.querySelector(selector)).color==='rgb(255, 255, 255)',selector);

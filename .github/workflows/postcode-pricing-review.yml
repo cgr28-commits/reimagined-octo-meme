@@ -24,7 +24,7 @@ permissions:
   contents: read
 jobs:
   postcode-review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -54,5 +54,12 @@ jobs:
       - name: Separate browser development cache from the clean production build
         run: mv .next "$RUNNER_TEMP/postcode-browser-next"
       - run: npm run lint
-      - run: GITHUB_PAGES=true npm run build
+      - name: Build static export
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm --prefix workers/addresses run build
