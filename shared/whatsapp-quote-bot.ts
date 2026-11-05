@@ -1204,7 +1204,7 @@ export function isWhatsAppQuestion(text: string): boolean {
 export function decideWhatsAppReply(
   existing: WhatsAppConversation | null,
   text: string,
-  options: { now?: Date; profileName?: string } = {},
+  options: WhatsAppDecideOptions = {},
 ): WhatsAppBotDecision {
   const decision = decideJourneyReply(existing, text, options);
   if (decision.action !== "none" || !decision.kind) return stripKind(decision);
@@ -1240,10 +1240,17 @@ function stripKind(decision: KindedDecision): WhatsAppBotDecision {
   return rest;
 }
 
+export type WhatsAppDecideOptions = {
+  now?: Date;
+  profileName?: string;
+  /** Quick-tap choices when asking for details (default on); false keeps only one way / return. */
+  quickChoices?: boolean;
+};
+
 function decideJourneyReply(
   existing: WhatsAppConversation | null,
   text: string,
-  options: { now?: Date; profileName?: string } = {},
+  options: WhatsAppDecideOptions = {},
 ): KindedDecision {
   const now = options.now ?? new Date();
   const conversation: WhatsAppConversation = existing
@@ -1365,7 +1372,11 @@ function decideJourneyReply(
       reply: repeat ? `Sorry, I didn't catch that. ${question}` : question,
       action: "none",
       kind: changed ? "ask" : "askRepeat",
-      ...whatsAppChoicesForField(missing, conversation.draft),
+      ...(options.quickChoices === false
+        ? missing === "returnJourney"
+          ? { buttons: [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return] }
+          : {}
+        : whatsAppChoicesForField(missing, conversation.draft)),
     };
   }
 

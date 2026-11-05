@@ -637,6 +637,15 @@ async function main() {
     assert.equal(fromAirport.conversation.awaiting, "dropoffAddress");
     assert.equal(fromAirport.list, undefined);
 
+    // Switched off: only the existing one way / return buttons remain.
+    const off = { now, quickChoices: false };
+    const offDate = decideWhatsAppReply(null, "BT9 6AA to Belfast International Airport", off);
+    assert.equal(offDate.buttons, undefined);
+    assert.equal(offDate.list, undefined);
+    const offFlow = decideWhatsAppReply(null, "From BT9 6AA to Belfast International Airport tomorrow at 9am 2 passengers no suitcases", off);
+    assert.equal(offFlow.conversation.awaiting, "returnJourney");
+    assert.deepEqual(offFlow.buttons?.map((b) => b.id), ["txt:one way", "txt:return"]);
+
     // List payload, and plain-text fallback for long bodies.
     let listPayload: Record<string, any> | undefined;
     const listStub = (async (_url: string, init?: RequestInit) => {
@@ -697,16 +706,30 @@ async function main() {
     try {
       // Journey with everything but passengers: the reply asking for them carries the list.
       const journey = "From BT9 6AA to Belfast International Airport tomorrow at 9am one way";
-      await processWhatsAppWebhook(msgIn("q1", journey, "447700900321"), listEnv);
+
+      // Switch unset (the default): plain question, exactly as before.
+      await processWhatsAppWebhook(msgIn("q0", journey, "447700900320"), listEnv);
+      assert.equal(out.at(-1)!.type, "text", "quick choices are off unless switched on");
+
+      // Pilot numbers only: others still get the plain question.
+      const pilotEnv = { ...listEnv, WHATSAPP_QUICK_CHOICES: "+44 7700 900321, 447700900322" };
+      await processWhatsAppWebhook(msgIn("q1", journey, "447700900321"), pilotEnv);
       const asked = out.at(-1)!;
       assert.equal(asked.type, "interactive");
       assert.equal(asked.interactive.type, "list");
       assert.equal(asked.interactive.action.button, "Choose passengers");
       assert.match(JSON.stringify(await getWhatsAppChat(listStore, "447700900321")), /\[List: 1 passenger/);
 
+      await processWhatsAppWebhook(msgIn("q1b", journey, "447700900323"), pilotEnv);
+      assert.equal(out.at(-1)!.type, "text", "numbers outside the pilot get the plain question");
+
+      // "all": everyone.
+      await processWhatsAppWebhook(msgIn("q1c", journey, "447700900324"), { ...listEnv, WHATSAPP_QUICK_CHOICES: "all" });
+      assert.equal(out.at(-1)!.interactive?.type, "list");
+
       // Same question, list refused by WhatsApp: the customer still gets the question as text.
       refuseLists = true;
-      await processWhatsAppWebhook(msgIn("q2", journey, "447700900322"), listEnv);
+      await processWhatsAppWebhook(msgIn("q2", journey, "447700900322"), pilotEnv);
       assert.equal(out.at(-1)!.type, "text");
       assert.equal(out.at(-1)!.to, "447700900322");
     } finally {
