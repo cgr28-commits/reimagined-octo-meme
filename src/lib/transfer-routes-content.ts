@@ -1580,6 +1580,16 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
           "Enter your suitcase count on the quote form so the booking matches the vehicle offered. Saloon and Estate carry up to 4 passengers; Business Class carries up to 3 passengers; a 7 Seater Minibus is available when offered in the quote. Enter all passengers and luggage before choosing your vehicle.",
       },
       {
+        question: "Is there a premium car option from Dublin Airport to Belfast?",
+        answer:
+          "Yes. Choose Business Class on the quote form for a premium car (Mercedes, BMW, Lexus or similar) for up to 3 passengers, with Meet & Greet in Arrivals. It suits the two-hour run north after a long flight or a business trip.",
+      },
+      {
+        question: "Can I cancel my Dublin Airport to Belfast taxi?",
+        answer:
+          "Yes. Cancel up to 24 hours before your pickup time for a full refund.",
+      },
+      {
         question: "Can I book this Dublin to Belfast airport transfer online?",
         answer:
           "Yes. The quote tool on this page is the same booking flow as the homepage, with Dublin Airport already set as the pickup.",
