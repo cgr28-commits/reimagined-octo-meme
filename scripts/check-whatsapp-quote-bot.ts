@@ -12,6 +12,7 @@ import {
   parseWhatsAppWebhook,
   register360dialogWebhook,
   sendWhatsAppButtons,
+  sendWhatsAppList,
   sendWhatsAppText,
   upload360dialogProfilePicture,
   verify360dialogWebhookSecret,
@@ -33,7 +34,10 @@ import {
   isWhatsAppPriceObjection,
   isWhatsAppTooExpensive,
   buildWhatsAppDiscountOfferReply,
+  WHATSAPP_AIRPORT_LIST,
   WHATSAPP_BUTTONS,
+  WHATSAPP_PASSENGER_LIST,
+  WHATSAPP_SUITCASE_LIST,
   decideWhatsAppReply,
   detectWhatsAppIntent,
   extractClockTimes,
@@ -551,6 +555,163 @@ async function main() {
     assert.ok(diag.lastMessageAt && diag.lastReplyOkAt);
   } finally {
     globalThis.fetch = realFetch;
+  }
+
+  console.log("=== Quick-tap choices (buttons and lists) ===");
+  {
+    const now = new Date("2026-11-05T10:00:00Z");
+    // WhatsApp limits: list button 20, row title 24, row description 72, max 10 rows.
+    for (const list of [WHATSAPP_PASSENGER_LIST, WHATSAPP_SUITCASE_LIST, WHATSAPP_AIRPORT_LIST]) {
+      assert.ok(list.button.length <= 20, list.button);
+      assert.ok(list.rows.length >= 1 && list.rows.length <= 10);
+      for (const row of list.rows) {
+        assert.ok(row.title.length <= 24, row.title);
+        assert.ok((row.description ?? "").length <= 72);
+        assert.ok(row.id.startsWith("txt:"), row.id);
+      }
+    }
+
+    // A tapped list row arrives as the phrase in its id.
+    const listTap = parseWhatsAppWebhook({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [
+        { id: "l1", from: "447700900123", timestamp: "1", type: "interactive",
+          interactive: { type: "list_reply", list_reply: { id: "txt:3 passengers", title: "3 passengers" } } },
+      ] } }] }],
+    });
+    assert.equal(listTap.messages[0].text, "3 passengers");
+
+    // Tapping through a whole quote fills every detail, with the right choices at each step.
+    const tap = (row: { id: string }) => row.id.slice("txt:".length);
+    let d = decideWhatsAppReply(null, "menu quote", { now });
+    d = decideWhatsAppReply(d.conversation, "12 Main Street, Lisburn BT28 1AA", { now });
+    assert.equal(d.conversation.awaiting, "dropoffAddress");
+    assert.equal(d.list, WHATSAPP_AIRPORT_LIST, "home pickup: offer the airports");
+    d = decideWhatsAppReply(d.conversation, tap(WHATSAPP_AIRPORT_LIST.rows[2]), { now });
+    assert.equal(d.conversation.draft.airportCode, "DUB");
+    assert.equal(d.conversation.awaiting, "outboundDate");
+    assert.deepEqual(d.buttons?.map((b) => b.id), ["txt:today", "txt:tomorrow"]);
+    assert.equal(d.list, undefined);
+    d = decideWhatsAppReply(d.conversation, tap(WHATSAPP_BUTTONS.tomorrow), { now });
+    assert.equal(d.conversation.draft.outboundDate, "2026-11-06");
+    assert.equal(d.conversation.awaiting, "outboundTime");
+    assert.equal(d.buttons, undefined, "no choices for the pickup time");
+    assert.equal(d.list, undefined);
+    d = decideWhatsAppReply(d.conversation, "6am", { now });
+    assert.equal(d.conversation.awaiting, "passengers");
+    assert.equal(d.list, WHATSAPP_PASSENGER_LIST);
+    d = decideWhatsAppReply(d.conversation, tap(WHATSAPP_PASSENGER_LIST.rows[1]), { now });
+    assert.equal(d.conversation.draft.passengers, 2);
+    assert.equal(d.list, WHATSAPP_SUITCASE_LIST);
+    d = decideWhatsAppReply(d.conversation, tap(WHATSAPP_SUITCASE_LIST.rows[0]), { now });
+    assert.equal(d.conversation.draft.suitcases, 0, "'No suitcases' is 0");
+    assert.equal(d.list, undefined);
+    assert.deepEqual(d.buttons?.map((b) => b.id), ["txt:one way", "txt:return"], "one way / return unchanged");
+    d = decideWhatsAppReply(d.conversation, tap(WHATSAPP_BUTTONS.oneWay), { now });
+    assert.equal(d.conversation.stage, "confirming");
+    assert.equal(d.list, undefined);
+
+    // Every passenger / suitcase row fills exactly that number.
+    WHATSAPP_PASSENGER_LIST.rows.forEach((row, i) => {
+      const c = decideWhatsAppReply(null, `BT9 6AA to Belfast International Airport ${tap(row)}`, { now }).conversation;
+      assert.equal(c.draft.passengers, i + 1, row.title);
+    });
+    WHATSAPP_SUITCASE_LIST.rows.forEach((row, i) => {
+      const c = decideWhatsAppReply(null, `BT9 6AA to Belfast International Airport ${tap(row)}`, { now }).conversation;
+      assert.equal(c.draft.suitcases, i, row.title);
+    });
+
+    // An older list tapped later still fills the detail it names, not the one being asked.
+    const askingDate = decideWhatsAppReply(null, "BT9 6AA to Belfast International Airport", { now });
+    assert.equal(askingDate.conversation.awaiting, "outboundDate");
+    const stale = decideWhatsAppReply(askingDate.conversation, tap(WHATSAPP_PASSENGER_LIST.rows[1]), { now });
+    assert.equal(stale.conversation.draft.passengers, 2);
+    assert.equal(stale.conversation.draft.outboundDate, undefined);
+
+    // Picked up at an airport: going to an address, so no airport list.
+    const fromAirport = decideWhatsAppReply(
+      decideWhatsAppReply(null, "menu quote", { now }).conversation,
+      "Belfast International Airport",
+      { now },
+    );
+    assert.equal(fromAirport.conversation.awaiting, "dropoffAddress");
+    assert.equal(fromAirport.list, undefined);
+
+    // List payload, and plain-text fallback for long bodies.
+    let listPayload: Record<string, any> | undefined;
+    const listStub = (async (_url: string, init?: RequestInit) => {
+      listPayload = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ messages: [{ id: "x" }] }), { status: 200 });
+    }) as typeof fetch;
+    await sendWhatsAppList({ D360_API_KEY: "k" }, "447700900123", "How many?", WHATSAPP_PASSENGER_LIST, listStub);
+    assert.equal(listPayload!.type, "interactive");
+    assert.equal(listPayload!.interactive.type, "list");
+    assert.equal(listPayload!.interactive.action.button, "Choose passengers");
+    assert.equal(listPayload!.interactive.action.sections[0].rows.length, 8);
+    assert.equal(listPayload!.interactive.action.sections[0].rows[0].id, "txt:1 passenger");
+    await sendWhatsAppList({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), WHATSAPP_PASSENGER_LIST, listStub);
+    assert.equal(listPayload!.type, "text", "long bodies fall back to plain text");
+  }
+
+  console.log("=== Worker sends lists, and falls back to text if a list is refused ===");
+  {
+    const listKv = new Map<string, string>();
+    const listStore = {
+      async get(key: string, type?: string) {
+        const v = listKv.get(key);
+        if (v == null) return null;
+        return type === "json" ? JSON.parse(v) : v;
+      },
+      async put(key: string, value: string) {
+        listKv.set(key, value);
+      },
+      async delete(key: string) {
+        listKv.delete(key);
+      },
+    } as unknown as KVNamespace;
+    const out: Array<Record<string, any>> = [];
+    let refuseLists = false;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      if (String(url).startsWith("https://graph.facebook.com/")) {
+        const msg = JSON.parse(String(init?.body));
+        if (refuseLists && msg.interactive?.type === "list") {
+          return new Response(JSON.stringify({ error: { message: "nope", code: 100 } }), { status: 400 });
+        }
+        out.push(msg);
+        return new Response(JSON.stringify({ messages: [{ id: "wamid.out" }] }), { status: 200 });
+      }
+      return new Response("{}", { status: 500 });
+    }) as typeof fetch;
+    const listEnv = {
+      TRACKING_STORE: listStore,
+      WHATSAPP_ACCESS_TOKEN: "t",
+      WHATSAPP_PHONE_NUMBER_ID: "123",
+      WHATSAPP_APP_SECRET: "s",
+      WHATSAPP_VERIFY_TOKEN: "v",
+    };
+    const lts = String(Math.floor(Date.now() / 1000));
+    const msgIn = (id: string, text: string, from: string) => ({
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ field: "messages", value: { messages: [{ id, from, timestamp: lts, type: "text", text: { body: text } }] } }] }],
+    });
+    try {
+      // Journey with everything but passengers: the reply asking for them carries the list.
+      const journey = "From BT9 6AA to Belfast International Airport tomorrow at 9am one way";
+      await processWhatsAppWebhook(msgIn("q1", journey, "447700900321"), listEnv);
+      const asked = out.at(-1)!;
+      assert.equal(asked.type, "interactive");
+      assert.equal(asked.interactive.type, "list");
+      assert.equal(asked.interactive.action.button, "Choose passengers");
+      assert.match(JSON.stringify(await getWhatsAppChat(listStore, "447700900321")), /\[List: 1 passenger/);
+
+      // Same question, list refused by WhatsApp: the customer still gets the question as text.
+      refuseLists = true;
+      await processWhatsAppWebhook(msgIn("q2", journey, "447700900322"), listEnv);
+      assert.equal(out.at(-1)!.type, "text");
+      assert.equal(out.at(-1)!.to, "447700900322");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   }
 
   console.log("\nAll WhatsApp quote assistant checks passed.");

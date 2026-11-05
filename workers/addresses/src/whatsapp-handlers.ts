@@ -26,6 +26,7 @@ import {
   register360dialogWebhook,
   sendWhatsAppButtons,
   sendWhatsAppImage,
+  sendWhatsAppList,
   sendWhatsAppLocation,
   sendWhatsAppText,
   update360dialogBusinessProfile,
@@ -38,6 +39,7 @@ import {
   type WhatsAppCloudEnv,
   type WhatsAppInboundMessage,
   type WhatsAppReplyButton,
+  type WhatsAppReplyList,
 } from "../shared/whatsapp-cloud";
 import {
   buildWhatsAppAlternativeTimeButtons,
@@ -467,6 +469,8 @@ async function handleInboundMessage(
   const conversation = decision.conversation;
   let text = decision.reply;
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
+  // Only set when asking for a journey detail; the quote/discount/handoff paths never carry one.
+  let list: WhatsAppReplyList | undefined = decision.list;
 
   if (decision.action === "handoff") {
     if (isTeamPhone) {
@@ -490,8 +494,11 @@ async function handleInboundMessage(
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
         conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
       }
-      if (answered.handoff && !isTeamPhone) {
-        await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
+      if (answered.handoff) {
+        // Handing over to the team: no "choose" options under that message.
+        buttons = undefined;
+        list = undefined;
+        if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
       }
     }
   }
@@ -621,7 +628,7 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text, buttons);
+  if (text) await reply(env, phone, text, buttons, list);
 }
 
 /**
@@ -1041,8 +1048,21 @@ async function reply(
   phone: string,
   text: string,
   buttons?: WhatsAppReplyButton[],
+  list?: WhatsAppReplyList,
 ): Promise<void> {
   const store = env.TRACKING_STORE;
+  if (list?.rows.length) {
+    const withList = await sendWhatsAppList(env, phone, text, list);
+    if (withList.sent) {
+      await recordDiag(store, { lastReplyOkAt: nowIso() });
+      await appendWhatsAppChat(store, phone, {
+        from: "assistant",
+        text: `${text}\n[List: ${list.rows.map((r) => r.title).join(" | ")}]`,
+      });
+      return;
+    }
+    logEvent("whatsapp_list_failed", phone, { error: withList.error });
+  }
   if (buttons?.length) {
     const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
     if (withButtons.sent) {

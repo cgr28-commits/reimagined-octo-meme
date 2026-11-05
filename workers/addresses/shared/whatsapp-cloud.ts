@@ -33,6 +33,13 @@ export type WhatsAppCloudEnv = {
 export type WhatsAppReplyButton = { id: string; title: string };
 export const WHATSAPP_BUTTON_TEXT_PREFIX = "txt:";
 
+/** Tap-to-choose list (up to 10 rows) behind one "open" button; rows use the same "txt:" ids. */
+export type WhatsAppReplyList = {
+  /** Label on the button that opens the list (max 20 characters). */
+  button: string;
+  rows: Array<{ id: string; title: string; description?: string }>;
+};
+
 export type WhatsAppInboundMessage = {
   id: string;
   /** Customer number, digits only in international format (e.g. 447700900123). */
@@ -389,6 +396,41 @@ export function sendWhatsAppButtons(
             type: "reply",
             reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
           })),
+        },
+      },
+    },
+    fetchImpl,
+  );
+}
+
+/** Text with a tap-to-choose list (max 10 rows). Falls back to plain text if the body is too long. */
+export function sendWhatsAppList(
+  env: WhatsAppCloudEnv,
+  to: string,
+  body: string,
+  list: WhatsAppReplyList,
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  if (list.rows.length === 0 || body.length > 1024) return sendWhatsAppText(env, to, body, fetchImpl);
+  return postWhatsAppMessage(
+    env,
+    to,
+    {
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: { text: body },
+        action: {
+          button: list.button.slice(0, 20),
+          sections: [
+            {
+              rows: list.rows.slice(0, 10).map((row) => ({
+                id: row.id.slice(0, 200),
+                title: row.title.slice(0, 24),
+                ...(row.description ? { description: row.description.slice(0, 72) } : {}),
+              })),
+            },
+          ],
         },
       },
     },
