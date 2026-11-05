@@ -38,13 +38,23 @@ for (const code of ["BFS", "BHD", "DUB"]) {
       assert.equal((waitingHtml.match(/data-airport-waiting-included/g) || []).length, pickup || returning ? 1 : 0);
       const benefits = buildQuoteAirportBenefits(props);
       assert.equal(benefits.length, returning ? 2 : 1);
-      assert.match(benefits[0].heading, pickup ? /pick-up|Collection/ : /drop-off|Drop-Off/);
-      if (returning) assert.match(benefits[1].heading, pickup ? /drop-off|Drop-Off/ : /pick-up|Collection/);
-      if (code !== "DUB") assert.match(benefits[0].heading, /Terminal .* included/);
-      else {
+      const belfast = code === "BFS" || code === "BHD";
+      if (belfast) {
+        // Belfast airports always offer free Long Stay / optional paid terminal services.
+        assert.equal(benefits[0].heading, "Free Airport Access available");
+        assert.match(benefits[0].description, /Long Stay|Terminal Access|Meet & Greet/);
+        if (returning) {
+          assert.equal(benefits[1].heading, "Free Airport Access available");
+        }
+      } else {
+        assert.match(benefits[0].heading, pickup ? /pick-up|Collection/ : /drop-off|Drop-Off/);
+        if (returning) assert.match(benefits[1].heading, pickup ? /drop-off|Drop-Off/ : /pick-up|Collection/);
         assert.doesNotMatch(benefits[0].description, /closest|close to/);
         assert.match(benefits[0].heading, /Terminal .* included/);
-        assert.match(benefits[0].description, pickup ? /No additional airport pick-up fee/ : /No additional airport drop-off fee/);
+        assert.match(
+          benefits[0].description,
+          pickup ? /No additional airport pick-up fee/ : /No additional airport drop-off fee/,
+        );
       }
       assert.equal(JSON.stringify(props), before, "Rendering must not mutate fare data");
       console.log(`OK ${code} ${pickup ? "pickup" : "drop-off"}${returning ? " return" : ""}`);
@@ -56,8 +66,16 @@ for (const pickup of ["BFS", "BHD", "DUB"]) {
     for (const returning of [false, true]) {
       const benefits = buildQuoteAirportBenefits(fixture(pickup, dropoff, returning));
       assert.equal(benefits.length, returning ? 4 : 2);
-      assert.match(benefits[0].heading, /pick-up/);
-      assert.match(benefits[1].heading, /drop-off|Drop-Off/);
+      const belfastPickup = pickup === "BFS" || pickup === "BHD";
+      const belfastDropoff = dropoff === "BFS" || dropoff === "BHD";
+      assert.match(
+        benefits[0].heading,
+        belfastPickup ? /Free Airport Access available/ : /pick-up/,
+      );
+      assert.match(
+        benefits[1].heading,
+        belfastDropoff ? /Free Airport Access available/ : /drop-off|Drop-Off/,
+      );
     }
   }
 }
