@@ -16,6 +16,7 @@ on:
       - 'scripts/check-voice-greeting.ts'
       - 'scripts/check-voice-receptionist-flow.ts'
       - 'scripts/check-voice-journey.ts'
+      - 'scripts/check-voice-e2e-integration.ts'
       - 'scripts/check-voice-inbound-provisional.ts'
       - 'docs/fonio-*.md'
       - 'scripts/check-unfinished-payment.ts'
@@ -56,7 +57,10 @@ jobs:
       - run: node --import tsx scripts/check-voice-greeting.ts
       - run: node --import tsx scripts/check-voice-receptionist-flow.ts
       - run: node --import tsx scripts/check-voice-journey.ts
+      - run: node --import tsx scripts/check-voice-e2e-integration.ts
       - run: node --import tsx scripts/check-voice-inbound-provisional.ts
+      - run: node --import tsx scripts/check-voice-followup.ts
+      - run: node --import tsx scripts/check-voice-auth.ts
       - run: node --import tsx scripts/check-unfinished-payment.ts
       - run: node --import tsx scripts/check-quote-contact-followup.ts
       - run: node --import tsx scripts/check-google-review-count.ts

@@ -1,6 +1,6 @@
 # Fonio HTTP tool config (review copy)
 
-**Do not change the live Fonio assistant until explicitly approved.**
+**Approved for testing.** Wire these tools on a Fonio **test** assistant. Do not point production phone routing here until Worker deploy + Stripe test-mode checks are approved.
 
 Base URL: `https://reimagined-octo-meme.cgr28.workers.dev`  
 Auth header on every tool (once `VOICE_WEBHOOK_SECRET` is set):

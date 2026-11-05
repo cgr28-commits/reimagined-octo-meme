@@ -59,7 +59,7 @@ assert.match(readFileSync("workers/addresses/src/voice-message.ts", "utf8"), /ur
 assert.match(readFileSync("docs/fonio-integration.md", "utf8"), /Do not change live fonio/);
 assert.match(readFileSync("docs/fonio-integration.md", "utf8"), /Stripe Checkout/);
 assert.doesNotMatch(readFileSync("docs/fonio-integration.md", "utf8"), /SumUp Hosted Checkout/);
-assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /Do not paste into the live Fonio/);
+assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /Approved for testing|Do not paste into the live Fonio|Do not deploy to production/);
 assert.doesNotMatch(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /SumUp/);
 assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /voice\/message/);
 assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /Stripe Checkout/);

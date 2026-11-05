@@ -1,6 +1,6 @@
 # Fonio receptionist prompt (review copy)
 
-**Do not paste into the live Fonio assistant until explicitly approved.**
+**Approved for testing.** Do not deploy to production Fonio routing without explicit approval. Do not rewrite this prompt unless a test run reveals a specific problem.
 
 HTTP tools: `docs/fonio-tool-config.md`. Cursor rules: `AGENTS.md` (Fonio natural business name).
 
