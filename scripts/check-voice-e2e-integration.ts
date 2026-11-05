@@ -253,10 +253,11 @@ async function main() {
     assert.equal(sms.delivered, false);
     assert.equal(sms.sendBySms, true);
     assert.match(sms.smsText, /book-quote/);
-    assert.match(sms.sayAfterSmsAccepted, /We've (sent|texted) you a (secure link|WhatsApp)/i);
+    assert.match(sms.sayAfterSmsAccepted, /I've (sent|texted) you a (secure link|WhatsApp)/i);
     assert.match(sms.sayAfterSmsAccepted, /paid on that link|booking is confirmed/i);
     assert.doesNotMatch(sms.sayAfterSmsAccepted, /never assign|driver has been assigned|Your driver is confirmed after payment/i);
-    assert.match(VOICE_LINK_SENT_SAY, /We've sent you a secure link/);
+    assert.match(VOICE_LINK_SENT_SAY, /I've sent you a secure link/);
+    assert.match(sms.sayAfterSmsAccepted, /stay on the line while you book and pay/i);
     assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/);
     assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign/i);
 

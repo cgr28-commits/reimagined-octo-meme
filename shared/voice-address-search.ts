@@ -192,5 +192,5 @@ export function decideVoiceAddressMatches(
 /** After the caller confirms a placeId from a previous search. Keep it brief — the prompt drives the next question. */
 export function voiceAddressConfirmedSay(displayLabel: string, _role: VoiceAddressRole = "pickup"): string {
   const short = displayLabel.split(",").slice(0, 2).join(",").trim() || displayLabel;
-  return `That's grand — ${short}.`;
+  return `Certainly — ${short}.`;
 }

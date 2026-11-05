@@ -50,11 +50,12 @@ export function voiceOpeningGreeting(input: { firstName?: string; now?: Date } =
 }
 
 /**
- * After WhatsApp/SMS was accepted for sending (not handset delivery proof).
+ * After WhatsApp/SMS/email was accepted for sending (not handset delivery proof).
  * Keep this customer-facing — no internal policy about driver assignment.
+ * Avoid “That’s grand” here — the phone line already uses it too often elsewhere.
  */
 export const VOICE_LINK_SENT_SAY =
-  "That's grand. We've sent you a secure link where you can check the details and complete your booking.";
+  "I've sent you a secure link where you can check the details and complete your booking.";
 
 /** Short customer line after sending the link — booking confirms on payment; driver details come later. */
 export const VOICE_BOOKING_AFTER_PAYMENT_SAY =
@@ -62,13 +63,26 @@ export const VOICE_BOOKING_AFTER_PAYMENT_SAY =
 
 /** Spoken when the caller asked for a text (SMS), after Fonio Send SMS accepts it. */
 export const VOICE_LINK_SENT_SMS_SAY =
-  "That's grand. We've texted you a secure link where you can check the details and complete your booking.";
+  "I've texted you a secure link where you can check the details and complete your booking.";
 
 /** Spoken when the caller asked for WhatsApp. */
 export const VOICE_LINK_SENT_WHATSAPP_SAY =
-  "That's grand. We've sent you a WhatsApp with a secure link where you can check the details and complete your booking.";
+  "I've sent you a WhatsApp with a secure link where you can check the details and complete your booking.";
 
-/** Spoken cancellation policy — aligned with shared/cancellation-policy.ts. */
+/** Spoken when the booking link was emailed. */
+export const VOICE_LINK_SENT_EMAIL_SAY =
+  "I've emailed you a secure link where you can check the details and complete your booking.";
+
+/**
+ * Ask once after the link is sent — stay quiet while they book; confirm via Booking Lookup when they say they've paid.
+ */
+export const VOICE_STAY_ON_LINE_ASK =
+  "Would you like me to stay on the line while you book and pay, so I can confirm the booking with you?";
+
+/**
+ * Internal cancellation wording for tools/docs — do **not** read the within-24-hours non-refundable
+ * line unsolicited on the phone. Only answer if the caller asks about cancelling.
+ */
 export const VOICE_CANCELLATION_SAY =
   "You can cancel more than 24 hours before pickup for a full refund. Cancellations within 24 hours of pickup are non-refundable.";
 
