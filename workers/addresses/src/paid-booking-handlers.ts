@@ -455,6 +455,14 @@ export async function handlePaidBookingsListRequest(
 
       return {
         ...googleAdsOwnerStatusFields(booking),
+        ...(booking.howHeardSource
+          ? {
+              howHeardSource: booking.howHeardSource,
+              howHeardSourceLabel: booking.howHeardSourceLabel,
+              howHeardRecordedAt: booking.howHeardRecordedAt,
+              howHeardChannel: booking.howHeardChannel,
+            }
+          : {}),
         paymentReference: booking.paymentReference,
         customerReference: booking.customerReference,
         checkoutId: booking.checkoutId,

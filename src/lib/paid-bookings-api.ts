@@ -156,6 +156,14 @@ export type OwnerPaidBookingSummary = Pick<
   googleAdsClickIdCaptured?: boolean;
   /** Visitor arrived from a Google ad (recorded even without cookie consent, no click ID). */
   cameFromGoogleAd?: boolean;
+  /**
+   * Customer self-reported WhatsApp “how did you hear about us?” answer.
+   * Separate from Google Ads click tracking — may not match the real click source.
+   */
+  howHeardSource?: string;
+  howHeardSourceLabel?: string;
+  howHeardRecordedAt?: string;
+  howHeardChannel?: "whatsapp";
   returnOffer?: {
     eligible: boolean;
     reason?: string;

@@ -2,7 +2,8 @@
  * WhatsApp template messages (business-initiated) sent from the business number
  * alongside the existing customer emails:
  *
- *   mat_booking_confirmed  — after a paid booking is finalised
+ *   mat_booking_confirmed  — after a paid booking is finalised (legacy body)
+ *   mat_booking_confirmed_v2 — same journey details + how-heard survey footer (preferred when approved)
  *   mat_add_flight_number  — after booking an airport collection without a flight number:
  *                            asks the customer to add it with the Manage booking button
  *   mat_driver_on_the_way  — when the driver starts the journey (start_tracking)
@@ -30,6 +31,7 @@
 import { D360_API_BASE, type WhatsAppCloudEnv } from "../shared/whatsapp-cloud";
 import { formatPartialRegistration } from "../shared/partial-registration";
 import { DEFAULT_GOOGLE_REVIEW_URL } from "../shared/google-business-profile";
+import { bookingConfirmedHowHeardFooter } from "../shared/how-heard-source";
 
 export type WhatsAppTemplateEnv = WhatsAppCloudEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -40,6 +42,8 @@ export type WhatsAppTemplateEnv = WhatsAppCloudEnv & {
 
 export type WhatsAppTemplateName =
   | "mat_booking_confirmed"
+  /** Same journey details as mat_booking_confirmed, plus the how-heard survey footer. */
+  | "mat_booking_confirmed_v2"
   | "mat_driver_on_the_way"
   | "mat_driver_details"
   | "mat_review_request"
@@ -74,6 +78,34 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
             "Hi {{1}}, your booking with My Airport Taxi NI is confirmed.\n\n" +
             "Reference: {{2}}\nPickup: {{3}}\nFrom: {{4}}\nTo: {{5}}\n\n" +
             "We will message you on the day when your driver is on the way. Reply here if anything changes.",
+          example: {
+            body_text: [["Sarah", "MAT-1042", "Sat 31 Oct at 05:30", "12 Main Street, Lisburn", "Belfast International Airport"]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Manage booking",
+              url: `${SITE}/manage-booking/?token={{1}}`,
+              example: [`${SITE}/manage-booking/?token=abc123`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "mat_booking_confirmed_v2",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, your booking with My Airport Taxi NI is confirmed.\n\n" +
+            "Reference: {{2}}\nPickup: {{3}}\nFrom: {{4}}\nTo: {{5}}\n\n" +
+            "We will message you on the day when your driver is on the way. Reply here if anything changes." +
+            bookingConfirmedHowHeardFooter(),
           example: {
             body_text: [["Sarah", "MAT-1042", "Sat 31 Oct at 05:30", "12 Main Street, Lisburn", "Belfast International Airport"]],
           },
@@ -553,11 +585,29 @@ export function sendBookingConfirmedWhatsApp(
   },
   fetchImpl?: typeof fetch,
 ): Promise<TemplateSendResult> {
-  return safely(() =>
-    sendTemplate(
+  return safely(async () => {
+    const fetchFn = fetchImpl ?? fetch;
+    const store = env.TRACKING_STORE;
+    if (!store) return { sent: false, reason: "no_store" };
+    // One confirmation per booking across the legacy and v2 template names.
+    const sharedMarker = `whatsapp:tpl:booking_confirmed:${input.paymentReference}`;
+    const legacyMarkers = [
+      sharedMarker,
+      `whatsapp:tpl:mat_booking_confirmed:${input.paymentReference}`,
+      `whatsapp:tpl:mat_booking_confirmed_v2:${input.paymentReference}`,
+    ];
+    for (const key of legacyMarkers) {
+      if (await store.get(key)) return { sent: false, reason: "already_sent" };
+    }
+    // Prefer v2 (journey details + how-heard survey) once Meta has approved it.
+    const preferV2 = await templateApproved(env, "mat_booking_confirmed_v2", fetchFn);
+    const name: WhatsAppTemplateName = preferV2
+      ? "mat_booking_confirmed_v2"
+      : "mat_booking_confirmed";
+    const result = await sendTemplate(
       env,
       {
-        name: "mat_booking_confirmed",
+        name,
         jobKey: input.paymentReference,
         mobile: input.mobile,
         bodyParams: [
@@ -570,9 +620,15 @@ export function sendBookingConfirmedWhatsApp(
         // The button needs a value; without a token the page asks for the booking details instead.
         urlButtonParam: input.manageToken?.trim() || "lookup",
       },
-      fetchImpl,
-    ),
-  );
+      fetchFn,
+    );
+    if (result.sent) {
+      await store.put(sharedMarker, new Date().toISOString(), {
+        expirationTtl: SENT_MARKER_TTL_SECONDS,
+      });
+    }
+    return result;
+  });
 }
 
 /**
@@ -948,11 +1004,13 @@ export function resendBookingDetailsWhatsApp(
   now: Date = new Date(),
   fetchImpl?: typeof fetch,
 ): Promise<TemplateSendResult> {
-  return safely(() =>
-    sendTemplate(
+  return safely(async () => {
+    const fetchFn = fetchImpl ?? fetch;
+    const preferV2 = await templateApproved(env, "mat_booking_confirmed_v2", fetchFn);
+    return sendTemplate(
       env,
       {
-        name: "mat_booking_confirmed",
+        name: preferV2 ? "mat_booking_confirmed_v2" : "mat_booking_confirmed",
         jobKey: `${input.paymentReference}:resend:${now.toISOString().slice(0, 13)}`,
         mobile: input.mobile,
         bodyParams: [
@@ -964,9 +1022,9 @@ export function resendBookingDetailsWhatsApp(
         ],
         urlButtonParam: input.manageToken?.trim() || "lookup",
       },
-      fetchImpl,
-    ),
-  );
+      fetchFn,
+    );
+  });
 }
 
 /** Phone assistant follow-up after a dropped call (caller agreed on the call). Once per number a day. */
