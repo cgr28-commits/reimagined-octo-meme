@@ -37,7 +37,14 @@ jobs:
           cache-dependency-path: candidate/package-lock.json
       - name: Build unchanged main baseline
         working-directory: baseline
-        run: npm ci && npm run build
+        run: |
+          # next/font Google fetch is intermittently null in CI; retry the build.
+          for attempt in 1 2 3; do
+            npm ci && npm run build && exit 0
+            echo "baseline build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - name: Build candidate and check consent code
         working-directory: candidate
         run: |
@@ -45,7 +52,12 @@ jobs:
           npm run lint
           npm run check:google-ads
           npm run check:conversion-tracking
-          npm run build
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "candidate build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - name: Install test browsers
         working-directory: candidate
         run: |

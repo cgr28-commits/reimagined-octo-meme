@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 
 const baselineUrl = process.env.QUOTE_BASELINE_URL;
 const updatedUrl = process.env.QUOTE_UPDATED_URL;
@@ -21,11 +22,11 @@ async function measure(label, url, width) {
     isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1,
     reducedMotion: 'reduce', locale: 'en-GB', timezoneId: 'Europe/London',
   });
+  await skipCookieConsent(context);
   const page = await context.newPage();
   await page.route('**/*', route => new URL(route.request().url()).origin === new URL(url).origin
     ? route.continue() : route.abort());
   await page.goto(url);
-  await page.getByRole('button', { name: 'Reject optional', exact: true }).click();
   await page.evaluate(() => document.fonts.ready);
   const card = page.locator('[data-quote-presentation="homepage"].quote-flow').first();
   // Align the card below the unchanged sticky header, not behind it.

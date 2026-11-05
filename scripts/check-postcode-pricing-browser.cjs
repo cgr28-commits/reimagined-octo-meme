@@ -32,6 +32,7 @@ async function main(){try{
  for(let i=0;i<80;i++){try{await fetch('http://127.0.0.1:3098/',{signal:AbortSignal.timeout(1500)});break}catch{await new Promise(r=>setTimeout(r,500))}}
  browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  const context=await browser.newContext({serviceWorkers:'block'});
+ await context.addInitScript(()=>{try{localStorage.setItem('matni-cookie-consent-v1','rejected')}catch{}});
  await context.route('**/*',async r=>{
   const request=r.request(),u=new URL(request.url());
   if(u.origin==='https://www.myairporttaxini.co.uk'){
@@ -82,7 +83,6 @@ async function main(){try{
   data.clear();const defaults=defaultOwnerPricingSettings();defaults.estate.upliftGbp=10;defaults.night.enabled=false;defaults.weekend.enabled=false;defaults.profitability=require('../src/lib/owner-profitability-settings.ts').approvedProductionProfitabilitySettings();data.set('owner:pricing-settings',JSON.stringify(defaults));
   await page.setViewportSize({width,height:1000});await page.goto(url);
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).waitFor();
-  const cookie=page.getByRole('button',{name:'Reject optional',exact:true});if(await cookie.isVisible())await cookie.click();
   await page.getByRole('button',{name:'Load approved BT1 / BT2 airport rules',exact:true}).click();
   assert.equal((await getOwnerPricingSettings(store)).postcodeRules.length,0,'Loading proposal does not activate it');
   assert.match(await row('BT1').innerText(),/£245.00\s+£255.00/);await save();

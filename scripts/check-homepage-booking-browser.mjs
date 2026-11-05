@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const engine = process.env.PLAYWRIGHT_BROWSER || 'chromium';
@@ -97,6 +98,7 @@ try {
       locale:'en-GB',
       timezoneId:'Europe/London',
     });
+    await skipCookieConsent(context);
     const writes = [];
     await context.route('**/*', async route => {
       const req = route.request(), url = new URL(req.url());
@@ -124,8 +126,6 @@ try {
     const page = await context.newPage();
     await page.goto(base);
     await page.locator('#quote-section-passengers').waitFor();
-    await page.getByRole('button',{name:'Reject optional',exact:true}).waitFor({state:'visible'});
-    await page.getByRole('button',{name:'Reject optional',exact:true}).click();
     assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
     assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
     assert.deepEqual(await page.locator('#quote-section-passengers option').allTextContents(),['Select','1','2','3','4','5','6','7']);

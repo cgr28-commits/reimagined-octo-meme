@@ -42,6 +42,7 @@ async function main() {
    }, { passive: true });
    localStorage.clear(); // Each case begins with a fresh customer journey.
    localStorage.setItem('matni:preview-pricing-settings', JSON.stringify(settings));
+   localStorage.setItem('matni-cookie-consent-v1', 'rejected');
    // Emulate iPhone browser bars reducing the visible viewport without resizing layout.
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
@@ -63,11 +64,6 @@ async function main() {
    await page.locator('#quote-section-passengers').waitFor();
    await page.evaluate(() => document.fonts.ready);
    await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
-   // The existing banner uses "Reject optional". Await hydration and actually
-   // dismiss it before testing quote scrolling; the old selector left it open.
-   const consent = page.getByRole('button', { name: 'Reject optional', exact: true });
-   await consent.click();
-   await page.getByRole('dialog', { name: 'Cookie consent' }).waitFor({ state: 'hidden' });
    await page.evaluate(({ bars, vehicle }) => { window.testBrowserBarHeight = bars; window.dispatchEvent(new CustomEvent('quote-prefill-draft', { detail: { passengers: 1, suitcases: 1, vehicle, returnJourney: false, tripDate: new Date(Date.now()+10*86400000).toISOString().slice(0,10), tripTime: '12:00' } })); }, { bars, vehicle });
    const getPrice = page.getByRole('button', { name: 'Get My Fixed Price', exact: false });
    await getPrice.scrollIntoViewIfNeeded();

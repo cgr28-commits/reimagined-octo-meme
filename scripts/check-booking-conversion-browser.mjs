@@ -6,6 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 import { publicDepositCashOffer } from '../shared/deposit-cash';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(`${process.env.PLAYWRIGHT_MODULE}/index.mjs`).href : 'playwright');
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output=`test-results/booking-conversion/${engine}`;
@@ -34,6 +35,7 @@ const results=[];
 async function quote(url,width,total=68,enabled=true,collection=false,returnTrip=false) {
  const browser=await ({chromium,webkit}[engine]).launch(launch);browsers.push(browser);
  const context=await browser.newContext({viewport:{width,height:900},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce',locale:'en-GB',timezoneId:'Europe/London'});
+ await skipCookieConsent(context);
  const requests=[];
  const settings={enabled,percent:20,minimumGbp:15};
  await context.route('**/*',async route=>{
@@ -56,7 +58,6 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
  });
  const page=await context.newPage();
  await page.goto(`${url}/?previewJourney=bfs`);
- await page.getByRole('button',{name:'Reject optional',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
  if(returnTrip) await page.getByRole('button',{name:/Return.*5%/}).first().click();
  if(collection) await page.getByRole('button',{name:'Swap pickup and drop-off',exact:true}).click();
