@@ -56,7 +56,7 @@ Use `name` / `sayHint` only as guidance. Never invent booking details from inbou
 |----------|--------|
 | `confirm` | Speak `say` (brief confirmation). If caller agrees, call again with `placeId` from the response (or pass that `placeId` into Get Quote). |
 | `clarify` | Speak `say` (one clarification). Use the matching option’s `placeId` when they choose. |
-| `confirmed` | Place locked — use `placeId` + `formattedAddress` in Get Quote. |
+| `confirmed` | Place locked — use `placeId` + `displayAddress` (or `label`) in Get Quote so hotel/business names are kept. Fall back to `formattedAddress` only if display is empty. |
 | `need_more` / `failed` | Speak `say`; ask postcode or Leave Message. Never invent an address. |
 
 Confirm body (after “yes”):
@@ -96,7 +96,7 @@ Uses the same server-side `GOOGLE_PLACES_API_KEY` as the website (never expose t
 }
 ```
 
-Pass `pickupPlaceId` / `dropoffPlaceId` from Address Search whenever available (with the confirmed `formattedAddress` as `pickup` / `dropoff`).  
+Pass `pickupPlaceId` / `dropoffPlaceId` from Address Search whenever available, with the confirmed `displayAddress` (hotel/business + street) as `pickup` / `dropoff` — not street-only `formattedAddress`.  
 When `ok` is true, speak only `say` (that is the fare).  
 When `ok` is false, **do not quote a fare**. Follow `askNext` / `missing`, `unavailable`, `needsClearerAddress`, `toolFailed`, or `say` — never invent or reuse a previous amount.
 

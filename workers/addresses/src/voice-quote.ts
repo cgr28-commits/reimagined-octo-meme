@@ -62,19 +62,38 @@ function readInput(body: unknown): VoiceQuoteInput {
   return root as VoiceQuoteInput;
 }
 
+/**
+ * Resolve a confirmed Place ID to the customer-facing journey label.
+ * Prefer displayAddress so hotel/business names are kept (Google's formattedAddress
+ * is often street-only, e.g. "15 Hope Street" without the hotel name).
+ */
 async function resolveVoicePlaceLabel(
   env: Env,
   placeId: string,
-): Promise<{ formattedAddress: string; placeId: string } | null> {
+  suggestionName?: string,
+): Promise<{ label: string; formattedAddress: string; placeId: string; placeName: string | null } | null> {
   const id = placeId.trim();
   if (!id) return null;
   const served = servedAirportFromPlaceId(id);
-  if (served) return { formattedAddress: served.formattedAddress, placeId: served.placeId };
+  if (served) {
+    return {
+      label: served.formattedAddress,
+      formattedAddress: served.formattedAddress,
+      placeId: served.placeId,
+      placeName: served.name,
+    };
+  }
   const key = env.GOOGLE_PLACES_API_KEY?.trim();
   if (!key) return null;
-  const details = await resolveGooglePlaceDetails(key, id, "A2A");
+  const details = await resolveGooglePlaceDetails(key, id, "A2A", undefined, undefined, suggestionName);
   if (!details?.formattedAddress) return null;
-  return { formattedAddress: details.formattedAddress, placeId: details.placeId };
+  const label = (details.displayAddress || details.formattedAddress).trim();
+  return {
+    label,
+    formattedAddress: details.formattedAddress,
+    placeId: details.placeId,
+    placeName: details.placeName,
+  };
 }
 
 export async function handleVoiceQuote(request: Request, env: Env): Promise<Response> {
@@ -93,21 +112,22 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
   const dropoffPlaceId = String(input.dropoffPlaceId ?? "").trim();
 
   // Prefer verified Google / catalogue places when Fonio already confirmed them.
+  // Use display labels (hotel name + street) so /book-quote shows the venue, not street alone.
   let pickupText = String(input.pickup ?? "").trim();
   let dropoffText = String(input.dropoff ?? "").trim();
   let resolvedPickupPlaceId = pickupPlaceId;
   let resolvedDropoffPlaceId = dropoffPlaceId;
   if (pickupPlaceId) {
-    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId);
+    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId, pickupText || undefined);
     if (resolved) {
-      pickupText = resolved.formattedAddress;
+      pickupText = resolved.label;
       resolvedPickupPlaceId = resolved.placeId;
     }
   }
   if (dropoffPlaceId) {
-    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId);
+    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId, dropoffText || undefined);
     if (resolved) {
-      dropoffText = resolved.formattedAddress;
+      dropoffText = resolved.label;
       resolvedDropoffPlaceId = resolved.placeId;
     }
   }
