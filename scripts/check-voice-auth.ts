@@ -42,6 +42,7 @@ console.log("OK  call log redaction helpers");
 const index = readFileSync("workers/addresses/src/index.ts", "utf8");
 assert.match(index, /voiceAuthDenied/);
 assert.match(index, /\/voice\/inbound/);
+assert.match(index, /\/voice\/address-search/);
 assert.match(index, /\/voice\/provisional-booking/);
 assert.match(index, /\/voice\/message/);
 assert.match(index, /\/owner\/voice-calls/);

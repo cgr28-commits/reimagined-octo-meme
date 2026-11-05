@@ -9,13 +9,18 @@
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
 import { VOICE_BOOKING_AFTER_PAYMENT_SAY, VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
 import { whatsAppDraftToQuoteBody, whatsAppQuoteLinkHours, WHATSAPP_SHORT_NOTICE_LINK_HOURS } from "../shared/whatsapp-quote-bot";
+import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { servedAirportFromPlaceId } from "../shared/served-airports";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { checkWhatsAppAvailability } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
 
-type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & { TRACKING_STORE?: KVNamespace };
+type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & {
+  TRACKING_STORE?: KVNamespace;
+  GOOGLE_PLACES_API_KEY?: string;
+};
 
 /** What a phone quote priced, so "send me the link" can only send links this endpoint made. */
 type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: string; heldFor: string; bookingUrl?: string };
@@ -50,6 +55,21 @@ function readInput(body: unknown): VoiceQuoteInput {
   return root as VoiceQuoteInput;
 }
 
+async function resolveVoicePlaceLabel(
+  env: Env,
+  placeId: string,
+): Promise<{ formattedAddress: string; placeId: string } | null> {
+  const id = placeId.trim();
+  if (!id) return null;
+  const served = servedAirportFromPlaceId(id);
+  if (served) return { formattedAddress: served.formattedAddress, placeId: served.placeId };
+  const key = env.GOOGLE_PLACES_API_KEY?.trim();
+  if (!key) return null;
+  const details = await resolveGooglePlaceDetails(key, id, "A2A");
+  if (!details?.formattedAddress) return null;
+  return { formattedAddress: details.formattedAddress, placeId: details.placeId };
+}
+
 export async function handleVoiceQuote(request: Request, env: Env): Promise<Response> {
   const store = env.TRACKING_STORE;
   if (!store) {
@@ -62,7 +82,30 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
 
   const body = await request.json().catch(() => null);
   const input = readInput(body);
-  const checked = voiceQuoteDraft(input);
+  const pickupPlaceId = String(input.pickupPlaceId ?? "").trim();
+  const dropoffPlaceId = String(input.dropoffPlaceId ?? "").trim();
+
+  // Prefer verified Google / catalogue places when Fonio already confirmed them.
+  let pickupText = String(input.pickup ?? "").trim();
+  let dropoffText = String(input.dropoff ?? "").trim();
+  let resolvedPickupPlaceId = pickupPlaceId;
+  let resolvedDropoffPlaceId = dropoffPlaceId;
+  if (pickupPlaceId) {
+    const resolved = await resolveVoicePlaceLabel(env, pickupPlaceId);
+    if (resolved) {
+      pickupText = resolved.formattedAddress;
+      resolvedPickupPlaceId = resolved.placeId;
+    }
+  }
+  if (dropoffPlaceId) {
+    const resolved = await resolveVoicePlaceLabel(env, dropoffPlaceId);
+    if (resolved) {
+      dropoffText = resolved.formattedAddress;
+      resolvedDropoffPlaceId = resolved.placeId;
+    }
+  }
+
+  const checked = voiceQuoteDraft({ ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff });
   if (!checked.ok) {
     return reply({
       ok: false,
@@ -91,8 +134,13 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     return reply({ ok: false, unavailable: availability.reason, say });
   }
 
+  const quoteBody = {
+    ...whatsAppDraftToQuoteBody(draft),
+    ...(resolvedPickupPlaceId ? { pickupPlaceId: resolvedPickupPlaceId } : {}),
+    ...(resolvedDropoffPlaceId ? { dropoffPlaceId: resolvedDropoffPlaceId } : {}),
+  };
   const priced = await createPricedQuickQuote(
-    whatsAppDraftToQuoteBody(draft),
+    quoteBody,
     { ...env, TRACKING_STORE: store },
     { createdByOwner: false },
   );
@@ -100,7 +148,7 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     return reply({
       ok: false,
       needsClearerAddress: true,
-      say: "I couldn't quite place that journey. Could you give me the full pickup address or postcode?",
+      say: "I couldn't quite place that journey. Could you confirm the hotel or street name, or a postcode?",
     });
   }
 

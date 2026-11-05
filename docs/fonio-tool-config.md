@@ -35,17 +35,54 @@ Use `name` / `sayHint` only as guidance. Never invent booking details from inbou
 
 ---
 
-## 2. Get Quote — during call
+## 2. Address Search — during call
+
+- URL: `…/voice/address-search`
+- Method: POST
+- When: caller gives a place that is not yet a confirmed Google location (hotel, landmark, village, incomplete address, airport name). **Do not demand a full postcode first** — search first.
+
+```json
+{
+  "query": "{{place_query}}",
+  "role": "{{place_role}}"
+}
+```
+
+`role` is `pickup` or `dropoff`.
+
+| `status` | Action |
+|----------|--------|
+| `confirm` | Speak `say` (brief confirmation). If caller agrees, call again with `placeId` from the response (or pass that `placeId` into Get Quote). |
+| `clarify` | Speak `say` (one clarification). Use the matching option’s `placeId` when they choose. |
+| `confirmed` | Place locked — use `placeId` + `formattedAddress` in Get Quote. |
+| `need_more` / `failed` | Speak `say`; ask postcode or Leave Message. Never invent an address. |
+
+Confirm body (after “yes”):
+
+```json
+{
+  "placeId": "{{placeId}}",
+  "role": "{{place_role}}"
+}
+```
+
+Uses the same server-side `GOOGLE_PLACES_API_KEY` as the website (never expose the key to Fonio).
+
+---
+
+## 3. Get Quote — during call
 
 - URL: `…/voice/quote`
 - Method: POST
-- When: caller wants a price or to book a transfer
+- When: caller wants a price or to book a transfer **after** pickup/dropoff are confirmed (prefer Address Search first for conversational places)
 - Body (custom variables with clear descriptions):
 
 ```json
 {
   "pickup": "{{pickup}}",
   "dropoff": "{{dropoff}}",
+  "pickupPlaceId": "{{pickupPlaceId}}",
+  "dropoffPlaceId": "{{dropoffPlaceId}}",
   "date": "{{date}}",
   "time": "{{time}}",
   "passengers": "{{passengers}}",
@@ -57,12 +94,13 @@ Use `name` / `sayHint` only as guidance. Never invent booking details from inbou
 }
 ```
 
+Pass `pickupPlaceId` / `dropoffPlaceId` from Address Search whenever available (with the confirmed `formattedAddress` as `pickup` / `dropoff`).  
 When `ok` is true, speak only `say` (that is the fare).  
 When `ok` is false, **do not quote a fare**. Follow `askNext` / `missing`, `unavailable`, `needsClearerAddress`, `toolFailed`, or `say` — never invent or reuse a previous amount.
 
 ---
 
-## 3. Send Booking Link — during call
+## 4. Send Booking Link — during call
 
 - URL: `…/voice/send-link`
 - Method: POST
@@ -88,7 +126,7 @@ The booking URL is our genuine `/book-quote/?id=…` link; customers pay via the
 
 ---
 
-## 4. Provisional Booking — during call
+## 5. Provisional Booking — during call
 
 - URL: `…/voice/provisional-booking`
 - Method: POST
@@ -107,7 +145,7 @@ Only after Get Quote succeeded and the caller agreed to terms. Never mark paid.
 
 ---
 
-## 5. Booking Lookup — during call
+## 6. Booking Lookup — during call
 
 - URL: `…/voice/booking`
 - Method: POST
@@ -121,7 +159,7 @@ Only after Get Quote succeeded and the caller agreed to terms. Never mark paid.
 
 ---
 
-## 6. Booking Link (Manage Booking) — during call
+## 7. Booking Link (Manage Booking) — during call
 
 - URL: `…/voice/booking-link`
 - Method: POST
@@ -137,7 +175,7 @@ SMS fallback same as Send Booking Link (`sendBySms` + `smsText`).
 
 ---
 
-## 7. Leave Message — during call
+## 8. Leave Message — during call
 
 - URL: `…/voice/message`
 - Method: POST
@@ -157,7 +195,7 @@ Use for tool failures, out-of-hours, unclear journeys, callbacks and urgent esca
 
 ---
 
-## 8. After Call — after conversation
+## 9. After Call — after conversation
 
 - URL: `…/voice/call-ended`
 - Method: POST

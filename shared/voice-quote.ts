@@ -14,6 +14,9 @@ import { extractClockTimes, type WhatsAppQuoteDraft } from "./whatsapp-quote-bot
 export type VoiceQuoteInput = {
   pickup?: unknown;
   dropoff?: unknown;
+  /** Google Place ID from /voice/address-search (preferred over free-text geocode). */
+  pickupPlaceId?: unknown;
+  dropoffPlaceId?: unknown;
   date?: unknown;
   time?: unknown;
   passengers?: unknown;

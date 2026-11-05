@@ -40,6 +40,7 @@ import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
 import { handleVoiceInbound } from "./voice-inbound";
 import { handleVoiceProvisionalBooking } from "./voice-provisional";
 import { handleVoiceMessage } from "./voice-message";
+import { handleVoiceAddressSearch } from "./voice-address";
 import { handleOwnerVoiceCalls } from "./voice-call-log-store";
 import { voiceAuthDenied } from "./voice-auth";
 export { ConsentLedger } from "./consent-ledger";
@@ -4704,6 +4705,10 @@ export default {
     // Inbound Webhook: load minimal caller context before the conversation (≤5s).
     if ((voicePath === "/voice/inbound") && (request.method === "POST" || request.method === "GET")) {
       return handleVoiceInbound(request, env);
+    }
+    // Google Places address lookup for incomplete / conversational places (hotels, landmarks, airports).
+    if (voicePath === "/voice/address-search" && request.method === "POST") {
+      return handleVoiceAddressSearch(request, env);
     }
     // Live quote — same pricing engine as the website and WhatsApp.
     if (voicePath === "/voice/quote" && request.method === "POST") {
