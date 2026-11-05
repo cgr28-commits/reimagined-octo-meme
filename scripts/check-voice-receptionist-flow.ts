@@ -1,7 +1,7 @@
 /**
  * Realistic receptionist conversation checks (quotation, return, airport, links,
  * provisional, existing booking copy, unavailable/tool-failure style says, messages).
- * Does not call live Fonio or SumUp.
+ * Does not call live Fonio or Stripe.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -86,8 +86,9 @@ async function main() {
   const provisional = readFileSync("workers/addresses/src/voice-provisional.ts", "utf8");
   assert.match(provisional, /not confirmed until you pay|That's a hold only/i);
   assert.match(provisional, /awaiting_payment/);
-  assert.doesNotMatch(provisional, /createSumUp|status:\s*"paid"/);
-  console.log("OK  provisional hold never marks paid");
+  assert.doesNotMatch(provisional, /createSumUp|createStripeCheckoutSession|status:\s*"paid"/);
+  assert.match(provisional, /Stripe payment|\/payments path/);
+  console.log("OK  provisional hold never marks paid; reuses Stripe /payments path");
 
   // 5) Existing booking verification copy.
   assert.match(voiceMobileOnlySay(1), /security/);
@@ -171,6 +172,8 @@ async function main() {
   assert.match(prompt, /answer truthfully|Do not pretend to be human/i);
   assert.match(prompt, /sayAfterSmsSent|Only after SMS succeeds/i);
   assert.match(prompt, /more than 24 hours before pickup|within 24 hours/i);
+  assert.match(prompt, /Stripe Checkout/i);
+  assert.doesNotMatch(prompt, /SumUp/i);
   assert.match(prompt, /Belfast International|Dublin|return journey|urgent|interrupt/i);
   assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /sayAfterSmsSent/);
   assert.match(readFileSync("workers/addresses/src/index.ts", "utf8"), /\/voice\/message/);

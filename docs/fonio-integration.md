@@ -73,13 +73,13 @@ Complete these **before** pointing a live NI number at production Worker URLs or
 |------------|-----------------|---------------|
 | Saloon / Estate / Business Class / Minibus pricing, BFS/BHD floors, airport fixed costs, **5% return discount** | `src/lib/quote.ts` + `shared/*` via `createPricedQuickQuote` | `POST /voice/quote` |
 | Availability / notice / closed periods | Same Smart Ops + owner blocks as WhatsApp | Checked inside `/voice/quote` — unavailable → spoken refusal, **no fare** |
-| Secure payment | SumUp Hosted Checkout after customer confirms on `/book-quote/?id=…` | Link from `/voice/quote` + `/voice/send-link` (WhatsApp) or fonio SMS with `smsText` |
+| Secure payment | Existing Stripe Checkout via `/book-quote/?id=…` → `POST /payments` (verified paid only after Stripe webhook / confirm) | Link from `/voice/quote` + `/voice/send-link` (WhatsApp) or fonio SMS with `smsText` |
 | Provisional unpaid hold | Booking job `awaiting_payment` (`MATNI-…`) | `POST /voice/provisional-booking` — **never** sets paid |
 | Paid booking lookup | Paid booking KV; reference **and** mobile required to speak details | `POST /voice/booking`, `/voice/booking-link` |
 | Call summary log | KV call log (redacted) | `POST /voice/call-ended` → `GET /owner/voice-calls` |
 | Caller greeting context | Upcoming paid bookings by mobile | `GET|POST /voice/inbound` — first name only, no journey details |
 
-**Never:** invent a fare in the prompt, confirm a slot after availability said no, or tell a caller they are paid before SumUp reports `PAID`.
+**Never:** invent a fare in the prompt, confirm a slot after availability said no, or tell a caller they are paid before our backend verifies Stripe payment and updates the booking.
 
 Company voice on the phone: **we** / **your driver** (existing `say` strings and booking summaries already follow this).
 
@@ -191,7 +191,7 @@ Only after Worker secret `VOICE_WEBHOOK_SECRET` is deployed:
 - Fares only from the website pricing engine (Saloon, Estate uplift, Vito/7-seater = Minibus path in marketing; pricing uses Minibus).
 - Return discount remains the configured **5%** on journey base (airport fixed costs undiscounted).
 - Availability refusal = no quote.
-- Provisional jobs stay `awaiting_payment` until SumUp (or Stripe) verification in `finalizePaidCheckout`.
+- Provisional jobs stay `awaiting_payment` until Stripe verification in `finalizePaidCheckout` (existing webhook / confirm path). Do not rebuild payment code for Fonio — reuse `/book-quote` → `/payments`.
 - Booking details spoken only when **MAT reference + mobile** match.
 - Call logs store phone **suffix**, short summary, and outcome — not full transcripts or card data.
 - Duplicate provisional creates reuse the same `MATNI` reference per `quoteId`.

@@ -87,5 +87,8 @@ When changing Fonio prompt copy, spoken `say` strings, or related docs
 - Never introduce as an AI unless asked directly (then answer truthfully).
 - SMS/WhatsApp bodies may still prefix **My Airport Taxi NI:** so the sender is clear in text —
   that does not apply to spoken phone turns.
+- Phone booking links use the existing website `/book-quote` → Stripe Checkout path. Never collect
+  card details on the call; never say paid until backend Stripe verification updates the booking.
+  Do not rebuild payment code for Fonio — reuse the working Stripe integration.
 - Do **not** deploy or paste changes into the live Fonio assistant without explicit approval.
   Review copies live in `docs/fonio-receptionist-prompt.md`.

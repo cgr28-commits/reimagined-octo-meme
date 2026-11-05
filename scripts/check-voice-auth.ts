@@ -50,12 +50,20 @@ assert.match(readFileSync("workers/addresses/src/voice-inbound.ts", "utf8"), /ha
 assert.match(readFileSync("workers/addresses/src/voice-inbound.ts", "utf8"), /voiceOpeningGreeting/);
 assert.match(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /awaiting_payment/);
 assert.match(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /Never invents a fare|never marks paid|awaiting_payment/i);
-assert.doesNotMatch(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /status:\s*"paid"|markPaid|createSumUp/);
+assert.doesNotMatch(
+  readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"),
+  /status:\s*"paid"|markPaid|createSumUp|createStripeCheckoutSession/,
+);
+assert.match(readFileSync("workers/addresses/src/voice-provisional.ts", "utf8"), /Stripe payment/);
 assert.match(readFileSync("workers/addresses/src/voice-message.ts", "utf8"), /urgent_message|message_captured/);
 assert.match(readFileSync("docs/fonio-integration.md", "utf8"), /Do not change live fonio/);
+assert.match(readFileSync("docs/fonio-integration.md", "utf8"), /Stripe Checkout/);
+assert.doesNotMatch(readFileSync("docs/fonio-integration.md", "utf8"), /SumUp Hosted Checkout/);
 assert.match(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /Do not paste into the live Fonio/);
+assert.doesNotMatch(readFileSync("docs/fonio-receptionist-prompt.md", "utf8"), /SumUp/);
 assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /voice\/message/);
+assert.match(readFileSync("docs/fonio-tool-config.md", "utf8"), /Stripe Checkout/);
 assert.match(readFileSync("env.example", "utf8"), /VOICE_WEBHOOK_SECRET/);
-console.log("OK  inbound, provisional, message, owner call log, docs wired");
+console.log("OK  inbound, provisional, message, owner call log, Stripe docs wired");
 
 console.log("check-voice-auth: OK");

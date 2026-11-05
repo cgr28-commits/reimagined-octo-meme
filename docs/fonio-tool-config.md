@@ -75,7 +75,8 @@ Speak only `say`. Honour `askNext`, `unavailable`, `needsClearerAddress`, `toolF
 ```
 
 If `sendBySms` is true, trigger Fonio Send SMS to Caller with `smsText` (requires SMS add-on).  
-Only after SMS succeeds, speak `sayAfterSmsSent` (do not claim delivery from the initial `say`).
+Only after SMS succeeds, speak `sayAfterSmsSent` (do not claim delivery from the initial `say`).  
+The booking URL is our genuine `/book-quote/?id=…` link; customers pay via the existing Stripe Checkout flow. Never invent payment URLs or collect card details on the call.
 
 ---
 

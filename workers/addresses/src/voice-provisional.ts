@@ -2,9 +2,9 @@
  * POST /voice/provisional-booking — create an unpaid (provisional) booking request
  * from a price this phone line already obtained via /voice/quote.
  *
- * Never invents a fare, never marks paid, never creates a SumUp checkout.
+ * Never invents a fare, never marks paid, never creates a checkout itself.
  * Payment happens only when the customer opens the existing Quick Quote booking
- * link and SumUp reports PAID through the normal /payments path.
+ * link and our backend verifies Stripe payment through the normal /payments path.
  *
  * Duplicate calls with the same quoteId reuse the same MATNI reference.
  */

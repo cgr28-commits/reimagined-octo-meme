@@ -3,7 +3,8 @@
  *
  * Same path as WhatsApp quotes: availability rules first, then the website pricing engine via
  * createPricedQuickQuote, which also stores a Quick Quote so the caller can be sent a booking
- * link. Never prices from the request; never reveals surcharges. Answers fast (fonio waits ~5s).
+ * link (`/book-quote/?id=…` → existing Stripe Checkout via /payments). Never prices from the
+ * request; never reveals surcharges; never collects cards. Answers fast (fonio waits ~5s).
  */
 import { voiceQuoteDraft, voiceQuoteSay, type VoiceQuoteInput } from "../shared/voice-quote";
 import { VOICE_LINK_SENT_SAY } from "../shared/voice-greeting";
