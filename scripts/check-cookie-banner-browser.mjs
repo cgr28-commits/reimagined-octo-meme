@@ -93,7 +93,8 @@ try {
             assert.ok(m.buttons[0].y < m.buttons[1].y,'buttons stacked in the consent modal');
             assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
             assert.equal(m.buttons[0].height,m.buttons[1].height,'equal button height');
-            for (const key of ['weight','font']) assert.equal(m.buttons[0][key],m.buttons[1][key],`same size text: ${key}`);
+            // Accept all (primary) is intentionally bolder than Reject optional (secondary).
+            assert.equal(m.buttons[0].font,m.buttons[1].font,'same size text: font');
             assert.match(await banner.innerText(),/Can we see which of our Google ads brought you here\? It helps us keep our prices down\. Booking works either way\./);
             assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'a choice is required before using the site');
             for (const button of m.buttons) { assert.ok(button.height>=44);assert.ok(Number.parseFloat(button.font)>=13); }

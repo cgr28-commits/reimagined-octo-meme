@@ -91,7 +91,12 @@ async function main() {
    });
    assert.equal(m.overflow, false); assert.ok(m.header > 0, 'Real fixed site header must be mounted');
    if (width < 768) { assert.ok(m.stacked, 'Original stacked vehicle layout must be preserved'); assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Mobile must reveal the selected vehicle card: ' + JSON.stringify(m));  }
-   else { assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m)); assert.ok(await page.locator('[data-quote-result-art]').isVisible()); assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), width < 1024, 'Existing desktop layout suppresses the duplicate capacity line'); }
+   else {
+    assert.ok(Math.abs(m.heading - m.header - 12) <= 9, 'Desktop heading stop changed: ' + JSON.stringify(m));
+    // ≥1024px price card drops the duplicate result photo; option tiles keep the art.
+    if (width < 1024) assert.ok(await page.locator('[data-quote-result-art]').isVisible());
+    assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), width < 1024, 'Existing desktop layout suppresses the duplicate capacity line');
+   }
    assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
    // Once the initial responses settle, the result must not keep scrolling.
    await page.waitForTimeout(250); assert.ok(Math.abs(await page.evaluate(() => scrollY) - m.y) <= 2);
