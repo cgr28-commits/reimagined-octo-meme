@@ -705,6 +705,11 @@ type Env = {
    * (Authorization: Bearer … or X-Voice-Secret). Worker secret only.
    */
   VOICE_WEBHOOK_SECRET?: string;
+  /**
+   * When "1"/"true"/"yes", allow /voice/send-link and /voice/provisional-booking.
+   * Leave unset while live-testing quotation + address search only.
+   */
+  VOICE_ENABLE_BOOKING_TOOLS?: string;
 };
 
 type QuoteLeadRequestBody = QuoteLeadDetails & {

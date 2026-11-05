@@ -79,6 +79,25 @@ async function main() {
   );
   body = await res.json();
   assert.equal(body.ok, false);
+  assert.equal(body.bookingToolsDisabled, true);
+  console.log("OK  provisional gated off without VOICE_ENABLE_BOOKING_TOOLS");
+
+  res = await handleVoiceProvisionalBooking(
+    new Request("https://w/voice/provisional-booking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quoteId: "aabbccddeeff00112233445566778899",
+        name: "Sam Test",
+        email: "sam@example.com",
+        mobile: "07700900123",
+        termsAccepted: "yes",
+      }),
+    }),
+    { TRACKING_STORE: store as unknown as KVNamespace, VOICE_ENABLE_BOOKING_TOOLS: "1" },
+  );
+  body = await res.json();
+  assert.equal(body.ok, false);
   assert.match(body.say, /fixed price/i);
   console.log("OK  provisional refuses without a phone-made quote");
 
@@ -135,13 +154,14 @@ async function main() {
       TRACKING_STORE: store as unknown as KVNamespace,
       BOOKING_COUNTER: counter as unknown as KVNamespace,
       SITE_ORIGIN: "https://www.myairporttaxini.co.uk",
+      VOICE_ENABLE_BOOKING_TOOLS: "1",
     },
   );
   body = await res.json();
   assert.equal(body.ok, true);
   assert.equal(body.paymentStatus, "awaiting_payment");
   assert.match(body.bookingReference, /^MATNI-\d+$/);
-  assert.match(body.say, /not confirmed until you pay|hold only|isn't paid yet|isn.t paid yet/i);
+  assert.match(body.say, /not confirmed until you pay|hold only|isn't paid yet|isn.t paid yet|payment is verified/i);
   assert.match(body.say, /Your driver/);
   assert.match(body.say, /We'/);
   assert.match(body.bookingLink, /book-quote/);
@@ -163,6 +183,7 @@ async function main() {
     {
       TRACKING_STORE: store as unknown as KVNamespace,
       BOOKING_COUNTER: counter as unknown as KVNamespace,
+      VOICE_ENABLE_BOOKING_TOOLS: "1",
     },
   );
   body = await res.json();

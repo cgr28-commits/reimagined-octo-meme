@@ -16,10 +16,12 @@ import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
 import { checkWhatsAppAvailability } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
+import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
 
 type Env = Omit<Parameters<typeof createPricedQuickQuote>[1], "TRACKING_STORE"> & {
   TRACKING_STORE?: KVNamespace;
   GOOGLE_PLACES_API_KEY?: string;
+  VOICE_ENABLE_BOOKING_TOOLS?: string;
 };
 
 /** What a phone quote priced, so "send me the link" can only send links this endpoint made. */
@@ -183,6 +185,13 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
  * gave. Only quotes made by /voice/quote in the last 3 hours, once each, to a UK mobile.
  */
 export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppTemplateEnv): Promise<Response> {
+  if (!voiceBookingToolsEnabled(env)) {
+    return reply({
+      ok: false,
+      bookingToolsDisabled: true,
+      say: VOICE_BOOKING_TOOLS_DISABLED_SAY,
+    });
+  }
   const store = env.TRACKING_STORE;
   const fallback = "No problem – the team will send you the booking link on WhatsApp shortly.";
   if (!store) return reply({ ok: false, say: fallback });

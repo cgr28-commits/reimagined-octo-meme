@@ -246,7 +246,7 @@ async function main() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quoteId, mobile: "07700900123", name: "Sam Test" }),
       }),
-      { TRACKING_STORE: store as unknown as KVNamespace },
+      { TRACKING_STORE: store as unknown as KVNamespace, VOICE_ENABLE_BOOKING_TOOLS: "1" },
     );
     const sms = await smsRes.json();
     assert.equal(sms.messageStatus, "generated");
@@ -291,7 +291,11 @@ async function main() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ quoteId, mobile: "07700900123", name: "Sam Test" }),
         }),
-        { TRACKING_STORE: store2 as unknown as KVNamespace, D360_API_KEY: "test-key" } as never,
+        {
+          TRACKING_STORE: store2 as unknown as KVNamespace,
+          D360_API_KEY: "test-key",
+          VOICE_ENABLE_BOOKING_TOOLS: "1",
+        } as never,
       );
       const wa = await waRes.json();
       assert.equal(wa.messageStatus, "accepted");
@@ -345,6 +349,7 @@ async function main() {
       TRACKING_STORE: store as unknown as KVNamespace,
       BOOKING_COUNTER: counter as unknown as KVNamespace,
       SITE_ORIGIN: "https://www.myairporttaxini.co.uk",
+      VOICE_ENABLE_BOOKING_TOOLS: "1",
     };
     const body = {
       quoteId,
