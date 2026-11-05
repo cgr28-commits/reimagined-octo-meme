@@ -4,12 +4,14 @@ import { chromium, webkit } from 'playwright';
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 import { calculatePointToPointQuote } from '../src/lib/quote';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base=process.env.TEST_BASE_URL || 'http://localhost:3000';
 await fs.mkdir(`test-results/greater-belfast-ireland/${engine}`,{recursive:true});
 const browser=await ({chromium,webkit}[engine]).launch();
 try {
   for (const width of [390,1280]) for (const destination of ['cork','galway','donegal','derry']) {
     const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
+    await skipCookieConsent(context);
     const writes=[];
     await context.route('**/*',async route=>{
       const req=route.request(),url=new URL(req.url());
@@ -32,8 +34,6 @@ try {
     const page=await context.newPage();
     await page.goto(`${base}/?previewJourney=bfs&previewDestination=${destination}`);
     await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
-    const cookie=page.getByRole('button',{name:'Reject optional',exact:true});
-    if(await cookie.isVisible()) await cookie.click();
     await page.locator('#quote-section-passengers').selectOption('2');
     await page.locator('#quote-section-suitcases').selectOption('0');
     await page.getByRole('button',{name:'Get My Fixed Price →',exact:true}).last().click();

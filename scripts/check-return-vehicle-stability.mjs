@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
 import { SALOON_VEHICLE, ESTATE_VEHICLE, EXECUTIVE_VEHICLE, MINIBUS_VEHICLE } from '../src/lib/vehicle-selection';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base=process.env.TEST_BASE_URL || 'http://localhost:3000';
 const engine=process.env.PLAYWRIGHT_BROWSER || 'chromium';
 const output=`test-results/homepage-booking/${engine}`;
@@ -16,6 +17,7 @@ assert.ok(widths.every(width=>[320,360,375,390,430,1280].includes(width)));
 try {
  for (const width of widths) for (const returning of [false,true]) {
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
+  await skipCookieConsent(context);
   const settings=defaultOwnerPricingSettings(); settings.minibus.publicEnabled=true;
   await context.addInitScript(settings=>localStorage.setItem('matni:preview-pricing-settings',JSON.stringify(settings)),settings);
   const allowed=new Set([SALOON_VEHICLE]), pending=new Map();
@@ -38,8 +40,6 @@ try {
   await page.goto(`${base}/?previewJourney=bfs`);
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
   await page.evaluate(()=>document.fonts.ready);
-  await page.getByRole('button',{name:'Reject optional',exact:true}).click();
-  await page.getByRole('dialog',{name:'Cookie consent'}).waitFor({state:'hidden'});
   if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('0');

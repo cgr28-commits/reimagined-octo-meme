@@ -44,8 +44,12 @@ jobs:
       - name: Build unchanged PR base for height comparison
         working-directory: baseline
         run: |
-          npm ci
-          npm run build
+          for attempt in 1 2 3; do
+            npm ci && npm run build && exit 0
+            echo "baseline build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install --with-deps chromium webkit
       - name: Verify mobile and desktop flow in Chromium and WebKit

@@ -3,12 +3,14 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { getServedAirport } from '../shared/served-airports';
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from '../shared/owner-pricing-config';
+import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base=process.env.TEST_BASE_URL||'http://127.0.0.1:3000';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH});
 await fs.mkdir('test-results/checkout-loading',{recursive:true});
 try {
  for(const width of [390,1440]) for(const scenario of ['success','slow','uncertain','rejected']) for(const method of ['FULL_ONLINE','DEPOSIT_CASH']) {
   const context=await browser.newContext({viewport:{width,height:900},isMobile:width<600,hasTouch:width<600,locale:'en-GB'});
+  await skipCookieConsent(context);
   const writes=[];let payments=0,clicked=false,sent;
     await context.route('**/*', async route => {
       const req = route.request(), url = new URL(req.url());
@@ -45,8 +47,6 @@ try {
   const page=await context.newPage();
   try {
   await page.goto(`${base}/?previewJourney=bfs`);
-  const reject=page.getByRole('button',{name:'Reject optional',exact:true});
-  if(await reject.isVisible()) await reject.click();
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
   await page.locator('#quote-section-passengers').selectOption('2');
   await page.locator('#quote-section-suitcases').selectOption('2');

@@ -2,12 +2,14 @@ import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { CORK_TRANSFER_PAGES } from "../src/lib/cork-transfer-content.ts";
+import { skipCookieConsent } from "./playwright-cookie-consent.mjs";
 await mkdir("test-results/cork-transfer-pages", { recursive: true });
 const browser = await chromium.launch();
 try {
   for (const width of [390, 1280]) {
     for (const direction of ["belfast-to-cork", "cork-to-belfast"]) {
       const context = await browser.newContext({ viewport: { width, height: 844 } });
+      await skipCookieConsent(context);
       const page = await context.newPage();
       const errors = [];
       let writes = 0;
@@ -21,7 +23,6 @@ try {
         return route.continue();
       });
       await page.goto(`http://127.0.0.1:3000/transfers/${direction}/`, { waitUntil: "networkidle" });
-      await page.getByRole("button", { name: "Reject optional", exact: true }).click();
       assert.equal(await page.locator("h1").count(), 1);
       assert.equal(await page.locator("h1").innerText(), CORK_TRANSFER_PAGES[direction].title);
       assert.ok((await page.title()).includes(CORK_TRANSFER_PAGES[direction].title));
