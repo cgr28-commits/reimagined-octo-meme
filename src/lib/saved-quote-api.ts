@@ -1,10 +1,13 @@
+import { saveQuoteAdsFields } from "@/lib/ads-attribution";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import type { AdsAttribution } from "../../shared/ads-attribution";
 import type {
   SavedQuoteHeldPricePublic,
   SavedQuoteJourneySnapshot,
   SavedQuotePricingSnapshot,
   SavedQuotePublicSummary,
 } from "../../shared/saved-quote";
+import type { MeasurementConsentState } from "../../shared/saved-quote-ads-attribution";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -16,6 +19,9 @@ export type SaveQuoteRequest = {
   customerEmail: string;
   journey: SavedQuoteJourneySnapshot;
   pricing: SavedQuotePricingSnapshot;
+  /** Optional override — defaults to the current browser consent + attribution. */
+  measurementConsent?: MeasurementConsentState;
+  attribution?: AdsAttribution;
 };
 
 export type SaveQuoteResult = {
@@ -47,13 +53,22 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
 
 /** Create a saved quote + send initial email (name + email only). */
 export async function saveQuote(input: SaveQuoteRequest): Promise<SaveQuoteResult> {
+  const ads = saveQuoteAdsFields();
   const response = await fetch(`${WORKER_BASE}/saved-quotes`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      ...input,
+      measurementConsent: input.measurementConsent ?? ads.measurementConsent,
+      ...(input.attribution
+        ? { attribution: input.attribution }
+        : ads.attribution
+          ? { attribution: ads.attribution }
+          : {}),
+    }),
     cache: "no-store",
     signal: AbortSignal.timeout(20000),
   });
