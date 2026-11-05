@@ -1,11 +1,39 @@
-{"searches": [
- {"slug": "bfs-market", "q": "Belfast Christmas market"},
- {"slug": "bfs-cityhall", "q": "Belfast City Hall Christmas"},
- {"slug": "bfs-xmas", "q": "Belfast Christmas lights", "keep": 6},
- {"slug": "dub-grafton", "q": "Grafton Street Christmas"},
- {"slug": "dub-lights", "q": "Dublin Christmas lights"},
- {"slug": "dub-market", "q": "Dublin Christmas market", "keep": 6},
- {"slug": "hotel-xmas", "q": "hotel lobby Christmas tree", "keep": 6},
- {"slug": "nye", "q": "New Year fireworks Dublin OR Belfast", "keep": 6},
- {"slug": "dinner", "q": "Christmas dinner table restaurant", "keep": 6}
-]}
+{
+ "files": [
+  {
+   "base": "xmas-belfast-city-hall",
+   "title": "File:Belfast City Hall (08), December 2009.JPG",
+   "fy": 0.5
+  },
+  {
+   "base": "xmas-belfast-market",
+   "title": "File:Belfast Christmas Continental Market (02), December 2009.JPG",
+   "fy": 0.55
+  },
+  {
+   "base": "xmas-belfast-market-stall",
+   "title": "File:Belfast Christmas Continental Market, November 2010 (25).JPG",
+   "fy": 0.5
+  },
+  {
+   "base": "xmas-dublin-grafton-street",
+   "title": "File:Grafton Street at night (8262993407).jpg",
+   "fy": 0.4
+  },
+  {
+   "base": "xmas-dublin-wicklow-street",
+   "title": "File:Wicklow Street at night (8262994145).jpg",
+   "fy": 0.4
+  },
+  {
+   "base": "xmas-dublin-henry-street",
+   "title": "File:Henry Street, Dublin.jpg",
+   "fy": 0.45
+  },
+  {
+   "base": "xmas-dublin-market-carousel",
+   "title": "File:Christmas Market - Dublin Docklands (6540301761).jpg",
+   "fy": 0.5
+  }
+ ]
+}
