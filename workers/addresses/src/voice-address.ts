@@ -13,12 +13,15 @@ import {
 } from "../shared/google-places";
 import { isAllowedAutocompleteLabel } from "../shared/address-validation";
 import {
+  matchServedAirportCode,
   matchServedAirportSuggestions,
   servedAirportFromPlaceId,
 } from "../shared/served-airports";
 import {
   decideVoiceAddressMatches,
+  spokenPlaceConfirmLabel,
   voiceAddressConfirmedSay,
+  type VoiceAddressCandidate,
   type VoiceAddressRole,
 } from "../shared/voice-address-search";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
@@ -215,6 +218,37 @@ export async function handleVoiceAddressSearch(request: Request, env: Env): Prom
       role,
       say: role === "dropoff" ? "Where would you like us to take you?" : "Where would you like us to pick you up from?",
     });
+  }
+
+  // Clear served-airport wording (“Dublin Airport”, “Aldergrove”) → confirm the
+  // catalogue place immediately. Do not list Google parking / duplicate airport rows.
+  const servedHit = matchServedAirportCode(query);
+  if (servedHit) {
+    const served = matchServedAirportSuggestions(query);
+    const primary = served[0];
+    if (primary?.id) {
+      const candidate: VoiceAddressCandidate = {
+        placeId: primary.id,
+        label: primary.label,
+        mainText: primary.mainText,
+        secondaryText: primary.secondaryText,
+      };
+      const label = spokenPlaceConfirmLabel(candidate);
+      return reply({
+        ok: true,
+        status: "confirm",
+        role,
+        query,
+        placeId: candidate.placeId,
+        label: candidate.label,
+        mainText: candidate.mainText,
+        secondaryText: candidate.secondaryText,
+        options: [candidate],
+        say: `Certainly. Is that ${label}?`,
+        googleConfigured: Boolean(env.GOOGLE_PLACES_API_KEY?.trim()),
+        servedAirport: servedHit,
+      });
+    }
   }
 
   if (!env.GOOGLE_PLACES_API_KEY?.trim()) {

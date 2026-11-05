@@ -149,26 +149,48 @@ export function decideVoiceAddressMatches(
     };
   }
 
-  const spoken = options.map((o) => o.mainText).filter(Boolean);
+  // Collapse near-duplicates (“Dublin Airport” vs “Dublin Airport (DUB)”) so the
+  // phone line does not read out the same place three ways.
+  const deduped: VoiceAddressCandidate[] = [];
+  const seen = new Set<string>();
+  for (const option of options) {
+    const key = option.mainText
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(option);
+  }
+  if (deduped.length === 1) {
+    const label = spokenPlaceConfirmLabel(deduped[0]!);
+    return {
+      status: "confirm",
+      candidate: deduped[0]!,
+      say: `Certainly. Is that ${label}?`,
+    };
+  }
+
+  const spoken = deduped.map((o) => o.mainText).filter(Boolean);
+  const clarifyOptions = deduped.slice(0, MAX_CLARIFY);
   if (spoken.length === 2) {
     return {
       status: "clarify",
-      options,
+      options: clarifyOptions,
       say: `I've two close matches for that ${roleWord} — is it ${spoken[0]}, or ${spoken[1]}?`,
     };
   }
   return {
     status: "clarify",
-    options,
+    options: clarifyOptions,
     say: `I've a few matches — is it ${spoken.slice(0, -1).join(", ")}, or ${spoken[spoken.length - 1]}?`,
   };
 }
 
-/** After the caller confirms a placeId from a previous search. */
-export function voiceAddressConfirmedSay(displayLabel: string, role: VoiceAddressRole = "pickup"): string {
+/** After the caller confirms a placeId from a previous search. Keep it brief — the prompt drives the next question. */
+export function voiceAddressConfirmedSay(displayLabel: string, _role: VoiceAddressRole = "pickup"): string {
   const short = displayLabel.split(",").slice(0, 2).join(",").trim() || displayLabel;
-  if (role === "dropoff") {
-    return `That's grand — ${short}. What date do you need the car?`;
-  }
-  return `No problem. And where are we taking you?`;
+  return `That's grand — ${short}.`;
 }
