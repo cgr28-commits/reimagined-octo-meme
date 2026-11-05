@@ -23,8 +23,10 @@
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = new URL("..", import.meta.url).pathname;
+// fileURLToPath, not URL.pathname — pathname gives "/C:/…" on Windows.
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const workerDir = join(repoRoot, "workers/addresses");
 const stagingPath = join(workerDir, "wrangler.staging.toml");
 const accountId =
@@ -72,12 +74,14 @@ function runCapture(command) {
 
 function putSecret(name, value) {
   console.log(`  set ${name} on staging Worker`);
+  // One command string through a shell so npx.cmd also launches on Windows. `name` is always
+  // one of our fixed secret names; the secret value goes in via stdin, never on the command line.
   const result = spawnSync(
-    "npx",
-    ["wrangler", "secret", "put", name, "--config", "wrangler.staging.toml"],
+    `npx wrangler secret put ${name} --config wrangler.staging.toml`,
     {
       input: value.trim(),
       cwd: workerDir,
+      shell: true,
       stdio: ["pipe", "inherit", "inherit"],
       env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: accountId, CLOUDFLARE_API_TOKEN: token },
     },
