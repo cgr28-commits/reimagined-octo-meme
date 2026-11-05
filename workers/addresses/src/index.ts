@@ -235,6 +235,7 @@ import { formatLondonClockTime } from "../shared/uk-time";
 import {
   customerSmartAvailabilityPreviewRequested,
   enforceCustomerSmartAvailabilityGate,
+  handleOwnerEmptyLegsPreview,
   handleOwnerEvaluateSmartOps,
   handleOwnerGetSmartOps,
   handleOwnerSaveSmartOps,
@@ -5184,6 +5185,15 @@ export default {
         request.method === "GET"
       ) {
         const result = await handleOwnerSmartOpsCalendar(request, smartEnv);
+        if ("error" in result) return json({ error: result.error }, result.status, origin);
+        return json(result, 200, origin);
+      }
+      if (
+        (url.pathname === "/owner/smart-ops/empty-legs" ||
+          url.pathname === "/api/owner/smart-ops/empty-legs") &&
+        request.method === "GET"
+      ) {
+        const result = await handleOwnerEmptyLegsPreview(request, smartEnv);
         if ("error" in result) return json({ error: result.error }, result.status, origin);
         return json(result, 200, origin);
       }

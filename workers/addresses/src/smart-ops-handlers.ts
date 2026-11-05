@@ -35,6 +35,12 @@ import {
 } from "../shared/smart-return";
 import { evaluateSmartOpsShadow } from "../shared/smart-shadow";
 import {
+  buildEmptyLegsPreviewReport,
+  emptyLegsPreviewCsv,
+  EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
+  validateEmptyLegsPreviewDateRange,
+} from "../shared/empty-legs-preview";
+import {
   customerSmartAvailabilityPreviewRequested as previewRequestedFromRequest,
   decideCustomerSmartAvailabilityGate,
   shouldEnforceCustomerSmartAvailability,
@@ -214,6 +220,8 @@ export function isOwnerSmartOpsPath(pathname: string): boolean {
     pathname === "/api/owner/smart-ops/evaluate" ||
     pathname === "/owner/smart-ops/calendar" ||
     pathname === "/api/owner/smart-ops/calendar" ||
+    pathname === "/owner/smart-ops/empty-legs" ||
+    pathname === "/api/owner/smart-ops/empty-legs" ||
     pathname === "/owner/smart-ops/shadow" ||
     pathname === "/api/owner/smart-ops/shadow"
   );
@@ -510,6 +518,57 @@ export async function handleOwnerEvaluateSmartOps(
       alternativeTimeSuggestions: config.flags.alternativeTimeSuggestions,
       smartReturnPricing: config.flags.smartReturnPricing,
     },
+  };
+}
+
+/**
+ * Read-only Empty Legs preview for the Owner portal.
+ * Never unlocks Smart Return flags, never writes pricing, never mutates bookings.
+ */
+export async function handleOwnerEmptyLegsPreview(request: Request, env: SmartOpsEnv) {
+  if (!ownerAuthorized(request, env)) return unauthorized();
+  const url = new URL(request.url);
+  const from = url.searchParams.get("from") || londonYmd();
+  const to = url.searchParams.get("to") || addDaysYmd(from, 21);
+  const range = validateEmptyLegsPreviewDateRange(from, to);
+  if (!range.ok) {
+    return { error: range.error, status: 400 };
+  }
+  const format = String(url.searchParams.get("format") || "json").toLowerCase();
+  const state = await getSmartOpsState(env.TRACKING_STORE);
+  const shadow = await listSmartShadowRecords(env.TRACKING_STORE);
+  const { occupied, parents } = await loadOccupied(env.TRACKING_STORE, {
+    fromYmd: addDaysYmd(range.fromYmd, -1),
+    toYmd: addDaysYmd(range.toYmd, 1),
+  });
+  const report = buildEmptyLegsPreviewReport({
+    parents,
+    occupied,
+    liveConfig: state.config,
+    shadow,
+    fromYmd: range.fromYmd,
+    toYmd: range.toYmd,
+  });
+
+  if (format === "csv") {
+    return {
+      ok: true as const,
+      csv: emptyLegsPreviewCsv(report),
+      filename: `empty-legs-preview-${range.fromYmd}-to-${range.toYmd}.csv`,
+      assumptions: EMPTY_LEGS_PREVIEW_ASSUMPTIONS,
+      liveSmartReturnPricing: report.liveSmartReturnPricing,
+      liveReturnCorridorMatching: report.liveReturnCorridorMatching,
+    };
+  }
+
+  return {
+    ok: true as const,
+    report,
+    /** Explicit safety mirror for the UI banner. */
+    discountsActive: false,
+    unlockBlocked: true,
+    message:
+      "Read-only Empty Legs preview. Live Smart Return pricing stays OFF. Illustrative 25% / £185 assumptions are not saved.",
   };
 }
 

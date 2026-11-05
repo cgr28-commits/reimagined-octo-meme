@@ -18,7 +18,8 @@ export type OwnerDashboardToolTab =
   | "whatsapp"
   | "inbox"
   | "marketing"
-  | "google-ads";
+  | "google-ads"
+  | "empty-legs";
 
 type OwnerDashboardToolSwitcherProps = {
   value: OwnerDashboardToolTab;
@@ -47,6 +48,11 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "google-ads", label: "Google Ads", hint: "Ad spend on Money, and the daily booking file Google Ads collects" },
   { id: "tracking", label: "Tracking", hint: "Driver tracking jobs and acceptance" },
   { id: "pricing", label: "Pricing", hint: "Fares and vehicle pricing" },
+  {
+    id: "empty-legs",
+    label: "Empty Legs",
+    hint: "Read-only preview of return and positioning empty-leg opportunities — discounts stay OFF",
+  },
   { id: "postcode-pricing", label: "Postcode Pricing", hint: "Fixed district-to-airport Saloon fares and the configured Estate supplement" },
   { id: "a2a-quotes", label: "A2A Quotes", hint: "Address-to-address quote queue" },
   { id: "personal-quotes", label: "Personal Quotes", hint: "Personal quote codes" },
