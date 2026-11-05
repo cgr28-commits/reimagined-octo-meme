@@ -22,11 +22,18 @@ import {
   type BookingDetails,
 } from "@/lib/booking-message";
 import { createPaymentReturnToken, savePendingPayment } from "@/lib/pending-payment";
+import AddressInput from "@/components/AddressInput";
 import {
   fetchQuickQuoteById,
   rescheduleQuickQuote,
+  rerouteQuickQuote,
   type QuickQuotePublicSummary,
 } from "@/lib/quick-quote-api";
+import {
+  PLACES_LOOKUP_A2A,
+  placeDisplayText,
+  type SelectedPlace,
+} from "@/lib/selected-place";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
@@ -173,6 +180,10 @@ function BookQuoteInner() {
   // Christmas surcharges) before payment.
   const [repricing, setRepricing] = useState(false);
   const [priceUpdatedFrom, setPriceUpdatedFrom] = useState<string | null>(null);
+  const [editingSide, setEditingSide] = useState<"pickup" | "dropoff" | null>(null);
+  const [draftPickup, setDraftPickup] = useState("");
+  const [draftDropoff, setDraftDropoff] = useState("");
+  const [routeError, setRouteError] = useState("");
   const scheduleTimeOk = (date: string, time: string) =>
     /^\d{4}-\d{2}-\d{2}$/.test(date.trim()) && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time.trim());
   const scheduleDiffers =
@@ -207,6 +218,72 @@ function BookQuoteInner() {
       setRepricing(false);
     }
   }, [quote, tripDate, tripTime, returnDate, returnTime]);
+
+  const beginEditAddress = useCallback(
+    (side: "pickup" | "dropoff") => {
+      if (!journey) return;
+      setRouteError("");
+      setEditingSide(side);
+      setDraftPickup(journey.pickupAddress);
+      setDraftDropoff(journey.dropoffAddress);
+    },
+    [journey],
+  );
+
+  const cancelEditAddress = useCallback(() => {
+    setEditingSide(null);
+    setRouteError("");
+  }, []);
+
+  const applyRoutePlace = useCallback(
+    async (side: "pickup" | "dropoff", place: SelectedPlace) => {
+      if (!quote || !journey) return;
+      const label = placeDisplayText(place).trim();
+      if (!label) {
+        setRouteError("Please choose an address from the suggestions.");
+        return;
+      }
+      const nextPickup = side === "pickup" ? label : journey.pickupAddress;
+      const nextDropoff = side === "dropoff" ? label : journey.dropoffAddress;
+      if (side === "pickup") setDraftPickup(label);
+      else setDraftDropoff(label);
+
+      if (
+        nextPickup === journey.pickupAddress &&
+        nextDropoff === journey.dropoffAddress
+      ) {
+        setEditingSide(null);
+        return;
+      }
+
+      setRepricing(true);
+      setRouteError("");
+      setError("");
+      try {
+        const before = quote.quotedAmountLabel;
+        const updated = await rerouteQuickQuote(quote.id, {
+          pickupAddress: nextPickup,
+          dropoffAddress: nextDropoff,
+          ...(side === "pickup" && place.placeId ? { pickupPlaceId: place.placeId } : {}),
+          ...(side === "dropoff" && place.placeId ? { dropoffPlaceId: place.placeId } : {}),
+          // Keep the other side's Place ID unknown — Worker prices from address text + this Place ID.
+        });
+        setQuote(updated);
+        setExpressDropOffSelected(updated.journey.expressDropOffSelected !== false);
+        setPriceUpdatedFrom(updated.quotedAmountLabel !== before ? before : null);
+        setEditingSide(null);
+      } catch (err) {
+        setRouteError(
+          err instanceof Error
+            ? err.message
+            : "We couldn't update the price for those addresses. Please try again.",
+        );
+      } finally {
+        setRepricing(false);
+      }
+    },
+    [quote, journey],
+  );
 
   useEffect(() => {
     if (!scheduleDiffers || !scheduleReady || repricing) return;
@@ -375,7 +452,11 @@ function BookQuoteInner() {
     }
     if (!quote || !booking || !displayPricing) return;
     if (repricing) {
-      setError("Updating your price for the new pickup time…");
+      setError("Updating your price… please wait a moment.");
+      return;
+    }
+    if (editingSide) {
+      setError("Please finish choosing the new address (or cancel edit) before paying.");
       return;
     }
     if (scheduleDiffers) {
@@ -542,10 +623,10 @@ function BookQuoteInner() {
             : quote.quotedAmountLabel}
         </p>
         {repricing ? (
-          <p className="mt-2 text-sm text-white/70" role="status">Updating the price for your new pickup time…</p>
+          <p className="mt-2 text-sm text-white/70" role="status">Updating your fixed fare…</p>
         ) : priceUpdatedFrom ? (
           <p className="mt-2 text-sm text-white/70" role="status">
-            Price updated for your new pickup time (was {priceUpdatedFrom}). Night, weekend and holiday times can change the fare.
+            Fare updated (was {priceUpdatedFrom}). Check the new total before paying — address and time changes replace the previous quote.
           </p>
         ) : null}
         {expressSelection.eligible && expressSelection.airportCode ? (
@@ -600,12 +681,91 @@ function BookQuoteInner() {
 
       <section className="min-w-0 space-y-2 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 text-sm text-white/80 sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/45">Journey</p>
-        <p className="break-words">
-          <span className="text-white/50">Pickup:</span> {journey.pickupAddress}
-        </p>
-        <p className="break-words">
-          <span className="text-white/50">Drop-off:</span> {journey.dropoffAddress}
-        </p>
+        {editingSide === "pickup" ? (
+          <div className="space-y-2">
+            <AddressInput
+              id="book-quote-pickup"
+              name="pickup"
+              label="Pickup address"
+              value={draftPickup}
+              onChange={setDraftPickup}
+              onSelectPlace={(place) => {
+                void applyRoutePlace("pickup", place);
+              }}
+              requireSuggestion
+              airportCode={PLACES_LOOKUP_A2A}
+              disableAutoScroll
+              className="book-quote-address-field"
+            />
+            <button
+              type="button"
+              onClick={cancelEditAddress}
+              disabled={repricing}
+              className="text-xs font-medium text-white/60 underline-offset-2 hover:text-white hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 flex-1 break-words">
+              <span className="text-white/50">Pickup:</span> {journey.pickupAddress}
+            </p>
+            <button
+              type="button"
+              onClick={() => beginEditAddress("pickup")}
+              disabled={repricing}
+              className="shrink-0 rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-white/85 hover:bg-white/10"
+            >
+              Edit
+            </button>
+          </div>
+        )}
+        {editingSide === "dropoff" ? (
+          <div className="space-y-2">
+            <AddressInput
+              id="book-quote-dropoff"
+              name="dropoff"
+              label="Destination"
+              value={draftDropoff}
+              onChange={setDraftDropoff}
+              onSelectPlace={(place) => {
+                void applyRoutePlace("dropoff", place);
+              }}
+              requireSuggestion
+              airportCode={PLACES_LOOKUP_A2A}
+              disableAutoScroll
+              className="book-quote-address-field"
+            />
+            <button
+              type="button"
+              onClick={cancelEditAddress}
+              disabled={repricing}
+              className="text-xs font-medium text-white/60 underline-offset-2 hover:text-white hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 flex-1 break-words">
+              <span className="text-white/50">Drop-off:</span> {journey.dropoffAddress}
+            </p>
+            <button
+              type="button"
+              onClick={() => beginEditAddress("dropoff")}
+              disabled={repricing}
+              className="shrink-0 rounded-lg border border-white/20 px-2.5 py-1 text-xs font-semibold text-white/85 hover:bg-white/10"
+            >
+              Edit
+            </button>
+          </div>
+        )}
+        {routeError ? (
+          <p className="break-words text-sm text-amber-200" role="alert">
+            {routeError}
+          </p>
+        ) : null}
         <p className="break-words">
           <span className="text-white/50">When:</span>{" "}
           {tripDate.trim() && tripTime.trim()
