@@ -59,7 +59,26 @@ import {
   type OwnerPricingSettings,
 } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
+import { roundCustomerPayableGbp, roundGbp } from "../shared/gbp";
+import { postcodeFareHasPence } from "../shared/postcode-pricing";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
+
+/**
+ * Whole-pound vehicle fare, as the public quote tool charges it (after any discount).
+ * The discount shown is whatever the rounding leaves between the two figures.
+ */
+export function toWholePoundFare(
+  d: ReturnType<typeof applyQuickQuoteManualDiscount>,
+): ReturnType<typeof applyQuickQuoteManualDiscount> {
+  const calculatedFare = roundCustomerPayableGbp(d.calculatedFare);
+  const customerFare = roundCustomerPayableGbp(d.customerFare);
+  return {
+    ...d,
+    calculatedFare,
+    customerFare,
+    discountAmount: d.discountType === "none" ? 0 : roundGbp(calculatedFare - customerFare),
+  };
+}
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -286,6 +305,8 @@ async function priceQuickQuoteBody(
   let transferFareBeforeDiscount: number;
   let vehicleTypeLabel: string | undefined = journey.vehicleType;
   let executivePayableIncludesAccess = false;
+  /** Priced by the public quote tool: charge whole pounds like it does. Owner-typed prices stay exact. */
+  let wholePoundLikeQuoteTool = false;
 
   if (pricingSource === "owner-manual") {
     const manual = parseQuickQuoteManualTransferFare(
@@ -332,6 +353,23 @@ async function priceQuickQuoteBody(
     }
     transferFareBeforeDiscount = quote.amount;
     vehicleTypeLabel = quote.vehicleType;
+    // Same exception as the quote card and booking check: fixed postcode fares / the BFS
+    // minimum that deliberately carry pence are charged to the penny.
+    wholePoundLikeQuoteTool = !(
+      Boolean(quote.preserveBfsMinimumPence) ||
+      postcodeFareHasPence({
+        enabled: ownerPricing.saloonFormula?.enabled === true ? false : ownerPricing.postcodePricingEnabled,
+        rules: ownerPricing.postcodeRules,
+        context: {
+          address: journey.fromAirport ? journey.dropoffAddress : journey.pickupAddress,
+          airportCode: journey.airportCode ?? "",
+          fromAirport: Boolean(journey.fromAirport),
+        },
+        vehicle: quote.vehicleType,
+        estateSupplement: ownerPricing.estate.upliftGbp,
+        returnJourney: quote.returnJourney,
+      })
+    );
     if (isExecutiveVehicle(quote.vehicleType)) {
       const options = ownerPricingEngineOptions(ownerPricing);
       const express = resolveExpressDropOff({
@@ -367,11 +405,12 @@ async function priceQuickQuoteBody(
     }
   }
 
-  const discounted = applyQuickQuoteManualDiscount(
+  const exactDiscounted = applyQuickQuoteManualDiscount(
     transferFareBeforeDiscount,
     discountType,
     discountValue,
   );
+  const discounted = wholePoundLikeQuoteTool ? toWholePoundFare(exactDiscounted) : exactDiscounted;
   const floor = assertQuickQuoteTransferFareFloor(discounted.customerFare);
   if (!floor.ok) {
     return { ok: false, status: 400, error: floor.message };
