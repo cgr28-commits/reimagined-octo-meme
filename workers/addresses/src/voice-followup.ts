@@ -100,9 +100,25 @@ export async function handleVoiceCallEnded(request: Request, env: Env, now = new
   // Auth is enforced in the Worker router via voiceAuthDenied (Bearer or X-Voice-Secret).
 
   const input = flatten(await request.json().catch(() => null));
-  const mobile = ukMobileForFollowUp(
-    pick(input, ["fromNumber", "from_number", "callerNumber", "caller_number", "from", "phone", "mobile", "personNumber"]),
-  );
+  // Calls reach the assistant diverted from our landline, so caller ID is usually
+  // 028 9602 2952. Prefer the mobile the caller gave on the call, then caller ID.
+  const mobile =
+    [
+      "mobile",
+      "callerMobile",
+      "caller_mobile",
+      "customerMobile",
+      "customer_mobile",
+      "fromNumber",
+      "from_number",
+      "callerNumber",
+      "caller_number",
+      "from",
+      "phone",
+      "personNumber",
+    ]
+      .map((key) => ukMobileForFollowUp(pick(input, [key])))
+      .find(Boolean) ?? "";
   const consent = truthy(pick(input, ["followUpConsent", "followup_consent", "follow_up_consent", "consent"]));
   const linkSentOnCall = truthy(pick(input, ["bookingLinkSent", "booking_link_sent", "link_sent"]));
   const existingBooking = truthy(pick(input, ["existingBooking", "existing_booking", "about_existing_booking"]));
