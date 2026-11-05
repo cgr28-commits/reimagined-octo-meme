@@ -11,6 +11,7 @@
 import { formatBookingReference, STARTING_BOOKING_REF } from "../shared/booking-reference";
 import { buildQuickQuoteCustomerUrl, isQuickQuoteExpired } from "../shared/quick-quote";
 import { voiceMobile } from "../shared/voice-booking";
+import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
 import { createBookingJobFromSubmission } from "./booking-job-handlers";
 import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
 
@@ -18,6 +19,7 @@ type Env = {
   TRACKING_STORE?: KVNamespace;
   BOOKING_COUNTER?: KVNamespace;
   SITE_ORIGIN?: string;
+  VOICE_ENABLE_BOOKING_TOOLS?: string;
 };
 
 type VoiceQuoteMemo = {
@@ -80,6 +82,14 @@ async function allocateMatni(env: Env): Promise<string | null> {
 }
 
 export async function handleVoiceProvisionalBooking(request: Request, env: Env): Promise<Response> {
+  if (!voiceBookingToolsEnabled(env)) {
+    return reply({
+      ok: false,
+      bookingToolsDisabled: true,
+      say: VOICE_BOOKING_TOOLS_DISABLED_SAY,
+    });
+  }
+
   const store = env.TRACKING_STORE;
   if (!store) {
     return reply({ ok: false, say: "I can't save that booking just now. Can I take your details so the team can call you back?" }, 503);
