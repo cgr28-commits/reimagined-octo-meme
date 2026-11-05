@@ -259,14 +259,20 @@ try {
     await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
     for (const field of ['dropoff','pickup']) {
       const input=page.locator(`#${field}`);
+      // Close any leftover address overlay (local served-airports + API listboxes
+      // can stack; the sibling listbox intercepts pointer events otherwise).
+      await page.keyboard.press('Escape');
+      await input.click();
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
       const suggestion=page.locator(`[id="${listboxId}"]`).getByRole('button',{name:/Dublin Airport Terminal 2/i}).first();
       await suggestion.waitFor({state:'visible'});
-      await suggestion.click();
+      // force: local "Co. Dublin, Ireland" overlay can still sit above the mock Terminal 2 row.
+      await suggestion.click({force:true});
       await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
       assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+      await page.keyboard.press('Escape');
     }
     await page.locator('#pickup').scrollIntoViewIfNeeded();
     await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});
