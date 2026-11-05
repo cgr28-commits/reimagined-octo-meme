@@ -85,8 +85,8 @@ async function main() {
   assert.match(quoteHandler, /messageStatus: "accepted"/);
   assert.match(quoteHandler, /sayAfterSmsAccepted/);
   assert.match(VOICE_LINK_SENT_SAY, /We've sent you a secure link/);
-  assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /payment is verified/);
-  assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /driver has been assigned/i);
+  assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/);
+  assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign|driver has been assigned/i);
   assert.doesNotMatch(quoteHandler, /Your driver is confirmed after payment/);
   ok("Send Booking Link: generated vs accepted wording; no driver-assigned-after-pay promise");
 

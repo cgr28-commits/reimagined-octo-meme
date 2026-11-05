@@ -257,7 +257,8 @@ async function main() {
     assert.match(sms.sayAfterSmsAccepted, /payment is verified/i);
     assert.doesNotMatch(sms.sayAfterSmsAccepted, /driver has been assigned|Your driver is confirmed after payment/i);
     assert.match(VOICE_LINK_SENT_SAY, /We've sent you a secure link/);
-    assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /payment is verified/);
+    assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/);
+    assert.doesNotMatch(VOICE_BOOKING_AFTER_PAYMENT_SAY, /never assign/i);
 
     // Mock WhatsApp accept → messageStatus=accepted, delivered still false.
     const store2 = memoryStore();

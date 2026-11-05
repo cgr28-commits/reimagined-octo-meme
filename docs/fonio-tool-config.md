@@ -111,20 +111,25 @@ When `ok` is false, **do not quote a fare**. Follow `askNext` / `missing`, `unav
 {
   "quoteId": "{{quoteId}}",
   "mobile": "{{mobile}}",
-  "name": "{{name}}"
+  "name": "{{name}}",
+  "channel": "{{channel}}"
 }
 ```
+
+`channel` is `sms` or `whatsapp` (ask the caller which they want). Omit only if they have no preference (WhatsApp first, SMS fallback).
+
+Fonio template variables: `quoteId`, `mobile`, `name`, `channel`.
 
 Message status fields (use accurate customer wording):
 
 | `messageStatus` | Meaning | What to say |
 |-----------------|---------|-------------|
 | `generated` | Link/SMS text prepared; not yet handed to the carrier | Speak `say` (“I'm sending it now”). If `sendBySms`, run Fonio Send SMS with `smsText`. Do **not** claim the text arrived. |
-| `accepted` | WhatsApp/SMS API accepted the message for sending | Speak `say` or, after SMS, `sayAfterSmsAccepted` (legacy alias: `sayAfterSmsSent`). You may say we have sent the secure link. Do **not** claim handset delivery. |
+| `accepted` | API accepted the message for sending | Speak `say` or, after SMS, `sayAfterSmsAccepted`. Do **not** claim handset delivery. |
 | `delivered` | Handset delivery confirmed (only if the tool returns this) | Only then say the message was delivered. |
 
-Never promise a named/assigned driver because Stripe payment succeeded — payment verifies booking status via Booking Lookup only.  
-The booking URL is our genuine `/book-quote/?id=…` link; customers pay via the existing Stripe Checkout flow. Never invent payment URLs or collect card details on the call.
+Do not read internal driver-assignment rules to the caller — speak only tool `say` fields.  
+The booking URL is our genuine `/book-quote/?id=…` link; customers pay via Stripe Checkout. Never invent payment URLs or collect card details on the call.
 
 ---
 
