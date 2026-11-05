@@ -74,7 +74,10 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
 }
 async function book(page) {
   await page.getByRole('button', {name: /BOOK THIS TRANSFER/i}).click();
-  await page.locator('#date').waitFor({ state: 'visible' });
+  // Checkout mounts customer details; homepage quote #date can stay opacity:0 under the prompt.
+  await page.getByRole('heading', { name: 'COMPLETE YOUR BOOKING', exact: true }).waitFor();
+  await page.locator('#name').waitFor({ state: 'visible' });
+  await page.locator('#date').waitFor({ state: 'attached' });
   await page.waitForTimeout(1100); // allow the existing 720ms scroll glide to finish
   const pos = await page.evaluate(() => {
     const box = (id) => document.getElementById(id).getBoundingClientRect();
@@ -190,6 +193,7 @@ try {
     }
     assert.ok(vehicles.includes('saloon') && vehicles.includes('estate'), 'core car options must stay selectable');
     await page.locator('[data-vehicle-category="saloon"]').click();
+    await page.getByRole('button', { name: /BOOK THIS TRANSFER/i }).waitFor();
     pass(`${width}px: visible vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});

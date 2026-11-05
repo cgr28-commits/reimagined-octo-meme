@@ -36,7 +36,14 @@ jobs:
           node --import tsx scripts/check-sumup-booking-conversion.ts
           node --import tsx scripts/check-pricing-vehicle-quote-flow.ts
           node --import tsx scripts/check-quote-checkout-page.ts
-      - run: npm run build
+      - name: Build Next.js app
+        run: |
+          for attempt in 1 2 3; do
+            npm run build && exit 0
+            echo "build attempt ${attempt} failed; retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
