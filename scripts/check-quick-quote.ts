@@ -14,8 +14,10 @@ import {
   normalizeQuickQuoteId,
   quickQuoteAmountsEqual,
   QUICK_QUOTE_MAX_PASSENGERS,
+  applyQuickQuoteManualDiscount,
   type QuickQuoteRecord,
 } from "../shared/quick-quote";
+import { toWholePoundFare } from "../workers/addresses/src/quick-quote-handlers";
 import {
   addCalendarDays,
   countFieldValue,
@@ -376,5 +378,21 @@ const quoteHandlers = fs.readFileSync(
   "utf8",
 );
 assert.match(quoteHandlers, /calculateAuthoritativeWebsiteQuote/);
+
+// Quote-tool-priced Quick Quotes (incl. WhatsApp) charge whole pounds like the quote card:
+// nearest pound, half up, after any discount.
+{
+  const plain = toWholePoundFare(applyQuickQuoteManualDiscount(63.47));
+  assert.equal(plain.customerFare, 63);
+  assert.equal(plain.calculatedFare, 63);
+  assert.equal(plain.discountAmount, 0);
+  assert.equal(toWholePoundFare(applyQuickQuoteManualDiscount(63.5)).customerFare, 64);
+  assert.equal(toWholePoundFare(applyQuickQuoteManualDiscount(80)).customerFare, 80);
+  // WhatsApp "too expensive" 5%: £63 → £59.85 → £60, saving shown as £3.
+  const offer = toWholePoundFare(applyQuickQuoteManualDiscount(63.47, "percent", 5));
+  assert.equal(offer.customerFare, 60);
+  assert.equal(offer.discountAmount, 3);
+  assert.ok(offer.customerFare <= offer.calculatedFare);
+}
 
 console.log("\nAll Quick Quote checks passed.");
