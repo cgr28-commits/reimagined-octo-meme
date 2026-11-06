@@ -12,7 +12,8 @@ import {
 } from "../shared/airport-pickup-reminder";
 import { getServedAirport, matchServedAirportCode } from "../shared/served-airports";
 import { buildWhatsAppPickupInfo } from "../shared/whatsapp-pickup-info";
-import { airportPickupLinkPath, sendAirportPickupWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { airportPickupLinkPath, sendAirportPickupWhatsApp, sendJourneyReminderWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
+import { legPickupAirportAccessOption } from "../shared/meet-greet";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { getPaidBookingRecord } from "./paid-booking-store";
@@ -38,7 +39,18 @@ export type AirportPickupContext = {
   directions: string;
   /** Path after the site origin for the WhatsApp map button. */
   linkPath: string;
+  /** Driver meets the customer inside Arrivals (Meet & Greet, all Dublin): no map button. */
+  meetInArrivals: boolean;
+  /** Customer paid for Meet & Greet: driver holds a name board. */
+  nameBoard: boolean;
 };
+
+/** "Pickup"/"arrived at" wording for customers met inside Arrivals (no map). */
+export function arrivalsMeetingPlace(pickup: AirportPickupContext): string {
+  return pickup.nameBoard
+    ? `the arrivals hall at ${pickup.airportName}, with a name board showing your name`
+    : `the arrivals hall at ${pickup.airportName}`;
+}
 
 /**
  * Where an airport collection customer should go, for WhatsApp: same directions as the
@@ -57,6 +69,11 @@ export function airportPickupContext(input: AirportPickupReminderInput): Airport
     access,
     directions,
     linkPath: airportPickupLinkPath({ airportCode: code, access, mapImageUrl }),
+    meetInArrivals: access === "meet-greet" || code === "DUB",
+    nameBoard:
+      code === "DUB"
+        ? legPickupAirportAccessOption(input, input.journeyLeg, code) === "meet-greet"
+        : access === "meet-greet",
   };
 }
 
@@ -184,7 +201,18 @@ async function maybeSendAirportPickupReminder(
   // WhatsApp copy: where to meet the driver + map button (approved template only; once per job).
   const pickup = airportPickupContext(reminderInput);
   // Free Long Stay pick-ups: on hold (owner, Oct 2026) until the free pick-up maps are agreed.
-  if (pickup && pickup.access !== "free") {
+  if (pickup?.meetInArrivals) {
+    // Met inside Arrivals: no map. Approved button-free reminder template.
+    await sendJourneyReminderWhatsApp(env, {
+      jobKey: job.token,
+      customerName: job.customerName || paid?.customerName,
+      mobile: job.customerMobile || paid?.mobileNumber,
+      tripDate: reminderInput.tripDate,
+      tripTime: reminderInput.tripTime,
+      pickupLabel: arrivalsMeetingPlace(pickup).replace(/^the a/, "A"),
+      dropoffLabel: job.dropoffLabel || paid?.dropoffLabel,
+    });
+  } else if (pickup && pickup.access !== "free") {
     await sendAirportPickupWhatsApp(env, {
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
