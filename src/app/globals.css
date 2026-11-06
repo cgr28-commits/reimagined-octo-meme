@@ -2472,6 +2472,9 @@ body:has(.cookie-consent-banner--modal) {
     min-height: 3rem; height: 3rem; padding-inline: 1.4rem; white-space: nowrap; font-size: 1rem;
   }
 
+  /* Address suggestions: wider than the address box so full addresses can be read. */
+  body:has(.homepage-hero [data-homepage-quote-fields]) .address-suggestions-overlay { min-width: 25rem; }
+
   /* Fields: comfortable 48px controls with matching label rows. */
   /* Labels get room for two lines (e.g. "Scheduled flight arrival time") and sit on
      the bottom of that space, so every box in the row lines up. */
