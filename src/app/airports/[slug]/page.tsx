@@ -222,7 +222,9 @@ export default async function AirportTransferPage({ params }: Props) {
                 <p className="mt-3 text-sm leading-relaxed text-white/70">
                   For an arrival, put Belfast International Airport in Pickup location and enter your destination
                   address. Add your flight number when completing the booking so we can monitor your flight.
-                  Follow the collection instructions confirmed by your driver after you have collected your luggage.
+                  Free pickups are from the Long Stay car park, or choose Express Pick-Up beside the terminal and the
+                  airport&apos;s charge is included in your fixed price. Follow the collection instructions confirmed by
+                  your driver after you have collected your luggage.
                   Business Class airport pickups include Meet &amp; Greet with a name board; check the details
                   for the vehicle and collection service you book.
                 </p>

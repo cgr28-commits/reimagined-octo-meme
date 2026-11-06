@@ -119,6 +119,12 @@ export default async function TownHubPage({ params }: Props) {
                 {INTERNATIONAL_GUIDE_CONTEXT[page.town.slug]}
                 <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport taxi guide</Link>.
               </p>
+            ) : page.airportCodes.includes("BFS") ? (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                Flying from Aldergrove? Pickup points, airport charges and flight tracking are explained on our{" "}
+                <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport taxi</Link>{" "}
+                page.
+              </p>
             ) : null}
             {["holywood", "bangor"].includes(page.town.slug) ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">

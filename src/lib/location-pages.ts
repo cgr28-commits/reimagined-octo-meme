@@ -79,9 +79,9 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Belfast International Airport",
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
-    seoTitle: "Belfast International Airport Taxi (Aldergrove) | Fixed Price, 5★",
+    seoTitle: "Belfast International Airport Taxi & Transfers (Aldergrove) | 5★",
     metaDescription:
-      "Taxi to or from Belfast International Airport (Aldergrove), pre-booked at a fixed price. Airport charges included, flight tracking, 60 mins free waiting. 5★.",
+      "Belfast International Airport taxi to or from Aldergrove, pre-booked at a fixed price from Belfast and across NI. Flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
       `Book a taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
@@ -137,7 +137,12 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       {
         question: "Where will my driver meet me at Belfast International Airport?",
         answer:
-          "Your booking confirmation gives the agreed collection point, and your driver contacts you on the day. Business Class pickups include Meet & Greet with a name board in arrivals. Please follow the instructions for your booking rather than heading to the public taxi rank or a different car park.",
+          "Free pickups are from the Long Stay car park. If you would rather be collected right beside the terminal, choose the Express Pick-Up option in the quote and the airport's charge is included in your fixed price. Your booking confirmation gives the exact collection point and your driver contacts you on the day. Business Class pickups include Meet & Greet with a name board in arrivals. Please follow the instructions for your booking rather than heading to the public taxi rank.",
+      },
+      {
+        question: "Is Belfast International the same as Belfast Airport?",
+        answer:
+          "Yes. When people say Belfast Airport they usually mean Belfast International Airport (BFS) at Aldergrove, about 30 minutes north-west of Belfast city centre. The smaller George Best Belfast City Airport (BHD) is beside the harbour. We run pre-booked, fixed-price taxis to and from both.",
       },
       {
         question: "What happens if my flight into Aldergrove is delayed?",
