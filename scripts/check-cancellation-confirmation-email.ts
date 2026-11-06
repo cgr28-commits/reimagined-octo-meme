@@ -7,8 +7,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { REFUND_FUNDS_TIMING } from "../shared/refund-ops";
+import { normalizeCancellationReceivedAt } from "../shared/refund-ops";
 import {
   buildCustomerCancellationEmails,
+  formatCancellationReceived,
   type CancellationEmailDetails,
 } from "../shared/booking-notifications";
 
@@ -164,12 +166,27 @@ const plainGoodwill = buildCustomerCancellationEmails(
 );
 assert.match(plainGoodwill.customer!.text, /we have refunded £5\.00 to your original payment method/);
 
+// "Cancellation received" time (owner-entered), in UK time — evidence for card disputes.
+const received = buildCustomerCancellationEmails(
+  details({ cancellationReceivedAt: "2026-11-06T19:45:00.000Z", tripDate: "2026-11-06", tripTime: "23:30" }),
+);
+assert.match(received.customer!.text, /Cancellation received\n6 November 2026 at 7:45pm/);
+assert.match(received.customer!.html, /Cancellation received<\/div>\s*<div[^>]*>6 November 2026 at 7:45pm</);
+assert.match(received.owner!.body, /Cancellation received: 6 November 2026 at 7:45pm/);
+assert.equal(formatCancellationReceived("2026-07-01T08:05:00.000Z"), "1 July 2026 at 9:05am", "BST");
+assert.doesNotMatch(lateText, /Cancellation received/, "omitted when not entered");
+assert.equal(normalizeCancellationReceivedAt("2026-11-06T19:45", new Date("2026-11-06T20:40:00Z")) !== null, true);
+assert.equal(normalizeCancellationReceivedAt("2026-11-07T19:45:00Z", new Date("2026-11-06T20:40:00Z")), null, "future rejected");
+assert.equal(normalizeCancellationReceivedAt("nonsense"), null);
+assert.equal(normalizeCancellationReceivedAt(""), null);
+
 const previewDir = process.env.CANCELLATION_EMAIL_PREVIEW_DIR;
 if (previewDir) {
   fs.mkdirSync(previewDir, { recursive: true });
   fs.writeFileSync(path.join(previewDir, "non-refundable.html"), lateHtml);
   fs.writeFileSync(path.join(previewDir, "refundable.html"), earlyHtml);
   fs.writeFileSync(path.join(previewDir, "goodwill-meet-greet.html"), goodwillHtml);
+  fs.writeFileSync(path.join(previewDir, "late-with-received.html"), received.customer!.html);
 }
 
 console.log("OK  cancellation confirmation emails");

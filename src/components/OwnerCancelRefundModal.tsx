@@ -23,6 +23,13 @@ import type { OwnerPaidBookingSummary } from "@/lib/paid-bookings-api";
 import { remainingBalanceFillValue } from "@/lib/refund-test-ui";
 import { explainOwnerLegFareAllocation } from "../../shared/owner-dashboard-ops";
 
+
+/** Value for <input type="datetime-local"> in the browser's local time. */
+function toDateTimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export type CancelRefundActionChoice =
   | "cancel_full_refund"
   | "cancel_partial_refund"
@@ -172,6 +179,8 @@ export default function OwnerCancelRefundModal({
     useState<RefundReasonCategory>("customer_cancelled_over_24h");
   const [ownerNotes, setOwnerNotes] = useState("");
   const [customerFacingReason, setCustomerFacingReason] = useState("");
+  // When the customer told us (shown in their email; decides the 24-hour rule). Defaults to now.
+  const [cancellationReceived, setCancellationReceived] = useState(() => toDateTimeLocal(new Date()));
   const [confirmOwnerKey, setConfirmOwnerKey] = useState("");
   const [finalConfirm, setFinalConfirm] = useState(false);
   const [idempotencyKey] = useState(() => `ui-${generateRefundOpId()}`);
@@ -351,6 +360,10 @@ export default function OwnerCancelRefundModal({
         reasonCategory,
         ownerNotes,
         customerFacingReason,
+        cancellationReceivedAt:
+          resolved.cancelBooking && cancellationReceived
+            ? new Date(cancellationReceived).toISOString()
+            : undefined,
         idempotencyKey,
       });
       if (!result.ok && !result.alreadyProcessed && !result.alreadyRefunded) {
@@ -629,6 +642,24 @@ export default function OwnerCancelRefundModal({
       <p className="mt-1 text-[11px] text-red-100/50">
         Saved on this refund operation only. Never shown in customer emails.
       </p>
+
+      {resolved.cancelBooking ? (
+        <label className="mt-3 block text-sm text-red-50">
+          Cancellation received (when the customer told you)
+          <input
+            type="datetime-local"
+            value={cancellationReceived}
+            max={toDateTimeLocal(new Date())}
+            disabled={busy}
+            onChange={(event) => setCancellationReceived(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+            data-refund-cancellation-received="true"
+          />
+          <span className="mt-1 block text-[11px] text-red-100/50">
+            Shown in the customer&apos;s email and used for the 24-hour rule.
+          </span>
+        </label>
+      ) : null}
 
       <label className="mt-3 block text-sm text-red-50">
         Customer-facing reason (optional)

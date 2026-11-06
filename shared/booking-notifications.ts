@@ -1357,6 +1357,8 @@ export type CancellationEmailDetails = RefundConfirmationDetails & {
   sumUpTransactionId?: string;
   cumulativeRefundedValue?: number;
   amountRetained?: string;
+  /** When the customer cancelled (ISO); shown to them as "Cancellation received". */
+  cancellationReceivedAt?: string;
   /** The refund is exactly the booking's Meet & Greet charge (named in the customer email). */
   meetGreetRefund?: boolean;
   paymentStatusAfter?: string;
@@ -1428,6 +1430,9 @@ export function buildOwnerRefundAuditEmailBody(
       ? `Customer-facing reason: ${details.customerFacingReason}\n`
       : "") +
     `Within 24h of pickup: ${details.within24h ? "Yes" : "No"}\n` +
+    (details.cancellationReceivedAt
+      ? `Cancellation received: ${formatCancellationReceived(details.cancellationReceivedAt)}\n`
+      : "") +
     `\nMONEY\n${"=".repeat(40)}\n` +
     `Amount refunded (this operation): ${details.refundAmount}\n` +
     `Cumulative refunded to date: ${cumulativeLabel}\n` +
@@ -1615,6 +1620,28 @@ const NO_FURTHER_PAYMENT_LINE = "There is nothing more for you to pay for this b
 const CUSTOMER_STATUTORY_RIGHTS_LINE = "Your statutory rights are not affected.";
 
 /** Customer cancellation emails only. Stored pickup date/time stay UK wall-clock. */
+/** "6 November 2026 at 7:45pm" in UK time. */
+export function formatCancellationReceived(iso: string | undefined): string {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "";
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: UK_TIME_ZONE,
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  );
+  const dayPeriod = String(parts.dayPeriod ?? "").toLowerCase().replace(/\./g, "").replace(/\s/g, "");
+  return `${parts.day} ${parts.month} ${parts.year} at ${parts.hour}:${parts.minute}${dayPeriod}`;
+}
+
 function formatCustomerFacingCancellationWhen(tripDate: string, tripTime: string): string {
   const iso = String(tripDate || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const clock = String(tripTime || "").trim().match(/^(\d{1,2}):(\d{2})/);
@@ -1650,13 +1677,16 @@ function buildCustomerCancellationConfirmation(input: {
   const closing = customerCancellationClosing(businessName);
   const route = [details.pickupLabel, details.dropoffLabel].filter(Boolean).join(" → ");
   const paymentText = input.paymentParagraphs.join("\n\n");
+  const received = formatCancellationReceived(details.cancellationReceivedAt);
   const text =
     `Hi ${customerFirstName(details.customerName)},\n\n` +
     `${CUSTOMER_CANCELLATION_OPENING}\n\n` +
     `${details.tripLabel}\n` +
     (when ? `${when}\n` : "") +
     (route ? `${route}\n` : "") +
-    `\nBooking reference\n${ref}\n\n` +
+    `\nBooking reference\n${ref}\n` +
+    (received ? `\nCancellation received\n${received}\n` : "") +
+    `\n` +
     `About your payment\n\n${paymentText}\n\n` +
     (input.policyLink ? `${CUSTOMER_POLICY_ACCEPTED_LINE}\n${CANCELLATION_POLICY_URL}\n${BUSINESS_WEBSITE}/terms/\n\n` : "") +
     (input.statutoryRights ? `${CUSTOMER_STATUTORY_RIGHTS_LINE}\n\n` : "") +
@@ -1706,6 +1736,8 @@ ${when ? `<div style="margin-top:6px;font-size:16px;line-height:1.45;color:#3341
 ${route ? `<div style="margin-top:8px;font-size:14px;line-height:1.45;color:#64748b;">${escapeHtml(route)}</div>` : ""}
 <div style="margin-top:16px;font-size:12px;line-height:1.3;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Booking reference</div>
 <div style="margin-top:3px;font-size:15px;line-height:1.4;color:${NAVY};">${escapeHtml(ref)}</div>
+${received ? `<div style="margin-top:14px;font-size:12px;line-height:1.3;letter-spacing:0.04em;text-transform:uppercase;color:#64748b;">Cancellation received</div>
+<div style="margin-top:3px;font-size:15px;line-height:1.4;color:${NAVY};">${escapeHtml(received)}</div>` : ""}
 </td></tr>
 </table>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 8px;background:#f7f8fa;border:1px solid #e6ebf0;border-radius:12px;">
