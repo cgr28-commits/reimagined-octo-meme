@@ -1604,6 +1604,16 @@ const CUSTOMER_CANCELLATION_OPENING = "Your booking has been successfully cancel
 const NON_REFUNDABLE_WITHIN_24H_PAYMENT =
   "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
 
+const CUSTOMER_POLICY_ACCEPTED_LINE =
+  "Our cancellation policy formed part of the terms you accepted when you made your booking.";
+const CANCELLATION_POLICY_URL = `${BUSINESS_WEBSITE}${CANCELLATION_POLICY_PATH}`;
+
+/** Amount kept on a late cancellation; the unpaid balance (cash or card) is never chased. */
+function nonRefundableAmountLine(details: CancellationEmailDetails): string {
+  const paid = details.originalAmountValue > 0 ? ` (${details.originalAmount})` : "";
+  return `The amount you paid${paid} will not be refunded, and no further payment is due for this booking.`;
+}
+
 const CUSTOMER_STATUTORY_RIGHTS_LINE = "Your statutory rights are not affected.";
 
 /** Customer cancellation emails only. Stored pickup date/time stay UK wall-clock. */
@@ -1633,6 +1643,8 @@ function buildCustomerCancellationConfirmation(input: {
   businessName: string;
   paymentParagraphs: string[];
   statutoryRights: boolean;
+  /** Point to the cancellation policy and terms the customer accepted when booking. */
+  policyLink?: boolean;
 }): { text: string; html: string } {
   const { details, businessName } = input;
   const when = formatCustomerFacingCancellationWhen(details.tripDate, details.tripTime);
@@ -1648,6 +1660,7 @@ function buildCustomerCancellationConfirmation(input: {
     (route ? `${route}\n` : "") +
     `\nBooking reference\n${ref}\n\n` +
     `About your payment\n\n${paymentText}\n\n` +
+    (input.policyLink ? `${CUSTOMER_POLICY_ACCEPTED_LINE}\n${CANCELLATION_POLICY_URL}\n\n` : "") +
     (input.statutoryRights ? `${CUSTOMER_STATUTORY_RIGHTS_LINE}\n\n` : "") +
     `${closing}\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1658,6 +1671,11 @@ function buildCustomerCancellationConfirmation(input: {
         `<p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#334155;">${escapeHtml(paragraph)}</p>`,
     )
     .join("");
+  const policyHtml = input.policyLink
+    ? `<p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#334155;">${escapeHtml(CUSTOMER_POLICY_ACCEPTED_LINE)} ` +
+      `<a href="${CANCELLATION_POLICY_URL}" style="color:${NAVY};">Read our Cancellation Policy</a> and ` +
+      `<a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a>.</p>`
+    : "";
   const statutoryHtml = input.statutoryRights
     ? `<p style="margin:4px 0 0;font-size:12px;line-height:1.45;color:#64748b;">${escapeHtml(CUSTOMER_STATUTORY_RIGHTS_LINE)}</p>`
     : "";
@@ -1696,6 +1714,7 @@ ${route ? `<div style="margin-top:8px;font-size:14px;line-height:1.45;color:#647
 <tr><td style="padding:18px 18px 16px;">
 <div style="margin:0 0 10px;font-size:15px;line-height:1.35;font-weight:bold;color:${NAVY};">About your payment</div>
 ${paymentHtml}
+${policyHtml}
 ${statutoryHtml}
 </td></tr>
 </table>
@@ -1803,7 +1822,8 @@ export function buildCustomerCancellationEmails(
       details,
       businessName,
       statutoryRights: true,
-      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT],
+      policyLink: true,
+      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT, nonRefundableAmountLine(details)],
     });
     return {
       customer: { subject, text: confirmation.text, html: lightCustomerEmailHtml(confirmation.html) },
