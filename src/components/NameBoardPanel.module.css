@@ -1,0 +1,509 @@
+/*
+ * Owner Dashboard → Name Board.
+ * Self-contained styles (brand: navy #071C38, emerald #2FBF4A, white) so the
+ * full-screen board never depends on page chrome or third-party assets.
+ */
+
+/* ---------- Editor (inside the dashboard) ---------- */
+
+.panel {
+  color: #ffffff;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.title {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.intro {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #b5c0cd;
+}
+
+.card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+}
+
+.card + .card {
+  margin-top: 0.75rem;
+}
+
+.label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #b5c0cd;
+}
+
+.nameInput {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.5rem;
+  min-height: 4.5rem;
+  resize: vertical;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.875rem;
+  background: #041020;
+  padding: 0.75rem 0.875rem;
+  /* 16px+ stops iOS Safari zooming the page when the field is focused. */
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #ffffff;
+  font-family: inherit;
+}
+
+.nameInput::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+}
+
+.nameInput:focus-visible {
+  outline: 3px solid #2fbf4a;
+  outline-offset: 2px;
+  border-color: #2fbf4a;
+}
+
+.nameInput[aria-invalid="true"] {
+  border-color: #ff8a8a;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.error {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffb4b4;
+}
+
+.groupLabel {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.segment {
+  min-height: 3rem;
+  border-radius: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.segment[aria-pressed="true"] {
+  border-color: #2fbf4a;
+  background: rgba(47, 191, 74, 0.14);
+}
+
+.segment:focus-visible,
+.toggleRow:focus-within,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.boardButton:focus-visible {
+  outline: 3px solid #2fbf4a;
+  outline-offset: 2px;
+}
+
+.swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.swatchDark {
+  background: #071c38;
+}
+
+.swatchLight {
+  background: #ffffff;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3rem;
+  margin-top: 0.75rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+
+.toggleText {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.checkbox {
+  width: 1.6rem;
+  height: 1.6rem;
+  accent-color: #2fbf4a;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.previewWrap {
+  margin-top: 0.75rem;
+}
+
+.preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 19.5 / 9;
+  border-radius: 0.875rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.primaryButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 4rem;
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 1rem;
+  background: #2fbf4a;
+  color: #071c38;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(47, 191, 74, 0.25);
+}
+
+.primaryButton:active {
+  transform: translateY(1px);
+}
+
+.secondaryRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.secondaryButton {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status {
+  margin: 0.5rem 0 0;
+  min-height: 1.25rem;
+  font-size: 0.875rem;
+  color: #b5c0cd;
+}
+
+.tips {
+  margin-top: 0.75rem;
+}
+
+.tips summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.tips ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: #b5c0cd;
+}
+
+.tips li + li {
+  margin-top: 0.35rem;
+}
+
+/* ---------- Board face (used by both the preview and the full-screen board) ---------- */
+
+.face {
+  --board-bg: #071c38;
+  --board-fg: #ffffff;
+  --board-muted: rgba(255, 255, 255, 0.72);
+  --board-rule: #2fbf4a;
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--board-bg);
+  color: var(--board-fg);
+  font-family: var(--font-manrope, "Manrope"), system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+.faceLight {
+  --board-bg: #ffffff;
+  --board-fg: #071c38;
+  --board-muted: rgba(7, 28, 56, 0.72);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding-bottom: 0.45em;
+  border-bottom: 0.14em solid var(--board-rule);
+  margin: 0 auto;
+  max-width: 100%;
+  min-width: 0;
+  font-size: var(--brand-size, 14px);
+}
+
+.emblem {
+  height: 1.9em;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.wordmark {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.wordmarkNi {
+  color: #2fbf4a;
+}
+
+.nameBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+.nameText {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  white-space: pre-line;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  text-wrap: balance;
+  color: var(--board-fg);
+}
+
+.nameText[data-break="anywhere"] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.welcome {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35em 1.1em;
+  border-radius: 999px;
+  background: #2fbf4a;
+  color: #071c38;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  font-size: var(--welcome-size, 12px);
+  line-height: 1.2;
+}
+
+/* Preview: fixed small proportions. */
+.facePreview {
+  padding: 4% 4% 4%;
+  --brand-size: clamp(7px, 2.2cqw, 13px);
+  --welcome-size: clamp(6px, 1.8cqw, 11px);
+  container-type: size;
+}
+
+/* ---------- Full-screen board ---------- */
+
+.board {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.board .face {
+  padding-top: max(env(safe-area-inset-top), 3vh);
+  padding-right: max(env(safe-area-inset-right), 3.5vw);
+  padding-bottom: max(env(safe-area-inset-bottom), 3vh);
+  padding-left: max(env(safe-area-inset-left), 3.5vw);
+  row-gap: 2.5vh;
+  --brand-size: clamp(12px, 3.6vh, 30px);
+  --welcome-size: clamp(11px, 3.4vh, 28px);
+}
+
+/* Leave room either side of the brand row for the corner controls. */
+.board .brand {
+  max-width: calc(100% - 2 * 7.5rem);
+}
+
+@media (orientation: portrait) {
+  .board .face {
+    --brand-size: clamp(11px, 2.1vh, 22px);
+    --welcome-size: clamp(11px, 2vh, 22px);
+    row-gap: 2vh;
+  }
+  .board .brand {
+    max-width: 100%;
+    margin-top: 3.6rem;
+  }
+}
+
+.controls {
+  position: absolute;
+  top: max(env(safe-area-inset-top), 0.6rem);
+  right: max(env(safe-area-inset-right), 0.6rem);
+  left: max(env(safe-area-inset-left), 0.6rem);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.boardButton {
+  pointer-events: auto;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  /* Fallback first: Safari before 16.2 has no color-mix(). */
+  background: rgba(7, 28, 56, 0.82);
+  background: color-mix(in srgb, var(--board-bg, #071c38) 82%, transparent);
+  color: var(--board-fg, #ffffff);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.boardButton:hover,
+.boardButton:focus-visible {
+  opacity: 1;
+}
+
+.faceLight .boardButton {
+  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--board-bg, #ffffff) 82%, transparent);
+}
+
+.exitButton {
+  background: #2fbf4a;
+  border-color: #2fbf4a;
+  color: #071c38;
+  opacity: 1;
+}
+
+.boardNote {
+  justify-self: center;
+  margin: 0;
+  font-size: clamp(11px, 1.7vh, 14px);
+  color: var(--board-muted);
+  text-align: center;
+}
+
+.portraitOnly {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  .portraitOnly {
+    display: block;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
