@@ -2634,12 +2634,12 @@ body:has(.cookie-consent-banner--modal) {
 
   /* Quote links: easy to spot and click (padded targets, icons, hover tint). */
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid {
-    display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0.4rem 0.5rem;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;
   }
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button,
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a,
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block:not([data-homepage-return-breakdown-desktop]) button {
-    min-height: 2.5rem !important; height: auto; width: auto; flex-direction: row; gap: 0.45rem;
+    min-height: 2.5rem !important; height: auto; width: 100%; flex-direction: row; justify-content: center; gap: 0.45rem;
     padding: 0.45rem 0.8rem !important; border: 1px solid rgba(255, 255, 255, 0.14) !important;
     background: transparent !important; box-shadow: none !important; border-radius: 999px !important;
     font-size: 0.875rem; font-weight: 600; color: rgba(255, 255, 255, 0.88);
