@@ -1604,10 +1604,9 @@ function buildCustomerRefundDetailsBlock(details: CancellationEmailDetails): {
 const CUSTOMER_CANCELLATION_OPENING = "Your booking has been successfully cancelled.";
 
 const NON_REFUNDABLE_WITHIN_24H_PAYMENT =
-  "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
+  "As we received your cancellation less than 24 hours before your scheduled pickup, no refund is due under the cancellation terms agreed when you booked, subject to your statutory rights.";
 
-const CUSTOMER_POLICY_ACCEPTED_LINE =
-  "Our cancellation policy formed part of the terms you accepted when you made your booking.";
+const CUSTOMER_POLICY_ACCEPTED_LINE = "You can read our Cancellation Policy and Terms & Conditions here:";
 const CANCELLATION_POLICY_URL = `${BUSINESS_WEBSITE}${CANCELLATION_POLICY_PATH}`;
 
 /** Late cancellation: the unpaid balance (cash or card) is never chased. Kept gentle on purpose. */
@@ -1659,7 +1658,7 @@ function buildCustomerCancellationConfirmation(input: {
     (route ? `${route}\n` : "") +
     `\nBooking reference\n${ref}\n\n` +
     `About your payment\n\n${paymentText}\n\n` +
-    (input.policyLink ? `${CUSTOMER_POLICY_ACCEPTED_LINE}\n${CANCELLATION_POLICY_URL}\n\n` : "") +
+    (input.policyLink ? `${CUSTOMER_POLICY_ACCEPTED_LINE}\n${CANCELLATION_POLICY_URL}\n${BUSINESS_WEBSITE}/terms/\n\n` : "") +
     (input.statutoryRights ? `${CUSTOMER_STATUTORY_RIGHTS_LINE}\n\n` : "") +
     `${closing}\n\n` +
     `${businessName}\n${BUSINESS_WEBSITE}`;
@@ -1671,8 +1670,8 @@ function buildCustomerCancellationConfirmation(input: {
     )
     .join("");
   const policyHtml = input.policyLink
-    ? `<p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#334155;">${escapeHtml(CUSTOMER_POLICY_ACCEPTED_LINE)} ` +
-      `<a href="${CANCELLATION_POLICY_URL}" style="color:${NAVY};">Read our Cancellation Policy</a> and ` +
+    ? `<p style="margin:0 0 12px;font-size:16px;line-height:1.5;color:#334155;">You can read our ` +
+      `<a href="${CANCELLATION_POLICY_URL}" style="color:${NAVY};">Cancellation Policy</a> and ` +
       `<a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a>.</p>`
     : "";
   const statutoryHtml = input.statutoryRights
@@ -1820,7 +1819,8 @@ export function buildCustomerCancellationEmails(
     const confirmation = buildCustomerCancellationConfirmation({
       details,
       businessName,
-      statutoryRights: true,
+      // "subject to your statutory rights" is in the non-refundable sentence itself.
+      statutoryRights: false,
       policyLink: true,
       paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT, NO_FURTHER_PAYMENT_LINE],
     });
@@ -1848,7 +1848,8 @@ export function buildCustomerCancellationEmails(
     const confirmation = buildCustomerCancellationConfirmation({
       details,
       businessName,
-      statutoryRights: true,
+      // "subject to your statutory rights" is in the non-refundable sentence itself.
+      statutoryRights: false,
       policyLink: true,
       paymentParagraphs: [
         NON_REFUNDABLE_WITHIN_24H_PAYMENT,

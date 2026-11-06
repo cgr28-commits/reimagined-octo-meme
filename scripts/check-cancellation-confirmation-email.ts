@@ -13,7 +13,7 @@ import {
 } from "../shared/booking-notifications";
 
 const NON_REFUNDABLE =
-  "As the cancellation was made within 24 hours of your scheduled pickup time, the fare is non-refundable under our cancellation policy.";
+  "As we received your cancellation less than 24 hours before your scheduled pickup, no refund is due under the cancellation terms agreed when you booked, subject to your statutory rights.";
 const CLOSING =
   "Thank you for choosing My Airport Taxi NI. We hope we can welcome you on another journey in the future.";
 const OPENING = "Your booking has been successfully cancelled.";
@@ -88,14 +88,14 @@ assert.doesNotMatch(lateHtml, /get in touch/i);
 assert.doesNotMatch(lateText, /we will refund/i);
 assert.doesNotMatch(lateText, /refund has been issued/i);
 assert.doesNotMatch(lateText, /A refund of/);
-assert.match(lateHtml, /font-size:12px[^>]*>Your statutory rights are not affected\./);
+assert.match(lateText, /subject to your statutory rights\./);
+assert.doesNotMatch(lateText, /Your statutory rights are not affected/);
 assert.match(lateText, /There is nothing more for you to pay for this booking\./);
 assert.doesNotMatch(lateText, /will not be refunded/);
-assert.match(lateText, /formed part of the terms you accepted when you made your booking/);
+assert.match(lateText, /You can read our Cancellation Policy and Terms & Conditions here:/);
 assert.match(lateText, /https:\/\/www\.myairporttaxini\.co\.uk\/cancellation\//);
 assert.match(lateHtml, /href="https:\/\/www\.myairporttaxini\.co\.uk\/cancellation\/"/);
-assert.doesNotMatch(earlyText, /terms you accepted/);
-assert.ok(lateText.includes(STATUTORY));
+assert.doesNotMatch(earlyText, /Cancellation Policy and Terms/);
 assert.ok(lateText.includes(CLOSING));
 assert.doesNotMatch(lateText, /SECRET_OWNER_NOTE/);
 assert.doesNotMatch(lateHtml, /#dc2626|color:#b91c1c|color:red/i);
@@ -155,8 +155,7 @@ assert.ok(goodwillText.includes(NON_REFUNDABLE));
 assert.match(goodwillText, /As a goodwill gesture, we have refunded the Meet & Greet charge of £15\.00 to your original payment method\./);
 assert.ok(goodwillText.includes(REFUND_FUNDS_TIMING));
 assert.match(goodwillText, /There is nothing more for you to pay for this booking\./);
-assert.match(goodwillText, /terms you accepted/);
-assert.ok(goodwillText.includes(STATUTORY));
+assert.match(goodwillText, /subject to your statutory rights/);
 assert.doesNotMatch(goodwillText, /Partial Refund/i);
 assert.doesNotMatch(goodwillText, /SECRET_OWNER_NOTE/);
 assert.match(goodwill.owner!.subject, /goodwill refund £15\.00/);
