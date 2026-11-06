@@ -4,7 +4,7 @@
  */
 
 import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp, sendTipRequestWhatsApp } from "./whatsapp-templates";
-import { airportPickupContext, airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
+import { airportPickupContext, airportPickupReminderInput, arrivalsMeetingPlace } from "./airport-pickup-reminder-handlers";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
   applyJourneyAction,
@@ -136,10 +136,12 @@ export async function sendArrivalNotificationIfNeeded(
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
       mobile: job.customerMobile || paid?.mobileNumber,
-      pickupLabel: job.pickupLabel,
-      airport: pickup
-        ? { airportName: pickup.airportName, directions: pickup.directions, linkPath: pickup.linkPath }
-        : null,
+      // Met inside Arrivals (Meet & Greet, Dublin): no map button — plain "arrived" template.
+      pickupLabel: pickup?.meetInArrivals ? arrivalsMeetingPlace(pickup) : job.pickupLabel,
+      airport:
+        pickup && !pickup.meetInArrivals
+          ? { airportName: pickup.airportName, directions: pickup.directions, linkPath: pickup.linkPath }
+          : null,
     });
   }
 
