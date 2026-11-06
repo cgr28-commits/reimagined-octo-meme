@@ -274,6 +274,11 @@ console.log("\n=== 8. Accessible controls ===");
   assert.match(panel, /navigator as Navigator[\s\S]*wakeLock/);
   assert.match(panel, /requestFullscreen/);
   assert.match(panel, /addEventListener\("touchmove", block, \{ passive: false \}\)/, "iPhone rubber-band blocked");
+  assert.match(
+    panel,
+    /const typed = inputRef\.current \? clampBoardInput\(inputRef\.current\.value\) : settings\.name;/,
+    "Display reads the text box at tap time (iPhone autocorrect commits on tap)",
+  );
   assert.match(panel, /webkitRequestFullscreen/);
   ok("labelled input, error alert, dialog semantics, focus handling, Escape, pressed states");
 }

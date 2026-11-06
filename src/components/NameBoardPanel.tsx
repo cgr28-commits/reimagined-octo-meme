@@ -411,7 +411,11 @@ export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoard
   /* ---------------- Open / close ---------------- */
 
   const openBoard = useCallback(() => {
-    const name = normalizeBoardName(settings.name);
+    // Read the text box itself: on iPhone, autocorrect / the last typed word can be
+    // committed in the same instant as the tap, before React state catches up.
+    const typed = inputRef.current ? clampBoardInput(inputRef.current.value) : settings.name;
+    if (typed !== settings.name) setSettings((current) => ({ ...current, name: typed }));
+    const name = normalizeBoardName(typed);
     if (!name) {
       setInputError("Enter the passenger's name first.");
       inputRef.current?.focus();

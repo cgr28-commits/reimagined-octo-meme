@@ -335,6 +335,15 @@ async function main() {
       await page.getByRole("button", { name: "Display Name Board" }).click();
       assert.equal(await page.getByTestId("name-board-welcome").count(), 0, "welcome message is optional");
       await page.getByRole("button", { name: "Exit name board and return to editing" }).click();
+      // iPhone race: autocorrect commits text in the same instant as the tap (no input event yet).
+      await page.evaluate(() => {
+        const box = document.querySelector("textarea") as HTMLTextAreaElement;
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(box, "Mr Ó Murchú");
+      });
+      await page.getByRole("button", { name: "Display Name Board" }).click();
+      await page.getByTestId("name-board-overlay").waitFor();
+      assert.equal(await page.getByTestId("name-board-name").textContent(), "Mr Ó Murchú", "board uses the text box at tap time");
+      await page.getByRole("button", { name: "Exit name board and return to editing" }).click();
       // Empty name: error, no board.
       await page.getByLabel("Passenger name").fill("   ");
       await page.getByRole("button", { name: "Display Name Board" }).click();
