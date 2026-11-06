@@ -79,6 +79,7 @@ export async function createHostedCheckout(
       description: request.description,
       checkoutReference: request.checkoutReference,
       returnUrl: request.redirectUrl,
+      ...(request.metadata ? { metadata: request.metadata } : {}),
       customerEmail: options.customerEmail ?? undefined,
       siteOrigin: options.siteOrigin || BUSINESS_WEBSITE,
     });

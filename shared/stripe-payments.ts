@@ -265,7 +265,8 @@ export async function createStripeCheckoutSession(
       },
       payment_intent_data: {
         description: description.slice(0, 1000),
-        metadata: { checkout_reference: request.checkoutReference },
+        // Same labels on the payment itself, so the Stripe Payments page shows them.
+        metadata: { ...(request.metadata ?? {}), checkout_reference: request.checkoutReference },
         ...(manualCapture ? { capture_method: "manual" } : {}),
       },
     };
