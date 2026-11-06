@@ -19,7 +19,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Newtownabbey airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Use this page to pick which airport you are flying from Newtownabbey, then open that route. Belfast International is the holiday and long-haul terminal most families here use — collections join the M2 at Sandyknowes from Glengormley, Mallusk, Carnmoney and Monkstown. George Best Belfast City Airport is usually the shorter run from Whiteabbey and Jordanstown along the Shore Road toward the Sydenham Bypass. Dublin Airport is the cross-border booking: M2 onto the M1/A1, with applicable tolls included on those fares as on our other Dublin pages. Each card below opens a page with that airport already selected. Enter the full street so the quote is for that pickup, not a generic town-centre pin. Ulster University Jordanstown pickups should include the building or halls name. Mallusk business-park collections need the unit or reception entrance.",
+      "Pre-book a fixed-price airport taxi from Newtownabbey to Belfast International, George Best Belfast City or Dublin Airport. We collect door to door from Glengormley, Mallusk, Carnmoney, Monkstown, Whiteabbey and Jordanstown. Belfast International is the usual choice for holidays and long-haul flights, and it is a quick run up the M2 from Sandyknowes. Belfast City Airport is usually the shorter trip from Whiteabbey and Jordanstown, along the Shore Road towards the Sydenham Bypass. Dublin Airport is around two hours away via the M2 and the A1/M1, with M1 tolls included in the fare. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. If you are being collected from Ulster University Jordanstown, add the building or halls name. For Mallusk business parks, add the unit or reception entrance so your driver finds you first time.",
     blurb:
       "Newtownabbey and the Shore Road corridor are well placed for Belfast International and Belfast City Airport runs, with straightforward access to the M2.",
     areas: [
@@ -31,7 +31,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       "Mallusk",
     ],
     localNotes: [
-      "Sandyknowes and the M2 slip roads are the usual outbound path for Aldergrove; weekday mornings can stack back from Fortwilliam, so we plan pickup time around that corridor rather than assuming a clear run.",
+      "Most Belfast International trips join the M2 at Sandyknowes. Weekday mornings can be busy back towards Fortwilliam, so we plan your pickup time with that in mind.",
       "Ulster University Jordanstown pickups work best when you give the building or halls name as well as the postcode.",
       "Mallusk business-park collections are straightforward if you share the unit or reception entrance with the booking.",
     ],
@@ -51,7 +51,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "The reserved cross-border slot: M2 onto the M1/A1. Applicable M1 tolls are included on Dublin Airport fares. Overnight pickups are booked on that route page.",
+        text: "Around two hours via the M2 and the A1/M1. M1 tolls are included, and we collect overnight for early flights.",
       },
     ],
   },
@@ -66,14 +66,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Carrickfergus airport taxi to Belfast City, Belfast International or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Choose the airport that matches your ticket, then open that Carrickfergus route. Belfast International is the inland run once you leave the harbour — A2 then the M2/M22, or the A8 depending on traffic. Belfast City Airport is the more coastal of the two Belfast terminals, along the A2 through Whiteabbey toward the Sydenham Bypass. Dublin Airport is the long reserved transfer: leave the A2, cross Belfast’s motorway box, and continue on the M1/A1. We collect from the town, Greenisland, Woodburn, Eden, Sunnylands and harbour hotels when you enter the full address. Greenisland is treated as a Carrickfergus-area pickup, not a Belfast city job. The A2 can slow through Whiteabbey and Fortwilliam in the evening peak — that pinch point sits on the City Airport and Dublin pages, not on this chooser. Harbour and castle-area hotels should include the property name.",
+      "Pre-book a fixed-price airport taxi from Carrickfergus to Belfast International, George Best Belfast City or Dublin Airport. We collect door to door from the town, Greenisland, Woodburn, Eden, Sunnylands and the harbour hotels. Belfast City Airport is the closer of the two Belfast airports, along the A2 through Whiteabbey towards the Sydenham Bypass. Belfast International is an inland run via the M2 and M22, or the A8, depending on traffic. Dublin Airport is the longest trip, through Belfast and down the A1/M1, with M1 tolls included in the fare, and we regularly collect overnight for early Dublin flights. The A2 can be slow through Whiteabbey at busy times, so we plan your pickup time around it. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. If you are staying at a harbour or castle-area hotel, include the hotel name.",
     blurb:
       "Carrickfergus and Greenisland sit on the A2 Shore Road — a regular pickup zone for both Belfast airports and for Dublin departures.",
     areas: ["Carrickfergus", "Greenisland", "Woodburn", "Eden", "Sunnylands"],
     localNotes: [
-      "The A2 can slow through Whiteabbey and Fortwilliam in the evening peak; Carrickfergus departures are timed around that pinch point.",
+      "The A2 can slow through Whiteabbey and Fortwilliam at the evening peak, so we allow extra time for Carrickfergus pickups.",
       "Harbour and castle-area hotels should be booked with the property name — several share similar postcodes along the waterfront.",
-      "Greenisland is collected with Carrickfergus-area timing, not as a Belfast city job, so the quote uses your exact street.",
+      "Greenisland pickups are priced from your exact street, so type the full address.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["whiteabbey"],
@@ -91,7 +91,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "A reserved long transfer: A2, Belfast’s motorway box, then the M1/A1. Applicable M1 tolls are included. First-wave flights are the usual reason this route is booked overnight.",
+        text: "The longest trip: the A2 into Belfast, then the M1/A1. M1 tolls are included, and we collect overnight for early flights.",
       },
     ],
   },
@@ -106,14 +106,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Ballyclare airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Start here if you are choosing which airport to book from Ballyclare, Doagh, Ballynure or Ballyeaston. Belfast International is usually the more direct of the two Belfast airports — the A57 through Templepatrick is the road most Aldergrove bookings use from this town. Belfast City Airport is the longer reserved slot: you leave the A57 corridor and join the M2 toward Sydenham. Dublin Airport is the cross-border day, A57/M2 then the M1/A1, with applicable tolls included on those fares. Open the card that matches your ticket so the calculator starts on the correct terminal. Enter the full street; Doagh and Ballynure should not be treated as a generic Antrim-town pin. School-run traffic in Ballyclare can add a few minutes on weekday mornings even when the A57 itself is clear. City Airport and Dublin are not local hops from here — those route pages show the mapped time for your address.",
+      "Pre-book a fixed-price airport taxi from Ballyclare, Doagh, Ballynure or Ballyeaston to Belfast International, George Best Belfast City or Dublin Airport. Belfast International is usually the closest airport from here, and most journeys take the A57 through Templepatrick to Aldergrove. Belfast City Airport is a longer run, joining the M2 towards Belfast and the Sydenham Bypass. Dublin Airport is around two hours away via the M2 and the A1/M1, with M1 tolls included in the fare. Weekday school-run traffic in Ballyclare can add a few minutes in the morning, so we allow for it when we plan your pickup. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. Doagh and Ballynure pickups are priced from your own street, so type the full address rather than just the town name.",
     blurb:
       "Ballyclare sits on the A57 towards Aldergrove, so Belfast International is usually the shorter Belfast airport run from the town.",
     areas: ["Ballyclare", "Doagh", "Ballynure", "Ballyeaston"],
     localNotes: [
       "The A57 through Templepatrick is the usual path to Belfast International; school-run traffic in the town can add a few minutes on weekday mornings.",
-      "Doagh and Ballynure should be entered as full streets so the quote is not treated as a generic Antrim-town job.",
-      "City Airport and Dublin from Ballyclare are longer reserved journeys, not local hops — the quote tool shows distance and time for your address.",
+      "Doagh and Ballynure pickups are priced from your own street, so type the full address.",
+      "Belfast City and Dublin are longer trips from Ballyclare. The quote shows the journey time from your address.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     whichAirport: [
@@ -125,12 +125,12 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "The longer Belfast slot: off the A57 corridor and onto the M2 toward Sydenham. Not the same journey as the International page.",
+        text: "The longer of the two Belfast airports from here, via the M2 towards Sydenham.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "A reserved M2/M1/A1 booking, not an A57 local run. Applicable M1 tolls are included on Dublin Airport fares.",
+        text: "Around two hours via the M2 and the A1/M1. M1 tolls are included in the fare.",
       },
     ],
   },
@@ -152,7 +152,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     localNotes: [
       "Sprucefield and the M1 junctions are the usual start for Aldergrove and Dublin; Saturday retail traffic can slow the first part of the journey.",
       "Hillsborough pickups are quoted from the address you enter — useful for hotel guests who are not starting in Lisburn city centre.",
-      "City Airport from Lisburn is timed around the Westlink peak rather than treated as a short local run.",
+      "We allow for Westlink traffic at peak times when we plan Belfast City Airport pickups from Lisburn.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["hillsborough", "moira", "carryduff", "craigavon"],
@@ -160,12 +160,12 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "Usually the M1 then the M2/M22. Friday holiday traffic on the M1 is why this is reserved, not a casual local taxi job.",
+        text: "Usually the M1, then the M2 and M22. Friday holiday traffic on the M1 can be heavy, so it is worth booking ahead.",
       },
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "M1, Westlink, M3 and the Sydenham Bypass — not the Aldergrove M22. Dunmurry and Lambeg sit closer to the M1 than Hillsborough.",
+        text: "The M1, Westlink, M3 and Sydenham Bypass. Dunmurry and Lambeg are closest to the M1.",
       },
       {
         code: "DUB",
@@ -185,14 +185,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Bangor airport taxi to Belfast City, Belfast International or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Bangor and the North Down coast generate some of our earliest pickup times — choose the airport first, then open that route. Belfast City Airport is the shorter coastal hop along the A2 toward Holywood and the Sydenham Bypass. Belfast International is the longer reserved slot: A2 into Belfast, then the M3/M2 to Aldergrove, which is why holiday families book the night before. Dublin Airport is the long North Down booking, A2 then the M1/A1, with applicable tolls included; first-wave Dublin flights are a regular overnight pickup from this coast. We also collect from Ballyholme, Groomsport, Helen’s Bay, Crawfordsburn and Clandeboye when those streets are entered. An incident at Holywood can add time that is not visible the night before. Marina and seafront hotels should include the hotel name — several properties share similar BT20 postcodes.",
+      "Pre-book a fixed-price airport taxi from Bangor to George Best Belfast City, Belfast International or Dublin Airport. We collect door to door from Bangor, Ballyholme, Groomsport, Helen’s Bay, Crawfordsburn and Clandeboye. Belfast City Airport is the shortest trip, along the A2 past Holywood to the Sydenham Bypass. Belfast International is a longer run through Belfast and up the M2, so many holiday families book an early pickup the night before. Dublin Airport is the longest trip, via the A2 and the A1/M1, with M1 tolls included in the fare, and we regularly collect overnight for early Dublin flights. Traffic on the A2 at Holywood can change quickly, so we build in time when we plan your pickup. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. For marina and seafront hotels, include the hotel name, as several share similar BT20 postcodes.",
     blurb:
       "Bangor and North Down are among our most requested pickup areas — especially for early Belfast International flights and Dublin Airport runs.",
     areas: ["Bangor", "Ballyholme", "Groomsport", "Helen’s Bay", "Crawfordsburn", "Clandeboye"],
     localNotes: [
-      "The A2 is the spine of almost every Bangor airport run; an incident at Holywood can add time that is not visible the night before.",
+      "Almost every Bangor airport trip uses the A2, and traffic at Holywood can change quickly, so we build in extra time.",
       "Marina and seafront hotels should include the hotel name — several properties share similar BT20 postcodes.",
-      "Helen’s Bay and Crawfordsburn are collected with North Down timing, not as Belfast city jobs.",
+      "Helen’s Bay and Crawfordsburn pickups are priced from your own address.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["newtownards", "comber"],
@@ -200,17 +200,17 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "The longer North Down slot: A2 into Belfast, then the M3/M2 to Aldergrove. One of our most requested early pickups from this coast.",
+        text: "The longer trip: the A2 into Belfast, then the M3 and M2 to Aldergrove. One of our most requested early pickups from North Down.",
       },
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "Usually the shorter hop — A2 toward Holywood and the Sydenham Bypass. Helen’s Bay and Crawfordsburn sit on that line; Groomsport adds minutes through town.",
+        text: "Usually the shortest trip, along the A2 past Holywood to the Sydenham Bypass. Helen’s Bay and Crawfordsburn are on the way; Groomsport adds a few minutes.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "A2 into Belfast, then the M1/A1. Applicable M1 tolls are included. First-wave Dublin flights from North Down are a regular overnight booking.",
+        text: "The A2 into Belfast, then the M1/A1. M1 tolls are included, and we regularly collect overnight for early Dublin flights.",
       },
     ],
   },
@@ -225,14 +225,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Holywood airport taxi to Belfast City, Belfast International or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Holywood sits on the A2 between Belfast and Bangor. Use this page to choose the terminal, then open that Holywood route. Belfast City Airport is the short hop along the Sydenham Bypass — close enough that residents treat it as their local terminal, still worth reserving when you have bags and a flight time. Belfast International is the westbound motorway journey via the M3/M2, the far side of the city from Cultra and Seahill. Dublin Airport is the longer A1/M1 run that North Down customers book for connections that Belfast does not fit. We collect from Holywood, Cultra, Craigavad, Seahill, Marino and Helen’s Bay. Cultra and the Ulster Folk & Transport Museum area need the house name or number — several lanes share similar BT18 postcodes. Seahill and Craigavad are Holywood-corridor jobs, not Bangor marina pickups. City Airport is close; International and Dublin still need the full motorway allowance the quote tool shows.",
+      "Pre-book a fixed-price airport taxi from Holywood to George Best Belfast City, Belfast International or Dublin Airport. We collect door to door from Holywood, Cultra, Craigavad, Seahill, Marino and Helen’s Bay. Belfast City Airport is only a short drive along the A2 and the Sydenham Bypass, and a booked taxi still saves you parking and the hassle of finding a cab with luggage. Belfast International is on the far side of Belfast, via the M3 and M2 towards Aldergrove. Dublin Airport is the longest trip, through Belfast and down the A1/M1, with M1 tolls included in the fare. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. Around Cultra and the Ulster Folk Museum, please include your house name or number, as several lanes share similar BT18 postcodes. Seahill and Craigavad pickups are priced from your own street.",
     blurb:
       "Holywood and the Cultra–Seahill stretch of the A2 are a regular North Down collection area for all three airports.",
     areas: ["Holywood", "Cultra", "Craigavad", "Seahill", "Helen’s Bay", "Marino"],
     localNotes: [
       "Cultra and the Ulster Folk & Transport Museum area need the house name or number — several lanes share similar BT18 postcodes.",
-      "Seahill and Craigavad are collected as Holywood-corridor jobs, not as Bangor marina pickups.",
-      "City Airport is close, but International and Dublin still need the full motorway allowance you see in the quote tool.",
+      "Seahill and Craigavad pickups are priced from your own address, so type the full street.",
+      "Belfast City Airport is close by. Belfast International and Dublin are longer trips, and the quote shows the journey time from your address.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["dundonald"],
@@ -240,7 +240,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "The westbound motorway job: A2 into Belfast, then the M3/M2 toward Aldergrove. Not the short City Airport hop Holywood residents know.",
+        text: "The A2 into Belfast, then the M3 and M2 towards Aldergrove. A longer trip than Belfast City Airport.",
       },
       {
         code: "BHD",
@@ -250,7 +250,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "Leave the A2, cross the city, then the A1/M1. Applicable M1 tolls are included. First-wave Dublin departures from North Down are a regular overnight booking.",
+        text: "Across Belfast, then the A1/M1. M1 tolls are included, and we collect overnight for early Dublin flights.",
       },
     ],
   },
@@ -265,31 +265,31 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Antrim airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Antrim town sits beside Lough Neagh. Start here to choose the airport, then open that route. Belfast International is the shortest International run we quote from a full town — the A26 and airport access roads put Aldergrove next door to Templepatrick, Muckamore and Dunadry, and only a short hop from Antrim town and Crumlin. Belfast City Airport is the motorway job east: M2 until the Harbour Estate signs, a different shape from the International hop Antrim residents know. Dublin Airport is the long southbound day, M2 or A26 toward Belfast then the A1/M1, with applicable tolls included. Templepatrick and the hotels around the A57 should include the property name — several sit within a short run of the International terminal. Randalstown collections use the Toome / A6 approach, not the same timing as Antrim town centre. Crumlin is on the International side of the lough; say so in the address so the quote uses that street.",
+      "Pre-book a fixed-price airport taxi from Antrim to Belfast International, George Best Belfast City or Dublin Airport. We collect door to door from Antrim town, Templepatrick, Muckamore, Randalstown, Crumlin and Dunadry. Belfast International is right on your doorstep, a short run on the A26 and the airport roads, though it is still worth booking ahead for early flights. Belfast City Airport is a motorway trip down the M2 into Belfast and out to the Harbour Estate and Sydenham. Dublin Airport is the longest trip, through Belfast and down the A1/M1, with M1 tolls included in the fare. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. If you are staying at a hotel in Templepatrick or near the A57, include the hotel name. Randalstown and Crumlin pickups are priced from your own address, so type the full street rather than just Antrim.",
     blurb:
       "Antrim, Templepatrick and the A26 corridor are among the closest towns we collect for Belfast International Airport.",
     areas: ["Antrim", "Templepatrick", "Muckamore", "Randalstown", "Crumlin", "Dunadry"],
     localNotes: [
       "Templepatrick and the hotels around the A57 should include the property name — several sit within a short run of the International terminal.",
-      "Randalstown collections use the Toome / A6 approach, not the same timing as an Antrim town-centre pickup.",
-      "Crumlin is on the International side of the lough; say so in the address so the quote uses the correct street, not Antrim town.",
+      "Randalstown pickups are priced from your own address, so type the full street rather than just Antrim.",
+      "Crumlin is close to Belfast International. Type your full Crumlin address so the quote starts from the right place.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     whichAirport: [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "The short A26 / airport-road hop. Templepatrick and Dunadry are often closer to the terminal than Antrim town. Closeness is not the same as leaving it late.",
+        text: "A short run on the A26 and the airport roads. Templepatrick and Dunadry are even closer. Still worth booking ahead for early flights.",
       },
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "M2 east to the Harbour Estate — more city traffic at the far end than the International hop. An incident at Sandyknowes or York Street is the usual delay.",
+        text: "Down the M2 to the Harbour Estate. There is more city traffic at the Belfast end, so we allow time for it.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "M2 or A26 toward Belfast, then the A1/M1. Applicable M1 tolls are included. A closure at Sprucefield or Newry is the delay Antrim weather will not mention.",
+        text: "The M2 towards Belfast, then the A1/M1. M1 tolls are included in the fare.",
       },
     ],
   },
@@ -304,13 +304,13 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Ballymena airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Ballymena is the largest town in mid-Antrim. Use this hub to choose the airport, then open that route. Belfast International is the nearest of the three terminals — a rural A26 dual-carriageway run rather than a city-centre crawl — which is why Galgorm hotel guests and Broughshane, Cullybackey, Ahoghill and Gracehill residents often book International first. Belfast City Airport continues past International country onto the M2 and the Harbour Estate. Dublin Airport is the longest of the three: A26 south, M2, then the A1/M1, with applicable tolls included. Galgorm and the spa hotels should include the hotel name — drivers treat them as countryside pickups, not Ballymena bus-station jobs. Broughshane collections come in from the A42, not down the A26 from the town centre. Cullybackey and Gracehill sit west of the town and should be spelled in the address.",
+      "Pre-book a fixed-price airport taxi from Ballymena to Belfast International, George Best Belfast City or Dublin Airport. We collect door to door from Ballymena, Broughshane, Cullybackey, Galgorm, Ahoghill and Gracehill. Belfast International is the nearest airport, straight down the A26 dual carriageway, which is why most customers here fly from Aldergrove. Belfast City Airport carries on down the M2 into Belfast and out to the Harbour Estate. Dublin Airport is the longest of the three, via the A26, the M2 and the A1/M1, with M1 tolls included in the fare. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. If you are staying at Galgorm or another spa hotel, include the hotel name so your driver goes straight to the right entrance. Cullybackey, Gracehill and Broughshane pickups are priced from your own address.",
     blurb:
       "Ballymena and the Galgorm–Broughshane hinterland are a core mid-Antrim collection area, especially for Belfast International.",
     areas: ["Ballymena", "Broughshane", "Cullybackey", "Galgorm", "Ahoghill", "Gracehill"],
     localNotes: [
-      "Galgorm and the spa hotels should include the hotel name — drivers treat them as countryside pickups, not Ballymena bus-station jobs.",
-      "Cullybackey and Gracehill sit west of the town; allow the extra lanes the quote map will show.",
+      "If you are at Galgorm or another spa hotel, include the hotel name so your driver goes straight to the right entrance.",
+      "Cullybackey and Gracehill are west of the town and priced from your own address.",
       "Broughshane collections come in from the A42, not down the A26 from the town centre.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
@@ -324,12 +324,12 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "A26 then M2 to the Harbour Estate. York Street is where a clear Ballymena run can still lose time at the end.",
+        text: "The A26, then the M2 to the Harbour Estate. We allow for city traffic at the Belfast end.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "The longest booking from this hub: A26, M2, then A1/M1. Applicable M1 tolls are included. Newry or Sprucefield trouble will not show on a Ballymena forecast.",
+        text: "The longest trip of the three: the A26, the M2, then the A1/M1. M1 tolls are included in the fare.",
       },
     ],
   },
@@ -344,14 +344,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Larne airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Larne is the ferry port at the mouth of Larne Lough. Airport transfers from here have a different shape to a Belfast suburb job — choose the airport first. Belfast International leaves the harbour, joins the A8, then turns west on the M2 toward Aldergrove. Belfast City Airport stays on the eastern side: A8 toward Belfast, then the Harbour Estate and Sydenham rather than the westbound peel. Dublin Airport is the long southbound booking after that motorway join, with applicable tolls included — often after a Cairnryan sailing the evening before. We collect from Larne, Glynn, Magheramorne, Ballygally, Islandmagee and Whitehead. Islandmagee and Ballygally need the lane or house name — coastal sats often stop one road short. Whitehead sits toward Carrickfergus and is still collected on Larne-area bookings when that is the address you enter. Ferry-terminal and harbour hotels should be named so the driver does not wait on the town-centre rank.",
+      "Pre-book a fixed-price airport taxi from Larne to Belfast International, George Best Belfast City or Dublin Airport. We collect door to door from Larne, Glynn, Magheramorne, Ballygally, Islandmagee and Whitehead, as well as the ferry terminal and harbour hotels. Belfast International is reached on the A8 and then west on the M2 towards Aldergrove. Belfast City Airport stays on the east side, down the A8 towards Belfast and out to Sydenham. Dublin Airport is the longest trip, via the M2 and the A1/M1, with M1 tolls included in the fare, and it is a popular booking the morning after a ferry crossing from Cairnryan. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. In Islandmagee and Ballygally, include your lane or house name, as sat navs can stop a road short. At a harbour hotel, include the hotel name.",
     blurb:
-      "Larne, Islandmagee and the A8 corridor are collected as east-Antrim harbour jobs — not as Carrickfergus Shore Road pickups.",
+      "Larne, Islandmagee and the A8 corridor are a regular pickup area for all three airports.",
     areas: ["Larne", "Glynn", "Ballygally", "Islandmagee", "Whitehead", "Magheramorne"],
     localNotes: [
-      "Islandmagee and Ballygally need the lane or house name — coastal sats often stop one road short.",
+      "In Islandmagee and Ballygally, include your lane or house name, as sat navs can stop a road short.",
       "Whitehead sits toward Carrickfergus; we still collect it on Larne-area bookings when that is the address you enter.",
-      "Ferry-terminal and harbour hotels should be named in the pickup field so the driver does not wait on the town-centre rank.",
+      "For the ferry terminal or a harbour hotel, include the name in the pickup address so your driver meets you in the right place.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     whichAirport: [
@@ -363,7 +363,7 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "Stays on the east-Antrim corridor — A8, then Sydenham rather than the westbound M2 peel. A queue at the docks can slow the last miles.",
+        text: "The A8 towards Belfast, then out to Sydenham. Traffic around the docks can slow the last few miles.",
       },
       {
         code: "DUB",
@@ -383,14 +383,14 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
     metaDescription:
       "Pre-booked Newry airport taxi to Dublin Airport, Belfast International or Belfast City. Fixed price, flight tracking, 60 mins free waiting. 5★ on Google.",
     intro:
-      "Newry sits on the A1 between Belfast and Dublin. Start here to choose the terminal, then open that route. Dublin Airport is often the first airport people here ask about — you are already on the A1, the border is minutes away, and the M1 carries you south, with applicable tolls included. Belfast International is the northbound A1 job that then swings west onto the M1/M2 for Aldergrove — the long-haul alternative when the ticket is out of Aldergrove rather than Dublin. Belfast City Airport stays on the A1 into Belfast and takes the Harbour Estate roads to Sydenham instead of peeling west. We collect from Newry, Warrenpoint, Rostrevor, Bessbrook, Camlough and Hilltown. Warrenpoint and Rostrevor are lough-shore collections — include the townland or hotel name, not only “Newry”. Bessbrook and Camlough sit off the A25; they are not the same timing as a Buttercrane pickup. Hilltown is the Mournes approach.",
+      "Pre-book a fixed-price airport taxi from Newry to Dublin Airport, Belfast International or George Best Belfast City. We collect door to door from Newry, Warrenpoint, Rostrevor, Bessbrook, Camlough and Hilltown. Dublin Airport is often the first choice from here, because you are already on the A1 and the M1 takes you straight south, with M1 tolls included in the fare. Belfast International is north up the A1, then the M1 and M2 to Aldergrove, and it is the usual choice when your flight leaves from Belfast. Belfast City Airport is up the A1 into Belfast and out to Sydenham. Enter your full address in the quote box above to see your fixed price, then book and pay securely online. Warrenpoint and Rostrevor pickups should include the townland or hotel name, not just Newry. Bessbrook, Camlough and Hilltown are priced from your own address, so type the full street.",
     blurb:
       "Newry and the Warrenpoint–Rostrevor coast are on the A1/M1 corridor — well placed for Dublin Airport and still a regular origin for both Belfast airports.",
     areas: ["Newry", "Warrenpoint", "Rostrevor", "Bessbrook", "Camlough", "Hilltown"],
     localNotes: [
       "Warrenpoint and Rostrevor are lough-shore collections — include the townland or hotel name, not only “Newry”.",
-      "Bessbrook and Camlough sit off the A25; they are not the same timing as a Newry Buttercrane pickup.",
-      "Hilltown is the Mournes approach; the quote map will show the extra lanes from the city.",
+      "Bessbrook and Camlough are off the A25 and priced from your own address.",
+      "Hilltown pickups are priced from your own address, so type the full street.",
     ],
     airportCodes: ["BFS", "BHD", "DUB"],
     relatedTownSlugs: ["craigavon", "lisburn"],
@@ -398,17 +398,17 @@ export const TOWN_HUB_CONTENT: TownHubContent[] = [
       {
         code: "BFS",
         label: "Belfast International",
-        text: "Northbound A1, then west on the M1/M2. A queue at Sprucefield can add time after a clear run out of Newry. Not a Dublin job pointed the wrong way.",
+        text: "North on the A1, then the M1 and M2 to Aldergrove. Traffic at Sprucefield can add time, so we allow for it.",
       },
       {
         code: "BHD",
         label: "Belfast City Airport",
-        text: "A1 into Belfast, then Sydenham rather than the westbound peel. Westlink or Harbour Estate trouble is the last-mile delay.",
+        text: "North on the A1 into Belfast, then out to Sydenham. We allow for Westlink traffic at the Belfast end.",
       },
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "The natural southbound booking from this city. A1 then the M1. Applicable M1 tolls are included. Border delays are the ones a city-centre clock will not show.",
+        text: "The natural choice from Newry: south on the A1, then the M1. M1 tolls are included in the fare.",
       },
     ],
   },

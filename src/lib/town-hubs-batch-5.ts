@@ -42,7 +42,7 @@ export const TOWN_HUB_BATCH_5: TownHubContent[] = [
       {
         code: "DUB",
         label: "Dublin Airport",
-        text: "The longest booking from this hub: A26, M2, then the M1 and A1 south. Applicable M1 tolls are included in the fixed fare.",
+        text: "The longest trip from the Causeway Coast: the A26, the M2, then the M1 and A1 south. M1 tolls are included in the fixed fare.",
       },
     ],
   },
