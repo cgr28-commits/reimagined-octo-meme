@@ -13,6 +13,7 @@
  *   - keeps working offline once loaded
  *
  * Run: npx tsx scripts/check-owner-name-board-browser.ts
+ * Safari engine: NAME_BOARD_BROWSER=webkit npx tsx scripts/check-owner-name-board-browser.ts
  * Needs `playwright` (+ a Chromium: `npx playwright install chromium`, or set
  * NAME_BOARD_CHROME=/path/to/chrome). Prints SKIP and exits 0 when Playwright
  * is not installed, so it never blocks unrelated work.
@@ -27,7 +28,8 @@ import { createRequire } from "node:module";
 
 const root = process.cwd();
 const require = createRequire(join(root, "package.json"));
-const shotsDir = join(root, "test-results", "name-board");
+const ENGINE = process.env.NAME_BOARD_BROWSER === "webkit" ? "webkit" : "chromium";
+const shotsDir = join(root, "test-results", ENGINE === "webkit" ? "name-board-webkit" : "name-board");
 
 function tryRequire<T>(names: string[]): T | null {
   for (const name of names) {
@@ -132,6 +134,7 @@ function serve(outDir: string): Promise<{ server: Server; origin: string }> {
 }
 
 async function launch() {
+  if (ENGINE === "webkit") return playwright!.webkit.launch();
   const executablePath = process.env.NAME_BOARD_CHROME;
   if (executablePath) return playwright!.chromium.launch({ executablePath });
   try {
@@ -358,12 +361,13 @@ async function main() {
       await page.getByTestId("name-board-overlay").waitFor();
       await page.waitForTimeout(100);
       const fs = await page.evaluate(() => Boolean(document.fullscreenElement));
-      assert.equal(fs, true, "uses Fullscreen API where the browser supports it");
+      // Headless WebKit on Linux doesn't grant element fullscreen; the overlay covers the screen either way.
+      if (ENGINE === "chromium") assert.equal(fs, true, "uses Fullscreen API where the browser supports it");
       assert.deepEqual(await page.evaluate(() => (window as unknown as { __wake: string[] }).__wake), ["request"]);
       await page.getByRole("button", { name: "Exit name board and return to editing" }).click();
       await page.waitForTimeout(100);
       assert.deepEqual(await page.evaluate(() => (window as unknown as { __wake: string[] }).__wake), ["request", "release"]);
-      assert.equal(await page.evaluate(() => Boolean(document.fullscreenElement)), false, "leaves fullscreen on exit");
+      await page.waitForFunction(() => !document.fullscreenElement);
       await context.close();
     }
     {
@@ -398,6 +402,15 @@ async function main() {
         };
       });
       assert.deepEqual(state, { position: "fixed", zIndex: "2147483000", htmlOverflow: "hidden", fs: false });
+      // Swiping on the board must not scroll the page behind it (iPhone rubber-banding).
+      const swipeBlocked = await page.evaluate(() => {
+        const overlay = document.querySelector("[data-testid=name-board-overlay]")!;
+        if (typeof Touch !== "function") return "no-touch-api";
+        const touch = new Touch({ identifier: 1, target: overlay, clientX: 100, clientY: 100 });
+        const event = new TouchEvent("touchmove", { touches: [touch], cancelable: true, bubbles: true });
+        return overlay.dispatchEvent(event) ? "not-blocked" : "blocked";
+      });
+      assert.ok(swipeBlocked === "blocked" || swipeBlocked === "no-touch-api", `touchmove blocked on the board (${swipeBlocked})`);
       await page.getByRole("button", { name: "Exit name board and return to editing" }).click();
       assert.equal(await page.evaluate(() => document.documentElement.style.overflow), "", "scroll restored");
       await context.close();
@@ -494,7 +507,7 @@ async function main() {
     rmSync(outDir, { recursive: true, force: true });
   }
 
-  console.log(`\nAll ${passed} name board browser checks passed. Screenshots: test-results/name-board/`);
+  console.log(`\nAll ${passed} name board browser checks passed on ${ENGINE}. Screenshots: ${shotsDir.replace(root + "/", "")}/`);
 }
 
 main().catch((error) => {

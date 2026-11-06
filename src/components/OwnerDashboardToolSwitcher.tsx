@@ -144,9 +144,11 @@ export function OwnerDashboardMoreMenu({
 export function OwnerToolBackBar({
   title,
   onBack,
+  backLabel = "More",
 }: {
   title: string;
   onBack: () => void;
+  backLabel?: string;
 }) {
   return (
     <div className="mb-4 flex items-center gap-3">
@@ -155,7 +157,7 @@ export function OwnerToolBackBar({
         onClick={onBack}
         className="min-h-11 shrink-0 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white"
       >
-        More
+        {backLabel}
       </button>
       <h2 className="text-lg font-bold text-white">{title}</h2>
     </div>

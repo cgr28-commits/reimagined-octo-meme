@@ -447,6 +447,8 @@
   padding: 0 0.9rem;
   border-radius: 999px;
   border: 1.5px solid currentColor;
+  /* Fallback first: Safari before 16.2 has no color-mix(). */
+  background: rgba(7, 28, 56, 0.82);
   background: color-mix(in srgb, var(--board-bg, #071c38) 82%, transparent);
   color: var(--board-fg, #ffffff);
   font: inherit;
@@ -462,6 +464,11 @@
 .boardButton:hover,
 .boardButton:focus-visible {
   opacity: 1;
+}
+
+.faceLight .boardButton {
+  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--board-bg, #ffffff) 82%, transparent);
 }
 
 .exitButton {

@@ -150,6 +150,11 @@ console.log("\n=== 5. Brand colours ===");
   assert.match(css, /white-space: pre-line/, "multi-line names");
   assert.doesNotMatch(css, /url\(\s*["']?https?:/, "no external assets");
   assert.doesNotMatch(css, /@import/);
+  // Older iPhone Safari: every color-mix() has a plain fallback declared just before it.
+  const mixes = css.match(/\n\s*background: color-mix\(/g) ?? [];
+  const fallbacks = css.match(/\n\s*background: rgba\([^)]*\);\s*\n\s*background: color-mix\(/g) ?? [];
+  assert.equal(fallbacks.length, mixes.length, "color-mix() fallbacks for Safari < 16.2");
+  assert.match(css, /height: 100vh;\s*height: 100dvh;/, "100vh fallback before 100dvh");
   ok("navy / emerald / white, safe areas, dvh, orientation-aware, no external CSS");
 }
 
@@ -199,7 +204,7 @@ console.log("\n=== 7. Access: signed-in dashboard / driver portal only, no publi
   // Owner: More → Name Board tab, only after the owner key is verified.
   assert.match(
     page,
-    /isOwnerView && savedKey && ownerToolTab === "name-board" \? \(\s*<div id="owner-tool-panel-name-board"[\s\S]{0,300}<NameBoardPanel prefill=\{nameBoardPrefill\} \/>/,
+    /isOwnerView && savedKey && ownerToolTab === "name-board" \? \(\s*<div id="owner-tool-panel-name-board"[\s\S]{0,700}<NameBoardPanel prefill=\{nameBoardPrefill\} \/>/,
   );
   // Driver: only with a verified driver key/session, opened from their own job card.
   assert.match(
@@ -234,8 +239,16 @@ console.log("\n=== 7. Access: signed-in dashboard / driver portal only, no publi
   assert.equal(existsSync(join(root, "src/app/driver/name-board")), false);
   assert.equal(existsSync(join(root, "public/name-board.html")), false);
 
+  // Quick open: one tap from the Jobs tab; Back returns to where it was opened from.
+  assert.match(
+    page,
+    /isOwnerView && savedKey && ownerToolTab === "jobs" \? \([\s\S]{0,300}onClick=\{\(\) => setOwnerToolTab\("name-board"\)\}[\s\S]{0,250}Name board/,
+  );
+  assert.match(page, /if \(ownerToolTab !== "name-board"\) setNameBoardReturnTab\(ownerToolTab\);/);
+  assert.match(page, /onBack=\{\(\) => setOwnerToolTab\(nameBoardReturnTab\)\}/);
   const switcher = read("src/components/OwnerDashboardToolSwitcher.tsx");
   assert.match(switcher, /\| "name-board"/);
+  assert.match(switcher, /OWNER_MORE_DESTINATIONS[\s\S]{0,120}id: "name-board"/, "first in the More menu");
   assert.match(switcher, /id: "name-board",\s*label: "Name Board"/);
   ok("owner (More → Name Board / booking) and accepted drivers only; no public route; no new API");
 }
@@ -260,6 +273,7 @@ console.log("\n=== 8. Accessible controls ===");
   assert.match(panel, /MY AIRPORT TAXI <span className=\{styles\.wordmarkNi\}>NI<\/span>/);
   assert.match(panel, /navigator as Navigator[\s\S]*wakeLock/);
   assert.match(panel, /requestFullscreen/);
+  assert.match(panel, /addEventListener\("touchmove", block, \{ passive: false \}\)/, "iPhone rubber-band blocked");
   assert.match(panel, /webkitRequestFullscreen/);
   ok("labelled input, error alert, dialog semantics, focus handling, Escape, pressed states");
 }

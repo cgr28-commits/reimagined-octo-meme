@@ -2628,6 +2628,11 @@ export default function DriverPageClient({
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
   const [nameBoardPrefill, setNameBoardPrefill] = useState<NameBoardPrefill | null>(null);
   const [driverNameBoardOpen, setDriverNameBoardOpen] = useState(false);
+  // Where the Name Board's Back button returns to (Jobs, More, Past…).
+  const [nameBoardReturnTab, setNameBoardReturnTab] = useState<OwnerDashboardToolTab>("more");
+  useEffect(() => {
+    if (ownerToolTab !== "name-board") setNameBoardReturnTab(ownerToolTab);
+  }, [ownerToolTab]);
   /** "Quote this customer again": carry the booking's details into Personal Quotes. */
   const quoteCustomerAgain = useCallback((booking: Parameters<typeof personalQuotePrefillFromBooking>[0]) => {
     savePersonalQuotePrefill(personalQuotePrefillFromBooking(booking));
@@ -3485,6 +3490,19 @@ export default function DriverPageClient({
                 />
               ) : null}
 
+              {isOwnerView && savedKey && ownerToolTab === "jobs" ? (
+                <div className="mb-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setOwnerToolTab("name-board")}
+                    className="min-h-11 rounded-xl border border-emerald/40 bg-emerald/10 px-4 text-sm font-semibold text-white"
+                    data-open-name-board-quick
+                  >
+                    Name board
+                  </button>
+                </div>
+              ) : null}
+
               {isOwnerView && savedKey && ownerToolTab === "availability" ? (
                 <div
                   id="owner-tool-panel-availability"
@@ -3722,7 +3740,11 @@ export default function DriverPageClient({
               {/* Driver name board: owner-verified only, no public route, name never leaves the device. */}
               {isOwnerView && savedKey && ownerToolTab === "name-board" ? (
                 <div id="owner-tool-panel-name-board" role="tabpanel" aria-label="Name Board">
-                  <OwnerToolBackBar title="Name Board" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerToolBackBar
+                    title="Name Board"
+                    backLabel={nameBoardReturnTab === "more" ? "More" : "Back"}
+                    onBack={() => setOwnerToolTab(nameBoardReturnTab)}
+                  />
                   <NameBoardPanel prefill={nameBoardPrefill} />
                 </div>
               ) : null}

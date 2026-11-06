@@ -258,6 +258,7 @@ export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoard
   const openRef = useRef(false);
   const usedFullscreenRef = useRef(false);
   const scrollLockRef = useRef<{ html: string; body: string } | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Load the last name from this device only.
   useEffect(() => {
@@ -436,6 +437,18 @@ export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoard
     window.requestAnimationFrame(() => displayButtonRef.current?.focus());
   }, [exitFullscreen, releaseWakeLock, unlockScroll]);
 
+  // iPhone Safari: stop rubber-band scrolling of the page behind the board
+  // (which would also make the toolbar jump). Needs a non-passive listener.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!open || !overlay) return;
+    const block = (event: TouchEvent) => {
+      if (event.touches.length === 1) event.preventDefault();
+    };
+    overlay.addEventListener("touchmove", block, { passive: false });
+    return () => overlay.removeEventListener("touchmove", block);
+  }, [open, portalTarget]);
+
   // Focus the exit control when the board opens; Escape closes it.
   useEffect(() => {
     if (!open) return;
@@ -490,6 +503,7 @@ export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoard
     open && portalTarget
       ? createPortal(
           <div
+            ref={overlayRef}
             className={styles.board}
             role="dialog"
             aria-modal="true"
