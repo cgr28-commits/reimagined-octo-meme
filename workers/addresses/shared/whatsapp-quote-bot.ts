@@ -177,7 +177,33 @@ export type WhatsAppAiTask = {
   justUpdated?: boolean;
   /** The customer said the quoted price is too high. */
   priceObjection?: boolean;
+  /** The customer no longer needs a taxi: say goodbye, ask nothing, offer no choices. */
+  declined?: boolean;
 };
+
+const NOT_NEEDED_PATTERNS: RegExp[] = [
+  // "I don't need the taxi now", "won't be needing a cab after all", "no longer need a lift"
+  /\b(don'?t|dont|do not|won'?t|wont|will not|no longer|not)\s+(?:be\s+)?(need|needing|want|wanting|require)\s+(the|a|that|this|my|your)?\s*(taxi|cab|lift|quote|transfer|ride|car anymore|car now|car after all)\b/,
+  /\b(don'?t|dont|do not|no longer)\s+need\s+(it|you|one|you guys)\s*(now|anymore|any more|after all|thanks)?$/,
+  /\b(taxi|cab|lift|quote|it)\s+(is\s+|isn'?t\s+|not\s+)?(not\s+)?(needed|required)\s*(now|anymore|any more|after all)?\b/,
+  /\bno longer (needed|required|travell?ing|going)\b/,
+  /\bchanged? (my|our) minds?\b/,
+  /\b(got|getting|sorted|found|booked)\b.*\b(another|other|different) (taxi|cab|lift|way|firm|company)\b/,
+  /^(nah|no|naw|na)?\s*(don'?t|dont) worry( about it)?\b/,
+  /^(never ?mind|forget it|no thanks|no thank you|nah thanks|nah you'?re grand|you'?re grand|it'?s ok(ay)? now)\b/,
+];
+
+/**
+ * The customer is calling the quote off ("I don't need the taxi now", "nah don't worry").
+ * Asking them for a pickup address after that is the bot "going rogue" (6 Nov 2026).
+ * Cancelling a booking they have already made is not this: that goes to the team.
+ */
+export function isWhatsAppNotNeeded(text: string): boolean {
+  const k = stripWhatsAppMarkdown(text).toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, " ").trim();
+  if (!k) return false;
+  if (/\bmat-?\d|\bbooking\b|\bbooked with you\b|\brefund\b/.test(k)) return false;
+  return NOT_NEEDED_PATTERNS.some((p) => p.test(k));
+}
 
 /** First-message menu: quote, question, or an existing booking. */
 export const WHATSAPP_MENU_BUTTONS = [
@@ -202,6 +228,14 @@ export function isWhatsAppGreeting(text: string): boolean {
   const t = keywordText(text).replace(/[\p{Extended_Pictographic}\u{FE0F}]/gu, "").trim();
   return t === "" || GREETING.test(t);
 }
+
+/** "Don't need the taxi" from a customer who has a paid booking: a person handles it. */
+export const WHATSAPP_BOOKED_NOT_NEEDED_REPLY =
+  "Thanks for letting us know. As you have a booking with us, I've passed this to our team and they'll reply to you here shortly.";
+
+/** Fixed goodbye when the customer no longer needs a taxi (the AI writes its own when available). */
+export const WHATSAPP_NOT_NEEDED_REPLY =
+  "No problem at all, thanks for letting us know. If you ever need a taxi again, just message us here. Safe travels! 😊";
 
 const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
 export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote];
@@ -1252,12 +1286,14 @@ export function decideWhatsAppReply(
         : { ...stripKind(decision), action: "answer", ai: {} };
     case "confirmNoChange":
       return { ...stripKind(decision), action: "answer", ai: {} };
+    case "declined":
+      return { ...stripKind(decision), action: "answer", buttons: undefined, list: undefined, ai: { declined: true } };
     default:
       return stripKind(decision);
   }
 }
 
-type ReplyKind = "welcome" | "ask" | "askRepeat" | "quotedNoChange" | "confirmNoChange";
+type ReplyKind = "welcome" | "ask" | "askRepeat" | "quotedNoChange" | "confirmNoChange" | "declined";
 type KindedDecision = WhatsAppBotDecision & { kind?: ReplyKind };
 
 function stripKind(decision: KindedDecision): WhatsAppBotDecision {
@@ -1296,6 +1332,15 @@ function decideJourneyReply(
       reply: buildWhatsAppWelcome(options.profileName),
       action: "none",
       buttons: WHATSAPP_MENU_BUTTONS,
+    };
+  }
+  if (isWhatsAppNotNeeded(text)) {
+    // Close the quote: nothing more is asked, and the next message starts afresh.
+    return {
+      conversation: newWhatsAppConversation(now),
+      reply: WHATSAPP_NOT_NEEDED_REPLY,
+      action: "none",
+      kind: "declined",
     };
   }
 

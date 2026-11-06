@@ -51,6 +51,7 @@ import {
   buildWhatsAppPriceValueReply,
   buildWhatsAppQuoteReply,
   WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
+  WHATSAPP_BOOKED_NOT_NEEDED_REPLY,
   decideWhatsAppReply,
   describeWhatsAppDraft,
   describeWhatsAppField,
@@ -636,7 +637,7 @@ async function handleInboundMessage(
     quickChoices: whatsAppQuickChoicesEnabled(env, phone),
     addressPick,
   });
-  const conversation = decision.conversation;
+  let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
 
   // A pickup / destination typed without a postcode: confirm the full Google address
@@ -681,6 +682,29 @@ async function handleInboundMessage(
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
   }
 
+  if (decision.action === "answer" && decision.ai?.declined && !isTeamPhone) {
+    // "Don't need the taxi" from someone with a paid booking is a cancellation, which
+    // needs a person (refund terms), not a cheery goodbye (6 Nov 2026).
+    let hasBooking = false;
+    try {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 0, futureDays: 180, limit: 250 });
+      hasBooking = upcomingCustomerBookings(upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone))).length > 0;
+    } catch (err) {
+      logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    }
+    if (hasBooking) {
+      await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+      await cancelWhatsAppFollowUp(store, phone);
+      await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+      logEvent("whatsapp_booking_cancel_handoff", phone);
+      await store.put(conversationKey(phone), JSON.stringify(conversation), {
+        expirationTtl: CONVERSATION_TTL_SECONDS,
+      });
+      await reply(env, phone, WHATSAPP_BOOKED_NOT_NEEDED_REPLY);
+      return;
+    }
+  }
+
   if (decision.action === "answer") {
     const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation, decision.ai ?? {});
     if (answered) {
@@ -688,6 +712,14 @@ async function handleInboundMessage(
       // The AI asked for journey details to start a quote: bare replies now fill them.
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
         conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+      }
+      if (answered.endChat) {
+        // No longer needed: close the quote, no "Today / Tomorrow" choices, no chaser.
+        buttons = undefined;
+        list = undefined;
+        conversation = newWhatsAppConversation(new Date());
+        await cancelWhatsAppFollowUp(store, phone);
+        logEvent("whatsapp_quote_declined", phone);
       }
       if (answered.handoff) {
         // Handing over to the team: no "choose" options under that message.
@@ -1070,7 +1102,7 @@ async function answerCustomerQuestion(
   message: string,
   conversation: WhatsAppConversation,
   task: WhatsAppAiTask,
-): Promise<{ text: string; handoff: boolean; startQuote: boolean } | null> {
+): Promise<{ text: string; handoff: boolean; startQuote: boolean; endChat: boolean } | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
@@ -1089,8 +1121,9 @@ async function answerCustomerQuestion(
             quotedPrice: conversation.lastQuoteAmountLabel,
           }
         : undefined,
+      declined: Boolean(task.declined),
       askFor:
-        task.askFor && conversation.stage === "collecting"
+        !task.declined && task.askFor && conversation.stage === "collecting"
           ? {
               detail: describeWhatsAppField(task.askFor),
               example: buildWhatsAppQuestion(task.askFor),
@@ -1101,16 +1134,19 @@ async function answerCustomerQuestion(
       discountOffered: Boolean(conversation.discountOffered),
     });
     if (!answer) return null;
-    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });
+    const endChat = Boolean(task.declined || answer.endChat) && !answer.handoff;
+    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null, endChat });
 
     let text = answer.text;
-    if (answer.handoff) {
+    if (endChat) {
+      // The customer is done: never tack a journey question onto a goodbye.
+    } else if (answer.handoff) {
       text += `\n\nI've passed this to our team and they'll reply to you here shortly.`;
     } else if (task.askFor && task.justUpdated && conversation.stage === "collecting" && !text.includes("?")) {
       // Safety net: the quote must keep moving when the customer is giving details.
       text += `\n\n${buildWhatsAppQuestion(task.askFor)}`;
     }
-    return { text, handoff: answer.handoff, startQuote: answer.startQuote };
+    return { text, handoff: answer.handoff, startQuote: answer.startQuote && !endChat, endChat };
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
