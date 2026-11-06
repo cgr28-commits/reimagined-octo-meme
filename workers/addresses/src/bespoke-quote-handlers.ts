@@ -62,6 +62,7 @@ import {
   expireBespokeCheckoutAfterCancel,
   retryBespokeCalendar,
   finalizeBespokeCheckoutViaSharedPath,
+  finalizeBespokeDirect,
   reconcileBespokeAttempt,
   reconcileCancelledCheckout,
   runBespokeStripeBackstop,
@@ -155,7 +156,7 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown> |
   }
 }
 
-async function callCoordinator<T>(ns: DurableObjectNamespace, name: string, action: string, body: unknown): Promise<T> {
+export async function callCoordinator<T>(ns: DurableObjectNamespace, name: string, action: string, body: unknown): Promise<T> {
   const response = await ns.get(ns.idFromName(name)).fetch(`https://bespoke-quote/${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -845,6 +846,12 @@ async function publicPaymentStatus(request: Request, env: ReadyEnv, origin: stri
       await finalizeBespokeCheckoutViaSharedPath(env as BespokePaymentEnv, deps, checkoutId).catch((error) =>
         console.error("bespoke payment-status finalize failed", error instanceof Error ? error.message : "unknown"),
       );
+      // Shared lock busy or stuck: finish through the direct (idempotent) path.
+      const ref = pending.bespokeQuoteReference;
+      const recorded = ref
+        ? (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, ref)).record?.payments.some((p) => p.checkoutId === checkoutId)
+        : true;
+      if (!recorded) await finalizeBespokeDirect(env as BespokePaymentEnv, deps, checkoutId).catch(() => false);
     }
   }
   const record = await resolveToken(env, body?.token);
@@ -992,7 +999,7 @@ async function ownerAction(request: Request, env: ReadyEnv, origin: string | nul
     // Safe to repeat: the calendar event id is derived from the payment reference.
     const state = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);
     if (!state.record) return respond({ error: "Request not found" }, 404, origin);
-    const retried = await retryBespokeCalendar(env as BespokePaymentEnv, state.record);
+    const retried = await retryBespokeCalendar(env as BespokePaymentEnv, state.record, idempotencyKey);
     const calendar = await bespokeCalendarStatus(env as BespokePaymentEnv, state.record).catch(() => null);
     return respond(
       { ok: retried.ok, changed: false, calendarResult: retried.status, request: toBespokeQuoteOwnerView(state.record), notifications: state.notifications, ...(calendar ? { calendar } : {}) },

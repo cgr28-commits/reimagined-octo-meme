@@ -1,5 +1,10 @@
 # Bespoke quotes: isolated preview runbook (Phase 4A → 4B)
 
+> **Owner set-up steps (simple, numbered): see `docs/bespoke-preview-owner-setup.md`.**
+> Cloudflare Access note: "Enable access policy" protects only preview deployments.
+> Protecting `matni-bespoke-preview.pages.dev` itself needs Cloudflare's documented
+> extra steps (remove the `*` subdomain, then re-enable), which are in the owner guide.
+
 Status: **nothing created, nothing deployed.** This session has no Cloudflare credentials (`wrangler whoami` → not authenticated), so every Cloudflare step below is an owner action, or needs a narrowly scoped token from you.
 
 Never paste keys into chat, commits or shell history. `wrangler secret put` prompts for the value.
@@ -109,13 +114,9 @@ npx wrangler deploy --config wrangler.bespoke-preview.toml
 Preview website build and deploy, from the repo root:
 
 ```bash
-rm -rf .next
-GITHUB_PAGES=true \
-NEXT_PUBLIC_BOOKINGS_API_URL=https://reimagined-octo-meme-bespoke-preview.cgr28.workers.dev/bookings \
-NEXT_PUBLIC_ADDRESSES_API_URL=https://reimagined-octo-meme-bespoke-preview.cgr28.workers.dev/addresses \
-npm run build
+# Guarded build: refuses the production Worker, and checks the built JS points at the preview Worker.
+node scripts/build-bespoke-preview-site.mjs
 npx wrangler pages deploy out --project-name=matni-bespoke-preview --branch=preview
-git checkout -- public/sitemap.xml   # the build regenerates it; never commit that change
 ```
 
 The GitHub Pages workflow and the production Worker workflow are never involved.

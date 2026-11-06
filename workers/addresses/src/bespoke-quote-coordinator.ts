@@ -89,6 +89,7 @@ export class BespokeQuoteCoordinator implements DurableObject {
     // Only dedupe/rate instances set alarms. Quote records are never auto-deleted.
     if (await this.ctx.storage.get(RECORD_KEY)) return;
     if (await this.ctx.storage.get(REGISTRY_KEY)) return;
+    if (await this.ctx.storage.get("checkpoint")) return;
     await this.ctx.storage.deleteAll();
   }
 
@@ -117,6 +118,12 @@ export class BespokeQuoteCoordinator implements DurableObject {
         return this.notifyDelivery(body);
       case "registry-set":
         return this.registrySet(body);
+      case "lease":
+        return this.lease(body);
+      case "lease-release":
+        return this.leaseRelease(body);
+      case "checkpoint":
+        return this.checkpoint(body);
       case "registry-due":
         return this.registryDue(body);
       case "apply":
@@ -247,6 +254,67 @@ export class BespokeQuoteCoordinator implements DurableObject {
       entry.deliveryAt = at;
       await this.ctx.storage.put(NOTIFICATIONS_KEY, log);
       return json({ ok: true, entry });
+    });
+  }
+
+  /**
+   * Short exclusive lease on a quote instance (e.g. "booking"): only one caller
+   * creates the booking at a time. Unlike a permanent lock, a lease expires, so a
+   * Worker that crashed mid-way cannot block recovery for more than ttlMs.
+   */
+  private async lease(body: Record<string, unknown>): Promise<Response> {
+    const name = typeof body.name === "string" && /^[a-z-]{2,30}$/.test(body.name) ? body.name : "";
+    const token = typeof body.token === "string" && body.token.length >= 8 ? body.token : "";
+    const ttlMs = typeof body.ttlMs === "number" ? Math.min(Math.max(body.ttlMs, 10_000), 15 * 60_000) : 0;
+    if (!name || !token || !ttlMs) return json({ error: "Invalid lease" }, 400);
+    return this.ctx.blockConcurrencyWhile(async () => {
+      const key = `lease:${name}`;
+      const now = this.now().getTime();
+      const current = await this.ctx.storage.get<{ token: string; until: number }>(key);
+      if (current && current.until > now && current.token !== token) return json({ acquired: false, until: current.until });
+      await this.ctx.storage.put(key, { token, until: now + ttlMs });
+      return json({ acquired: true });
+    });
+  }
+
+  private async leaseRelease(body: Record<string, unknown>): Promise<Response> {
+    const name = typeof body.name === "string" ? body.name : "";
+    const token = typeof body.token === "string" ? body.token : "";
+    return this.ctx.blockConcurrencyWhile(async () => {
+      const key = `lease:${name}`;
+      const current = await this.ctx.storage.get<{ token: string }>(key);
+      if (current?.token === token) await this.ctx.storage.delete(key);
+      return json({ ok: true });
+    });
+  }
+
+  /**
+   * Durable state for the Stripe backstop (checkpoint instance only):
+   *  - checkpoint: monotonic unix seconds; only ever moves forward
+   *  - pending: completed-but-not-yet-paid bespoke sessions (async payment
+   *    methods) re-checked by id every run until they settle
+   */
+  private async checkpoint(body: Record<string, unknown>): Promise<Response> {
+    return this.ctx.blockConcurrencyWhile(async () => {
+      if (await this.ctx.storage.get(RECORD_KEY)) return json({ error: "Wrong instance" }, 409);
+      let current = (await this.ctx.storage.get<number>("checkpoint")) ?? null;
+      const pending = (await this.ctx.storage.get<Record<string, number>>("pending")) ?? {};
+      const set = typeof body.set === "number" && Number.isFinite(body.set) ? Math.floor(body.set) : null;
+      let advanced = false;
+      if (set !== null && (current === null || set > current)) {
+        current = set;
+        advanced = true;
+        await this.ctx.storage.put("checkpoint", set);
+      }
+      const nowS = Math.floor(this.now().getTime() / 1000);
+      const add = Array.isArray(body.addPending) ? body.addPending.filter((x): x is string => typeof x === "string" && /^cs_[A-Za-z0-9_]{4,200}$/.test(x)) : [];
+      const remove = Array.isArray(body.removePending) ? body.removePending.filter((x): x is string => typeof x === "string") : [];
+      if (add.length || remove.length) {
+        for (const id of add) pending[id] = pending[id] ?? nowS;
+        for (const id of remove) delete pending[id];
+        await this.ctx.storage.put("pending", pending);
+      }
+      return json({ checkpoint: current, advanced, pending });
     });
   }
 

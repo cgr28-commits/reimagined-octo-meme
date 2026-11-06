@@ -12,9 +12,15 @@ import { BespokeQuoteCoordinator } from "../workers/addresses/src/bespoke-quote-
 import { QuoteLeadCoordinator } from "../workers/addresses/src/quote-lead-coordinator";
 import { handleBespokeQuoteRoute, runBespokeExpirySweep, type BespokeQuoteEnv } from "../workers/addresses/src/bespoke-quote-handlers";
 import {
+  BACKSTOP_INITIAL_LOOKBACK_SECONDS,
+  BACKSTOP_OVERLAP_SECONDS,
   finalizeBespokeCheckoutViaSharedPath,
+  finalizeBespokeDirect,
   handleOrphanBespokePayment,
+  runBespokeStripeBackstop,
 } from "../workers/addresses/src/bespoke-payment";
+import { paymentOperationHash } from "../workers/addresses/src/payment-operation";
+import { bespokeCalendarEventId } from "../workers/addresses/src/bespoke-calendar";
 import { finalizePaidCheckout } from "../workers/addresses/src/finalize-paid-checkout";
 import { getPaidBookingRecord } from "../workers/addresses/src/paid-booking-store";
 import { getPendingCheckout, savePendingCheckout } from "../workers/addresses/src/pending-checkout-store";
@@ -152,6 +158,10 @@ type Session = {
 type Mail = { audience: string; to: string; subject: string; body: string };
 const mails: Mail[] = [];
 const sessions = new Map<string, Session>();
+const listQueries: string[] = [];
+const listFailures: number[] = [];
+let calendarInsertMode: "ok" | "lost_after_create" = "ok";
+let calendarInserts = 0;
 const calendarEvents = new Map<string, unknown>();
 const idempotency = new Map<string, string>();
 const stripeCalls: string[] = [];
@@ -202,8 +212,13 @@ function createSessionDirect(reference: string, amountPence: number): Session {
     }
     const body = JSON.parse(String(init.body ?? "{}")) as { id?: string };
     const id = String(body.id ?? `google_${calendarEvents.size + 1}`);
+    calendarInserts += 1;
     if (calendarEvents.has(id)) return Response.json({ error: { code: 409 } }, { status: 409 });
     calendarEvents.set(id, body);
+    if (calendarInsertMode === "lost_after_create") {
+      calendarInsertMode = "ok";
+      throw new TypeError("connection reset after Google created the event");
+    }
     return Response.json({ ...body, id });
   }
   if (url === "https://api.resend.com/emails" && method === "POST") {
@@ -252,10 +267,22 @@ function createSessionDirect(reference: string, amountPence: number): Session {
     return Response.json(s);
   }
   if (method === "GET" && path === "/checkout/sessions") {
+    // Mirrors the documented contract: filters created / status only (NO
+    // client_reference_id filter), newest first, limit 1–100, starting_after cursor.
     const q = new URL(url).searchParams;
+    listQueries.push(q.toString());
+    const failure = listFailures.shift();
+    if (failure) return new Response(JSON.stringify({ error: { message: "simulated" } }), { status: failure, headers: failure === 429 ? { "Retry-After": "1" } : {} });
+    for (const k of q.keys()) assert.ok(["status", "limit", "created[gte]", "starting_after"].includes(k), `unsupported list parameter ${k}`);
     const since = Number(q.get("created[gte]") ?? 0);
-    const data = [...sessions.values()].filter((x) => (!q.get("status") || x.status === q.get("status")) && x.created >= since);
-    return Response.json({ object: "list", data, has_more: false });
+    const limit = Math.min(Math.max(Number(q.get("limit") ?? 10), 1), 100);
+    const all = [...sessions.values()]
+      .filter((x) => (!q.get("status") || x.status === q.get("status")) && x.created >= since)
+      .sort((x, y) => y.created - x.created || (y.id < x.id ? -1 : 1));
+    const after = q.get("starting_after");
+    const startIdx = after ? all.findIndex((x) => x.id === after) + 1 : 0;
+    const data = all.slice(startIdx, startIdx + limit);
+    return Response.json({ object: "list", data, has_more: startIdx + limit < all.length });
   }
   const get = /^\/checkout\/sessions\/([^/]+)$/.exec(path);
   if (method === "GET" && get) {
@@ -316,6 +343,7 @@ const deps = {
     return { logged: true, eventIds: [`evt_${calendarCalls}`], calendarEventIdsByLeg: { outbound: `evt_${calendarCalls}` } } as never;
   },
   now,
+  sleep: async () => undefined,
 };
 
 let ip = 0;
@@ -768,6 +796,199 @@ async function main() {
   const pendingStore = read("workers/addresses/src/pending-checkout-store.ts");
   assert.match(pendingStore, /\| "bespoke";/);
   assert.match(pendingStore, /bespokeQuoteReference\?: string;/);
+
+  // =========================================================================
+  // Phase 4A final verification
+  // =========================================================================
+  const sessionsOf = () => [...sessions.values()];
+  const fillers = (n: number, createdOffsetS: number) => {
+    for (let i = 0; i < n; i++) {
+      const sx = createSessionDirect(`matni-airport-filler-${sessionCounter + 1}`, 4500);
+      sx.created = Math.floor(Date.now() / 1000) + createdOffsetS;
+      pay(sx.id);
+    }
+  };
+  const paymentsFor = async (ref: string) => (await detail(ref)).request.payments.length;
+
+  console.log("=== 15. Backstop: pending + index missing, webhook acknowledged-but-failed, 3 pages ===");
+  clock.offsetMs = 0;
+  const bk = await quotedRequest(81, 48);
+  const cbk = await call("/bespoke-quotes/checkout", { token: bk.token });
+  sessions.get(cbk.json.checkoutId)!.created -= 120; // oldest in the window → last page
+  pay(cbk.json.checkoutId);
+  failNextRecordPayment = true;
+  assert.equal((await webhook(cbk.json.checkoutId)).status, 200, "webhook acknowledged");
+  assert.equal(await paymentsFor(bk.ref), 0, "processing failed");
+  kv.delete(`pending-checkout:${cbk.json.checkoutId}`);
+  await BESPOKE_NS.get(BESPOKE_NS.idFromName("registry:open-quotes")).fetch("https://bespoke-quote/registry-set", { method: "POST", body: JSON.stringify({ reference: bk.ref, expiresAt: null }) });
+  fillers(230, 60); // newer airport sessions push ours to page 3
+  listQueries.length = 0;
+  const b15 = await runBespokeStripeBackstop(env, deps);
+  assert.equal(b15.complete, true, JSON.stringify(b15));
+  assert.ok(b15.pages >= 3, `paginated (${b15.pages} pages)`);
+  assert.equal(await paymentsFor(bk.ref), 1, "found on a later page and recorded");
+  assert.equal((await detail(bk.ref)).request.status, "CONFIRMED");
+  assert.ok(listQueries.every((q) => q.includes("status=complete") && q.includes("limit=100") && /created%5Bgte%5D=\d+/.test(q)));
+  assert.ok(listQueries.slice(1).every((q) => q.includes("starting_after=cs_")), "cursor pagination");
+  assert.ok(!listQueries.some((q) => /client_reference_id/.test(q)), "no unsupported filter is sent");
+  assert.ok(b15.checkpoint !== null && b15.windowStart! <= b15.checkpoint! - BACKSTOP_OVERLAP_SECONDS + 1, "window overlaps the checkpoint");
+  assert.ok(BACKSTOP_OVERLAP_SECONDS > 24 * 3600, "overlap exceeds Stripe's 24 h session lifetime");
+  assert.equal(BACKSTOP_INITIAL_LOOKBACK_SECONDS, 30 * 86400);
+
+  console.log("=== 16. Stripe 429 / 5xx / page cap: retried, never skipped ===");
+  const rl = await quotedRequest(82, 48);
+  const crl = await call("/bespoke-quotes/checkout", { token: rl.token });
+  pay(crl.json.checkoutId);
+  kv.delete(`pending-checkout:${crl.json.checkoutId}`);
+  listFailures.push(429, 429); // rate limited twice, then fine
+  const b16a = await runBespokeStripeBackstop(env, deps);
+  assert.equal(b16a.complete, true, "recovered after Retry-After backoff");
+  assert.equal(await paymentsFor(rl.ref), 1);
+  const cpBefore = b16a.checkpoint;
+  const down = await quotedRequest(83, 48);
+  const cdown = await call("/bespoke-quotes/checkout", { token: down.token });
+  pay(cdown.json.checkoutId);
+  kv.delete(`pending-checkout:${cdown.json.checkoutId}`);
+  clock.offsetMs = 3600_000;
+  listFailures.push(500, 500, 500, 500); // persistent outage for this run
+  const b16b = await runBespokeStripeBackstop(env, deps);
+  assert.equal(b16b.complete, false);
+  assert.equal(b16b.checkpoint, cpBefore, "checkpoint NOT advanced after a failed run");
+  assert.equal(await paymentsFor(down.ref), 0);
+  clock.offsetMs = 2 * 3600_000;
+  const b16c = await runBespokeStripeBackstop(env, deps, { maxPages: 1 }); // page cap hit
+  assert.equal(b16c.complete, false, "page cap never silently skips");
+  assert.equal(b16c.checkpoint, cpBefore);
+  clock.offsetMs = 3 * 3600_000;
+  const b16d = await runBespokeStripeBackstop(env, deps);
+  assert.equal(b16d.complete, true);
+  assert.equal(await paymentsFor(down.ref), 1, "the next clean run covered the missed ground");
+  assert.ok(b16d.checkpoint! >= cpBefore!, "checkpoint is monotonic (never moves backwards)");
+  // Anchor the test clock to the durable checkpoint (earlier sections moved it ahead).
+  const atCheckpoint = (cp: number | null | undefined, plusMs: number) => {
+    clock.offsetMs = (cp ?? Math.floor(Date.now() / 1000)) * 1000 - Date.now() + plusMs;
+  };
+  // Falling behind → one owner alert per day.
+  const alertsBefore = mails.filter((m) => /reconciliation is behind/.test(m.subject)).length;
+  atCheckpoint(b16d.checkpoint, 7 * 3600_000);
+  listFailures.push(500, 500, 500, 500);
+  await runBespokeStripeBackstop(env, deps);
+  listFailures.push(500, 500, 500, 500);
+  await runBespokeStripeBackstop(env, deps);
+  assert.equal(mails.filter((m) => /reconciliation is behind/.test(m.subject)).length, alertsBefore + 1, "owner alerted once");
+  listFailures.length = 0;
+  const caughtUp = await runBespokeStripeBackstop(env, deps);
+  assert.equal(caughtUp.complete, true);
+
+  console.log("=== 17. Window edges: created before the checkpoint, paid after; async payments ===");
+  atCheckpoint(caughtUp.checkpoint, 3600_000);
+  const edge = await quotedRequest(84, 48);
+  const cedge = await call("/bespoke-quotes/checkout", { token: edge.token });
+  sessions.get(cedge.json.checkoutId)!.created = Math.floor((Date.now() + clock.offsetMs) / 1000) - 20 * 3600; // created 20 h ago
+  const passed = await runBespokeStripeBackstop(env, deps); // checkpoint moves past the session's creation time
+  assert.ok(passed.checkpoint! > sessions.get(cedge.json.checkoutId)!.created, "checkpoint is now later than the session's creation");
+  pay(cedge.json.checkoutId); // …and only now is it paid
+  kv.delete(`pending-checkout:${cedge.json.checkoutId}`);
+  atCheckpoint(passed.checkpoint, 3600_000);
+  const b17 = await runBespokeStripeBackstop(env, deps);
+  assert.equal(await paymentsFor(edge.ref), 1, `created before the checkpoint, paid after → still found (${JSON.stringify(b17)})`);
+  // Async: complete but not yet paid, settles days later — far outside any window.
+  const asy = await quotedRequest(85, 24 * 14);
+  const casy = await call("/bespoke-quotes/checkout", { token: asy.token });
+  const sasy = sessions.get(casy.json.checkoutId)!;
+  sasy.created = Math.floor((Date.now() + clock.offsetMs) / 1000); // created "now" on the test clock
+  sasy.status = "complete"; // e.g. a bank debit: complete, payment_status still "unpaid"
+  kv.delete(`pending-checkout:${casy.json.checkoutId}`);
+  const b17b = await runBespokeStripeBackstop(env, deps);
+  assert.ok(b17b.asyncPending >= 1, "kept on the durable async list");
+  assert.equal(await paymentsFor(asy.ref), 0);
+  atCheckpoint(b17b.checkpoint, 5 * 86_400_000); // five days later, far outside the window
+  pay(casy.json.checkoutId);
+  await runBespokeStripeBackstop(env, deps);
+  assert.equal(await paymentsFor(asy.ref), 1, "settled async payment recorded via the durable list");
+  clock.offsetMs = 0;
+
+  console.log("=== 18. Crash during recording + stuck shared lock + two simultaneous recoveries ===");
+  const lk = await quotedRequest(86, 48);
+  const clk = await call("/bespoke-quotes/checkout", { token: lk.token });
+  pay(clk.json.checkoutId);
+  failNextRecordPayment = true;
+  const crashed1 = await finalizeBespokeCheckoutViaSharedPath(env, deps, clk.json.checkoutId);
+  assert.equal(crashed1?.paid, false, "recording failed → retryable, lock released");
+  assert.equal(await paymentsFor(lk.ref), 0);
+  // A Worker killed INSIDE the shared lock leaves it held forever (existing design, unchanged).
+  const lockKey = `payment-finalize:${await paymentOperationHash(clk.json.checkoutId)}`;
+  await LEAD_NS.get(LEAD_NS.idFromName(lockKey)).fetch("https://payment-operation/operation-begin", {
+    method: "POST",
+    body: JSON.stringify({ token: "killed-worker", digest: lockKey }),
+  });
+  const insertsBefore = calendarInserts;
+  const confBefore = mails.filter((m) => /Booking confirmed/.test(m.subject) && m.body.includes(lk.ref)).length;
+  // Two recoveries at the same time (customer page + backstop-style direct path), twice.
+  await Promise.all([
+    call("/bespoke-quotes/payment-status", { token: lk.token, checkoutId: clk.json.checkoutId }),
+    finalizeBespokeDirect(env, deps, clk.json.checkoutId),
+    finalizeBespokeDirect(env, deps, clk.json.checkoutId),
+    call("/bespoke-quotes/payment-status", { token: lk.token, checkoutId: clk.json.checkoutId }),
+  ]);
+  const dlk = await detail(lk.ref);
+  assert.equal(dlk.request.payments.length, 1, "one payment");
+  assert.equal(dlk.request.status, "CONFIRMED", "recovered despite the stuck shared lock");
+  const lkRef = dlk.request.payments[0].paymentReference;
+  assert.equal((await findTrackingJobsByPaymentReference(KV, lkRef)).length, 1, "one job");
+  assert.equal(calendarInserts - insertsBefore, 1, "one calendar insert");
+  assert.equal(mails.filter((m) => /Booking confirmed/.test(m.subject) && m.body.includes(lk.ref)).length - confBefore, 1, "one confirmation email");
+  const mats = [...kv.keys()].filter((k) => k.startsWith("booking:ref:") && kv.get(k)!.value.includes(lkRef));
+  assert.equal(mats.length, 1, "one paid booking record");
+  // Booking lease: concurrent booking attempts on a PAID record create one booking.
+  assert.ok(!readFileSync("workers/addresses/src/payment-operation.ts", "utf8").includes("bespoke"), "shared lock code unchanged");
+
+  console.log("=== 19. Calendar: crash right after Google created the event; deleted events; owner retry ===");
+  const cal = await quotedRequest(87, 48);
+  const ccal = await call("/bespoke-quotes/checkout", { token: cal.token });
+  pay(ccal.json.checkoutId);
+  calendarInsertMode = "lost_after_create";
+  const insertsCal = calendarInserts;
+  await call("/bespoke-quotes/payment-status", { token: cal.token, checkoutId: ccal.json.checkoutId });
+  let dcal = await detail(cal.ref);
+  assert.equal(dcal.request.status, "CONFIRMED", "the booking is never blocked by the calendar");
+  assert.equal(calendarInserts - insertsCal, 1);
+  assert.deepEqual(dcal.calendar.eventIds, [], "not recorded as logged");
+  assert.ok(mails.some((m) => /Check the calendar/.test(m.subject) && m.body.includes(cal.ref)), "owner told to review");
+  assert.equal(dcal.notifications.find((n: { kind: string }) => n.kind === "calendar")?.status, "failed");
+  // No automatic retry: further recoveries and sweeps do not touch Google again.
+  await finalizeBespokeDirect(env, deps, ccal.json.checkoutId);
+  await runBespokeExpirySweep(env, deps as never, { now: new Date(Date.now() + 40 * 3_600_000) });
+  assert.equal(calendarInserts - insertsCal, 1, "no automatic re-insert after an uncertain result");
+  // Owner retry: looks up first → the event Google created is found and reused.
+  const r1 = await owner(cal.ref, { type: "retry_calendar" });
+  assert.equal(r1.status, 200, r1.text);
+  assert.equal(calendarInserts - insertsCal, 1, "retry found the existing event — no second event");
+  dcal = await detail(cal.ref);
+  assert.equal(dcal.calendar.eventIds.length, 1);
+  const payCal = dcal.request.payments[0].paymentReference;
+  assert.equal(dcal.calendar.eventIds[0], await bespokeCalendarEventId(String(env.GOOGLE_CALENDAR_ID), payCal, "outbound"));
+  // Deleted event (Google status "cancelled") is reported, never silently reused or recreated.
+  const del = await quotedRequest(88, 48);
+  const cdel = await call("/bespoke-quotes/checkout", { token: del.token });
+  pay(cdel.json.checkoutId);
+  const delPayRef = `pi_${cdel.json.checkoutId.slice(3)}`;
+  calendarEvents.set(await bespokeCalendarEventId(String(env.GOOGLE_CALENDAR_ID), delPayRef, "outbound"), { status: "cancelled" });
+  const insertsDel = calendarInserts;
+  await call("/bespoke-quotes/payment-status", { token: del.token, checkoutId: cdel.json.checkoutId });
+  const ddel = await detail(del.ref);
+  assert.equal(ddel.request.status, "CONFIRMED");
+  assert.equal(calendarInserts - insertsDel, 0, "no insert over a deleted event's id");
+  assert.equal(ddel.notifications.find((n: { kind: string }) => n.kind === "calendar")?.status, "failed");
+  // Documented id rules: base32hex (a–v, 0–9), 5–1024 chars, unique per calendar.
+  for (const leg of ["outbound", "return"] as const) {
+    const id = await bespokeCalendarEventId("cal@example.com", "pi_abc", leg);
+    assert.match(id, /^[a-v0-9]{5,1024}$/);
+  }
+  assert.notEqual(await bespokeCalendarEventId("cal", "pi_1", "outbound"), await bespokeCalendarEventId("cal", "pi_1", "return"));
+  assert.notEqual(await bespokeCalendarEventId("cal", "pi_1", "outbound"), await bespokeCalendarEventId("cal", "pi_2", "outbound"));
+  assert.equal(await bespokeCalendarEventId("cal", "pi_1", "outbound"), await bespokeCalendarEventId("cal", "pi_1", "outbound"), "deterministic");
+  void sessionsOf;
 
   console.log("\nAll bespoke payment checks passed.", `(${sessions.size} mock Stripe sessions, ${stripeCalls.length} Stripe calls)`);
 }

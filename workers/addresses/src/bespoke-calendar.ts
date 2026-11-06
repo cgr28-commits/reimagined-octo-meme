@@ -6,14 +6,17 @@
  * we stored its id, a retry creates a SECOND event.
  *
  * Fix: we choose the event id ourselves, derived from the booking's payment
- * reference and journey leg. Google Calendar guarantees event ids are unique per
- * calendar and rejects a second insert with the same id (HTTP 409), so:
+ * reference and journey leg (Google: ids must be base32hex [a-v0-9], 5–1024 chars,
+ * unique per calendar). Google also documents that it "cannot guarantee that ID
+ * collisions will be detected at event creation time", so the 409 answer is a
+ * safety net, not the guarantee. The guarantee is procedural:
  *   1. look the id up first (exists → reuse it, create nothing);
  *   2. otherwise insert WITH that id;
  *   3. a 409 means it already exists (created by a lost earlier attempt) → reuse.
- * A retry can therefore never create a second event for the same booking leg.
- * If Google returns anything unexpected, nothing is guessed: the step reports
- * "uncertain" and the caller stops and flags the booking for owner review.
+ * and the caller (bespoke-payment.ts) claims the calendar step ONCE per payment in
+ * the Durable Object: after any uncertain result there is NO automatic retry — the
+ * owner reviews and may press "Retry calendar", which looks up first again.
+ * A deleted (status "cancelled") event is reported, never silently reused.
  *
  * The existing airport calendar path (logPaidBookingCalendar) is unchanged.
  */
@@ -98,6 +101,11 @@ export async function logBespokeBookingCalendar(
     } catch (error) {
       return { status: "uncertain", eventIds, error: `lookup failed: ${error instanceof Error ? error.message : "unknown"}` };
     }
+    // Google: status "cancelled" = a DELETED event; its id may stay reserved for a
+    // while. Do not treat it as present and do not try to recreate it: owner review.
+    if (existing && existing.status === "cancelled") {
+      return { status: "uncertain", eventIds, error: `calendar event ${leg} was deleted in Google Calendar` };
+    }
     if (existing) {
       eventIds.push(id);
       byLeg[leg] = id;
@@ -127,12 +135,17 @@ export async function logBespokeBookingCalendar(
       byLeg[leg] = id;
       continue;
     }
-    // 3. 409 = an event with this id already exists (lost response earlier) → reuse.
+    // 3. 409 = this id is taken. Confirm by reading it back: a live event is reused;
+    //    a deleted (cancelled) or unreadable one goes to owner review.
     if (response instanceof Response && response.status === 409) {
-      eventIds.push(id);
-      byLeg[leg] = id;
-      reused += 1;
-      continue;
+      const confirm = await getCalendarEvent(accessToken, calendarId, id).catch(() => null);
+      if (confirm && confirm.status !== "cancelled") {
+        eventIds.push(id);
+        byLeg[leg] = id;
+        reused += 1;
+        continue;
+      }
+      return { status: "uncertain", eventIds, error: `calendar id for ${leg} is reserved but no live event is readable` };
     }
     // Network error or any other status: the insert MAY have happened. A later
     // retry is still safe (same id), but we stop here and let the caller decide.

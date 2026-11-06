@@ -170,6 +170,25 @@ async function main() {
     assert.equal(typeof (preview as Record<string, unknown>)[cls], "function", `${cls} exported from the preview entry`);
   }
 
+  console.log("=== Hostnames, CORS origin and Stripe return URLs are consistent ===");
+  const v = (name: string) => new RegExp(`^${name} = "([^"]*)"$`, "m").exec(toml)?.[1] ?? "";
+  const previewSite = v("PREVIEW_SITE_ORIGIN");
+  assert.equal(previewSite, "https://matni-bespoke-preview.pages.dev");
+  assert.equal(v("SITE_ORIGIN"), previewSite, "customer links / Stripe return URLs use the preview site");
+  assert.equal(v("TURNSTILE_ALLOWED_HOSTNAMES"), new URL(previewSite).hostname);
+  const workerName = /^name = "(.+)"$/m.exec(toml)![1];
+  const buildScript = readFileSync("scripts/build-bespoke-preview-site.mjs", "utf8");
+  assert.ok(buildScript.includes(`https://${workerName}.cgr28.workers.dev`), "site build pinned to the preview Worker");
+  // Stripe: the return URL and the card page are built from SITE_ORIGIN (never the live site).
+  const paymentSrc = readFileSync("workers/addresses/src/bespoke-payment.ts", "utf8");
+  assert.match(paymentSrc, /returnUrl: `\$\{site\}\$\{BESPOKE_QUOTATION_PATH\}\?paid=1`/);
+  assert.match(paymentSrc, /siteOrigin: site,/);
+  assert.match(paymentSrc, /const site = siteOrigin\(env\);/);
+  // The LIVE Worker refuses the preview website's origin (its allow-list is unchanged).
+  const { isAllowedBrowserOrigin } = await import("../shared/google-places");
+  assert.equal(isAllowedBrowserOrigin(previewSite), false, "production Worker does not accept the preview site");
+  assert.equal(isAllowedBrowserOrigin("https://www.myairporttaxini.co.uk"), true);
+
   console.log("\nAll preview isolation checks passed.");
 }
 

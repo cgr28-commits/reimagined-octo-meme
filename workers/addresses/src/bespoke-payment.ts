@@ -53,6 +53,7 @@ import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { attachCalendarEventIdToTrackingJob, findTrackingJobsByPaymentReference } from "./tracking-store";
 import { calendarConfiguredFor, logBespokeBookingCalendar } from "./bespoke-calendar";
+import { trySendOwnerOperationalEmail } from "./worker-email";
 import { runPaymentOperation, PaymentOperationBusy, paymentOperationHash } from "./payment-operation";
 import {
   finalizePaidCheckout,
@@ -62,6 +63,7 @@ import {
 } from "./finalize-paid-checkout";
 import {
   applyAction,
+  callCoordinator,
   bespokeFeatureEnabled,
   getBespokeQuoteState,
   ownerInbox,
@@ -83,6 +85,8 @@ export type BespokePaymentEnv = BespokeQuoteEnv &
 
 export type BespokePaymentDeps = BespokeQuoteDeps & {
   logPaidBookingCalendar?: LogPaidBookingCalendarFn;
+  /** Injectable wait (tests). Defaults to setTimeout. */
+  sleep?: (ms: number) => Promise<void>;
   /** Injectable clock (tests). Defaults to real time. */
   now?: () => Date;
 };
@@ -462,6 +466,31 @@ export async function completeBespokeBooking(
 ): Promise<CompleteBookingResult> {
   const env = ready(rawEnv);
   if (!env || !env.TRACKING_STORE) return { ok: false, error: "not_configured" };
+  // Exclusive, EXPIRING lease on this quotation: two simultaneous recoveries can
+  // never create the booking twice, and a Worker that crashed mid-way only blocks
+  // others until the lease expires (unlike a permanent lock).
+  const token = crypto.randomUUID();
+  const lease = await callCoordinator<{ acquired?: boolean }>(env.BESPOKE_QUOTE_COORDINATOR, `quote:${reference}`, "lease", {
+    name: "booking",
+    token,
+    ttlMs: BOOKING_LEASE_MS,
+  }).catch(() => ({ acquired: false }));
+  if (!lease.acquired) return { ok: false, error: "booking_in_progress" };
+  try {
+    return await completeBespokeBookingLeased(env, deps, reference);
+  } finally {
+    await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, `quote:${reference}`, "lease-release", { name: "booking", token }).catch(() => undefined);
+  }
+}
+
+const BOOKING_LEASE_MS = 5 * 60_000;
+
+async function completeBespokeBookingLeased(
+  env: BespokePaymentEnv & BespokeReadyEnv,
+  deps: BespokePaymentDeps,
+  reference: string,
+): Promise<CompleteBookingResult> {
+  if (!env.TRACKING_STORE) return { ok: false, error: "not_configured" };
   const state = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);
   const record = state.record;
   if (!record) return { ok: false, error: "not_found" };
@@ -476,6 +505,7 @@ export async function completeBespokeBooking(
   let calendarEvents = 0;
   let trackingCreated = false;
   let calendarUncertain: string | undefined;
+  let pendingCalendarFinish: { status: "accepted"; provider: string } | undefined;
 
   if (record.status === "PAID") {
     try {
@@ -509,14 +539,28 @@ export async function completeBespokeBooking(
       let calendarIds = existing?.calendarEventIds ?? [];
       let byLeg = existing?.calendarEventIdsByLeg;
       if (calendarIds.length === 0) {
-        const calendar = await logBespokeBookingCalendar(env, booking, amountLabel, payment.paymentReference).catch(
-          (error: unknown) => ({ status: "uncertain" as const, eventIds: [] as string[], error: error instanceof Error ? error.message : "calendar error" }),
-        );
-        if (calendar.status === "logged") {
-          calendarIds = calendar.eventIds;
-          byLeg = calendar.byLeg;
-        } else if (calendar.status === "uncertain") {
-          calendarUncertain = calendar.error;
+        // Claimed ONCE per payment in the Durable Object. Google documents that it
+        // "cannot guarantee that ID collisions will be detected at event creation
+        // time", so after an uncertain insert we never retry automatically: the
+        // claim stays and the owner reviews (Retry calendar looks up first).
+        const step = await claimCalendarStep(env, reference, payment.paymentReference);
+        if (step.claimed) {
+          const calendar = await logBespokeBookingCalendar(env, booking, amountLabel, payment.paymentReference).catch(
+            (error: unknown) => ({ status: "uncertain" as const, eventIds: [] as string[], error: error instanceof Error ? error.message : "calendar error" }),
+          );
+          if (calendar.status === "logged") {
+            calendarIds = calendar.eventIds;
+            byLeg = calendar.byLeg;
+            pendingCalendarFinish = { status: "accepted", provider: "google-calendar" };
+          } else if (calendar.status === "uncertain") {
+            calendarUncertain = calendar.error;
+            await finishCalendarStep(env, reference, payment.paymentReference, { status: "failed", error: calendar.error });
+          } else {
+            await finishCalendarStep(env, reference, payment.paymentReference, { status: "skipped", error: "calendar not configured" });
+          }
+        } else if (step.status !== "accepted" && step.status !== "skipped") {
+          // An earlier attempt is uncertain (or crashed mid-way): owner review only.
+          calendarUncertain = calendarUncertain ?? "an earlier calendar attempt did not complete";
         }
       }
       calendarEvents = calendarIds.length;
@@ -534,6 +578,8 @@ export async function completeBespokeBooking(
       }
       const saved = await getPaidBookingRecord(store, payment.paymentReference);
       if (!saved) throw new Error("paid booking record not readable after save");
+      // Only now (event ids stored) is the calendar step marked done.
+      if (pendingCalendarFinish) await finishCalendarStep(env, reference, payment.paymentReference, pendingCalendarFinish);
       const notes = bookingNotes(record);
       if (saved.notes !== notes) await savePaidBookingRecord(store, { ...saved, notes });
       bookingReference = customerReference || saved.customerReference || payment.paymentReference;
@@ -739,8 +785,32 @@ export async function bespokeCalendarStatus(rawEnv: BespokePaymentEnv, record: B
 export async function retryBespokeCalendar(
   rawEnv: BespokePaymentEnv,
   record: BespokeQuoteRecord,
+  clickKey: string = crypto.randomUUID(),
 ): Promise<{ ok: boolean; status: string; eventIds: string[] }> {
   if (!rawEnv.TRACKING_STORE || record.status !== "CONFIRMED") return { ok: false, status: "not_confirmed", eventIds: [] };
+  const env = ready(rawEnv);
+  if (!env) return { ok: false, status: "not_configured", eventIds: [] };
+  // One owner click = one attempt (a double-click or network retry does nothing more).
+  const stepKey = `calendar-retry:${clickKey}`.replace(/[^A-Za-z0-9:_-]/g, "-").slice(0, 120);
+  const claim = await callCoordinator<{ claimed?: boolean }>(env.BESPOKE_QUOTE_COORDINATOR, `quote:${record.reference}`, "notify-begin", {
+    key: stepKey,
+    kind: "calendar",
+  }).catch(() => ({ claimed: false }));
+  if (!claim.claimed) return { ok: false, status: "already_requested", eventIds: [] };
+  const outcome = await retryBespokeCalendarClaimed(rawEnv, record);
+  await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, `quote:${record.reference}`, "notify-finish", {
+    key: stepKey,
+    status: outcome.ok ? "accepted" : outcome.status === "not_configured" ? "skipped" : "failed",
+    ...(outcome.ok ? { provider: "google-calendar" } : { error: outcome.status }),
+  }).catch(() => undefined);
+  return outcome;
+}
+
+async function retryBespokeCalendarClaimed(
+  rawEnv: BespokePaymentEnv,
+  record: BespokeQuoteRecord,
+): Promise<{ ok: boolean; status: string; eventIds: string[] }> {
+  if (!rawEnv.TRACKING_STORE) return { ok: false, status: "not_configured", eventIds: [] };
   const payment = [...record.payments].reverse().find((p) => p.outcome === "accepted" && !p.refundedManuallyAt);
   if (!payment) return { ok: false, status: "no_payment", eventIds: [] };
   const store = rawEnv.TRACKING_STORE;
@@ -816,69 +886,189 @@ export async function reconcileCancelledCheckout(
 // E. Stripe backstop — Stripe itself is the source of truth
 // ---------------------------------------------------------------------------
 
-export type StripeBackstopResult = { ran: boolean; sessionsChecked: number; bespokeSessions: number; recovered: number; errors: number };
+export type StripeBackstopResult = {
+  ran: boolean;
+  /** True only if the WHOLE window was listed and every bespoke session handled. */
+  complete: boolean;
+  pages: number;
+  sessionsChecked: number;
+  bespokeSessions: number;
+  recovered: number;
+  asyncPending: number;
+  errors: number;
+  windowStart?: number;
+  checkpoint?: number | null;
+};
+
+/** Larger than Stripe's maximum Checkout Session lifetime (24 h), plus margin. */
+export const BACKSTOP_OVERLAP_SECONDS = 26 * 3600;
+/** First ever run looks back this far. */
+export const BACKSTOP_INITIAL_LOOKBACK_SECONDS = 30 * 86400;
+const BACKSTOP_CHECKPOINT = "backstop:checkpoint";
+const BACKSTOP_STALE_ALERT_SECONDS = 6 * 3600;
+const ASYNC_PENDING_GIVE_UP_SECONDS = 14 * 86400;
+
+async function stripeGet(url: string, key: string, deps: BespokePaymentDeps): Promise<Response | null> {
+  // 429 / 5xx / network: retry with backoff (honouring Retry-After, capped).
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let response: Response | null = null;
+    try {
+      response = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+    } catch {
+      response = null;
+    }
+    if (response && response.ok) return response;
+    if (response && response.status !== 429 && response.status < 500) return null; // not retryable
+    const retryAfter = Number(response?.headers.get("Retry-After") ?? "");
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 10_000) : 500 * 2 ** attempt;
+    await (deps.sleep ? deps.sleep(waitMs) : new Promise((r) => setTimeout(r, waitMs)));
+  }
+  return null;
+}
 
 /**
- * Hourly: ask Stripe for checkout sessions completed in the last `hours`, and make
- * sure every bespoke one (client reference "bq-…") is recorded. Independent of our
- * own pending records, registry and index, so a payment cannot stay unrecorded
- * because one of those writes failed or a webhook was acknowledged but not
- * processed. Idempotent: an already-recorded payment is a no-op.
- * Read-only towards Stripe (GET only). Airport sessions are ignored.
+ * Hourly: make sure every bespoke Stripe payment is recorded, using Stripe itself
+ * as the source of truth (independent of our pending records, registry and index).
+ *
+ * Correctness:
+ *  - Stripe's list endpoint filters by session CREATION time ("created") and status;
+ *    it cannot filter by client_reference_id, so bespoke "bq-" sessions are picked
+ *    client-side. A session can be paid up to ~24 h after creation, so each run
+ *    searches from (checkpoint − 26 h): any session completed after the checkpoint
+ *    is inside the window.
+ *  - The checkpoint is DURABLE and advances only when the whole window was listed
+ *    (all pages) and every bespoke session was handled. Any failure (Stripe down,
+ *    rate limits after retries, page cap, a recording error) leaves it unchanged,
+ *    so the next run re-covers the same ground — nothing is skipped.
+ *  - Completed-but-unpaid sessions (async payment methods) are kept in a durable
+ *    list and re-checked by id until paid or failed.
+ *  - If the checkpoint falls more than 6 h behind, the owner is alerted (daily).
+ * Read-only towards Stripe (GET). Airport sessions are ignored. Idempotent.
  */
 export async function runBespokeStripeBackstop(
   rawEnv: BespokePaymentEnv,
   deps: BespokePaymentDeps,
-  options: { hours?: number; maxPages?: number } = {},
+  options: { maxPages?: number } = {},
 ): Promise<StripeBackstopResult> {
-  const result: StripeBackstopResult = { ran: false, sessionsChecked: 0, bespokeSessions: 0, recovered: 0, errors: 0 };
+  const result: StripeBackstopResult = { ran: false, complete: false, pages: 0, sessionsChecked: 0, bespokeSessions: 0, recovered: 0, asyncPending: 0, errors: 0 };
   const env = ready(rawEnv);
   const key = String(rawEnv.STRIPE_SECRET_KEY ?? "").trim();
   if (!env || !key || !bespokeFeatureEnabled(env)) return result;
   configureStripe(env);
   result.ran = true;
-  const since = Math.floor(nowOf(deps).getTime() / 1000) - (options.hours ?? 48) * 3600;
+  const ns = env.BESPOKE_QUOTE_COORDINATOR;
+  const runStart = Math.floor(nowOf(deps).getTime() / 1000);
+  const state = await callCoordinator<{ checkpoint: number | null; pending: Record<string, number> }>(ns, BACKSTOP_CHECKPOINT, "checkpoint", {});
+  result.checkpoint = state.checkpoint;
+  const since = (state.checkpoint ?? runStart - BACKSTOP_INITIAL_LOOKBACK_SECONDS) - BACKSTOP_OVERLAP_SECONDS;
+  result.windowStart = since;
+  let ok = true;
+  const addPending: string[] = [];
+  const removePending: string[] = [];
+
+  const handle = async (sessionId: string, clientReference: string | null | undefined): Promise<"recorded" | "pending" | "failed" | "ignored"> => {
+    const parsed = parseBespokeCheckoutReference(clientReference);
+    if (!parsed) return "ignored";
+    result.bespokeSessions += 1;
+    const recorded = async () =>
+      Boolean((await getBespokeQuoteState(ns, parsed.reference)).record?.payments.some((p) => p.checkoutId === sessionId));
+    if (await recorded()) return "recorded";
+    const checkout = await getSumUpCheckout("stripe", sessionId).catch(() => null);
+    if (!checkout) return "failed";
+    if (!isSumUpCheckoutPaid(checkout)) return checkout.status === "EXPIRED" ? "ignored" : "pending";
+    await finalizeBespokeDirect(env, deps, sessionId).catch(() => false);
+    if (await recorded()) {
+      result.recovered += 1;
+      return "recorded";
+    }
+    return "failed";
+  };
+
+  // 1. Re-check async-pending sessions by id (they may sit outside the window).
+  for (const [sessionId, firstSeen] of Object.entries(state.pending ?? {})) {
+    const session = await stripeGet(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, key, deps);
+    if (!session) {
+      ok = false;
+      result.errors += 1;
+      continue;
+    }
+    const body = (await session.json()) as { id?: string; client_reference_id?: string | null; payment_status?: string; payment_intent?: unknown };
+    const outcome = await handle(sessionId, body.client_reference_id).catch(() => "failed" as const);
+    if (outcome === "recorded" || outcome === "ignored") removePending.push(sessionId);
+    else if (outcome === "pending") {
+      result.asyncPending += 1;
+      if (runStart - firstSeen > ASYNC_PENDING_GIVE_UP_SECONDS) removePending.push(sessionId);
+    } else {
+      ok = false;
+      result.errors += 1;
+    }
+  }
+
+  // 2. List every completed session in the overlapping window (all pages).
   let startingAfter = "";
-  for (let page = 0; page < (options.maxPages ?? 10); page++) {
+  const maxPages = options.maxPages ?? 50;
+  for (;;) {
+    if (result.pages >= maxPages) {
+      ok = false; // more data than one run may process — do NOT advance, never skip
+      result.errors += 1;
+      break;
+    }
     const url = new URL("https://api.stripe.com/v1/checkout/sessions");
     url.searchParams.set("status", "complete");
     url.searchParams.set("limit", "100");
     url.searchParams.set("created[gte]", String(since));
     if (startingAfter) url.searchParams.set("starting_after", startingAfter);
-    let list: { data?: Array<{ id?: string; client_reference_id?: string | null; payment_status?: string }>; has_more?: boolean };
-    try {
-      const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${key}` } });
-      if (!response.ok) {
-        result.errors += 1;
-        break;
-      }
-      list = await response.json();
-    } catch {
+    const response = await stripeGet(url.toString(), key, deps);
+    if (!response) {
+      ok = false;
       result.errors += 1;
       break;
     }
+    result.pages += 1;
+    const list = (await response.json()) as { data?: Array<{ id?: string; client_reference_id?: string | null }>; has_more?: boolean };
     for (const session of list.data ?? []) {
       result.sessionsChecked += 1;
-      const parsed = parseBespokeCheckoutReference(session.client_reference_id);
-      if (!parsed || !session.id || !isStripeCheckoutId(session.id)) continue;
-      result.bespokeSessions += 1;
-      try {
-        const before = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, parsed.reference)).record;
-        const known = before?.payments.some((p) => p.checkoutId === session.id);
-        if (known) continue;
-        const pending = env.TRACKING_STORE ? await getPendingCheckout(env.TRACKING_STORE, session.id) : null;
-        if (pending?.checkoutKind === "bespoke") await finalizeBespokeCheckoutViaSharedPath(env, deps, session.id);
-        else await handleOrphanBespokePayment(env, deps, session.id);
-        const after = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, parsed.reference)).record;
-        if (after?.payments.some((p) => p.checkoutId === session.id)) result.recovered += 1;
-        else result.errors += 1;
-      } catch {
+      if (!session.id || !isStripeCheckoutId(session.id)) continue;
+      const outcome = await handle(session.id, session.client_reference_id).catch(() => "failed" as const);
+      if (outcome === "pending") {
+        result.asyncPending += 1;
+        addPending.push(session.id);
+      } else if (outcome === "failed") {
+        ok = false;
         result.errors += 1;
       }
     }
     const last = list.data?.[list.data.length - 1]?.id;
-    if (!list.has_more || !last) break;
+    if (!list.has_more) break;
+    if (!last) {
+      ok = false;
+      result.errors += 1;
+      break;
+    }
     startingAfter = last;
+  }
+
+  // 3. Persist: pending list always; checkpoint ONLY after a complete, clean run.
+  const saved = await callCoordinator<{ checkpoint: number | null }>(ns, BACKSTOP_CHECKPOINT, "checkpoint", {
+    ...(ok ? { set: runStart } : {}),
+    addPending,
+    removePending,
+  }).catch(() => null);
+  result.complete = ok && Boolean(saved);
+  result.checkpoint = saved?.checkpoint ?? state.checkpoint;
+
+  // 4. Falling behind? Tell the owner (once per day).
+  const behind = runStart - (result.checkpoint ?? runStart);
+  if (!result.complete && result.checkpoint !== null && result.checkpoint !== undefined && behind > BACKSTOP_STALE_ALERT_SECONDS) {
+    const day = new Date(runStart * 1000).toISOString().slice(0, 10);
+    const claim = await callCoordinator<{ claimed?: boolean }>(ns, `backstop-alert:${day}`, "claim", { value: "alert", ttlSeconds: 36 * 3600 }).catch(() => ({ claimed: false }));
+    if (claim.claimed) {
+      await (deps.sendOwnerEmail ?? trySendOwnerOperationalEmail)(env, {
+        to: ownerInbox(env),
+        subject: "ACTION NEEDED — bespoke payment reconciliation is behind",
+        body: `The hourly Stripe check for Event / Business Class payments has not completed for ${Math.round(behind / 3600)} hours. Payments are not lost (it resumes from the same point), but please check Stripe and the Owner Dashboard.`,
+      }).catch(() => undefined);
+    }
   }
   return result;
 }
@@ -890,7 +1080,72 @@ async function finalizeAndConfirmRecorded(
   reference: string,
   checkoutId: string,
 ): Promise<boolean> {
+  const recorded = async () =>
+    Boolean((await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference)).record?.payments.some((p) => p.checkoutId === checkoutId));
   await finalizeBespokeCheckoutViaSharedPath(env, deps, checkoutId).catch(() => null);
-  const after = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference)).record;
-  return Boolean(after?.payments.some((p) => p.checkoutId === checkoutId));
+  if (await recorded()) return true;
+  // Shared lock busy or stuck (e.g. a Worker killed inside it): finish directly.
+  await finalizeBespokeDirect(env, deps, checkoutId).catch(() => false);
+  return recorded();
+}
+
+// ---------------------------------------------------------------------------
+// Calendar step bookkeeping (once-only, in the quote's Durable Object)
+// ---------------------------------------------------------------------------
+
+function calendarStepKey(paymentReference: string): string {
+  return `calendar:${paymentReference}`.replace(/[^A-Za-z0-9:_-]/g, "-").slice(0, 120);
+}
+
+async function claimCalendarStep(
+  env: BespokeReadyEnv,
+  reference: string,
+  paymentReference: string,
+): Promise<{ claimed: boolean; status?: string }> {
+  const res = await callCoordinator<{ claimed?: boolean; entry?: { status?: string } }>(
+    env.BESPOKE_QUOTE_COORDINATOR,
+    `quote:${reference}`,
+    "notify-begin",
+    { key: calendarStepKey(paymentReference), kind: "calendar" },
+  );
+  return { claimed: res.claimed === true, status: res.entry?.status };
+}
+
+async function finishCalendarStep(
+  env: BespokeReadyEnv,
+  reference: string,
+  paymentReference: string,
+  outcome: { status: "accepted" | "failed" | "skipped"; error?: string; provider?: string },
+): Promise<void> {
+  await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, `quote:${reference}`, "notify-finish", {
+    key: calendarStepKey(paymentReference),
+    ...outcome,
+  }).catch(() => undefined);
+}
+
+// ---------------------------------------------------------------------------
+// Direct recovery (does not depend on the shared payment lock)
+// ---------------------------------------------------------------------------
+
+/**
+ * Recovery paths (sweep, Stripe backstop, payment-status fallback) finalise a
+ * bespoke checkout WITHOUT the shared per-checkout lock. That lock has no expiry by
+ * design, so a Worker killed inside it would otherwise block recovery forever.
+ * This is safe because recording is idempotent per payment reference in the
+ * Durable Object, booking creation holds the expiring booking lease, and every
+ * email is a once-only notification.
+ */
+export async function finalizeBespokeDirect(
+  rawEnv: BespokePaymentEnv,
+  deps: BespokePaymentDeps,
+  checkoutId: string,
+): Promise<boolean> {
+  const env = ready(rawEnv);
+  if (!env || !isStripeCheckoutId(checkoutId)) return false;
+  const pending = env.TRACKING_STORE ? await getPendingCheckout(env.TRACKING_STORE, checkoutId).catch(() => null) : null;
+  if (pending?.checkoutKind === "bespoke" && pending.bespokeQuoteReference) {
+    const r = await finalizeBespokeCheckout({ env, checkoutId, pending, deps });
+    return r.paid;
+  }
+  return handleOrphanBespokePayment(env, deps, checkoutId);
 }
