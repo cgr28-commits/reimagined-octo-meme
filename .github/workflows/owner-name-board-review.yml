@@ -63,23 +63,20 @@ jobs:
           if-no-files-found: ignore
 
   safari-engine:
-    # WebKit is the engine behind iPhone Safari. Pinned image: Playwright's WebKit
-    # build installs on Ubuntu 24.04 (not on every newer runner image).
-    runs-on: ubuntu-24.04
+    # WebKit is the engine behind iPhone Safari. Microsoft's Playwright image ships
+    # WebKit and its system libraries, so nothing is downloaded from apt mirrors.
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      options: --ipc=host
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - run: npm ci
-      - name: Install Playwright WebKit
-        run: |
-          npm install --no-save --no-package-lock playwright
-          npx playwright install --with-deps webkit
       - name: Name board browser checks on WebKit (Safari engine)
-        run: NAME_BOARD_BROWSER=webkit npx tsx scripts/check-owner-name-board-browser.ts
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          NAME_BOARD_BROWSER=webkit npx tsx scripts/check-owner-name-board-browser.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
