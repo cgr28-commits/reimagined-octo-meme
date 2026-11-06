@@ -2342,6 +2342,45 @@ html:has(.cookie-consent-banner) {
   }
 }
 
+/* Desktop only: a compact card in the bottom-right corner with a lighter dim,
+   so the page and quote form stay readable behind it. Mobile and tablet unchanged. */
+@media (min-width: 1024px) {
+  .cookie-consent-banner.cookie-consent-banner--modal {
+    top: auto;
+    left: auto;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    transform: none;
+    width: 24rem;
+    padding: 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-inner {
+    gap: 1rem;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-copy {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-actions {
+    gap: 0.625rem;
+  }
+
+  .cookie-consent-banner--modal .cookie-consent-actions .btn-primary,
+  .cookie-consent-banner--modal .cookie-consent-actions .btn-secondary {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+
+  [data-cookie-consent-overlay] {
+    background-color: rgba(2, 8, 20, 0.35);
+    backdrop-filter: none;
+  }
+}
+
 body:has(.cookie-consent-banner--modal) {
   padding-bottom: 0;
 }
