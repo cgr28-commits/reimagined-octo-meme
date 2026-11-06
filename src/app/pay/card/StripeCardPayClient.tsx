@@ -315,32 +315,11 @@ export default function StripeCardPayClient() {
             </p>
           ) : null}
 
-          {!elementsReady && view !== "paying" ? (
-            <div className="mt-3" role="status" aria-live="polite" data-pay-loading>
-              <div className="flex items-center justify-center gap-2 py-1 text-sm text-white/75">
-                <span
-                  aria-hidden
-                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/25 border-t-emerald"
-                />
-                Loading secure payment…
-              </div>
-              <div aria-hidden className="mt-3 space-y-2">
-                <div className="h-11 animate-pulse rounded-[10px] bg-white/10" />
-                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
-                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
-                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
-              </div>
-            </div>
-          ) : null}
-
-          {/* Stripe draws into these while the placeholder shows; revealed once ready. */}
-          <div
-            className={
-              elementsReady
-                ? ""
-                : "pointer-events-none absolute inset-x-4 top-0 h-0 overflow-hidden opacity-0 sm:inset-x-5"
-            }
-          >
+          {/*
+            Stripe only paints its buttons while they're on screen, so its area
+            stays in place underneath and the placeholder covers it until drawn.
+          */}
+          <div className={elementsReady ? "relative" : "relative min-h-[250px]"}>
             <div id="stripe-express-checkout" className={walletsShown ? "mt-3 min-h-[44px]" : "mt-3"} />
             {walletsShown ? (
               <p className="my-2 text-center text-[11px] uppercase tracking-wider text-white/50">
@@ -348,6 +327,29 @@ export default function StripeCardPayClient() {
               </p>
             ) : null}
             <div id="stripe-payment-element" className={walletsShown ? "" : "mt-3"} />
+
+            {!elementsReady && view !== "paying" ? (
+              <div
+                className="absolute inset-0 z-10 bg-[#11253f] pt-3"
+                role="status"
+                aria-live="polite"
+                data-pay-loading
+              >
+                <div className="flex items-center justify-center gap-2 py-1 text-sm text-white/75">
+                  <span
+                    aria-hidden
+                    className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/25 border-t-emerald"
+                  />
+                  Loading secure payment…
+                </div>
+                <div aria-hidden className="mt-3 space-y-2">
+                  <div className="h-11 animate-pulse rounded-[10px] bg-white/10" />
+                  <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+                  <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+                  <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {message ? (
