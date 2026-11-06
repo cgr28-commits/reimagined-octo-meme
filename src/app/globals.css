@@ -2693,6 +2693,9 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero-rail-slide [data-rail-cta]:hover { text-decoration: underline; text-underline-offset: 4px; }
   .homepage-hero-rail [data-rail-dots] { margin-top: 0.9rem; justify-content: flex-start; }
+  /* The single Business Class card has no dots: keep the same space so all three
+     calls to action line up. */
+  .homepage-hero-rail:not(:has([data-rail-dots]))::after { content: ""; display: block; height: 1.4rem; }
 }
 
 @media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
