@@ -2631,3 +2631,38 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero-rail:focus-within { border-color: transparent; box-shadow: none; }
   .homepage-hero-rail-slide img { border-radius: 0.9rem; }
 }
+
+/* Desktop homepage results (1200px+): better balance — slimmer vehicle tiles, larger
+   journey details and price breakdown, and a more prominent Book button. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] { height: 8.5rem !important; padding: 0.5rem 0.75rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 3.9rem; width: 8rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.8rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] { gap: 0.2rem; }
+
+  /* Journey details: easy to read. */
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] p:first-child {
+    font-size: 1.05rem; line-height: 1.45; font-weight: 600; color: #fff;
+  }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] p + p {
+    margin-top: 0.35rem; font-size: 0.9rem; line-height: 1.4; color: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Price breakdown link: same weight as the journey details. */
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary span:first-child,
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary > *:first-child { font-size: 1rem; font-weight: 600; }
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary { font-size: 0.9rem; }
+  .homepage-hero #quote-results-summary > [data-homepage-return-breakdown-desktop] { font-size: 0.9rem; }
+
+  /* Price and Book button: more prominent. */
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 3.1rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button {
+    min-height: 3.6rem; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;
+    border-radius: 0.9rem; box-shadow: 0 10px 28px rgba(34, 197, 94, 0.35);
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button:hover {
+    transform: translateY(-1px); box-shadow: 0 14px 34px rgba(34, 197, 94, 0.45);
+  }
+}
