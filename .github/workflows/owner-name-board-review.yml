@@ -44,13 +44,17 @@ jobs:
           npx tsx scripts/check-paid-booking-ads-conversion.ts
           npx tsx scripts/check-whatsapp-templates.ts
           npx tsx scripts/check-owner-pricing.ts
-      - name: Browser checks (iPhone layouts, long names, privacy, offline)
-        run: |
-          npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
-          npx tsx scripts/check-owner-name-board-browser.ts
       - name: Static export build (typecheck + lint as in production)
         run: GITHUB_PAGES=true npm run build
+      - name: Browser checks (iPhone layouts, long names, privacy, offline)
+        # Uses the Chrome preinstalled on GitHub runners (Playwright's own
+        # Chromium download is not available for every runner image).
+        run: |
+          npm install --no-save --no-package-lock playwright
+          export NAME_BOARD_CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)"
+          echo "Using browser: $NAME_BOARD_CHROME"
+          test -n "$NAME_BOARD_CHROME"
+          npx tsx scripts/check-owner-name-board-browser.ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
