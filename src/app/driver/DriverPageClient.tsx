@@ -14,6 +14,7 @@ import {
   savePersonalQuotePrefill,
 } from "@/lib/personal-quote-prefill";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
+import OwnerBespokeRequestsPanel from "@/components/OwnerBespokeRequestsPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
 import OwnerInboxPanel from "@/components/OwnerInboxPanel";
@@ -3504,6 +3505,13 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "whatsapp" ? (
                 <div id="owner-tool-panel-whatsapp" role="tabpanel" aria-label="WhatsApp chats">
                   <OwnerWhatsAppChatsPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "bespoke-requests" ? (
+                <div role="tabpanel" aria-label="Event and Business Class requests">
+                  <OwnerToolBackBar title="Event & Business Class" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerBespokeRequestsPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

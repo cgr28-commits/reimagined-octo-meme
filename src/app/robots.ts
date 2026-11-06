@@ -27,6 +27,8 @@ export default function robots(): MetadataRoute.Robots {
         "/test-booking/",
         "/admin/",
         "/tip",
+        // Private customer quotation links (token in the #fragment).
+        "/quotation/",
         // Static files in public/ — email previews, sample invoices and partner
         // proposals. Not customer pages; keep them out of search results.
         "/email-previews/",

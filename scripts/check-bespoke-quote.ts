@@ -32,8 +32,15 @@ import {
   applyBespokeSystemAction,
   handleBespokeQuoteRoute,
   isBespokeQuotePath,
+  runBespokeExpirySweep,
   type BespokeQuoteEnv,
 } from "../workers/addresses/src/bespoke-quote-handlers";
+import {
+  buildBespokeOwnerNewRequestEmail,
+  buildBespokeQuotationEmail,
+  buildBespokeQuotationExpiredEmail,
+  buildBespokeRequestAcknowledgementEmail,
+} from "../shared/bespoke-quote-emails";
 
 function read(rel: string): string {
   return readFileSync(join(process.cwd(), rel), "utf8");
@@ -540,6 +547,15 @@ async function main(): Promise<void> {
   } as unknown as KVNamespace;
 
   let turnstileOk = true;
+  type Sent = { audience: "customer" | "owner"; to: string; subject: string; body: string; html: string; key?: string };
+  const sent: Sent[] = [];
+  let emailMode: "ok" | "fail" | "throw" = "ok";
+  const mailer = (audience: "customer" | "owner") => async (_env: unknown, payload: { to: string; subject: string; body: string; htmlBody?: string; idempotencyKey?: string }) => {
+    if (emailMode === "throw") throw new Error("network died mid-send");
+    if (emailMode === "fail") return { sent: false, error: "provider rejected", provider: "resend" };
+    sent.push({ audience, to: payload.to, subject: payload.subject, body: payload.body, html: payload.htmlBody ?? "", key: payload.idempotencyKey });
+    return { sent: true, provider: "resend" };
+  };
   const deps = {
     fetchImpl: (async () =>
       Response.json(
@@ -547,6 +563,8 @@ async function main(): Promise<void> {
           ? { success: true, hostname: "www.myairporttaxini.co.uk", action: "bespoke_quote_request" }
           : { success: false },
       )) as typeof fetch,
+    sendCustomerEmail: mailer("customer"),
+    sendOwnerEmail: mailer("owner"),
   };
   const env: BespokeQuoteEnv = {
     TRACKING_STORE: fakeKv,
@@ -569,6 +587,13 @@ async function main(): Promise<void> {
     const text = await response.text();
     return { status: response.status, text, json: text ? JSON.parse(text) : null, headers: response.headers };
   }
+  const OWNER = "owner-key-123";
+  async function detailOf(ref: string) {
+    return (await call(`/owner/bespoke-quotes/detail?reference=${ref}`, { method: "GET", owner: OWNER })).json;
+  }
+  function tokenFromLink(link: string): string {
+    return decodeURIComponent(link.split("#t=")[1] ?? "");
+  }
 
   // Disabled by default.
   assert.equal((await call("/bespoke-quotes/request", { body: eventInput(), envOverride: { BESPOKE_QUOTES_ENABLED: undefined } })).status, 404);
@@ -580,12 +605,13 @@ async function main(): Promise<void> {
   turnstileOk = false;
   assert.equal((await call("/bespoke-quotes/request", { body: { ...eventInput(), turnstileToken: "x" } })).status, 403);
   turnstileOk = true;
-  // Honeypot: looks like success, stores nothing.
+  // Honeypot: looks like success, stores nothing, sends nothing.
   const kvBefore = kv.size;
   const pot = await call("/bespoke-quotes/request", { body: { ...eventInput(), website: "http://spam", turnstileToken: "x" } });
   assert.equal(pot.status, 200);
   assert.equal(pot.json.reference, undefined);
   assert.equal(kv.size, kvBefore);
+  assert.equal(sent.length, 0);
   // Validation errors are returned per field.
   const bad = await call("/bespoke-quotes/request", { body: { ...businessInput({ passengers: 4 }), turnstileToken: "x" } });
   assert.equal(bad.status, 400);
@@ -593,17 +619,49 @@ async function main(): Promise<void> {
   // Oversized body.
   assert.equal((await call("/bespoke-quotes/request", { body: { ...eventInput(), turnstileToken: "x", pad: "x".repeat(20_000) } })).status, 400);
 
-  // Success + duplicate.
+  console.log("=== Notifications: acknowledgement + owner alert, once ===");
   const ok1 = await call("/bespoke-quotes/request", { body: { ...eventInput(), turnstileToken: "x" } });
   assert.equal(ok1.status, 201, ok1.text);
   assert.ok(isBespokeQuoteReference(ok1.json.reference));
   assert.equal(ok1.json.duplicate, false);
   assert.ok(!ok1.text.includes("jane.doe@example.com"), "response never echoes contact details");
   assert.equal(ok1.headers.get("Cache-Control"), "no-store");
-  const ok2 = await call("/bespoke-quotes/request", { body: { ...eventInput(), turnstileToken: "x" } });
-  assert.equal(ok2.json.reference, ok1.json.reference, "duplicate submission returns the same reference");
-  assert.equal(ok2.json.duplicate, true);
   const reference: string = ok1.json.reference;
+  assert.equal(sent.length, 2, "one acknowledgement + one owner alert");
+  const ack = sent.find((m) => m.audience === "customer")!;
+  const alert = sent.find((m) => m.audience === "owner")!;
+  assert.equal(ack.to, "jane.doe@example.com");
+  assert.match(ack.body, /not a confirmed booking/);
+  assert.match(ack.body, /subject to vehicle and driver availability/);
+  assert.ok(ack.key?.startsWith(`bq-${reference}-ack`), "provider idempotency key set");
+  assert.equal(alert.to, "bookings@myairporttaxini.co.uk");
+  assert.match(alert.body, /jane\.doe@example\.com/);
+  assert.ok(!/owner-key-123|[?&]key=|#t=/.test(alert.body + alert.html), "owner alert carries no key and no customer link");
+  // Duplicate submission: same reference, NO second emails.
+  const ok2 = await call("/bespoke-quotes/request", { body: { ...eventInput(), turnstileToken: "x" } });
+  assert.equal(ok2.json.reference, reference, "duplicate submission returns the same reference");
+  assert.equal(ok2.json.duplicate, true);
+  assert.equal(sent.length, 2, "duplicate submission sends nothing");
+
+  console.log("=== Notifications: failure and unknown outcome ===");
+  emailMode = "fail";
+  const failed = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "fail.case@example.com" }), turnstileToken: "x" } });
+  assert.equal(failed.status, 201, "request is stored even when email fails");
+  emailMode = "ok";
+  const failedNotes = (await detailOf(failed.json.reference)).notifications as Array<{ key: string; status: string }>;
+  assert.equal(failedNotes.find((n) => n.key === "ack")?.status, "failed");
+  // Retry of the same submission does not re-send a failed email automatically.
+  const sentBeforeRetry = sent.length;
+  await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "fail.case@example.com" }), turnstileToken: "x" } });
+  assert.equal(sent.length, sentBeforeRetry, "no automatic resend on retry");
+  emailMode = "throw";
+  const thrown = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "throw.case@example.com" }), turnstileToken: "x" } });
+  assert.equal(thrown.status, 201);
+  emailMode = "ok";
+  const thrownNotes = (await detailOf(thrown.json.reference)).notifications as Array<{ key: string; status: string }>;
+  assert.equal(thrownNotes.find((n) => n.key === "ack")?.status, "sending", "unknown outcome stays claimed — never auto-retried");
+  await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "throw.case@example.com" }), turnstileToken: "x" } });
+  assert.equal(sent.filter((m) => m.to === "throw.case@example.com").length, 0, "still not re-sent");
 
   // Rate limit per IP (5/hour) — the 6th from one IP is refused.
   const ipResults = [];
@@ -619,52 +677,105 @@ async function main(): Promise<void> {
   }
   assert.equal(emailResults[3], 429, JSON.stringify(emailResults));
 
-  // Owner routes.
+  console.log("=== Owner authentication (header only) ===");
   assert.equal((await call("/owner/bespoke-quotes", { method: "GET" })).status, 401);
   assert.equal((await call("/owner/bespoke-quotes", { method: "GET", owner: "wrong" })).status, 401);
-  const list = await call("/owner/bespoke-quotes?category=event", { method: "GET", owner: "owner-key-123" });
+  assert.equal((await call(`/owner/bespoke-quotes?key=${OWNER}`, { method: "GET" })).status, 400, "?key= is refused");
+  assert.equal((await call(`/owner/bespoke-quotes?key=${OWNER}`, { method: "GET", owner: OWNER })).status, 400, "?key= refused even with a header");
+  assert.equal((await call(`/owner/bespoke-quotes/detail?reference=${reference}&key=${OWNER}`, { method: "GET" })).status, 400);
+  // Driver key: when an OWNER_ACCESS_KEY exists, a driver is not the owner.
+  assert.equal((await call("/owner/bespoke-quotes", { method: "GET", owner: "driver-key-456" })).status, 401);
+  const driverHeaders = new Request("https://worker.example/owner/bespoke-quotes", { headers: { "X-Driver-Key": "driver-key-456" } });
+  assert.equal((await handleBespokeQuoteRoute(driverHeaders, env, null, deps)).status, 401);
+  const list = await call("/owner/bespoke-quotes?category=event", { method: "GET", owner: OWNER });
   assert.equal(list.status, 200);
   assert.ok(list.json.items.some((i: { reference: string }) => i.reference === reference));
   assert.ok(list.json.items.every((i: { category: string }) => i.category === "event"));
+  assert.equal(list.json.publicEnabled, true);
   // Owner routes work even when the public flag is off.
-  assert.equal((await call("/owner/bespoke-quotes", { method: "GET", owner: "owner-key-123", envOverride: { BESPOKE_QUOTES_ENABLED: undefined } })).status, 200);
-  const detail = await call(`/owner/bespoke-quotes/detail?reference=${reference}`, { method: "GET", owner: "owner-key-123" });
-  assert.equal(detail.status, 200);
-  assert.equal(detail.json.request.customer.email, "jane.doe@example.com", "owner sees contact details");
-  let version: number = detail.json.request.version;
+  assert.equal((await call("/owner/bespoke-quotes", { method: "GET", owner: OWNER, envOverride: { BESPOKE_QUOTES_ENABLED: undefined } })).status, 200);
 
-  const act = async (action: Record<string, unknown>, key: string, expected = version) =>
-    call("/owner/bespoke-quotes/action", { owner: "owner-key-123", body: { reference, expectedVersion: expected, idempotencyKey: key, action } });
+  console.log("=== KV index minimisation ===");
+  for (const [key, entry] of kv) {
+    if (!key.startsWith("bq:idx:")) continue;
+    const meta = JSON.stringify(entry.metadata);
+    assert.ok(!meta.includes("@"), `index ${key} holds an email`);
+    assert.ok(!/07700|\+44/.test(meta), `index ${key} holds a phone number`);
+    assert.ok(!meta.includes("Doe") && !meta.includes("Smith"), `index ${key} holds a full surname`);
+    assert.ok(!meta.includes("Main Street"), `index ${key} holds an address`);
+    assert.ok(meta.length < 1024, "metadata under KV 1 KB limit");
+  }
+  assert.ok(list.json.items.some((i: { customerLabel: string }) => i.customerLabel === "Jane D."));
+
+  console.log("=== Quote creation, editing, quotation email ===");
+  const detail = await detailOf(reference);
+  assert.equal(detail.request.customer.email, "jane.doe@example.com", "owner sees contact details");
+  let version: number = detail.request.version;
+  const act = async (action: Record<string, unknown>, key: string, expected = version, ref = reference) =>
+    call("/owner/bespoke-quotes/action", { owner: OWNER, body: { reference: ref, expectedVersion: expected, idempotencyKey: key, action } });
+  assert.equal((await call("/owner/bespoke-quotes/action", { body: { reference, expectedVersion: version, idempotencyKey: "k-noauth-01", action: { type: "owner_start_review" } } })).status, 401);
   let res = await act({ type: "owner_start_review" }, "k-start-0001");
   assert.equal(res.status, 200, res.text);
   version = res.json.request.version;
-  res = await act({ type: "owner_set_costs", estimatedDriverCostGbp: "55", estimatedOtherCostsGbp: 5 }, "k-costs-0001");
+  res = await act({ type: "owner_set_costs", estimatedDriverCostGbp: "55", estimatedOtherCostsGbp: 5, internalNotes: "PRIVATE-NOTE" }, "k-costs-0001");
   version = res.json.request.version;
   // Browser cannot inject its own token hash or system actions.
   assert.equal((await act({ type: "system_record_payment", paymentReference: "x", amountGbp: 1 }, "k-sys-00001")).status, 400);
+  assert.equal((await act({ type: "owner_rotate_link", tokenHash: "f".repeat(64) }, "k-rot-00001")).status, 400, "raw rotate not exposed");
+  const sentBeforeQuote = sent.length;
   res = await act({ type: "owner_issue_quote", amountGbp: 140, validityHours: 48, customerMessage: "Hi Jane", tokenHash: "f".repeat(64) }, "k-quote-0001");
   assert.equal(res.status, 200, res.text);
-  const customerToken: string = res.json.customerToken;
-  assert.ok(parseBespokeCustomerToken(customerToken), "owner gets the customer token once");
+  assert.equal(res.json.email.status, "sent");
+  const customerLink: string = res.json.customerLink;
+  assert.match(customerLink, /^https:\/\/www\.myairporttaxini\.co\.uk\/quotation\/#t=/);
+  const customerToken = tokenFromLink(customerLink);
+  assert.ok(parseBespokeCustomerToken(customerToken), "owner gets the customer link once");
   assert.ok(!res.text.includes("f".repeat(64)), "browser-supplied token hash ignored");
   assert.ok(!res.text.includes(await sha256Hex(parseBespokeCustomerToken(customerToken)!.secret)), "token hash never returned");
   assert.equal(res.json.request.estimatedProfitGbp, 80);
   version = res.json.request.version;
-  // Replay of the same idempotency key does not mint a new token.
+  assert.equal(sent.length, sentBeforeQuote + 1, "one quotation email");
+  const quoteMail = sent[sent.length - 1];
+  assert.equal(quoteMail.to, "jane.doe@example.com");
+  assert.ok(quoteMail.body.includes(customerLink), "email contains the link");
+  assert.match(quoteMail.body, /£140\.00/);
+  for (const forbidden of ["PRIVATE-NOTE", "£55", "£80.00", "profit", "Driver One", "owner-key"]) {
+    assert.ok(!quoteMail.body.includes(forbidden) && !quoteMail.html.includes(forbidden), `quotation email leaks ${forbidden}`);
+  }
+  // Replay of the same idempotency key: no new token, no second email.
   const replayRes = await act({ type: "owner_issue_quote", amountGbp: 140, validityHours: 48 }, "k-quote-0001", version - 1);
   assert.equal(replayRes.json.replayed, true);
-  assert.equal(replayRes.json.customerToken, undefined);
+  assert.equal(replayRes.json.customerLink, undefined);
+  assert.equal(sent.length, sentBeforeQuote + 1, "replay sends nothing");
   // Stale version → 409.
-  assert.equal((await act({ type: "owner_cancel" }, "k-cancel-001", version - 1)).status, 409);
+  const staleRes = await act({ type: "owner_cancel" }, "k-cancel-001", version - 1);
+  assert.equal(staleRes.status, 409);
+  assert.equal(staleRes.json.code, "version_conflict");
 
-  // Customer view by token.
-  const viewRes = await call("/bespoke-quotes/view", { body: { token: customerToken } });
+  console.log("=== Resend quotation (new link, once per click) ===");
+  res = await act({ type: "resend_quote_email" }, "k-resend-001");
+  assert.equal(res.status, 200, res.text);
+  assert.equal(res.json.email.status, "sent");
+  const newToken = tokenFromLink(res.json.customerLink);
+  assert.notEqual(newToken, customerToken);
+  version = res.json.request.version;
+  assert.equal((await call("/bespoke-quotes/view", { body: { token: customerToken } })).status, 404, "old link stops working");
+  assert.equal((await call("/bespoke-quotes/view", { body: { token: newToken } })).status, 200, "new link works");
+  const sentAfterResend = sent.length;
+  const resendReplay = await act({ type: "resend_quote_email" }, "k-resend-001", version - 1);
+  assert.equal(resendReplay.json.replayed, true);
+  assert.equal(sent.length, sentAfterResend, "double-click on resend sends one email");
+  assert.equal((await call("/bespoke-quotes/view", { body: { token: newToken } })).status, 200, "replay did not rotate the link");
+
+  console.log("=== Customer privacy (public view) ===");
+  const viewRes = await call("/bespoke-quotes/view", { body: { token: newToken } });
   assert.equal(viewRes.status, 200, viewRes.text);
   assert.equal(viewRes.json.quote.quote.amountGbp, 140);
-  for (const forbidden of ["jane.doe@example.com", "07700", "estimated", "Profit", "tokenHash", "internalNotes", "payments"]) {
+  assert.equal(viewRes.json.paymentAvailable, false, "no online payment before Phase 3");
+  for (const forbidden of ["jane.doe@example.com", "07700", "estimated", "Profit", "tokenHash", "internalNotes", "PRIVATE-NOTE", "payments", "notifications"]) {
     assert.ok(!viewRes.text.includes(forbidden), `public view leaks ${forbidden}`);
   }
-  const forged = customerToken.slice(0, -1) + (customerToken.endsWith("0") ? "1" : "0");
+  const forged = newToken.slice(0, -1) + (newToken.endsWith("0") ? "1" : "0");
   assert.equal((await call("/bespoke-quotes/view", { body: { token: forged } })).status, 404);
   assert.equal((await call("/bespoke-quotes/view", { body: { token: "junk" } })).status, 404);
   assert.equal((await call("/bespoke-quotes/view", { method: "GET" })).status, 405);
@@ -672,16 +783,116 @@ async function main(): Promise<void> {
   let lastStatus = 0;
   for (let i = 0; i < 31; i++) lastStatus = (await call("/bespoke-quotes/view", { ip: "192.0.2.77", body: { token: forged } })).status;
   assert.equal(lastStatus, 429);
-  // Decline.
-  const declined = await call("/bespoke-quotes/decline", { body: { token: customerToken } });
+
+  console.log("=== Concurrent owner actions ===");
+  const conc = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "conc@example.com" }), turnstileToken: "x" } });
+  const concRef: string = conc.json.reference;
+  const concVersion: number = (await detailOf(concRef)).request.version;
+  const sentBeforeConc = sent.length;
+  const racers = await Promise.all([
+    act({ type: "owner_issue_quote", amountGbp: 200, validityHours: 24 }, "k-race-0001", concVersion, concRef),
+    act({ type: "owner_issue_quote", amountGbp: 250, validityHours: 24 }, "k-race-0002", concVersion, concRef),
+    act({ type: "owner_cancel", note: "x" }, "k-race-0003", concVersion, concRef),
+  ]);
+  assert.equal(racers.filter((x) => x.status === 200).length, 1, "exactly one concurrent owner action wins");
+  assert.equal(racers.filter((x) => x.status === 409).length, 2);
+  const concFinal = (await detailOf(concRef)).request;
+  assert.equal(concFinal.version, concVersion + 1);
+  assert.ok(sent.length - sentBeforeConc <= 1, "at most one quotation email from the race");
+
+  console.log("=== Customer emails are skipped while the public service is off ===");
+  const offRef = concFinal.status === "QUOTED" ? null : concRef;
+  if (offRef) {
+    // (only reachable if cancel won the race; nothing more to check)
+  }
+  const offReq = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "off@example.com" }), turnstileToken: "x" } });
+  const offVersion: number = (await detailOf(offReq.json.reference)).request.version;
+  const sentBeforeOff = sent.length;
+  const offQuote = await call("/owner/bespoke-quotes/action", {
+    owner: OWNER,
+    body: { reference: offReq.json.reference, expectedVersion: offVersion, idempotencyKey: "k-off-00001", action: { type: "owner_issue_quote", amountGbp: 99, validityHours: 24 } },
+    envOverride: { BESPOKE_QUOTES_ENABLED: undefined },
+  });
+  assert.equal(offQuote.status, 200, offQuote.text);
+  assert.equal(offQuote.json.email.status, "skipped");
+  assert.equal(sent.length, sentBeforeOff, "no customer email while off");
+
+  console.log("=== Expiry sweep ===");
+  const sweepReq = await call("/bespoke-quotes/request", { body: { ...eventInput({ customerEmail: "sweep@example.com" }), turnstileToken: "x" } });
+  const sweepRef: string = sweepReq.json.reference;
+  let sv: number = (await detailOf(sweepRef)).request.version;
+  const sweepQuote = await act({ type: "owner_issue_quote", amountGbp: 120, validityHours: 1 }, "k-sweep-001", sv, sweepRef);
+  assert.equal(sweepQuote.status, 200, sweepQuote.text);
+  // A second quote whose customer is at checkout must NOT be expired.
+  const payReq = await call("/bespoke-quotes/request", { body: { ...eventInput({ customerEmail: "paying@example.com" }), turnstileToken: "x" } });
+  const payRef: string = payReq.json.reference;
+  const pv2: number = (await detailOf(payRef)).request.version;
+  const payQuote = await act({ type: "owner_issue_quote", amountGbp: 130, validityHours: 1 }, "k-sweep-002", pv2, payRef);
+  const payToken = tokenFromLink(payQuote.json.customerLink);
+  const begin = await applyBespokeSystemAction(env, payRef, {
+    type: "system_begin_payment",
+    quoteVersion: 1,
+    attemptId: "attempt-sweep-01",
+    tokenHash: await sha256Hex(parseBespokeCustomerToken(payToken)!.secret),
+  }, deps);
+  assert.equal(begin.ok && begin.record.status, "PAYMENT_STARTED");
+
+  // Flag off → no-op.
+  const offSweep = await runBespokeExpirySweep({ ...env, BESPOKE_QUOTES_ENABLED: undefined }, deps);
+  assert.equal(offSweep.ran, false);
+  // Not yet due.
+  const early = await runBespokeExpirySweep(env, deps);
+  assert.equal(early.expired, 0);
+  // Two hours later (Durable Object clock is authoritative).
+  clock.now = new Date(realNow.getTime() + 2 * 3_600_000);
+  const sentBeforeSweep = sent.length;
+  const sweep1 = await runBespokeExpirySweep(env, deps);
+  assert.ok(sweep1.expired >= 1, JSON.stringify(sweep1));
+  assert.equal(sweep1.awaitingPaymentCheck, 1, "checkout in progress is not expired");
+  const sweptRecord = (await detailOf(sweepRef)).request;
+  assert.equal(sweptRecord.status, "EXPIRED");
+  assert.equal((await detailOf(payRef)).request.status, "PAYMENT_STARTED", "active payment attempt never expired by the sweep");
+  const expiryMails = sent.slice(sentBeforeSweep).filter((m) => m.to === "sweep@example.com");
+  assert.equal(expiryMails.length, 1, "one expiry email");
+  assert.match(expiryMails[0].subject, /expired/i);
+  // Second run: nothing new, no duplicate email, flagged checkout not retried.
+  const sentBeforeSweep2 = sent.length;
+  const sweep2 = await runBespokeExpirySweep(env, deps);
+  assert.equal(sweep2.expired, 0);
+  assert.equal(sweep2.awaitingPaymentCheck, 0, "flagged checkout not re-checked every run");
+  assert.equal(sent.length, sentBeforeSweep2, "no duplicate expiry email");
+  // Concurrent sweeps (overlapping cron runs) still send at most one email per quote.
+  const raceReq = await call("/bespoke-quotes/request", { body: { ...eventInput({ customerEmail: "race.sweep@example.com", date: isoDate(40), returnDate: isoDate(40), eventDate: isoDate(40) }), turnstileToken: "x" } });
+  clock.now = new Date(realNow);
+  const rv: number = (await detailOf(raceReq.json.reference)).request.version;
+  await act({ type: "owner_issue_quote", amountGbp: 90, validityHours: 1 }, "k-sweep-003", rv, raceReq.json.reference);
+  clock.now = new Date(realNow.getTime() + 2 * 3_600_000);
+  const sentBeforeRace = sent.length;
+  await Promise.all([runBespokeExpirySweep(env, deps), runBespokeExpirySweep(env, deps), runBespokeExpirySweep(env, deps)]);
+  assert.equal(sent.slice(sentBeforeRace).filter((m) => m.to === "race.sweep@example.com").length, 1, "overlapping sweeps: one email");
+  clock.now = new Date(realNow);
+
+  // Decline (customer) on the earlier quote.
+  const declined = await call("/bespoke-quotes/decline", { body: { token: newToken } });
   assert.equal(declined.status, 200, declined.text);
   assert.equal(declined.json.quote.status, "CUSTOMER_DECLINED");
-  assert.equal((await call("/bespoke-quotes/decline", { body: { token: customerToken } })).status, 409);
+  assert.equal((await call("/bespoke-quotes/decline", { body: { token: newToken } })).status, 409);
 
   // System actions are internal-only.
-  const sys = await applyBespokeSystemAction(env, reference, { type: "system_expire" });
+  const sys = await applyBespokeSystemAction(env, reference, { type: "system_expire" }, deps);
   assert.equal(sys.ok, true);
   assert.equal((await applyBespokeSystemAction({ ...env, BESPOKE_QUOTE_COORDINATOR: undefined }, reference, { type: "system_expire" })).ok, false);
+
+  console.log("=== Email templates ===");
+  const tpl = await quoted(realNow);
+  tpl.owner.internalNotes = "PRIVATE-NOTE";
+  const quoteEmail = buildBespokeQuotationEmail(tpl, "https://www.myairporttaxini.co.uk/quotation/#t=abc");
+  assert.ok(!/PRIVATE-NOTE|estimated|profit|60\.00|10\.50/i.test(quoteEmail.text + quoteEmail.html));
+  const xss = await quoted(realNow);
+  xss.customer.name = "<script>alert(1)</script> Doe";
+  xss.journey.pickupAddress = '<img src=x onerror="x">';
+  const xssMails = [buildBespokeRequestAcknowledgementEmail(xss), buildBespokeOwnerNewRequestEmail(xss), buildBespokeQuotationEmail(xss, "https://x/#t=1"), buildBespokeQuotationExpiredEmail(xss)];
+  for (const m of xssMails) assert.ok(!m.html.includes("<script>") && !m.html.includes("<img src=x"), "HTML is escaped");
 
   // -------------------------------------------------------------------------
   console.log("=== Isolation guards ===");
@@ -699,6 +910,29 @@ async function main(): Promise<void> {
   assert.ok(wrangler.indexOf("v4-consent-ledger") < wrangler.indexOf("v5-bespoke-quote-coordinator"), "v5 appended after v4");
   assert.match(wrangler, /new_sqlite_classes = \["BespokeQuoteCoordinator"\]/);
   assert.ok(!/^\s*BESPOKE_QUOTES_ENABLED\s*=/m.test(wrangler), "public flag is not switched on in config");
+  // Phase 2 guards.
+  const clientApi = read("src/lib/bespoke-quote-api.ts");
+  assert.ok(!/[?&]key=|searchParams\.set\("key"/.test(clientApi), "owner key never placed in a URL");
+  assert.match(clientApi, /"X-Owner-Key": ownerKey\.trim\(\)/);
+  const panel = read("src/components/OwnerBespokeRequestsPanel.tsx");
+  assert.ok(!/[?&]key=/.test(panel));
+  const driverPage = read("src/app/driver/DriverPageClient.tsx");
+  assert.match(driverPage, /ownerToolTab === "bespoke-requests"/);
+  assert.match(driverPage, /<OwnerBespokeRequestsPanel ownerKey=\{savedKey\} \/>/);
+  assert.match(read("src/components/OwnerDashboardToolSwitcher.tsx"), /id: "bespoke-requests"/);
+  assert.match(read("src/app/robots.ts"), /"\/quotation\/"/);
+  const quotationPage = read("src/app/quotation/page.tsx");
+  assert.match(quotationPage, /index: false/);
+  assert.match(quotationPage, /referrer: "no-referrer"/);
+  assert.ok(!read("scripts/generate-sitemap.mjs").includes("/quotation/"), "quotation page is not in the sitemap");
+  assert.match(read("workers/addresses/src/index.ts"), /env\.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON/, "expiry sweep is flag-gated");
+  for (const file of ["shared/a2a-quote-payment-email.ts", "shared/booking-notifications.ts", "workers/addresses/src/worker-email.ts", "shared/whatsapp-templates.ts"]) {
+    try {
+      assert.ok(!/bespoke/i.test(read(file)), `${file} must not change for bespoke quotes`);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
   const index = read("workers/addresses/src/index.ts");
   assert.match(index, /export \{ BespokeQuoteCoordinator \}/);
   assert.match(index, /isBespokeQuotePath\(url\.pathname\)/);

@@ -673,6 +673,11 @@ export type BespokeQuoteAction =
       /** Computed server-side from a fresh secret; never supplied by a browser. */
       tokenHash: string;
     }
+  | {
+      /** Replace the customer link (e.g. resend after a failed email). Same price, same version. */
+      type: "owner_rotate_link";
+      tokenHash: string;
+    }
   | { type: "owner_decline"; note?: string }
   | { type: "owner_cancel"; note?: string }
   | { type: "owner_resolve_review"; resolution: "accept_payment" | "manual_refund_required"; note: string }
@@ -857,6 +862,17 @@ export function applyBespokeQuoteAction(
       ];
       delete record.paymentAttempt;
       return commit("owner", "QUOTED", `quote v${version}: £${amount.toFixed(2)}`);
+    }
+
+    case "owner_rotate_link": {
+      if (from !== "QUOTED" || !record.quote) {
+        return fail("invalid_status", "A new link can only be sent while the quotation is open.");
+      }
+      if (isBespokeQuoteExpired(record, now)) return fail("expired", "This quotation has expired. Issue a new one.");
+      if (!/^[0-9a-f]{64}$/.test(action.tokenHash)) return fail("invalid_input", "Token is invalid.", 400);
+      // The previous link stops working; only the newest emailed link is valid.
+      record.quote = { ...record.quote, tokenHash: action.tokenHash };
+      return commit("owner", from, "customer link replaced");
     }
 
     case "owner_decline":
@@ -1140,7 +1156,8 @@ export type BespokeQuoteOwnerSummary = {
   status: BespokeQuoteStatus;
   createdAt: string;
   updatedAt: string;
-  customerName: string;
+  /** Minimised for the KV index: first name + last initial only (e.g. "Jane D."). */
+  customerLabel: string;
   date: string;
   time: string;
   passengers: number;
@@ -1148,7 +1165,17 @@ export type BespokeQuoteOwnerSummary = {
   serviceType?: BusinessClassRequestServiceType;
   reviewOpen: boolean;
   quotedAmountGbp?: number;
+  quoteExpiresAt?: string;
 };
+
+/** "Jane Doe" → "Jane D." — enough for the owner list, minimal for storage. */
+export function minimisedCustomerLabel(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "Customer";
+  const first = parts[0].slice(0, 30);
+  const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1][0]?.toUpperCase() ?? ""}.` : "";
+  return `${first}${lastInitial}`;
+}
 
 /** Small summary stored as KV list metadata (must stay well under 1 KB). */
 export function toBespokeQuoteOwnerSummary(record: BespokeQuoteRecord): BespokeQuoteOwnerSummary {
@@ -1158,14 +1185,14 @@ export function toBespokeQuoteOwnerSummary(record: BespokeQuoteRecord): BespokeQ
     status: record.status,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
-    customerName: record.customer.name.slice(0, 60),
+    customerLabel: minimisedCustomerLabel(record.customer.name),
     date: record.journey.date,
     time: record.journey.time,
     passengers: record.journey.passengers,
     ...(record.event ? { eventTitle: record.event.title.slice(0, 80) } : {}),
     ...(record.serviceType ? { serviceType: record.serviceType } : {}),
     reviewOpen: Boolean(record.review?.open),
-    ...(record.quote ? { quotedAmountGbp: record.quote.amountGbp } : {}),
+    ...(record.quote ? { quotedAmountGbp: record.quote.amountGbp, quoteExpiresAt: record.quote.expiresAt } : {}),
   };
 }
 

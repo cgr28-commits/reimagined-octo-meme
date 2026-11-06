@@ -228,6 +228,7 @@ import {
 import {
   shouldRunHourlyScheduledJobs,
   shouldRunShortNoticeExpiryCron,
+  SHORT_NOTICE_EXPIRY_CRON,
 } from "./scheduled-cron";
 import {
   OWNER_NO_AVAILABILITY_CODE,
@@ -379,7 +380,7 @@ export { RefundCoordinator } from "./refund-coordinator";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
 // Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
 export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
-import { handleBespokeQuoteRoute, isBespokeQuotePath } from "./bespoke-quote-handlers";
+import { handleBespokeQuoteRoute, isBespokeQuotePath, runBespokeExpirySweep } from "./bespoke-quote-handlers";
 import {
   coordinatorClaim,
   coordinatorPeek,
@@ -6466,6 +6467,19 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     configureStripe(env);
     const cron = event.cron;
+    // Bespoke quote expiry sweep — no-op unless BESPOKE_QUOTES_ENABLED = "1".
+    // Isolated: its own promise and catch, so it cannot affect the jobs below.
+    if (env.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON) {
+      ctx.waitUntil(
+        runBespokeExpirySweep(env)
+          .then((result) => {
+            if (result.expired > 0 || result.awaitingPaymentCheck > 0 || result.errors > 0) {
+              console.log("Bespoke quote expiry sweep", JSON.stringify(result));
+            }
+          })
+          .catch((error) => console.error("Bespoke quote expiry sweep failed", error)),
+      );
+    }
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
         processExpiredShortNoticeResponseWindows(env)
