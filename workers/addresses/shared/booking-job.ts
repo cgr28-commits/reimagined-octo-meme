@@ -1,7 +1,7 @@
 /** Owner-managed booking jobs: request → paid → assign driver by email. */
 
 import { formatPartialRegistration } from "./partial-registration";
-import { MEET_GREET_DRIVER_NOTE } from "./meet-greet";
+import { MEET_GREET_DESCRIPTION, MEET_GREET_DRIVER_NOTE } from "./meet-greet";
 import { formatUkDateTime } from "./uk-time";
 import type { AdsAttribution } from "./ads-attribution";
 import { lightCustomerEmailHtml,
@@ -237,6 +237,8 @@ export function buildDriverAssignmentEmail(options: {
 export function buildCustomerDriverDetailsEmail(options: {
   job: BookingJobRecord;
   businessName?: string;
+  /** Customer bought Meet & Greet for this pick-up: driver waits in arrivals with a name board. */
+  meetGreet?: boolean;
 }): { subject: string; text: string; html: string } {
   const businessName = options.businessName ?? "My Airport Taxi NI";
   const job = options.job;
@@ -271,6 +273,7 @@ export function buildCustomerDriverDetailsEmail(options: {
     `Pickup: ${job.pickupLabel}`,
     `Drop-off: ${job.dropoffLabel}`,
     "",
+    ...(options.meetGreet ? [`Meet & Greet: ${MEET_GREET_DESCRIPTION}`, ""] : []),
     "If you need to change anything, reply to this email or WhatsApp us.",
     "",
     businessName,
@@ -311,6 +314,11 @@ export function buildCustomerDriverDetailsEmail(options: {
       <p style="margin:0 0 8px;"><strong>Pickup:</strong> ${escapeHtml(job.pickupLabel)}</p>
       <p style="margin:0;"><strong>Drop-off:</strong> ${escapeHtml(job.dropoffLabel)}</p>
     </div>
+    ${
+      options.meetGreet
+        ? `<p style="margin:0 0 16px;"><strong style="color:#2fbf4a;">Meet &amp; Greet:</strong> ${escapeHtml(MEET_GREET_DESCRIPTION)}</p>`
+        : ""
+    }
     <p style="color:#c5d0e0;font-size:14px;">If you need to change anything, reply to this email or WhatsApp us.</p>
     <p style="font-size:12px;color:#8a97ab;">${escapeHtml(businessName)}</p>
   </div>

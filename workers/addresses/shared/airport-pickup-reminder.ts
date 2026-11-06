@@ -1,3 +1,4 @@
+import { MEET_GREET_DESCRIPTION } from "./meet-greet";
 import { belfastInternationalMapHtml, belfastInternationalMapText } from "./belfast-international-airport-map";
 import { belfastCityMapHtml, belfastCityMapText } from "./belfast-city-airport-map";
 /**
@@ -303,6 +304,8 @@ export function buildAirportPickupReminderDirections(
   if (!airport) return null;
 
   if (airport === "DUB") {
+    // Paid Meet & Greet: name board in Arrivals, never just "wait in Arrivals".
+    if (dublinPaidMeetGreet(input)) return MEET_GREET_DESCRIPTION;
     return "After collecting your baggage, please wait in Arrivals for your driver.";
   }
 
