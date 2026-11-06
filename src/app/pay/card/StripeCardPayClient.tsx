@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import Logo from "@/components/Logo";
 import { SITE } from "@/lib/data";
 import { clearOpenCheckoutSession } from "@/lib/booking-draft-storage";
+import { readPendingPayment } from "@/lib/pending-payment";
+import { vehicleShortLabel } from "@/lib/vehicle-selection";
 import {
   fetchStripeSession,
   loadStripeJs,
@@ -39,6 +41,51 @@ function backToBooking(): void {
   window.location.assign("/");
 }
 
+/** First part of an address ("Belfast City Hall, Donegall Square N, ..." -> "Belfast City Hall"). */
+function shortPlace(label: string | undefined | null): string {
+  const text = String(label ?? "").trim();
+  if (!text) return "";
+  return text.split(",")[0]?.trim() || text;
+}
+
+function formatTripWhen(date: string | undefined, time: string | undefined): string {
+  if (!date) return time ?? "";
+  const parsed = new Date(`${date}T12:00:00`);
+  const day = Number.isNaN(parsed.getTime())
+    ? date
+    : parsed.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  return time ? `${day}, ${time}` : day;
+}
+
+type JourneySummary = { route: string; details: string };
+
+/**
+ * Journey summary for the payment card, from the booking saved in this browser
+ * when the customer pressed Pay. Only used when it belongs to this checkout, so
+ * a payment link opened from an email never shows someone else's journey.
+ */
+function readJourneySummary(checkoutId: string): JourneySummary | null {
+  try {
+    const pending = readPendingPayment();
+    if (!pending || pending.checkoutId !== checkoutId) return null;
+    const b = pending.booking;
+    const from = shortPlace(b.pickupLabel);
+    const to = shortPlace(b.dropoffLabel);
+    if (!from || !to) return null;
+    const details = [
+      formatTripWhen(b.tripDate, b.tripTime),
+      b.returnJourney ? "Return" : "",
+      b.vehicle ? vehicleShortLabel(b.vehicle) : "",
+      b.passengers ? `${b.passengers} passenger${b.passengers === 1 ? "" : "s"}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return { route: `${from} → ${to}`, details };
+  } catch {
+    return null;
+  }
+}
+
 function confirmedUrl(checkoutId: string): string {
   return `/booking-confirmed/?checkout_id=${encodeURIComponent(checkoutId)}`;
 }
@@ -48,7 +95,12 @@ export default function StripeCardPayClient() {
   const [info, setInfo] = useState<StripeSessionInfo | null>(null);
   const [message, setMessage] = useState("");
   const [walletsShown, setWalletsShown] = useState(false);
+  // Stripe's payment options take a few seconds to draw; keep the loading
+  // placeholder up until they're actually on screen.
+  const [elementsReady, setElementsReady] = useState(false);
+  const [journey, setJourney] = useState<JourneySummary | null>(null);
   const checkoutRef = useRef<StripeCheckout | null>(null);
+  const expressStateRef = useRef<{ ready: boolean; wallets: boolean }>({ ready: false, wallets: false });
   const startedRef = useRef(false);
 
   // Apple Pay / Google Pay / Link must pass their confirm event to Stripe.
@@ -75,6 +127,32 @@ export default function StripeCardPayClient() {
     }
   }
 
+  /**
+   * Stripe fires its "ready" events before the options are painted (the frames
+   * start ~2px tall). Keep the placeholder until the payment list frame has real
+   * height. The Apple Pay / Google Pay button only draws once it's visible, so
+   * we just wait for it to report in and keep its space reserved (no jump).
+   */
+  function waitUntilDrawn() {
+    const started = Date.now();
+    const frameHeight = (id: string) =>
+      Math.max(
+        0,
+        ...Array.from(document.querySelectorAll<HTMLIFrameElement>(`#${id} iframe`)).map(
+          (frame) => frame.getBoundingClientRect().height,
+        ),
+      );
+    const timer = window.setInterval(() => {
+      const express = expressStateRef.current;
+      const paymentDrawn = frameHeight("stripe-payment-element") >= 48;
+      // Never leave the customer stuck on the placeholder.
+      if ((paymentDrawn && express.ready) || Date.now() - started > 12000) {
+        window.clearInterval(timer);
+        setElementsReady(true);
+      }
+    }, 150);
+  }
+
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -83,6 +161,7 @@ export default function StripeCardPayClient() {
       setView("invalid");
       return;
     }
+    setJourney(readJourneySummary(checkoutId));
 
     void (async () => {
       try {
@@ -147,7 +226,9 @@ export default function StripeCardPayClient() {
         });
         express.on("ready", (event) => {
           const methods = event.availablePaymentMethods as Record<string, boolean> | undefined;
-          setWalletsShown(Boolean(methods && Object.values(methods).some(Boolean)));
+          const wallets = Boolean(methods && Object.values(methods).some(Boolean));
+          expressStateRef.current = { ready: true, wallets };
+          setWalletsShown(wallets);
         });
         express.on("confirm", (event) => {
           void confirmPayment(event);
@@ -159,7 +240,12 @@ export default function StripeCardPayClient() {
         const payment = checkout.createPaymentElement({
           layout: { type: "accordion", spacedAccordionItems: true },
         });
+        payment.on("loaderror", () => {
+          setMessage("The secure payment form couldn't load. Please refresh the page or contact us.");
+          setElementsReady(true);
+        });
         payment.mount("#stripe-payment-element");
+        waitUntilDrawn();
         setView("ready");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "We couldn't open this payment link.");
@@ -175,7 +261,7 @@ export default function StripeCardPayClient() {
   return (
     <section
       data-stripe-pay={view}
-      className="rounded-2xl border border-white/15 bg-white/[0.04] p-4 text-white sm:p-5"
+      className="relative rounded-2xl border border-white/15 bg-white/[0.04] p-4 text-white sm:p-5"
     >
       {/* Compact by design: the whole payment fits on one screen (phone and laptop). */}
       <div className="flex items-center justify-between gap-3">
@@ -198,10 +284,20 @@ export default function StripeCardPayClient() {
         <>
           <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-white/10 pt-3">
             <div className="min-w-0">
-              <p className="text-xs text-white/65">
-                {info?.cardHold ? "Amount to authorise" : "Amount to pay"}
-                {info?.reference ? ` · Ref ${info.reference.replace(/-HOLD$/, "")}` : ""}
-              </p>
+              {journey ? (
+                <>
+                  <p className="text-sm font-semibold leading-snug text-white" data-pay-journey>
+                    {journey.route}
+                  </p>
+                  {journey.details ? (
+                    <p className="mt-0.5 text-xs leading-snug text-white/65">{journey.details}</p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-white">
+                  {info?.cardHold ? "Amount to authorise" : "Amount to pay"}
+                </p>
+              )}
             </div>
             {amountLabel ? (
               <p className="shrink-0 text-xl font-bold text-white">{amountLabel}</p>
@@ -219,17 +315,40 @@ export default function StripeCardPayClient() {
             </p>
           ) : null}
 
-          {view === "loading" ? (
-            <p className="mt-3 text-sm text-white/70">Loading secure payment…</p>
+          {!elementsReady && view !== "paying" ? (
+            <div className="mt-3" role="status" aria-live="polite" data-pay-loading>
+              <div className="flex items-center justify-center gap-2 py-1 text-sm text-white/75">
+                <span
+                  aria-hidden
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/25 border-t-emerald"
+                />
+                Loading secure payment…
+              </div>
+              <div aria-hidden className="mt-3 space-y-2">
+                <div className="h-11 animate-pulse rounded-[10px] bg-white/10" />
+                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+                <div className="h-12 animate-pulse rounded-[10px] bg-white/[0.07]" />
+              </div>
+            </div>
           ) : null}
 
-          <div id="stripe-express-checkout" className="mt-3" />
-          {walletsShown ? (
-            <p className="my-2 text-center text-[11px] uppercase tracking-wider text-white/50">
-              or pay by card
-            </p>
-          ) : null}
-          <div id="stripe-payment-element" className={walletsShown ? "" : "mt-3"} />
+          {/* Stripe draws into these while the placeholder shows; revealed once ready. */}
+          <div
+            className={
+              elementsReady
+                ? ""
+                : "pointer-events-none absolute inset-x-4 top-0 h-0 overflow-hidden opacity-0 sm:inset-x-5"
+            }
+          >
+            <div id="stripe-express-checkout" className={walletsShown ? "mt-3 min-h-[44px]" : "mt-3"} />
+            {walletsShown ? (
+              <p className="my-2 text-center text-[11px] uppercase tracking-wider text-white/50">
+                or pay by card
+              </p>
+            ) : null}
+            <div id="stripe-payment-element" className={walletsShown ? "" : "mt-3"} />
+          </div>
 
           {message ? (
             <p role="alert" className="mt-2 text-sm text-red-300">
@@ -237,7 +356,7 @@ export default function StripeCardPayClient() {
             </p>
           ) : null}
 
-          {view !== "loading" ? (
+          {view !== "loading" && elementsReady ? (
             <button
               type="button"
               className="btn-primary mt-3 w-full justify-center"
@@ -253,6 +372,11 @@ export default function StripeCardPayClient() {
             Secured by Stripe — we never see your card details. Questions? Call{" "}
             {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
           </p>
+          {info?.reference ? (
+            <p className="mt-1 text-center text-[10px] text-white/40" data-pay-reference>
+              Payment ref {info.reference.replace(/-HOLD$/, "")}
+            </p>
+          ) : null}
         </>
       ) : (
         <>
