@@ -240,7 +240,7 @@ export default function Header() {
                 href={link.href}
                 className={`whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald${
                   DESKTOP_WIDE_DIRECT_HREFS.has(link.href)
-                    ? " lg:hidden min-[1200px]:inline"
+                    ? " lg:hidden min-[75rem]:inline"
                     : DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : ""
                 }`}
               >
@@ -248,7 +248,7 @@ export default function Header() {
               </SiteNavLink>
             ))}
             {DESKTOP_MORE_LINKS.length > 0 ? (
-              <details className="group relative hidden lg:block min-[1200px]:hidden" data-desktop-nav-more>
+              <details className="group relative hidden lg:block min-[75rem]:hidden" data-desktop-nav-more>
                 <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald [&::-webkit-details-marker]:hidden">
                   More
                   <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -283,7 +283,7 @@ export default function Header() {
               href={`tel:${SITE.officeLandline}`}
               data-header-call
               aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg min-[1200px]:hidden"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg min-[75rem]:hidden"
             >
               <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
               <span className="hidden xl:inline">{SITE.officeLandlineDisplay}</span>

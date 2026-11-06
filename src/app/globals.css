@@ -2428,8 +2428,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-homepage-quote-fields] {
     display: grid;
     grid-template-columns:
-      minmax(0, 1.75fr) minmax(0, 1.75fr) minmax(0, 1fr) minmax(0, 0.85fr)
-      minmax(0, 0.8fr) minmax(0, 0.8fr) auto;
+      minmax(0, 1.6fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.9fr)
+      minmax(0, 0.95fr) minmax(0, 0.95fr) auto;
     column-gap: 0.75rem;
     row-gap: 0.35rem;
     align-items: start;
@@ -2465,7 +2465,7 @@ body:has(.cookie-consent-banner--modal) {
     grid-column: 7; grid-row: 1; align-self: end; padding: 0;
   }
   .homepage-hero [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary {
-    min-height: 3rem; height: 3rem; padding-inline: 1.6rem; white-space: nowrap; font-size: 1rem;
+    min-height: 3rem; height: 3rem; padding-inline: 1.4rem; white-space: nowrap; font-size: 1rem;
   }
 
   /* Fields: comfortable 48px controls with matching label rows. */
