@@ -185,10 +185,21 @@ async function main() {
         await page.getByLabel("Passenger name").fill(sample.name);
         const expectedText = sample.name.replace(/\s*\n\s*/g, "\n");
         // The editor's live preview proves the typed name is in state before Display is tapped.
-        await page.waitForFunction(
-          (want) => document.querySelector("[data-testid=name-board-preview-name]")?.textContent === want,
-          expectedText,
-        );
+        try {
+          await page.waitForFunction(
+            (want) => document.querySelector("[data-testid=name-board-preview-name]")?.textContent === want,
+            expectedText,
+            { timeout: 5_000 },
+          );
+        } catch (error) {
+          const state = await page.evaluate(() => ({
+            textarea: (document.querySelector("textarea") as HTMLTextAreaElement).value,
+            preview: document.querySelector("[data-testid=name-board-preview-name]")?.textContent,
+            stored: localStorage.getItem("matni-name-board-v1"),
+          }));
+          console.log(`DIAG ${vp.label} · ${sample.label}: ${JSON.stringify(state)}`);
+          throw error;
+        }
         await page.getByRole("button", { name: "Display Name Board" }).click();
         const dialog = page.getByRole("dialog", { name: "Pickup name board" });
         await dialog.waitFor();
