@@ -405,12 +405,12 @@ async function main() {
       // Swiping on the board must not scroll the page behind it (iPhone rubber-banding).
       const swipeBlocked = await page.evaluate(() => {
         const overlay = document.querySelector("[data-testid=name-board-overlay]")!;
-        if (typeof Touch !== "function") return "no-touch-api";
-        const touch = new Touch({ identifier: 1, target: overlay, clientX: 100, clientY: 100 });
-        const event = new TouchEvent("touchmove", { touches: [touch], cancelable: true, bubbles: true });
+        // Portable one-finger swipe (WebKit forbids constructing Touch objects from script).
+        const event = new Event("touchmove", { cancelable: true, bubbles: true });
+        Object.defineProperty(event, "touches", { value: [{ clientX: 100, clientY: 100 }] });
         return overlay.dispatchEvent(event) ? "not-blocked" : "blocked";
       });
-      assert.ok(swipeBlocked === "blocked" || swipeBlocked === "no-touch-api", `touchmove blocked on the board (${swipeBlocked})`);
+      assert.equal(swipeBlocked, "blocked", "one-finger swipe on the board doesn't scroll the page behind");
       await page.getByRole("button", { name: "Exit name board and return to editing" }).click();
       assert.equal(await page.evaluate(() => document.documentElement.style.overflow), "", "scroll restored");
       await context.close();
