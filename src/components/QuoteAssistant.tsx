@@ -1,38 +1,37 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from "react";
-import { createPortal } from "react-dom";
-import AddressInput from "@/components/AddressInput";
-import { playBotOpenSound, playBotReplySound, playBotWorkingSound } from "@/lib/bot-sounds";
-import { contactCardUrl } from "@/lib/contact-card";
-import { detectMobileDevice, useIsMobileDevice } from "@/lib/device";
-import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
-import { withBasePath } from "@/lib/paths";
 import {
-  createWelcomeMessages,
-  emptyQuoteDraft,
-  getNextQuoteField,
-  isPricableStreetAddress,
-  respondToAssistantMessage,
-  type AssistantMessage,
-  type QuoteCardSummary,
-  type QuoteDraft,
-} from "@/lib/quote-assistant";
-import { emailAssistantQuote, submitAssistantBooking } from "@/lib/quote-assistant-submit";
-import { START_NEW_QUOTE_EVENT } from "@/lib/reset-quote-journey";
-import { createQuoteTransactionId } from "@/lib/google-ads-client";
-import { scheduleQuoteContactAlert, scheduleQuoteLeadAlert } from "@/lib/submit-quote-lead";
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
+import { createPortal } from "react-dom";
+import { useIsMobileDevice } from "@/lib/device";
+import { shouldHidePublicSalesWidgets } from "@/lib/owner-portal";
 
-const BOT_WORKING_MS = 450;
-const SESSION_KEY = "matni-quote-assistant-v1";
+/**
+ * Desktop Help launcher only.
+ * The chat panel is loaded with import() on the first tap, and is not prefetched.
+ */
+
 const HELP_BTN_PX = 50;
 const HELP_EDGE_PX = 22;
 const HELP_QUOTE_PAD_PX = 12;
 
 type HelpCorner = "bottom-right" | "bottom-left";
+
+type QuoteAssistantPanelProps = {
+  open: boolean;
+  setOpen: Dispatch<SetStateAction<boolean>>;
+  launcherRef: RefObject<HTMLButtonElement | null>;
+};
 
 function rectsOverlap(
   a: { left: number; top: number; right: number; bottom: number },
@@ -68,233 +67,20 @@ function chooseHelpCorner(quote: DOMRect | null, vw: number, vh: number): HelpCo
   return "bottom-right";
 }
 
-type PersistedChat = {
-  messages: AssistantMessage[];
-  draft: QuoteDraft;
-  quickReplies: string[];
-  consecutiveMisses: number;
-};
-
-function loadPersistedChat(): PersistedChat | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedChat;
-    if (!parsed || !Array.isArray(parsed.messages) || parsed.messages.length === 0) {
-      return null;
-    }
-    return {
-      messages: parsed.messages,
-      draft: parsed.draft ?? {},
-      quickReplies: (parsed.quickReplies ?? ["Start a chat quote", "Save to contacts"]).map((r) =>
-        r === "Get a quote" ? "Start a chat quote" : r,
-      ),
-      consecutiveMisses: Number(parsed.consecutiveMisses) || 0,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function persistChat(state: PersistedChat) {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
-  } catch {
-    // Ignore quota / private mode failures.
-  }
-}
-
-function QuotePriceCard({
-  card,
-  note,
-  cardRef,
-}: {
-  card: QuoteCardSummary;
-  note: string;
-  cardRef?: Ref<HTMLDivElement>;
-}) {
-  return (
-    <div
-      ref={cardRef}
-      className="overflow-hidden rounded-2xl border border-emerald/40 bg-emerald/10 shadow-lg shadow-emerald/10"
-    >
-      <div className="border-b border-emerald/25 bg-emerald px-3 py-3 text-navy">
-        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-navy/70">
-          Your fixed journey price
-        </p>
-        <p className="mt-0.5 text-3xl font-black tracking-tight sm:text-4xl">{card.amountLabel}</p>
-        <p className="mt-0.5 text-sm font-semibold text-navy/80">{card.directionLabel}</p>
-      </div>
-      <div className="space-y-1.5 px-3 py-2.5 text-sm text-white/90">
-        <p>
-          {card.returnJourney ? "Return (5% off)" : "One way"}
-          <span className="text-white/55"> · </span>
-          {card.passengers} passengers
-          <span className="text-white/55"> · </span>
-          {card.suitcases} cases
-        </p>
-        {card.area ? (
-          <p>
-            <span className="text-white/55">Priced for · </span>
-            {card.area}
-          </p>
-        ) : null}
-        <p className="break-words text-xs">
-          <span className="text-white/55">Address · </span>
-          {card.address}
-        </p>
-        <p className="text-[11px] leading-snug text-white/55">{card.waitingNote}</p>
-        {note.trim() ? (
-          <p className="whitespace-pre-wrap border-t border-white/10 pt-2 text-sm font-medium leading-relaxed text-white/90">
-            {note}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export default function QuoteAssistant() {
   const isMobile = useIsMobileDevice();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<AssistantMessage[]>(() => createWelcomeMessages());
-  const [quickReplies, setQuickReplies] = useState<string[]>([
-    "Start a chat quote",
-    "Save to contacts",
-  ]);
-  const [draft, setDraft] = useState<QuoteDraft>({});
-  const [showContactOffer, setShowContactOffer] = useState(false);
-  const [isWorking, setIsWorking] = useState(false);
-  const [addressValue, setAddressValue] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [Panel, setPanel] = useState<ComponentType<QuoteAssistantPanelProps> | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [consecutiveMisses, setConsecutiveMisses] = useState(0);
   const [helpCorner, setHelpCorner] = useState<HelpCorner>("bottom-right");
   const launcherRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const latestQuoteCardRef = useRef<HTMLDivElement>(null);
-  const contactOfferRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const workingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftRef = useRef(draft);
-  const missesRef = useRef(0);
-  const botQuoteSessionIdRef = useRef("");
-  const helpTitleId = useId();
-  const wasOpenRef = useRef(false);
-  const qrSrc = withBasePath("/contact-qr.png");
-  const awaitingField = !isWorking ? getNextQuoteField(draft) : null;
-  const showAddressPicker = awaitingField === "address";
-  const showDatePicker =
-    awaitingField === "tripDate" || awaitingField === "returnDate";
-  const showTimePicker =
-    awaitingField === "tripTime" || awaitingField === "returnTime";
-  const addressLabel =
-    draft.direction === "from-airport" ? "Drop-off address" : "Pickup address";
-  const inputPlaceholder = showDatePicker
-    ? "Choose a date"
-    : showTimePicker
-      ? "Choose a time"
-      : draft.awaitingQuoteEmailAddress
-        ? "name@example.com"
-        : awaitingField === "flightNumber" || awaitingField === "returnFlightNumber"
-          ? "e.g. BA1234"
-          : awaitingField === "customerEmail"
-            ? "name@example.com"
-            : awaitingField === "mobileNumber"
-              ? "07… or +44…"
-              : awaitingField === "customerName"
-                ? "Your full name"
-                : "Ask a question or get a quote…";
-
-  function openNativePicker() {
-    const el = inputRef.current;
-    if (!el) return;
-    el.focus();
-    try {
-      (
-        el as HTMLInputElement & {
-          showPicker?: () => void;
-        }
-      ).showPicker?.();
-    } catch {
-      // Native picker may be blocked until a direct gesture; focus still helps.
-    }
-  }
+  const loadingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
-    const saved = loadPersistedChat();
-    if (!saved) return;
-    setMessages(saved.messages);
-    setDraft(saved.draft);
-    draftRef.current = saved.draft;
-    setQuickReplies(saved.quickReplies);
-    setConsecutiveMisses(saved.consecutiveMisses);
-    missesRef.current = saved.consecutiveMisses;
   }, []);
-
-  useEffect(() => {
-    function onStartNewQuote() {
-      setMessages(createWelcomeMessages());
-      setDraft(emptyQuoteDraft());
-      draftRef.current = {};
-      setQuickReplies(["Start a chat quote", "Save to contacts"]);
-      setShowContactOffer(false);
-      setAddressValue("");
-      setInput("");
-      setConsecutiveMisses(0);
-      missesRef.current = 0;
-      botQuoteSessionIdRef.current = "";
-      setOpen(false);
-      try {
-        sessionStorage.removeItem(SESSION_KEY);
-      } catch {
-        // ignore
-      }
-    }
-    window.addEventListener(START_NEW_QUOTE_EVENT, onStartNewQuote);
-    return () => window.removeEventListener(START_NEW_QUOTE_EVENT, onStartNewQuote);
-  }, []);
-
-  useEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
-
-  useEffect(() => {
-    missesRef.current = consecutiveMisses;
-  }, [consecutiveMisses]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    persistChat({
-      messages,
-      draft,
-      quickReplies,
-      consecutiveMisses,
-    });
-  }, [mounted, messages, draft, quickReplies, consecutiveMisses]);
-
-  useEffect(() => {
-    return () => {
-      if (workingTimerRef.current) {
-        clearTimeout(workingTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Hide the floating WhatsApp button while chat is open (it covers the right edge).
-  useEffect(() => {
-    document.body.dataset.matniChatOpen = open ? "true" : "false";
-    window.dispatchEvent(new Event("matni-chat-open-change"));
-    return () => {
-      document.body.dataset.matniChatOpen = "false";
-      window.dispatchEvent(new Event("matni-chat-open-change"));
-    };
-  }, [open]);
 
   /** Keep the “?” fixed to the viewport; prefer BR, fall back to BL if it covers #quote. */
   useLayoutEffect(() => {
@@ -325,324 +111,30 @@ export default function QuoteAssistant() {
     };
   }, [mounted, open, isMobile, pathname]);
 
-  // Keep the page from sliding sideways while the chat is open.
-  // Focus trap, Escape to close, and restore focus to the launcher.
-  useEffect(() => {
-    if (!open) {
-      if (wasOpenRef.current) {
-        wasOpenRef.current = false;
-        launcherRef.current?.focus();
-      }
+  function onLauncherClick() {
+    if (open) {
+      setOpen(false);
       return;
     }
-    wasOpenRef.current = true;
-
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    const prevHtmlOverscroll = html.style.overscrollBehaviorX;
-    const prevBodyOverscroll = body.style.overscrollBehaviorX;
-
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    html.style.overscrollBehaviorX = "none";
-    body.style.overscrollBehaviorX = "none";
-
-    if (window.scrollX !== 0) {
-      window.scrollTo(0, window.scrollY);
+    if (Panel) {
+      setOpen(true);
+      return;
     }
-
-    const keepHorizontalOrigin = () => {
-      if (window.scrollX !== 0) {
-        window.scrollTo(0, window.scrollY);
-      }
-    };
-
-    const preventBackgroundTouchScroll = (event: TouchEvent) => {
-      const target = event.target as Node | null;
-      if (
-        target &&
-        (panelRef.current?.contains(target) || launcherRef.current?.contains(target))
-      ) {
-        return;
-      }
-      event.preventDefault();
-    };
-
-    const getFocusable = () => {
-      const panel = panelRef.current;
-      if (!panel) return [] as HTMLElement[];
-      return Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ).filter((el) => !el.hasAttribute("disabled") && el.getAttribute("aria-hidden") !== "true");
-    };
-
-    // Move focus into the dialog once it mounts.
-    requestAnimationFrame(() => {
-      const nodes = getFocusable();
-      const preferred = inputRef.current && !showAddressPicker ? inputRef.current : nodes[0];
-      preferred?.focus();
-    });
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const nodes = getFocusable();
-      if (nodes.length === 0) return;
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-      if (event.shiftKey) {
-        if (active === first || !panelRef.current?.contains(active)) {
-          event.preventDefault();
-          last.focus();
-        }
-      } else if (active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("scroll", keepHorizontalOrigin, { passive: true });
-    document.addEventListener("touchmove", preventBackgroundTouchScroll, { passive: false });
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
-      html.style.overscrollBehaviorX = prevHtmlOverscroll;
-      body.style.overscrollBehaviorX = prevBodyOverscroll;
-      window.removeEventListener("scroll", keepHorizontalOrigin);
-      document.removeEventListener("touchmove", preventBackgroundTouchScroll);
-      document.removeEventListener("keydown", onKeyDown);
-      if (window.scrollX !== 0) {
-        window.scrollTo(0, window.scrollY);
-      }
-    };
-  }, [open, showAddressPicker]);
-
-  const latestQuoteIndex = (() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i]?.quoteCard) return i;
-    }
-    return -1;
-  })();
-  const latestMessageHasQuote =
-    latestQuoteIndex >= 0 && latestQuoteIndex === messages.length - 1 && !isWorking;
-
-  useEffect(() => {
-    if (!open) return;
-    if (showContactOffer && !isWorking) {
-      contactOfferRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "nearest",
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoading(true);
+    // Loaded only after this click. The chunk is not hinted for prefetch.
+    void import(/* webpackChunkName: "quote-assistant-panel" */ "./QuoteAssistantPanel")
+      .then((mod) => {
+        setPanel(() => mod.default);
+        setOpen(true);
+      })
+      .catch(() => {
+        loadingRef.current = false;
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      return;
-    }
-    // Keep the quote price in view — scrolling to the list bottom hides the amount.
-    if (latestMessageHasQuote && latestQuoteCardRef.current && listRef.current) {
-      const list = listRef.current;
-      const card = latestQuoteCardRef.current;
-      const top = card.offsetTop - 8;
-      list.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-      return;
-    }
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showContactOffer, isWorking, showAddressPicker, latestMessageHasQuote]);
-
-  useEffect(() => {
-    if (!showAddressPicker) {
-      setAddressValue("");
-    }
-  }, [showAddressPicker]);
-
-  function toggleOpen() {
-    setOpen((value) => {
-      const next = !value;
-      if (next) {
-        playBotOpenSound();
-      }
-      return next;
-    });
-  }
-
-  function openContactCardOnMobile() {
-    setShowContactOffer(false);
-    setOpen(false);
-    window.location.assign(withBasePath("/contact/"));
-  }
-
-  function sendText(raw: string) {
-    const text = raw.trim();
-    if (!text || isWorking) return;
-
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
-    setAddressValue("");
-    setIsWorking(true);
-    playBotWorkingSound();
-
-    if (workingTimerRef.current) {
-      clearTimeout(workingTimerRef.current);
-    }
-
-    workingTimerRef.current = setTimeout(() => {
-      void (async () => {
-        const result = await respondToAssistantMessage(text, draftRef.current, {
-          consecutiveMisses: missesRef.current,
-        });
-        if (result.resetDraft) {
-          botQuoteSessionIdRef.current = "";
-        }
-        let nextDraft = result.resetDraft ? emptyQuoteDraft() : result.draft;
-        const nextMisses = result.consecutiveMisses ?? 0;
-        setDraft(nextDraft);
-        draftRef.current = nextDraft;
-        setConsecutiveMisses(nextMisses);
-        missesRef.current = nextMisses;
-        setQuickReplies(result.quickReplies ?? []);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "bot",
-            text: result.reply,
-            ...(result.quoteCard ? { quoteCard: result.quoteCard } : {}),
-          },
-        ]);
-        playBotReplySound();
-
-        if (result.quoteCard) {
-          const card = result.quoteCard;
-          const fromAirport = nextDraft.direction === "from-airport";
-          if (!botQuoteSessionIdRef.current) {
-            botQuoteSessionIdRef.current = createQuoteTransactionId("bot");
-          }
-          scheduleQuoteLeadAlert({
-            tripLabel: fromAirport ? "Airport pickup" : "Airport drop-off",
-            pickupLabel: fromAirport ? card.airportName : card.address,
-            dropoffLabel: fromAirport ? card.address : card.airportName,
-            returnJourney: card.returnJourney,
-            tripDate: nextDraft.tripDate,
-            tripTime: nextDraft.tripTime,
-            returnDate: nextDraft.returnDate,
-            returnTime: nextDraft.returnTime,
-            passengers: card.passengers,
-            suitcases: card.suitcases,
-            vehicle: card.vehicle,
-            estimatedPrice: card.amountLabel,
-            isAirportTrip: true,
-            quoteTransactionId: botQuoteSessionIdRef.current,
-            airportCode: nextDraft.airportCode,
-            totalGbp: card.amount,
-            source: "bot",
-          });
-        }
-
-        if (result.emailQuote) {
-          const emailed = await emailAssistantQuote(nextDraft);
-          nextDraft = {
-            ...nextDraft,
-            quoteEmailSent: emailed.ok ? true : nextDraft.quoteEmailSent,
-            awaitingQuoteEmailAddress: emailed.ok ? false : true,
-          };
-          setDraft(nextDraft);
-          draftRef.current = nextDraft;
-          setMessages((prev) => [...prev, { role: "bot", text: emailed.message }]);
-          playBotReplySound();
-          setQuickReplies(
-            emailed.ok
-              ? ["Yes, book", "Change details", "Another quote"]
-              : ["Try again", "Yes, book", "Another quote"],
-          );
-        }
-
-        if (result.submitBooking) {
-          const fromAirport = nextDraft.direction === "from-airport";
-          scheduleQuoteContactAlert({
-            tripLabel: fromAirport ? "Airport pickup" : "Airport drop-off",
-            pickupLabel: fromAirport
-              ? nextDraft.airportCode || "Airport"
-              : nextDraft.address || "",
-            dropoffLabel: fromAirport
-              ? nextDraft.address || ""
-              : nextDraft.airportCode || "Airport",
-            returnJourney: Boolean(nextDraft.returnJourney),
-            tripDate: nextDraft.tripDate,
-            tripTime: nextDraft.tripTime,
-            returnDate: nextDraft.returnDate,
-            returnTime: nextDraft.returnTime,
-            passengers: nextDraft.passengers ?? 1,
-            suitcases: nextDraft.suitcases ?? 0,
-            vehicle: nextDraft.vehicle || "Estate Car (1–4 passengers)",
-            estimatedPrice: nextDraft.quotedAmountLabel || "",
-            isAirportTrip: true,
-            quoteTransactionId: botQuoteSessionIdRef.current,
-            airportCode: nextDraft.airportCode,
-            source: "bot",
-            customerName: nextDraft.customerName,
-            customerEmail: nextDraft.customerEmail,
-            mobileNumber: nextDraft.mobileNumber,
-          });
-          const submission = await submitAssistantBooking(nextDraft);
-          setMessages((prev) => [...prev, { role: "bot", text: submission.message }]);
-          playBotReplySound();
-          if (submission.ok) {
-            nextDraft = emptyQuoteDraft();
-            setDraft(nextDraft);
-            draftRef.current = nextDraft;
-            setQuickReplies(["Start a chat quote", "Save to contacts"]);
-          } else {
-            setQuickReplies(["Send request", "Another quote"]);
-          }
-        }
-
-        setIsWorking(false);
-        workingTimerRef.current = null;
-
-        if (result.showContactOffer === true) {
-          const mobile = isMobile ?? detectMobileDevice();
-          if (mobile) {
-            openContactCardOnMobile();
-            return;
-          }
-          setShowContactOffer(true);
-          return;
-        }
-
-        setShowContactOffer(false);
-      })();
-    }, BOT_WORKING_MS);
-  }
-
-  function confirmAddress() {
-    if (!addressValue.trim() || isWorking) return;
-    sendText(addressValue);
-  }
-
-  function resetChat() {
-    setMessages(createWelcomeMessages());
-    setDraft(emptyQuoteDraft());
-    draftRef.current = {};
-    setQuickReplies(["Start a chat quote", "Save to contacts"]);
-    setShowContactOffer(false);
-    setAddressValue("");
-    setInput("");
-    setConsecutiveMisses(0);
-    missesRef.current = 0;
-    botQuoteSessionIdRef.current = "";
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      // ignore
-    }
   }
 
   const helpEdgeY = `max(${HELP_EDGE_PX}px, env(safe-area-inset-bottom, 0px))`;
@@ -667,6 +159,13 @@ export default function QuoteAssistant() {
           top: "auto",
         };
 
+  if (!mounted) return null;
+  // Desktop/tablet only (≥768px). Mobile uses the Header WhatsApp control instead.
+  // Require isMobile === false so neither control flashes before the breakpoint resolves.
+  if (isMobile !== false) return null;
+  // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
+  if (shouldHidePublicSalesWidgets(pathname)) return null;
+
   const ui = (
     <>
       {/* Desktop-only round “?” — never a Help pill; mobile uses WhatsApp FAB instead. */}
@@ -675,258 +174,32 @@ export default function QuoteAssistant() {
         type="button"
         data-matni-help-launcher="true"
         data-matni-help-corner={helpCorner}
-        onClick={toggleOpen}
+        onClick={onLauncherClick}
         style={launcherStyle}
         className="matni-help-launcher flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border border-emerald bg-navy text-white shadow-lg shadow-black/35 transition-colors hover:bg-navy-light"
         aria-label={open ? "Close help" : "Help"}
         aria-expanded={open}
+        aria-busy={loading}
       >
         {open ? (
           <svg className="h-5 w-5 text-emerald" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l12 12M18 6L6 18" />
           </svg>
+        ) : loading ? (
+          <span className="inline-flex gap-0.5" aria-hidden>
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white [animation-delay:120ms]" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white [animation-delay:240ms]" />
+          </span>
         ) : (
           <span className="select-none text-[1.75rem] font-light leading-none text-white" aria-hidden>
             ?
           </span>
         )}
       </button>
-
-      {open ? (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={helpTitleId}
-          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] left-3 right-3 z-[60] box-border flex h-[min(78dvh,36rem)] max-h-[min(78dvh,36rem)] w-auto min-w-0 max-w-[calc(100vw-1.5rem)] touch-pan-y flex-col overflow-hidden overscroll-x-none rounded-2xl border border-white/15 bg-navy-dark shadow-2xl sm:left-auto sm:right-[max(1.25rem,env(safe-area-inset-right))] sm:w-[24rem] sm:max-w-[min(24rem,calc(100%-2.75rem))]"
-        >
-          <div className="flex min-w-0 items-start justify-between gap-3 border-b border-white/10 bg-navy px-4 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-emerald/50 bg-navy">
-                <Image
-                  src={withBasePath("/logo.png")}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-full w-full object-contain p-1"
-                />
-              </div>
-              <div className="min-w-0">
-                <p id={helpTitleId} className="truncate text-sm font-bold text-white">
-                  Help
-                </p>
-                <p className="truncate text-xs text-white/55">Quotes · help · contact</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={resetChat}
-              className="shrink-0 text-xs font-semibold text-emerald hover:text-emerald-light"
-            >
-              New chat
-            </button>
-          </div>
-
-          <div
-            ref={listRef}
-            className="min-h-0 min-w-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain overscroll-x-none px-3 py-3 touch-pan-y"
-          >
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`box-border max-w-[min(92%,100%)] break-words [overflow-wrap:anywhere] ${
-                  message.role === "user" ? "ml-auto" : "mr-auto"
-                } ${message.quoteCard ? "w-full max-w-full" : ""}`}
-              >
-                {message.quoteCard ? (
-                  <QuotePriceCard
-                    card={message.quoteCard}
-                    note={message.text}
-                    cardRef={index === latestQuoteIndex ? latestQuoteCardRef : undefined}
-                  />
-                ) : (
-                  <div
-                    className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                      message.role === "user"
-                        ? "bg-emerald text-navy"
-                        : "bg-white/10 text-white/90"
-                    }`}
-                  >
-                    {message.text}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {isWorking ? (
-              <div
-                className="mr-auto flex max-w-[92%] items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/70"
-                aria-live="polite"
-              >
-                <span className="inline-flex gap-1" aria-hidden>
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald" />
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:120ms]" />
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald [animation-delay:240ms]" />
-                </span>
-                Working on your answer…
-              </div>
-            ) : null}
-
-            {/* Desktop only: QR to scan and save. Mobile opens /contact/ instead. */}
-            {showContactOffer && !isWorking && isMobile === false ? (
-              <div
-                ref={contactOfferRef}
-                className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-3"
-              >
-                <p className="text-sm font-semibold text-white">Would you like to save to contacts?</p>
-                <p className="mt-1 text-xs text-white/65">
-                  Scan and save — point your phone camera at the QR code to open our contact card (includes our logo).
-                </p>
-
-                <div className="mt-3 flex flex-col items-center">
-                  <div className="rounded-xl bg-white p-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrSrc}
-                      alt={`Scan and save QR code for ${contactCardUrl()}`}
-                      width={180}
-                      height={180}
-                      className="h-40 w-40 max-w-full"
-                    />
-                  </div>
-                  <p className="mt-2 text-center text-xs font-semibold text-emerald">Scan and save</p>
-                  <p className="mt-0.5 text-center text-[11px] text-white/50">Scan · Quote · Book</p>
-                  <Link
-                    href="/contact/"
-                    className="mt-2 text-xs font-semibold text-emerald hover:text-emerald-light"
-                  >
-                    Open contact card
-                  </Link>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowContactOffer(false)}
-                  className="mt-3 text-xs text-white/45 hover:text-white/70"
-                >
-                  Hide for now
-                </button>
-              </div>
-            ) : null}
-
-            {showAddressPicker && !isWorking ? (
-              <div className="min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-3 py-2.5">
-                <p className="text-sm font-semibold text-white">{addressLabel}</p>
-                <p className="mt-1 text-xs text-white/65">
-                  Type your full address with door number, street, and town or BT postcode — I’ll
-                  only quote once it’s complete. Town-only answers are not accepted.
-                </p>
-              </div>
-            ) : null}
-          </div>
-
-          {quickReplies.length > 0 && !isWorking && !showAddressPicker ? (
-            <div className="flex min-w-0 flex-wrap gap-2 overflow-x-hidden border-t border-white/10 px-3 py-2">
-              {quickReplies.map((reply) => (
-                <button
-                  key={reply}
-                  type="button"
-                  onClick={() => {
-                    if (reply === "Open terms") {
-                      window.open(withBasePath("/terms/"), "_blank", "noopener,noreferrer");
-                      return;
-                    }
-                    if (reply === "Open privacy") {
-                      window.open(withBasePath("/privacy/"), "_blank", "noopener,noreferrer");
-                      return;
-                    }
-                    if (reply === "Choose date" || reply === "Choose time") {
-                      openNativePicker();
-                      return;
-                    }
-                    sendText(reply);
-                  }}
-                  className="max-w-full shrink break-words rounded-full border border-emerald/40 bg-emerald/10 px-3 py-1 text-xs font-semibold text-emerald transition-colors hover:bg-emerald/20"
-                >
-                  {reply}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {showAddressPicker ? (
-            <form
-              className="min-w-0 border-t border-white/10 p-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                confirmAddress();
-              }}
-            >
-              <AddressInput
-                id="bot-quote-address"
-                name="bot-quote-address"
-                value={addressValue}
-                onChange={setAddressValue}
-                onSelectAddress={(address) => {
-                  setAddressValue(address);
-                  if (isPricableStreetAddress(address, draft.airportCode)) {
-                    sendText(address);
-                  }
-                }}
-                airportCode={draft.airportCode ?? ""}
-                label={addressLabel}
-                hideLabel
-                placeholder="e.g. 12 High Street, Bangor, BT20"
-                helperText="Include door number, street, and town or postcode before we quote"
-                required={false}
-                disableAutoScroll
-                suggestionsPlacement="above"
-              />
-              <button
-                type="submit"
-                disabled={
-                  isWorking || !isPricableStreetAddress(addressValue, draft.airportCode)
-                }
-                className="mt-2 w-full rounded-xl bg-emerald px-3 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
-              >
-                Use this address
-              </button>
-            </form>
-          ) : (
-            <form
-              className="flex min-w-0 gap-2 border-t border-white/10 p-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                sendText(input);
-              }}
-            >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                type={showDatePicker ? "date" : showTimePicker ? "time" : "text"}
-                placeholder={inputPlaceholder}
-                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-emerald/50 [color-scheme:dark]"
-              />
-              <button
-                type="submit"
-                disabled={isWorking}
-                className="shrink-0 rounded-xl bg-emerald px-3 py-2 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
-              >
-                Send
-              </button>
-            </form>
-          )}
-        </div>
-      ) : null}
+      {Panel ? <Panel open={open} setOpen={setOpen} launcherRef={launcherRef} /> : null}
     </>
   );
 
-  if (!mounted) return null;
-  // Desktop/tablet only (≥768px). Mobile uses the floating WhatsApp FAB instead.
-  // Require isMobile === false so neither control flashes before the breakpoint resolves.
-  if (isMobile !== false) return null;
-  // Owner/admin/driver dashboards — keep the public quote assistant off private ops screens.
-  if (shouldHidePublicSalesWidgets(pathname)) return null;
   return createPortal(ui, document.body);
 }
