@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
@@ -97,7 +98,10 @@ export default async function TownHubPage({ params }: Props) {
       />
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
-        <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
+        {/* Photo hidden on phones so the quote form is on the first screen. */}
+        <div className="hidden sm:block">
+          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
+        </div>
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
@@ -113,6 +117,26 @@ export default async function TownHubPage({ params }: Props) {
               {page.town.name} · Airport taxi
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
+            <p className="mt-4 text-lg leading-relaxed text-white/80">
+              Door-to-door airport taxis from {page.town.name} to Belfast International, George Best
+              Belfast City and Dublin Airport. Fixed price before you pay, with flight tracking on
+              airport pickups.
+            </p>
+            <div className="mt-4">
+              <GoogleReviewsBadge />
+            </div>
+          </header>
+        </div>
+
+        {/* Quote form directly under the town heading so visitors can price a
+            journey without scrolling past the route links. */}
+        <LocationQuoteSection
+          addressHint={page.town.addressHint}
+          heading={`Quote an airport taxi from ${page.town.name}`}
+        />
+
+        {/* Local detail sits below the quote form. */}
+        <div className="mx-auto mb-10 max-w-3xl px-4 sm:px-6 lg:px-8">
             <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
             {INTERNATIONAL_GUIDE_CONTEXT[page.town.slug] ? (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
@@ -138,15 +162,7 @@ export default async function TownHubPage({ params }: Props) {
               quoteLabel="Get Your Fixed Quote"
               whatsappMessage={`Hi, I'd like an airport taxi from ${page.town.name}.`}
             />
-          </header>
         </div>
-
-        {/* Quote form directly under the town heading so visitors can price a
-            journey without scrolling past the route links. */}
-        <LocationQuoteSection
-          addressHint={page.town.addressHint}
-          heading={`Quote an airport taxi from ${page.town.name}`}
-        />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <section>
@@ -260,9 +276,9 @@ export default async function TownHubPage({ params }: Props) {
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Which airport from {page.town.name}?</h2>
             <p className="mt-3 text-sm leading-relaxed text-white/65">
-              Compare the airport options for this area and choose the route that suits your
-              journey. Booking details — the live fare, flight monitoring on collections, and
-              WhatsApp — sit on the route page, not on this chooser.
+              Compare the three airports from {page.town.name}. The quote box at the top of this
+              page gives you a fixed price for any of them, or open an airport above for more
+              journey details.
             </p>
             <ul className="mt-5 space-y-4">
               {page.whichAirport.map((item) => (
