@@ -157,7 +157,9 @@
     "check:quote-request-recovery": "node --import tsx scripts/check-quote-request-deadline.ts",
     "check:evening-night-pricing": "node --import tsx scripts/check-evening-night-pricing.ts",
     "check:christmas-pricing": "node --import tsx scripts/check-christmas-pricing.ts",
-    "check:stripe-hold-refund": "npx tsx scripts/check-stripe-hold-refund.ts"
+    "check:stripe-hold-refund": "npx tsx scripts/check-stripe-hold-refund.ts",
+    "check:owner-name-board": "npx tsx scripts/check-owner-name-board.ts",
+    "check:owner-name-board-browser": "npx tsx scripts/check-owner-name-board-browser.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

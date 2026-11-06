@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Footer from "@/components/Footer";
 import OwnerPortalHeader from "@/components/OwnerPortalHeader";
 import OwnerBookingJobsPanel from "@/components/OwnerBookingJobsPanel";
@@ -34,6 +34,7 @@ import OwnerEmptyLegsPanel from "@/components/OwnerEmptyLegsPanel";
 import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import OwnerPostcodePricingPanel from "@/components/OwnerPostcodePricingPanel";
+import NameBoardPanel, { type NameBoardPrefill } from "@/components/NameBoardPanel";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   customerTelHref,
@@ -1096,6 +1097,13 @@ function DriverProfilePanel({
   );
 }
 
+/**
+ * Opens the Name Board pre-filled with a booking's passenger name. Only provided
+ * once the owner/driver key has been verified (null otherwise), so job cards
+ * never show the button to a signed-out visitor.
+ */
+const NameBoardLauncherContext = createContext<((passengerName: string) => void) | null>(null);
+
 function DriverJobCard({
   job,
   driverKey,
@@ -1192,6 +1200,7 @@ function DriverJobCard({
     });
   const isPendingForDriver = !isOwner && assignmentStatus === "pending";
   const isAcceptedAssignment = assignmentStatus === "accepted";
+  const openNameBoard = useContext(NameBoardLauncherContext);
   const isAssigned =
     assignmentStatus === "pending" || assignmentStatus === "accepted" || assignmentStatus === "declined";
   const canIssueRefund =
@@ -1760,6 +1769,20 @@ function DriverJobCard({
               Meet &amp; Greet — enter the terminal arrivals area with a personalised name board
               and assist with luggage.
             </p>
+          ) : null}
+          {openNameBoard &&
+          job.isAirportPickup &&
+          !isRefunded &&
+          !isPendingForDriver &&
+          job.customerName?.trim() ? (
+            <button
+              type="button"
+              onClick={() => openNameBoard(job.customerName)}
+              className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-emerald/40 bg-emerald/10 px-4 text-sm font-semibold text-white"
+              data-open-name-board
+            >
+              Show name board
+            </button>
           ) : null}
           {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
@@ -2603,6 +2626,8 @@ export default function DriverPageClient({
   const [rememberOwnerDevice, setRememberOwnerDevice] = useState(true);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
+  const [nameBoardPrefill, setNameBoardPrefill] = useState<NameBoardPrefill | null>(null);
+  const [driverNameBoardOpen, setDriverNameBoardOpen] = useState(false);
   /** "Quote this customer again": carry the booking's details into Personal Quotes. */
   const quoteCustomerAgain = useCallback((booking: Parameters<typeof personalQuotePrefillFromBooking>[0]) => {
     savePersonalQuotePrefill(personalQuotePrefillFromBooking(booking));
@@ -2657,6 +2682,15 @@ export default function DriverPageClient({
       ? DEMO_DRIVER_NAME
       : driverName;
   const isOwnerView = viewRole === "owner";
+  const openNameBoardFromJob = useCallback(
+    (passengerName: string) => {
+      setNameBoardPrefill({ name: passengerName, requestId: Date.now() });
+      if (isOwnerView) setOwnerToolTab("name-board");
+      else setDriverNameBoardOpen(true);
+      window.scrollTo({ top: 0 });
+    },
+    [isOwnerView],
+  );
 
   const today = useMemo(() => todayLondonDate(), []);
   const groupedUpcoming = useMemo(() => groupJobsByDate(jobs), [jobs]);
@@ -2767,6 +2801,7 @@ export default function DriverPageClient({
     if (tab === "pricing") setOwnerToolTab("pricing");
     if (tab === "postcode-pricing") setOwnerToolTab("postcode-pricing");
     if (tab === "google-ads") setOwnerToolTab("google-ads");
+    if (tab === "name-board") setOwnerToolTab("name-board");
     if (tab === "past" || tab === "jobs" || tab === "more") setOwnerToolTab(tab);
   }, [isOwnerPortal]);
 
@@ -3200,7 +3235,7 @@ export default function DriverPageClient({
   ) : null;
 
   return (
-    <>
+    <NameBoardLauncherContext.Provider value={savedKey ? openNameBoardFromJob : null}>
       <OwnerPortalHeader
         variant={isOwnerPortal ? "owner" : "driver"}
         title={isOwnerPortal ? "Owner Dashboard" : "My Jobs"}
@@ -3684,6 +3719,14 @@ export default function DriverPageClient({
                 <OwnerDashboardMoreMenu onChange={setOwnerToolTab} />
               ) : null}
 
+              {/* Driver name board: owner-verified only, no public route, name never leaves the device. */}
+              {isOwnerView && savedKey && ownerToolTab === "name-board" ? (
+                <div id="owner-tool-panel-name-board" role="tabpanel" aria-label="Name Board">
+                  <OwnerToolBackBar title="Name Board" onBack={() => setOwnerToolTab("more")} />
+                  <NameBoardPanel prefill={nameBoardPrefill} />
+                </div>
+              ) : null}
+
               {isOwnerView && savedKey && ownerToolTab === "money" ? (
                 <div id="owner-tool-panel-money">
                   <OwnerToolBackBar title="Money" onBack={() => setOwnerToolTab("more")} />
@@ -3714,6 +3757,20 @@ export default function DriverPageClient({
                 <div id="owner-tool-panel-admin">
                   <OwnerToolBackBar title="Job admin" onBack={() => setOwnerToolTab("more")} />
                   <OwnerPaidBookingsPanel ownerKey={savedKey} mode="admin" />
+                </div>
+              ) : null}
+
+              {/* Assigned drivers: name board opened from one of their accepted airport jobs. */}
+              {savedKey && !isOwnerView && driverNameBoardOpen ? (
+                <div id="driver-name-board" className="mb-8">
+                  <button
+                    type="button"
+                    onClick={() => setDriverNameBoardOpen(false)}
+                    className="mb-4 min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white"
+                  >
+                    Close name board
+                  </button>
+                  <NameBoardPanel prefill={nameBoardPrefill} />
                 </div>
               ) : null}
 
@@ -4146,6 +4203,6 @@ export default function DriverPageClient({
         </div>
       </main>
       <Footer />
-    </>
+    </NameBoardLauncherContext.Provider>
   );
 }

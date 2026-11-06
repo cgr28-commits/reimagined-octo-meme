@@ -19,7 +19,8 @@ export type OwnerDashboardToolTab =
   | "inbox"
   | "marketing"
   | "google-ads"
-  | "empty-legs";
+  | "empty-legs"
+  | "name-board";
 
 type OwnerDashboardToolSwitcherProps = {
   value: OwnerDashboardToolTab;
@@ -38,6 +39,11 @@ export const OWNER_MORE_DESTINATIONS: {
   label: string;
   hint: string;
 }[] = [
+  {
+    id: "name-board",
+    label: "Name Board",
+    hint: "Full-screen passenger name sign for airport arrivals — stays on this phone only",
+  },
   { id: "inbox", label: "Inbox", hint: "Emails to bookings@ — read and reply with your logo signature" },
   { id: "admin", label: "Job admin", hint: "Awaiting payment, future jobs, refunds, and checkout recovery" },
   { id: "money", label: "Money", hint: "Earned revenue and payments received" },
