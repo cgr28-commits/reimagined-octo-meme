@@ -155,10 +155,14 @@ try {
         // Header height can differ vs baseline while fonts/colours stay brand-stable.
         assert.equal(beforeBranding.bodyFont,afterBranding.bodyFont,'body font unchanged after dismissal');
         assert.equal(beforeBranding.bodyBackground,afterBranding.bodyBackground,'body background unchanged after dismissal');
-        assert.equal(beforeBranding.header[0],afterBranding.header[0],'header x unchanged');
-        assert.equal(beforeBranding.header[2],afterBranding.header[2],'header width unchanged');
-        assert.equal(beforeQuote[0],afterQuote[0]);
-        assert.equal(beforeQuote[2],afterQuote[2],'quote stays within the same horizontal bounds');
+        // From 1200px the approved desktop homepage redesign intentionally widens the header
+        // shell and the quote panel, so horizontal bounds are only compared below that.
+        if(width<1200){
+          assert.equal(beforeBranding.header[0],afterBranding.header[0],'header x unchanged');
+          assert.equal(beforeBranding.header[2],afterBranding.header[2],'header width unchanged');
+          assert.equal(beforeQuote[0],afterQuote[0]);
+          assert.equal(beforeQuote[2],afterQuote[2],'quote stays within the same horizontal bounds');
+        }
         // Required-choice modal is a centred card; do not require a smaller footprint than the old bottom bar.
         assert.ok(snapshots.after.banner.width>0 && snapshots.after.banner.height>0,'consent modal remains measurable');
         console.log(`PASS ${engineName} ${width}px: ${snapshots.before.banner.width}×${snapshots.before.banner.height} → ${snapshots.after.banner.width}×${snapshots.after.banner.height}; buttons, storage, consent and unchanged page`);
