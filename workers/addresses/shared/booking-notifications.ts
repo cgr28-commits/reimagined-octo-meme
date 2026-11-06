@@ -1610,11 +1610,8 @@ const CUSTOMER_POLICY_ACCEPTED_LINE =
   "Our cancellation policy formed part of the terms you accepted when you made your booking.";
 const CANCELLATION_POLICY_URL = `${BUSINESS_WEBSITE}${CANCELLATION_POLICY_PATH}`;
 
-/** Amount kept on a late cancellation; the unpaid balance (cash or card) is never chased. */
-function nonRefundableAmountLine(details: CancellationEmailDetails): string {
-  const paid = details.originalAmountValue > 0 ? ` (${details.originalAmount})` : "";
-  return `The amount you paid${paid} will not be refunded, and no further payment is due for this booking.`;
-}
+/** Late cancellation: the unpaid balance (cash or card) is never chased. Kept gentle on purpose. */
+const NO_FURTHER_PAYMENT_LINE = "There is nothing more for you to pay for this booking.";
 
 const CUSTOMER_STATUTORY_RIGHTS_LINE = "Your statutory rights are not affected.";
 
@@ -1825,7 +1822,7 @@ export function buildCustomerCancellationEmails(
       businessName,
       statutoryRights: true,
       policyLink: true,
-      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT, nonRefundableAmountLine(details)],
+      paymentParagraphs: [NON_REFUNDABLE_WITHIN_24H_PAYMENT, NO_FURTHER_PAYMENT_LINE],
     });
     return {
       customer: { subject, text: confirmation.text, html: lightCustomerEmailHtml(confirmation.html) },
@@ -1848,7 +1845,6 @@ export function buildCustomerCancellationEmails(
     const what = details.meetGreetRefund
       ? `the Meet & Greet charge of ${details.refundAmount}`
       : details.refundAmount;
-    const kept = details.amountRetained || details.remainingPaid;
     const confirmation = buildCustomerCancellationConfirmation({
       details,
       businessName,
@@ -1857,7 +1853,7 @@ export function buildCustomerCancellationEmails(
       paymentParagraphs: [
         NON_REFUNDABLE_WITHIN_24H_PAYMENT,
         `As a goodwill gesture, we have refunded ${what} to your original payment method. ${REFUND_FUNDS_TIMING}`,
-        `The remaining ${kept} is non-refundable, and no further payment is due for this booking.`,
+        NO_FURTHER_PAYMENT_LINE,
       ],
     });
     return {
