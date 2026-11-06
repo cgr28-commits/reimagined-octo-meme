@@ -27,6 +27,7 @@ import {
   customerFirstName,
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { legPickupAirportAccessOption } from "../shared/meet-greet";
 import { oweDriverPayOnCompletion, mutateDriverPayFields } from "../shared/driver-pay-ledger";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
@@ -177,7 +178,9 @@ export async function sendArrivalNotificationIfNeeded(
       pickupLabel: job.pickupLabel,
       isAirportPickup: isAirportPickupJob(job),
       airportCode: job.airportCode ?? paidBooking?.airportCode,
-      airportAccessOption: paidBooking?.airportAccessOption,
+      airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
       expressDropOffSelected: paidBooking?.expressDropOffSelected,
       expressDropOffAirport: paidBooking?.expressDropOffAirport,
       expressDropOffFee: paidBooking?.expressDropOffFee,
@@ -259,7 +262,9 @@ export async function sendOnTheWayNotificationIfNeeded(
       pickupLabel: job.pickupLabel,
       isAirportPickup: isAirportPickupJob(job),
       airportCode: job.airportCode ?? paidBooking?.airportCode,
-      airportAccessOption: paidBooking?.airportAccessOption,
+      airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
     },
     BUSINESS_NAME,
   );
@@ -323,7 +328,9 @@ async function manualCustomerWhatsAppMessage(
     isAirportPickup: isAirportPickupJob(job) || isAirportPickupLabel(job.pickupLabel || ""),
     pickupLabel: job.pickupLabel,
     airportCode,
-    airportAccessOption: paidBooking?.airportAccessOption,
+    airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
     expressDropOffSelected: paidBooking?.expressDropOffSelected,
     expressDropOffAirport: paidBooking?.expressDropOffAirport,
     expressDropOffFee: paidBooking?.expressDropOffFee,

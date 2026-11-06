@@ -34,6 +34,7 @@ import {
 import { createDriverPortalLink, resolveAuthorizedSession } from "./driver-portal-session";
 import { findSavedDriverProfileByEmail, getDriverVehicleProfile } from "./driver-vehicle-store";
 import { corsHeaders } from "../shared/google-places";
+import { getOwnerAccountProfile } from "./owner-profile-store";
 import {
   deleteDriverAcceptToken,
   generateDriverAcceptToken,
@@ -480,6 +481,39 @@ export async function handleDriverAssignRequest(
     }
   }
 
+  // Owner assigned the job to himself: no accept step, so send the customer
+  // their driver details now (same email other drivers' customers get).
+  if (!emailAssign && (await rosterNameIsOwner(env, record.assignedDriverName ?? driverFirstName))) {
+    const paid =
+      !record.customerEmail?.trim() && record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)
+        ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference).catch(() => null)
+        : null;
+    const sent = await sendCustomerDriverDetailsOnAccept(env, {
+      jobKey: record.paymentReference || record.token,
+      customerName: record.customerName,
+      customerEmail: record.customerEmail?.trim() || paid?.customerEmail,
+      customerMobile: record.customerMobile?.trim() || paid?.mobileNumber,
+      tripDate: record.tripDate,
+      tripTime: record.tripTime,
+      pickupLabel: record.pickupLabel,
+      dropoffLabel: record.dropoffLabel,
+      driverName: record.assignedDriverName,
+      driverEmail: record.assignedDriverEmail,
+      driverMobile: record.assignedDriverMobile,
+      carMake: record.assignedDriverCarMake,
+      carModel: record.assignedDriverCarModel,
+      carColour: record.assignedDriverCarColour,
+      registration: record.assignedDriverReg,
+      ownerIsDriver: true,
+      paymentReference: record.paymentReference,
+      journeyLeg: record.journeyLeg ?? "outbound",
+      airportCode: record.airportCode,
+    }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
+    if (!sent.sent && sent.reason === "send_failed") {
+      console.warn("Customer driver-details email (owner self-assign) failed", sent.error);
+    }
+  }
+
   const role: DashboardRole = "owner";
   const job = await enrichDriverJob(record, env, origin, role);
 
@@ -508,6 +542,19 @@ export async function handleDriverAssignRequest(
     200,
     origin,
   );
+}
+
+/** Roster self-assign by the owner: name matches the owner profile, or the roster is just the owner. */
+async function rosterNameIsOwner(env: Env, name: string): Promise<boolean> {
+  const first = (value: string | null | undefined) =>
+    String(value ?? "").trim().split(/\s+/)[0]?.toLowerCase() || "";
+  const assigned = first(name);
+  if (!assigned || !env.TRACKING_STORE) return false;
+  const owner = await getOwnerAccountProfile(env.TRACKING_STORE).catch(() => null);
+  const ownerFirst = first(owner?.displayName);
+  if (ownerFirst) return ownerFirst === assigned;
+  const roster = listConfiguredDrivers(env);
+  return roster.length === 1 && first(roster[0]) === assigned;
 }
 
 export async function handleDriverDeassignRequest(
@@ -654,6 +701,9 @@ export async function handleDriverAssignmentResponseRequest(
       carModel: record.assignedDriverCarModel,
       carColour: record.assignedDriverCarColour,
       registration: record.assignedDriverReg,
+      paymentReference: record.paymentReference,
+      journeyLeg: record.journeyLeg ?? "outbound",
+      airportCode: record.airportCode,
     }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
     if (!sent.sent && sent.reason === "send_failed") {
       console.warn("Customer driver-details email failed", sent.error);

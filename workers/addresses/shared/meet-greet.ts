@@ -360,3 +360,51 @@ export function quoteOptionalMeetGreet(input: {
   if (!airport) return { ok: false, error: "Meet & Greet is available only for supported airport collections." };
   return { ok: true, feeGbp: input.included ? 0 : meetGreetFeeGbp(airport, input.fees) };
 }
+
+/**
+ * Airport access option the customer bought for THIS leg's airport pick-up.
+ * Return-leg pick-ups store their choice per leg (terminalAccessVisits /
+ * returnAirportAccessOption); the booking-level airportAccessOption only
+ * describes the outbound leg, so it must not decide a return pick-up.
+ * Returns undefined when nothing is recorded for the leg (callers keep their
+ * existing fallback).
+ */
+export function legPickupAirportAccessOption(
+  booking:
+    | {
+        terminalAccessVisits?: QuotedAirportAccessLeg[] | null;
+        outboundAirportAccessOption?: AirportAccessChoice | null;
+        returnAirportAccessOption?: AirportAccessChoice | null;
+        airportAccessOption?: AirportAccessChoice | null;
+      }
+    | null
+    | undefined,
+  leg: "outbound" | "return" | "any" | null | undefined,
+  airportCode?: string | null,
+): AirportAccessChoice | undefined {
+  if (!booking) return undefined;
+  if (leg === "any") {
+    // Leg unknown: only trust an explicit pick-up visit at this airport.
+    const code = String(airportCode ?? "").trim().toUpperCase();
+    const anyVisit = booking.terminalAccessVisits?.find(
+      (row) => row.service === "pick-up" && (!code || row.airportCode.toUpperCase() === code),
+    );
+    return anyVisit && isAirportAccessChoice(anyVisit.option) ? anyVisit.option : undefined;
+  }
+  const legName = leg === "return" ? "return" : "outbound";
+  const code = String(airportCode ?? "").trim().toUpperCase();
+  const visit = booking.terminalAccessVisits?.find(
+    (row) =>
+      row.leg === legName &&
+      row.service === "pick-up" &&
+      (!code || row.airportCode.toUpperCase() === code),
+  );
+  if (visit && isAirportAccessChoice(visit.option)) return visit.option;
+  const legOption =
+    legName === "return" ? booking.returnAirportAccessOption : booking.outboundAirportAccessOption;
+  if (isAirportAccessChoice(legOption)) return legOption;
+  if (legName === "outbound" && isAirportAccessChoice(booking.airportAccessOption)) {
+    return booking.airportAccessOption;
+  }
+  return undefined;
+}

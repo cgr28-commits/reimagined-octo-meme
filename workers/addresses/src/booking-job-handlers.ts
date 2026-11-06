@@ -738,6 +738,9 @@ export async function handleDriverAcceptConfirmRequest(
       carModel: accepted.driverCarModel,
       carColour: accepted.driverCarColour,
       registration: accepted.driverReg,
+      paymentReference: accepted.paymentReference || accepted.id,
+      journeyLeg: "any",
+      airportCode: accepted.airportCode,
     }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
     if (!sent.sent && sent.reason === "send_failed") {
       console.warn("Customer driver-details email failed", sent.error);
