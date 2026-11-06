@@ -249,7 +249,11 @@ export type BespokePaymentAttempt = {
   amountGbp: number;
   startedAt: string;
   expiresAt: string;
+  /** Deterministic provider checkout reference, fixed BEFORE the provider call (crash recovery). */
+  checkoutReference?: string;
   checkoutId?: string;
+  /** Hosted payment page for this checkout, so a repeat click reuses it. */
+  paymentUrl?: string;
 };
 
 export type BespokePaymentEntry = {
@@ -605,6 +609,24 @@ export function timingSafeEqualHex(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Provider checkout reference for one payment attempt: fixed before the provider
+ * call so a retry after a crash finds the same checkout (Stripe idempotency /
+ * SumUp duplicate-reference lookup) instead of creating a second one.
+ * Format: bq-<reference>-v<quoteVersion>-<attemptId> (≤ 90 chars for SumUp).
+ */
+export function bespokeCheckoutReference(reference: string, quoteVersion: number, attemptId: string): string {
+  return `bq-${reference}-v${quoteVersion}-${attemptId}`;
+}
+
+export function parseBespokeCheckoutReference(
+  value: unknown,
+): { reference: string; quoteVersion: number; attemptId: string } | null {
+  if (typeof value !== "string") return null;
+  const m = /^bq-(MATNI-BQ-\d{6}-[A-HJ-NP-Z2-9]{6})-v(\d{1,4})-([A-Za-z0-9-]{8,80})$/.exec(value.trim());
+  return m ? { reference: m[1], quoteVersion: Number(m[2]), attemptId: m[3] } : null;
+}
+
 /** Same customer + same trip within the dedupe window → same request. */
 export async function bespokeQuoteFingerprint(value: ValidatedBespokeQuoteRequest): Promise<string> {
   const parts = [
@@ -685,7 +707,7 @@ export type BespokeQuoteAction =
   | { type: "customer_decline"; tokenHash: string }
   | { type: "system_expire" }
   | { type: "system_begin_payment"; quoteVersion: number; attemptId: string; tokenHash: string }
-  | { type: "system_attach_checkout"; attemptId: string; checkoutId: string }
+  | { type: "system_attach_checkout"; attemptId: string; checkoutId: string; paymentUrl?: string }
   | { type: "system_release_payment_attempt"; attemptId: string; reason: string }
   | { type: "system_record_payment"; paymentReference: string; checkoutId?: string; amountGbp: number }
   | { type: "system_mark_booked"; bookingReference: string };
@@ -940,6 +962,7 @@ export function applyBespokeQuoteAction(
         amountGbp: record.quote.amountGbp,
         startedAt: at,
         expiresAt: new Date(now.getTime() + BESPOKE_PAYMENT_ATTEMPT_TTL_MINUTES * 60_000).toISOString(),
+        checkoutReference: bespokeCheckoutReference(record.reference, record.quote.version, action.attemptId),
       };
       return commit("customer", "PAYMENT_STARTED", undefined, "new_attempt");
     }
@@ -948,9 +971,13 @@ export function applyBespokeQuoteAction(
       const attempt = record.paymentAttempt;
       if (!attempt || attempt.attemptId !== action.attemptId) return fail("attempt_mismatch", "Payment attempt not found.");
       if (!/^[A-Za-z0-9_-]{4,200}$/.test(action.checkoutId)) return fail("invalid_input", "Invalid checkout id.", 400);
+      if (action.paymentUrl !== undefined && (!/^https:\/\/[^\s]+$/.test(action.paymentUrl) || action.paymentUrl.length > 1000)) {
+        return fail("invalid_input", "Invalid payment URL.", 400);
+      }
       if (attempt.checkoutId === action.checkoutId) return unchanged("already_attached");
       if (attempt.checkoutId) return fail("checkout_conflict", "A different checkout is already attached.");
       attempt.checkoutId = action.checkoutId;
+      if (action.paymentUrl) attempt.paymentUrl = action.paymentUrl;
       return commit("system", from);
     }
 

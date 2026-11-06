@@ -333,6 +333,16 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
           {r.event ? r.event.title : r.serviceType ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[r.serviceType] : "Request"}
         </h2>
         <p className="mt-1 text-sm text-white/55">{r.reference} · received {formatUkInstant(r.createdAt, { withZoneLabel: false })}</p>
+        {r.bookingReference ? (
+          <p className="mt-2 text-sm font-semibold text-emerald">
+            Booking {r.bookingReference} — in Jobs and the Calendar
+          </p>
+        ) : null}
+        {r.status === "PAID" ? (
+          <p className="mt-2 text-sm text-amber-100">
+            Paid. The booking is still being created — it retries automatically. Check Jobs before arranging anything manually.
+          </p>
+        ) : null}
       </div>
 
       {message ? (

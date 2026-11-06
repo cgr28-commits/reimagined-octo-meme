@@ -28,6 +28,7 @@ const NOTIFICATIONS_KEY = "notifications";
 const NOTIFICATIONS_LIMIT = 50;
 const REGISTRY_KEY = "open-quotes";
 const REGISTRY_LIMIT = 5000;
+const RECHECK_AFTER_MS = 30 * 60 * 1000;
 
 /**
  * Once-only notification log, kept beside the record (not inside it, so email
@@ -288,7 +289,13 @@ export class BespokeQuoteCoordinator implements DurableObject {
         .slice(0, limit)
         .map(([reference]) => reference);
       const flagged = Object.entries(map).filter(([, e]) => e.flaggedAt).map(([reference]) => reference);
-      return json({ due, flagged });
+      // Flagged checkouts (customer was at checkout) are re-checked with Stripe at most
+      // every 30 minutes, not every 5-minute run.
+      const recheck = Object.entries(map)
+        .filter(([, e]) => e.flaggedAt && Date.parse(e.flaggedAt) <= nowMs - RECHECK_AFTER_MS)
+        .slice(0, limit)
+        .map(([reference]) => reference);
+      return json({ due, flagged, recheck });
     });
   }
 

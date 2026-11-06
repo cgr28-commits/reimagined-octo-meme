@@ -20,6 +20,7 @@ import { reconcilePaidBookingSumUpTransaction } from "./reconcile-sumup-transact
 import { isStripeCheckoutId, stripeConfigured } from "../shared/stripe-payments";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
+import { finalizeBespokeCheckout } from "./bespoke-payment";
 import {
   getPaidBookingRecord,
   getPaidBookingRecordByCheckoutId,
@@ -251,6 +252,16 @@ async function finalizePaidCheckoutOnce(input: {
       trackingCreated: false,
       error: "SumUp payment is not configured",
     };
+  }
+
+  // Bespoke Event / Business Class quotations are finalised entirely by their own
+  // module (records the payment first, owner review for anything unexpected).
+  // Airport bookings never have checkoutKind "bespoke" and continue below unchanged.
+  if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+    const pendingBespoke = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    if (pendingBespoke?.checkoutKind === "bespoke" && pendingBespoke.bespokeQuoteReference) {
+      return finalizeBespokeCheckout({ env, checkoutId, pending: pendingBespoke, checkout: input.checkout, logPaidBookingCalendar });
+    }
   }
 
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {

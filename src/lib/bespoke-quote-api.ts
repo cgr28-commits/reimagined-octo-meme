@@ -149,3 +149,32 @@ export async function declineBespokeQuotation(
     }),
   );
 }
+
+/** "Accept and pay": returns our own Stripe card page URL. The amount is never sent by the browser. */
+export async function startBespokeQuotationCheckout(token: string): Promise<{ paymentUrl: string; checkoutId: string }> {
+  return parse(
+    await fetch(`${WORKER_BASE}/bespoke-quotes/checkout`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+      referrerPolicy: "no-referrer",
+      cache: "no-store",
+    }),
+  );
+}
+
+/** After returning from payment: confirms with Stripe (server-side) and reports the status. */
+export async function fetchBespokePaymentStatus(
+  token: string,
+  checkoutId: string,
+): Promise<{ quote?: BespokeQuotePublicView; status?: string }> {
+  return parse(
+    await fetch(`${WORKER_BASE}/bespoke-quotes/payment-status`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ token, checkoutId }),
+      referrerPolicy: "no-referrer",
+      cache: "no-store",
+    }),
+  );
+}

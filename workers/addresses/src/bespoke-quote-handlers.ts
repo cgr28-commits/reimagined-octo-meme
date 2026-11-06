@@ -54,6 +54,17 @@ import type { BespokeDeliveryEvent, BespokeNotificationEntry, CoordinatorApplyRe
 import { verifyResendWebhookSignature } from "./owner-inbox-store";
 import { listBespokeIndex, writeBespokeIndexEntry } from "./bespoke-quote-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
+import {
+  bespokeOnlinePaymentAvailable,
+  completeBespokeBooking,
+  expireBespokeCheckoutAfterCancel,
+  finalizeBespokeCheckoutViaSharedPath,
+  reconcileBespokeAttempt,
+  startBespokeCheckout,
+  type BespokePaymentEnv,
+} from "./bespoke-payment";
+import { getPendingCheckout } from "./pending-checkout-store";
 import {
   trySendOwnerOperationalEmail,
   trySendResendOnlyCustomerEmail,
@@ -91,6 +102,8 @@ export type BespokeQuoteDeps = {
   /** Injected in tests. Defaults to the existing Worker email functions. */
   sendCustomerEmail?: (env: WorkerEmailEnv, payload: EmailPayload) => Promise<EmailSendResult>;
   sendOwnerEmail?: (env: WorkerEmailEnv, payload: EmailPayload) => Promise<EmailSendResult>;
+  /** Existing Google Calendar logger (passed in from index.ts) for paid bespoke bookings. */
+  logPaidBookingCalendar?: LogPaidBookingCalendarFn;
 };
 
 export const BESPOKE_TURNSTILE_ACTION = "bespoke_quote_request";
@@ -174,6 +187,7 @@ export async function getBespokeQuoteRecord(
 }
 
 type ReadyEnv = BespokeQuoteEnv & { BESPOKE_QUOTE_COORDINATOR: DurableObjectNamespace };
+export type BespokeReadyEnv = ReadyEnv;
 
 // ---------------------------------------------------------------------------
 // Notifications — each key is claimed once in the Durable Object before sending
@@ -186,11 +200,11 @@ export type NotificationOutcome = {
   entry?: BespokeNotificationEntry;
 };
 
-function ownerInbox(env: BespokeQuoteEnv): string {
+export function ownerInbox(env: BespokeQuoteEnv): string {
   return env.BOOKING_NOTIFICATION_EMAIL?.trim() || env.BOOKING_TO_EMAIL?.trim() || BUSINESS_MAILBOX;
 }
 
-function siteOrigin(env: BespokeQuoteEnv): string {
+export function siteOrigin(env: BespokeQuoteEnv): string {
   const origin = env.SITE_ORIGIN?.trim();
   return origin && /^https:\/\//.test(origin) ? origin.replace(/\/+$/, "") : BUSINESS_WEBSITE;
 }
@@ -203,7 +217,7 @@ function siteOrigin(env: BespokeQuoteEnv): string {
  * - A claim left "sending" (Worker died mid-send) is never auto-retried, because
  *   the email may have been delivered; the owner can deliberately resend.
  */
-async function sendOnce(
+export async function sendOnce(
   env: ReadyEnv,
   deps: BespokeQuoteDeps,
   reference: string,
@@ -369,13 +383,16 @@ async function sendQuotationEmail(
 
 async function updateRegistry(env: ReadyEnv, record: BespokeQuoteRecord): Promise<void> {
   const open = OPEN_STATUSES.includes(record.status) && record.quote;
+  // PAID = money recorded but booking not yet created: keep it due so every sweep
+  // retries the booking until it exists (then CONFIRMED clears it).
+  const expiresAt = record.status === "PAID" ? record.updatedAt : open ? record.quote!.expiresAt : null;
   await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-set", {
     reference: record.reference,
-    expiresAt: open ? record.quote!.expiresAt : null,
+    expiresAt,
   });
 }
 
-async function applyAction(
+export async function applyAction(
   env: ReadyEnv,
   deps: BespokeQuoteDeps,
   reference: string,
@@ -402,7 +419,8 @@ async function applyAction(
 
   // Transition hooks.
   const last = result.record.history[result.record.history.length - 1];
-  if (last && last.fromStatus === "QUOTED" && last.toStatus === "EXPIRED") {
+  // Expired either directly or after an abandoned checkout was released.
+  if (last && (last.fromStatus === "QUOTED" || last.fromStatus === "PAYMENT_STARTED") && last.toStatus === "EXPIRED") {
     await sendOnce(env, deps, reference, quoteEmailKey(result.record, ":expired"), "quotation_expired", "customer", () => ({
       ...buildBespokeQuotationExpiredEmail(result.record),
       to: result.record.customer.email,
@@ -442,6 +460,13 @@ export type BespokeExpirySweepResult = {
   checked: number;
   expired: number;
   awaitingPaymentCheck: number;
+  /** Abandoned checkouts checked with Stripe this run. */
+  paymentChecks: number;
+  paymentsFound: number;
+  attemptsReleased: number;
+  /** Paid requests whose booking creation is retried this run. */
+  bookingRetries: number;
+  bookingsCompleted: number;
   errors: number;
 };
 
@@ -456,14 +481,37 @@ export async function runBespokeExpirySweep(
   deps: BespokeQuoteDeps = {},
   options: { limit?: number } = {},
 ): Promise<BespokeExpirySweepResult> {
-  const result: BespokeExpirySweepResult = { ran: false, checked: 0, expired: 0, awaitingPaymentCheck: 0, errors: 0 };
+  const result: BespokeExpirySweepResult = {
+    ran: false,
+    checked: 0,
+    expired: 0,
+    awaitingPaymentCheck: 0,
+    paymentChecks: 0,
+    paymentsFound: 0,
+    attemptsReleased: 0,
+    bookingRetries: 0,
+    bookingsCompleted: 0,
+    errors: 0,
+  };
   if (!bespokeFeatureEnabled(env) || !env.BESPOKE_QUOTE_COORDINATOR) return result;
   const ready: ReadyEnv = { ...env, BESPOKE_QUOTE_COORDINATOR: env.BESPOKE_QUOTE_COORDINATOR };
   result.ran = true;
-  const due = await callCoordinator<{ due?: string[] }>(ready.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-due", {
+  const due = await callCoordinator<{ due?: string[]; recheck?: string[] }>(ready.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-due", {
     limit: options.limit ?? 50,
   });
   const toFlag: string[] = [];
+  // The customer was at checkout: ask Stripe (paid → recorded; unpaid → session
+  // expired, attempt released). Inconclusive → flagged and re-checked in 30 min.
+  const checkPayment = async (reference: string) => {
+    result.paymentChecks += 1;
+    const outcome = await reconcileBespokeAttempt(env as BespokePaymentEnv, deps, reference).catch(() => "wait" as const);
+    if (outcome === "paid") result.paymentsFound += 1;
+    else if (outcome === "released") result.attemptsReleased += 1;
+    else if (outcome === "wait") toFlag.push(reference);
+  };
+  for (const reference of due.recheck ?? []) {
+    if (isBespokeQuoteReference(reference)) await checkPayment(reference);
+  }
   for (const reference of due.due ?? []) {
     if (!isBespokeQuoteReference(reference)) continue;
     result.checked += 1;
@@ -475,10 +523,16 @@ export async function runBespokeExpirySweep(
         } else result.errors += 1;
         continue;
       }
+      if (applied.record.status === "PAID") {
+        result.bookingRetries += 1;
+        const booked = await completeBespokeBooking(env as BespokePaymentEnv, deps, reference);
+        if (booked.ok) result.bookingsCompleted += 1;
+        continue;
+      }
       if (applied.changed && applied.record.status === "EXPIRED") result.expired += 1;
       else if (applied.outcome === "needs_provider_check") {
         result.awaitingPaymentCheck += 1;
-        toFlag.push(reference);
+        await checkPayment(reference);
       } else if (!OPEN_STATUSES.includes(applied.record.status)) {
         // Registry was stale (status moved on without an update): clear it.
         await updateRegistry(ready, applied.record);
@@ -538,6 +592,8 @@ export async function handleBespokeQuoteRoute(
   if (sub === "request") return publicRequest(request, publicEnv, origin, deps);
   if (sub === "view") return publicView(request, publicEnv, origin, deps);
   if (sub === "decline") return publicDecline(request, publicEnv, origin, deps);
+  if (sub === "checkout") return publicCheckout(request, publicEnv, origin, deps);
+  if (sub === "payment-status") return publicPaymentStatus(request, publicEnv, origin, deps);
   return respond({ error: "Not found" }, 404, origin);
 }
 
@@ -650,6 +706,19 @@ async function publicRequest(
 
 const LINK_INVALID = "This quotation link is invalid or no longer available.";
 
+/** Valid customer token → record and the token's hash (constant-time checked). */
+export async function resolveTokenWithHash(
+  env: ReadyEnv,
+  token: unknown,
+): Promise<{ record: BespokeQuoteRecord; tokenHash: string } | null> {
+  const parsed = parseBespokeCustomerToken(token);
+  if (!parsed) return null;
+  const record = await getBespokeQuoteRecord(env.BESPOKE_QUOTE_COORDINATOR, parsed.reference);
+  if (!record?.quote) return null;
+  const tokenHash = await sha256Hex(parsed.secret);
+  return timingSafeEqualHex(record.quote.tokenHash, tokenHash) ? { record, tokenHash } : null;
+}
+
 async function resolveToken(env: ReadyEnv, token: unknown): Promise<BespokeQuoteRecord | null> {
   const parsed = parseBespokeCustomerToken(token);
   if (!parsed) return null;
@@ -672,7 +741,7 @@ async function publicView(request: Request, env: ReadyEnv, origin: string | null
     if (expired.ok) record = expired.record;
   }
   // Online payment is Phase 3; until then the page shows how to accept by phone.
-  return respond({ ok: true, quote: toBespokeQuotePublicView(record, now), paymentAvailable: false }, 200, origin);
+  return respond({ ok: true, quote: toBespokeQuotePublicView(record, now), paymentAvailable: paymentAvailableFor(env, record) }, 200, origin);
 }
 
 async function publicDecline(request: Request, env: ReadyEnv, origin: string | null, deps: BespokeQuoteDeps): Promise<Response> {
@@ -690,6 +759,55 @@ async function publicDecline(request: Request, env: ReadyEnv, origin: string | n
     return respond({ error: result.status === 404 ? LINK_INVALID : result.error }, result.status === 404 ? 404 : 409, origin);
   }
   return respond({ ok: true, quote: toBespokeQuotePublicView(result.record, new Date()), paymentAvailable: false }, 200, origin);
+}
+
+/** "Accept and pay" is offered for an open quotation when Stripe can take the payment. */
+function paymentAvailableFor(env: ReadyEnv, record: BespokeQuoteRecord): boolean {
+  const open =
+    (record.status === "QUOTED" && !isBespokeQuoteExpired(record, new Date()) && record.owner.availability !== "unavailable") ||
+    record.status === "PAYMENT_STARTED";
+  return open && bespokeOnlinePaymentAvailable(env as BespokePaymentEnv, record.customer.email);
+}
+
+async function publicCheckout(request: Request, env: ReadyEnv, origin: string | null, deps: BespokeQuoteDeps): Promise<Response> {
+  if (!(await rateAllowed(env.BESPOKE_QUOTE_COORDINATOR, `bq-checkout-ip:${clientIp(request)}`, BESPOKE_RATE_LIMITS.viewPerIpPerHour, 3600))) {
+    return respond({ error: "Too many requests. Please try again later." }, 429, origin);
+  }
+  const body = await readJsonBody(request);
+  const started = await startBespokeCheckout(env as BespokePaymentEnv, deps, body?.token);
+  if (!started.ok) return respond({ error: started.error, code: started.code }, started.status, origin);
+  // Only the payment page URL goes back. The amount is never taken from the browser.
+  return respond({ ok: true, paymentUrl: started.paymentUrl, checkoutId: started.checkoutId }, 200, origin);
+}
+
+/**
+ * Customer returns from payment. Triggers the shared finaliser for that checkout
+ * (idempotent, per-checkout claim) and reports the quotation's status. Without a
+ * valid token only a minimal "received" status is returned — no details.
+ */
+async function publicPaymentStatus(request: Request, env: ReadyEnv, origin: string | null, deps: BespokeQuoteDeps): Promise<Response> {
+  if (!(await rateAllowed(env.BESPOKE_QUOTE_COORDINATOR, `bq-view-ip:${clientIp(request)}`, BESPOKE_RATE_LIMITS.viewPerIpPerHour, 3600))) {
+    return respond({ error: "Too many requests. Please try again later." }, 429, origin);
+  }
+  const body = await readJsonBody(request);
+  const checkoutId = typeof body?.checkoutId === "string" && /^cs_[A-Za-z0-9_]{4,200}$/.test(body.checkoutId) ? body.checkoutId : "";
+  let isBespokeCheckout = false;
+  if (checkoutId && env.TRACKING_STORE) {
+    const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId).catch(() => null);
+    if (pending?.checkoutKind === "bespoke") {
+      isBespokeCheckout = true;
+      await finalizeBespokeCheckoutViaSharedPath(env as BespokePaymentEnv, deps, checkoutId).catch((error) =>
+        console.error("bespoke payment-status finalize failed", error instanceof Error ? error.message : "unknown"),
+      );
+    }
+  }
+  const record = await resolveToken(env, body?.token);
+  if (record) {
+    const fresh = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, record.reference)).record ?? record;
+    return respond({ ok: true, quote: toBespokeQuotePublicView(fresh, new Date()), paymentAvailable: false }, 200, origin);
+  }
+  if (isBespokeCheckout) return respond({ ok: true, status: "received" }, 200, origin);
+  return respond({ error: LINK_INVALID }, 404, origin);
 }
 
 // ---------------------------------------------------------------------------
@@ -853,6 +971,19 @@ async function ownerAction(request: Request, env: ReadyEnv, origin: string | nul
     email = await sendQuotationEmail(env, deps, result.record, token!);
   } else if (fresh && built.type === "resend_quote_email") {
     email = await sendQuotationEmail(env, deps, result.record, token!, `:resend-${idempotencyKey}`);
+  }
+
+  if (result.changed && !result.replayed) {
+    // Cancelled while the customer was at checkout: close the Stripe session so it
+    // can no longer be paid (a payment that still lands goes to owner review).
+    if (built.type === "owner_cancel" && result.record.paymentAttempt?.checkoutId) {
+      await expireBespokeCheckoutAfterCancel(env as BespokePaymentEnv, result.record);
+    }
+    // Owner accepted a reviewed payment: create the booking (Jobs + Calendar), then confirm.
+    if (built.type === "owner_resolve_review" && result.record.status === "PAID") {
+      const booked = await completeBespokeBooking(env as BespokePaymentEnv, deps, reference);
+      if (!booked.ok) console.error("bespoke booking after review failed", reference, booked.error);
+    }
   }
 
   const state = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);

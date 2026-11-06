@@ -985,7 +985,11 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------------
   console.log("=== Isolation guards ===");
   const finalize = read("workers/addresses/src/finalize-paid-checkout.ts");
-  assert.ok(!/bespoke/i.test(finalize), "shared payment finalisation untouched in Phase 1");
+  // Phase 3: exactly the approved hand-off — one import, one guarded early return.
+  assert.equal((finalize.match(/finalizeBespokeCheckout\(/g) ?? []).length, 1, "one hand-off call");
+  assert.match(finalize, /if \(pendingBespoke\?\.checkoutKind === "bespoke" && pendingBespoke\.bespokeQuoteReference\) \{\n\s+return finalizeBespokeCheckout\(/);
+  assert.ok(finalize.split("\n").filter((l) => /bespoke/i.test(l)).length <= 7, "bespoke footprint in finalize stays minimal");
+  assert.ok(finalize.indexOf("pendingBespoke") < finalize.indexOf("Amendment top-ups must not be mistaken"), "hand-off precedes all airport logic");
   const paymentProvider = read("workers/addresses/src/payment-provider.ts");
   assert.ok(!/bespoke/i.test(paymentProvider), "payment provider untouched");
   for (const file of ["shared/executive-vehicle.ts", "shared/business-class-minimum.ts", "shared/business-class-capacity.ts", "workers/addresses/src/main-quote-pricing.ts", "src/components/QuoteCard.tsx"]) {

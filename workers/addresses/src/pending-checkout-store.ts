@@ -50,7 +50,12 @@ export type PendingCheckoutRecord = {
    * Amendment top-up: SumUp charge for fare difference only.
    * Finalize must amend the existing booking — never create a new journey.
    */
-  checkoutKind?: "booking" | "amendment-topup" | "refund-test" | "short-notice-hold";
+  checkoutKind?: "booking" | "amendment-topup" | "refund-test" | "short-notice-hold" | "bespoke";
+  /**
+   * Bespoke Event / Business Class quotation (checkoutKind "bespoke"). Finalised by
+   * bespoke-payment.ts only; never by the airport booking path.
+   */
+  bespokeQuoteReference?: string;
   /** DEPOSIT_CARD_BALANCE: balance due by card later (snapshot at booking). */
   cardBalanceDue?: number;
   /** Existing paid booking payment reference being amended. */

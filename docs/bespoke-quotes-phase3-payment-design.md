@@ -118,3 +118,43 @@ Everything else lives in new bespoke files.
 - Owner cancel during checkout.
 
 **Live:** not until a separate go/no-go.
+
+---
+
+## Implementation notes (Phase 3, as built)
+
+- **Stripe only.** The owner confirmed "I only use Stripe now".
+  - Bespoke checkout calls `createStripeCheckoutSession` directly (`manualCapture: false`, charge immediately).
+  - It never calls `createHostedCheckout` and never falls back to SumUp. If Stripe is not active for the customer, the quotation page shows "contact us".
+  - SumUp-specific recovery (duplicate-reference lookup, deactivate) was dropped.
+  - Existing airport SumUp code is unchanged.
+- **Checkout** (`POST /bespoke-quotes/checkout`):
+  - The DO attempt is created first, with checkout reference `bq-<ref>-v<version>-<attemptId>`.
+  - Session creation runs inside the existing `runPaymentOperation` claim, keyed by that reference.
+  - Then the pending record is saved (`checkoutKind: "bespoke"`), then the checkout is attached.
+- **Payment return** (`POST /bespoke-quotes/payment-status`) and the Stripe webhook both go through the shared `finalizePaidCheckout` → hand-off → `finalizeBespokeCheckout`.
+- **Booking:**
+  - steps: paid booking record (MAT reference) → tracking job (Jobs) → Google Calendar (once) → notes → `system_mark_booked` (CONFIRMED)
+  - then the new confirmation email and an owner alert, each once
+  - The record has `isAirportTrip: false` and no airport code.
+- **Recovery:**
+  - The 5-minute sweep reconciles timed-out checkouts with Stripe: paid → finalised; unpaid → session expired, then released. An unknown session is released only after 24 h.
+  - The sweep also retries any PAID request whose booking creation failed, until it is CONFIRMED.
+- The unfinished-payment job skips bespoke checkouts, because it only processes `checkoutKind: "booking"`. This matters because that job would otherwise re-price the journey with the airport engine.
+
+### Shared code actually changed
+
+1. `pending-checkout-store.ts` (+6 lines): `"bespoke"` kind and `bespokeQuoteReference?`.
+2. `finalize-paid-checkout.ts` (+11 lines): one import and one guarded early return, placed before all airport logic.
+3. `index.ts` webhook (+6 lines): `else if (isStripeCheckoutId(checkoutId)) await handleOrphanBespokePayment(...)` when there is no pending record.
+
+Plus the bespoke wiring in `index.ts`: passing `logPaidBookingCalendar` to the bespoke routes and sweep.
+
+### Known interactions to resolve before go-live
+
+Two existing automations decide by **address text**, not by flags. Both would treat a bespoke booking that starts or ends at an airport as an airport transfer:
+
+- **Return-offer emails** (`processDueReturnOffers`): could offer an airport-priced return discount on a one-way bespoke airport job.
+- **Airport pickup reminder** (`shared/airport-pickup-reminder.ts`): could send the standard airport collection instructions.
+
+Excluding them needs a fourth small shared change (e.g. skip records whose `notes` start with "Bespoke"). This is **not made, pending approval.** Until then, keep bespoke bookings away from airports, or pause automatic return offers in the owner settings, before enabling public requests.

@@ -265,3 +265,93 @@ export function buildBespokeQuotationExpiredEmail(record: BespokeQuoteRecord): B
   );
   return { subject, text, html };
 }
+
+// ---------------------------------------------------------------------------
+// 5. Customer booking confirmation (new template — airport confirmations untouched)
+// ---------------------------------------------------------------------------
+
+export function buildBespokeBookingConfirmationEmail(
+  record: BespokeQuoteRecord,
+  details: { bookingReference: string; amountPaidGbp: number },
+): BespokeEmail {
+  const amount = gbp(details.amountPaidGbp);
+  const subject = `Booking confirmed — ${details.bookingReference}`;
+  const lines = journeyLines(record);
+  const text = [
+    `Hi ${firstName(record.customer.name)},`,
+    "",
+    `Thank you — your payment of ${amount} has been received and your booking is confirmed.`,
+    "We'll send your driver's details closer to the pickup time.",
+    "",
+    ...linesText(lines),
+    "",
+    `Booking reference: ${details.bookingReference}`,
+    `Quotation reference: ${record.reference}`,
+    "",
+    "Need to change something? Reply to this email or contact us and quote your booking reference.",
+    "",
+    CONTACT_TEXT,
+    BUSINESS_WEBSITE,
+  ].join("\n");
+  const html = shell(
+    "Booking confirmed",
+    `<p style="margin:0 0 12px;">Hi ${escapeHtml(firstName(record.customer.name))},</p>
+     <p style="margin:0 0 12px;"><strong style="color:#fff;">Thank you — your payment of ${escapeHtml(amount)} has been received and your booking is confirmed.</strong></p>
+     <p style="margin:0 0 16px;">We'll send your driver's details closer to the pickup time.</p>
+     ${linesHtml(lines)}
+     <p style="margin:16px 0 0;">Booking reference: <strong style="color:#fff;">${escapeHtml(details.bookingReference)}</strong></p>
+     <p style="margin:4px 0 0;font-size:13px;color:#9fb3c8;">Quotation reference: ${escapeHtml(record.reference)}</p>
+     <p style="margin:16px 0 0;">Need to change something? Reply to this email or contact us and quote your booking reference.</p>`,
+  );
+  return { subject, text, html };
+}
+
+// ---------------------------------------------------------------------------
+// 6. Owner payment alert (confirmed booking, or payment needing review)
+// ---------------------------------------------------------------------------
+
+export function buildBespokeOwnerPaymentEmail(
+  record: BespokeQuoteRecord,
+  details: {
+    outcome: "confirmed" | "review" | "booking_pending";
+    paymentReference: string;
+    amountPaidGbp: number;
+    bookingReference?: string;
+    reviewReasons?: string[];
+  },
+  dashboardUrl = `${BUSINESS_WEBSITE}/owner/`,
+): BespokeEmail {
+  const kind = BESPOKE_QUOTE_CATEGORY_LABELS[record.category];
+  const amount = gbp(details.amountPaidGbp);
+  const subject =
+    details.outcome === "review"
+      ? `ACTION NEEDED — payment needs review — ${record.reference} (${amount})`
+      : details.outcome === "booking_pending"
+        ? `ACTION NEEDED — paid, booking not yet created — ${record.reference} (${amount})`
+        : `Paid and confirmed — ${kind} — ${details.bookingReference ?? record.reference} (${amount})`;
+  const lines: Array<[string, string]> = [
+    ...journeyLines(record),
+    ["Customer", record.customer.name],
+    ["Email", record.customer.email],
+    ["Telephone", record.customer.phone],
+    ["Amount paid", amount],
+    ["Payment reference", details.paymentReference],
+    ...(details.bookingReference ? ([["Booking reference", details.bookingReference]] as Array<[string, string]>) : []),
+    ...(details.reviewReasons?.length ? ([["Review reasons", details.reviewReasons.join("; ")]] as Array<[string, string]>) : []),
+  ];
+  const lead =
+    details.outcome === "review"
+      ? "A payment was received that was NOT confirmed automatically. No booking was created and nothing was refunded. Please review it in the Owner Dashboard."
+      : details.outcome === "booking_pending"
+        ? "The payment is recorded, but creating the booking failed. It will be retried automatically; please check the Owner Dashboard."
+        : "Payment received and the booking has been created in Jobs and the Calendar.";
+  const text = [lead, "", ...linesText(lines), "", `Quotation reference: ${record.reference}`, `Owner Dashboard → More → Event & Business Class: ${dashboardUrl}`].join("\n");
+  const html = shell(
+    details.outcome === "confirmed" ? "Booking paid" : "Action needed",
+    `<p style="margin:0 0 16px;">${escapeHtml(lead)}</p>
+     ${linesHtml(lines)}
+     <p style="margin:16px 0 0;">Quotation reference: <strong style="color:#fff;">${escapeHtml(record.reference)}</strong></p>
+     <p style="margin:12px 0 0;">Owner Dashboard → More → Event &amp; Business Class: <a href="${escapeHtml(dashboardUrl)}" style="color:${BRAND_EMERALD};">${escapeHtml(dashboardUrl)}</a></p>`,
+  );
+  return { subject, text, html };
+}

@@ -380,6 +380,7 @@ export { RefundCoordinator } from "./refund-coordinator";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
 // Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
 export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
+import { handleOrphanBespokePayment } from "./bespoke-payment";
 import {
   handleBespokeDeliveryWebhook,
   handleBespokeQuoteRoute,
@@ -4233,6 +4234,11 @@ async function handlePaymentWebhookRequest(
         } else if (result.error) {
           console.error("SumUp webhook finalize failed", result.error);
         }
+      } else if (isStripeCheckoutId(checkoutId)) {
+        // No pending record: may be a bespoke quotation whose session was created
+        // just before a crash. Identified by its client reference; recorded and
+        // sent to owner review. Returns false (no-op) for anything else.
+        await handleOrphanBespokePayment(env, { logPaidBookingCalendar }, checkoutId);
       }
     } catch (error) {
       console.error("SumUp webhook finalize threw", error);
@@ -4813,7 +4819,7 @@ export default {
     }
 
     if (isBespokeQuotePath(url.pathname)) {
-      return handleBespokeQuoteRoute(request, env, origin);
+      return handleBespokeQuoteRoute(request, env, origin, { logPaidBookingCalendar });
     }
     if (isBespokeDeliveryWebhookPath(url.pathname)) {
       return handleBespokeDeliveryWebhook(request, env);
@@ -6484,7 +6490,7 @@ export default {
     // Isolated: its own promise and catch, so it cannot affect the jobs below.
     if (env.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON) {
       ctx.waitUntil(
-        runBespokeExpirySweep(env)
+        runBespokeExpirySweep(env, { logPaidBookingCalendar })
           .then((result) => {
             if (result.expired > 0 || result.awaitingPaymentCheck > 0 || result.errors > 0) {
               console.log("Bespoke quote expiry sweep", JSON.stringify(result));
