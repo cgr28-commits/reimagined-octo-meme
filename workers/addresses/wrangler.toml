@@ -45,6 +45,12 @@ class_name = "MeetGreetCoordinator"
 name = "CONSENT_LEDGER"
 class_name = "ConsentLedger"
 
+# Bespoke Event / Business Class quotes (manual pricing). Added in Phase 1 —
+# public routes stay OFF unless BESPOKE_QUOTES_ENABLED = "1".
+[[durable_objects.bindings]]
+name = "BESPOKE_QUOTE_COORDINATOR"
+class_name = "BespokeQuoteCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -62,6 +68,12 @@ new_sqlite_classes = ["MeetGreetCoordinator"]
 [[migrations]]
 tag = "v4-consent-ledger"
 new_sqlite_classes = ["ConsentLedger"]
+
+# Additive: creates the new class only. Applied by the NEXT production Worker
+# deploy (deploy-worker.yml runs on merge to main) — owner approval required first.
+[[migrations]]
+tag = "v5-bespoke-quote-coordinator"
+new_sqlite_classes = ["BespokeQuoteCoordinator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"

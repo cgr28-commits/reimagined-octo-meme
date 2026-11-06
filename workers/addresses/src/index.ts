@@ -377,6 +377,9 @@ import {
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+// Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
+export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
+import { handleBespokeQuoteRoute, isBespokeQuotePath } from "./bespoke-quote-handlers";
 import {
   coordinatorClaim,
   coordinatorPeek,
@@ -669,6 +672,13 @@ type Env = {
   REFUND_COORDINATOR?: DurableObjectNamespace;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
+  /** Bespoke Event / Business Class quote records (Durable Object, migration v5). */
+  BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
+  /** "1" turns on PUBLIC bespoke quote routes. Unset/anything else = off (default). */
+  BESPOKE_QUOTES_ENABLED?: string;
+  /** Cloudflare Turnstile secret (Worker secret). Public bespoke requests fail closed without it. */
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_ALLOWED_HOSTNAMES?: string;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -4789,6 +4799,10 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (isBespokeQuotePath(url.pathname)) {
+      return handleBespokeQuoteRoute(request, env, origin);
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
