@@ -95,6 +95,8 @@ export async function processBookingRefundOrCancel(input: {
   reasonCategory: RefundReasonCategory;
   ownerNotes?: string;
   customerFacingReason?: string;
+  /** ISO time the customer cancelled (cancellations only). */
+  cancellationReceivedAt?: string;
   idempotencyKey: string;
 }): Promise<RefundIssueResponse> {
   const response = await fetch(`${WORKER_BASE}/bookings/refund`, {
@@ -117,6 +119,7 @@ export async function processBookingRefundOrCancel(input: {
       reasonCategory: input.reasonCategory,
       ownerNotes: input.ownerNotes ?? "",
       customerFacingReason: input.customerFacingReason ?? "",
+      ...(input.cancellationReceivedAt ? { cancellationReceivedAt: input.cancellationReceivedAt } : {}),
       idempotencyKey: input.idempotencyKey,
     }),
   });

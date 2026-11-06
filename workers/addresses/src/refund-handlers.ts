@@ -28,6 +28,7 @@ import {
   EXTERNAL_REFUND_OWNER_NOTES,
   generateRefundOpId,
   isWithin24HoursOfPickup,
+  normalizeCancellationReceivedAt,
   nextBookingStatuses,
   ownerNotesRequired,
   parseMoneyLabelToNumber,
@@ -257,6 +258,8 @@ export type ProcessRefundOptions = {
   reasonCategory?: RefundReasonCategory;
   ownerNotes?: string;
   customerFacingReason?: string;
+  /** When the customer cancelled (ISO); decides the 24-hour rule and is shown in their email. */
+  cancellationReceivedAt?: string;
   idempotencyKey?: string;
   confirmOwnerKey: string;
   actionKind?: RefundActionKind;
@@ -759,7 +762,21 @@ export async function processBookingRefundOrCancel(
     };
   }
 
-  const within24h = isWithin24HoursOfPickup(record.tripDate, record.tripTime);
+  const cancellationReceivedAt = cancelBooking
+    ? normalizeCancellationReceivedAt(options.cancellationReceivedAt)
+    : null;
+  if (cancelBooking && options.cancellationReceivedAt?.trim() && !cancellationReceivedAt) {
+    return {
+      ok: false,
+      paymentReference,
+      error: "Check the 'Cancellation received' date and time — it can't be in the future.",
+    };
+  }
+  const within24h = isWithin24HoursOfPickup(
+    record.tripDate,
+    record.tripTime,
+    cancellationReceivedAt ? new Date(cancellationReceivedAt) : new Date(),
+  );
   const notes = (options.ownerNotes ?? "").trim();
   if (
     ownerNotesRequired({
@@ -811,6 +828,7 @@ export async function processBookingRefundOrCancel(
     customerFacingReason: options.customerFacingReason?.trim() || undefined,
     initiatedBy: options.initiatedBy ?? (record.isRefundTest ? "owner_refund_test" : "owner"),
     within24HoursOfPickup: within24h,
+    ...(cancellationReceivedAt ? { cancellationReceivedAt } : {}),
     requestedAt,
     success: false,
     customerEmailStatus: "skipped",
@@ -1447,7 +1465,8 @@ async function finishUncertainRefund(
       reasonCategory: prior.reasonCategory ?? ctx.reasonCategory,
       customerFacingReason: prior.customerFacingReason ?? ctx.customerFacingReason,
       actionKind: prior.actionKind ?? ctx.actionKind,
-      within24h: isWithin24HoursOfPickup(record.tripDate, record.tripTime),
+      within24h:
+        prior.within24HoursOfPickup ?? isWithin24HoursOfPickup(record.tripDate, record.tripTime),
       warnings,
       initialTripDate: ctx.initialTripDate,
       sumUpRefunded: prior.refundAmount > 0,
@@ -1847,6 +1866,12 @@ async function completeRefundSideEffects(
       sumUpTransactionId: record.transactionId,
       cumulativeRefundedValue: cumulative,
       amountRetained: formatPaidAmount(remainingAfter, record.currency || "GBP"),
+      cancellationReceivedAt: (record.refundHistory ?? []).find((e) => e.id === input.auditId)
+        ?.cancellationReceivedAt,
+      meetGreetRefund:
+        typeof record.meetGreetFeeGbp === "number" &&
+        record.meetGreetFeeGbp > 0 &&
+        Math.abs(record.meetGreetFeeGbp - input.refundAmount) < 0.01,
       paymentStatusAfter: record.paymentStatus,
       operationalStatusAfter: operationalAfter,
       initiatedBy:
@@ -2434,6 +2459,8 @@ export async function handleRefundRequest(
     reasonCategory: String(body.reasonCategory ?? "other") as RefundReasonCategory,
     ownerNotes: String(body.ownerNotes ?? ""),
     customerFacingReason: String(body.customerFacingReason ?? ""),
+    cancellationReceivedAt:
+      typeof body.cancellationReceivedAt === "string" ? body.cancellationReceivedAt : undefined,
     idempotencyKey: String(body.idempotencyKey ?? ""),
     confirmOwnerKey,
     actionKind,

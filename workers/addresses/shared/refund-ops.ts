@@ -110,6 +110,8 @@ export type RefundAuditEntry = {
   initiatedBy?: "owner" | "owner_refund_test" | "legacy";
   /** Whether pickup was within 24 hours at request time. */
   within24HoursOfPickup?: boolean;
+  /** When the customer told us they were cancelling (ISO), entered by the owner. */
+  cancellationReceivedAt?: string;
   /** Combined booking status after the operation completed. */
   bookingStatusAfter?: PaidBookingMoneyStatus | string;
   requestedAt: string;
@@ -173,6 +175,20 @@ export function hoursUntilPickup(
   const pickup = parseLondonLocalDateTime(tripDate, tripTime.trim() || "00:00");
   if (!pickup) return null;
   return (pickup.getTime() - now.getTime()) / (1000 * 60 * 60);
+}
+
+/**
+ * Owner-entered "cancellation received" time: must parse, not be in the future
+ * (2 minutes' clock slack) and not be more than 1 year ago.
+ */
+export function normalizeCancellationReceivedAt(value: unknown, now = new Date()): string | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  const at = new Date(raw);
+  if (Number.isNaN(at.getTime())) return null;
+  if (at.getTime() > now.getTime() + 2 * 60 * 1000) return null;
+  if (at.getTime() < now.getTime() - 366 * 24 * 60 * 60 * 1000) return null;
+  return at.toISOString();
 }
 
 export function isWithin24HoursOfPickup(
