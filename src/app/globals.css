@@ -2408,7 +2408,7 @@ body:has(.cookie-consent-banner--modal) {
   /* Heading and supporting description: larger and more prominent. */
   .homepage-hero h1 { font-size: clamp(3.25rem, 3.6vw, 4.5rem); line-height: 1.05; letter-spacing: -0.025em; }
   .homepage-hero-copy > p {
-    margin-top: 0.75rem; max-width: 56rem; white-space: normal;
+    margin-top: 0.75rem; max-width: 64rem; white-space: normal;
     font-size: 1.25rem; line-height: 1.5; color: rgba(255, 255, 255, 0.9);
   }
 
@@ -2494,7 +2494,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-price-breakdown] { grid-column: 1; grid-row: 2; }
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-homepage-return-breakdown-desktop] { grid-column: 1; grid-row: 3; }
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-actions],
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block { grid-column: 1; grid-row: 4; align-self: end; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block { grid-column: 1; grid-row: 4; align-self: start; padding-top: 0.35rem; }
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-vehicle-categories] { grid-column: 2; grid-row: 1 / 4; }
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-business-class-upgrade] { grid-column: 2; grid-row: 4; align-self: end; }
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-card] {
@@ -2531,14 +2531,14 @@ body:has(.cookie-consent-banner--modal) {
 
   /* Route / email / start over / enquiry: one quiet line of links. */
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid {
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3rem 1.2rem;
+    display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; gap: 0.45rem 2rem;
   }
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button,
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a,
   .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block button {
     min-height: 0 !important; height: auto; width: auto; flex-direction: row; gap: 0.4rem;
     padding: 0.2rem 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important;
-    font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.82); margin-inline: auto;
+    font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.82); justify-content: flex-start;
   }
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button:hover,
   .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a:hover { color: #34d399; text-decoration: underline; }
