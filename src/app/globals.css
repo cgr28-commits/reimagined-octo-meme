@@ -2526,13 +2526,19 @@ body:has(.cookie-consent-banner--modal) {
      (laptops under 1200px still hide it when a car fits). */
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: block; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] {
-    min-height: 0 !important; height: 10.5rem !important; justify-content: center;
+    min-height: 0 !important; height: 11.25rem !important; justify-content: center;
     padding: 0.75rem 0.9rem !important; border-radius: 1rem;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
     display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.35rem;
   }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 5.5rem; width: 11rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 5.25rem; width: 10.5rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category="minibus"] [data-vehicle-option-copy] > span.flex {
+    display: flex; justify-content: center; font-size: 0.85rem;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.font-bold:not([data-vehicle-name]) {
+    white-space: nowrap; font-size: 0.75rem;
+  }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1.1rem; }
