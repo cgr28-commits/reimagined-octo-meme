@@ -30,7 +30,6 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
-      - seo/bfs-airport-1106
 
 concurrency:
   group: pages-preview
