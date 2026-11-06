@@ -636,7 +636,7 @@ async function handleInboundMessage(
     quickChoices: whatsAppQuickChoicesEnabled(env, phone),
     addressPick,
   });
-  const conversation = decision.conversation;
+  let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
 
   // A pickup / destination typed without a postcode: confirm the full Google address
@@ -688,6 +688,14 @@ async function handleInboundMessage(
       // The AI asked for journey details to start a quote: bare replies now fill them.
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
         conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+      }
+      if (answered.endChat) {
+        // No longer needed: close the quote, no "Today / Tomorrow" choices, no chaser.
+        buttons = undefined;
+        list = undefined;
+        conversation = newWhatsAppConversation(new Date());
+        await cancelWhatsAppFollowUp(store, phone);
+        logEvent("whatsapp_quote_declined", phone);
       }
       if (answered.handoff) {
         // Handing over to the team: no "choose" options under that message.
@@ -1070,7 +1078,7 @@ async function answerCustomerQuestion(
   message: string,
   conversation: WhatsAppConversation,
   task: WhatsAppAiTask,
-): Promise<{ text: string; handoff: boolean; startQuote: boolean } | null> {
+): Promise<{ text: string; handoff: boolean; startQuote: boolean; endChat: boolean } | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
@@ -1089,8 +1097,9 @@ async function answerCustomerQuestion(
             quotedPrice: conversation.lastQuoteAmountLabel,
           }
         : undefined,
+      declined: Boolean(task.declined),
       askFor:
-        task.askFor && conversation.stage === "collecting"
+        !task.declined && task.askFor && conversation.stage === "collecting"
           ? {
               detail: describeWhatsAppField(task.askFor),
               example: buildWhatsAppQuestion(task.askFor),
@@ -1101,16 +1110,19 @@ async function answerCustomerQuestion(
       discountOffered: Boolean(conversation.discountOffered),
     });
     if (!answer) return null;
-    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });
+    const endChat = Boolean(task.declined || answer.endChat) && !answer.handoff;
+    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null, endChat });
 
     let text = answer.text;
-    if (answer.handoff) {
+    if (endChat) {
+      // The customer is done: never tack a journey question onto a goodbye.
+    } else if (answer.handoff) {
       text += `\n\nI've passed this to our team and they'll reply to you here shortly.`;
     } else if (task.askFor && task.justUpdated && conversation.stage === "collecting" && !text.includes("?")) {
       // Safety net: the quote must keep moving when the customer is giving details.
       text += `\n\n${buildWhatsAppQuestion(task.askFor)}`;
     }
-    return { text, handoff: answer.handoff, startQuote: answer.startQuote };
+    return { text, handoff: answer.handoff, startQuote: answer.startQuote && !endChat, endChat };
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
