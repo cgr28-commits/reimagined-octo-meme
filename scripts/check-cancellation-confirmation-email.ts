@@ -134,11 +134,42 @@ assert.doesNotMatch(source, /TAAA6RTCVM2/);
 assert.doesNotMatch(source, /exceptional circumstances/i);
 assert.doesNotMatch(source, /review your request/i);
 
+// Late cancellation, Meet & Greet refunded as goodwill (Dave, 6 Nov 2026).
+const goodwill = buildCustomerCancellationEmails(
+  details({
+    refundAmount: "£15.00",
+    refundAmountValue: 15,
+    cumulativeRefunded: "£15.00",
+    remainingPaid: "£20.00",
+    amountRetained: "£20.00",
+    meetGreetRefund: true,
+    actionKind: "cancel_partial_refund",
+  }),
+);
+const goodwillText = goodwill.customer!.text;
+const goodwillHtml = goodwill.customer!.html;
+assert.match(goodwill.customer!.subject, /^Booking Cancellation Confirmed – /);
+assert.ok(goodwillText.includes(OPENING));
+assert.ok(goodwillText.includes(NON_REFUNDABLE));
+assert.match(goodwillText, /As a goodwill gesture, we have refunded the Meet & Greet charge of £15\.00 to your original payment method\./);
+assert.ok(goodwillText.includes(REFUND_FUNDS_TIMING));
+assert.match(goodwillText, /The remaining £20\.00 is non-refundable, and no further payment is due for this booking\./);
+assert.match(goodwillText, /terms you accepted/);
+assert.ok(goodwillText.includes(STATUTORY));
+assert.doesNotMatch(goodwillText, /Partial Refund/i);
+assert.doesNotMatch(goodwillText, /SECRET_OWNER_NOTE/);
+assert.match(goodwill.owner!.subject, /goodwill refund £15\.00/);
+const plainGoodwill = buildCustomerCancellationEmails(
+  details({ refundAmount: "£5.00", refundAmountValue: 5, remainingPaid: "£30.00", amountRetained: "£30.00", actionKind: "cancel_partial_refund" }),
+);
+assert.match(plainGoodwill.customer!.text, /we have refunded £5\.00 to your original payment method/);
+
 const previewDir = process.env.CANCELLATION_EMAIL_PREVIEW_DIR;
 if (previewDir) {
   fs.mkdirSync(previewDir, { recursive: true });
   fs.writeFileSync(path.join(previewDir, "non-refundable.html"), lateHtml);
   fs.writeFileSync(path.join(previewDir, "refundable.html"), earlyHtml);
+  fs.writeFileSync(path.join(previewDir, "goodwill-meet-greet.html"), goodwillHtml);
 }
 
 console.log("OK  cancellation confirmation emails");

@@ -1357,6 +1357,8 @@ export type CancellationEmailDetails = RefundConfirmationDetails & {
   sumUpTransactionId?: string;
   cumulativeRefundedValue?: number;
   amountRetained?: string;
+  /** The refund is exactly the booking's Meet & Greet charge (named in the customer email). */
+  meetGreetRefund?: boolean;
   paymentStatusAfter?: string;
   operationalStatusAfter?: string;
   initiatedBy?: string;
@@ -1830,6 +1832,39 @@ export function buildCustomerCancellationEmails(
       owner: buildOwnerCancellationEmail(
         details,
         `Cancellation (<24h, no refund) — ${details.customerName} — ${ref}`,
+        businessName,
+      ),
+    };
+  }
+
+  // Cancel within 24h with a goodwill part refund (e.g. Meet & Greet): fare otherwise kept.
+  if (
+    details.cancelBooking &&
+    details.within24h &&
+    details.refundAmountValue > 0 &&
+    !isFullyRefundedMoney(details)
+  ) {
+    const subject = `Booking Cancellation Confirmed – ${ref}`;
+    const what = details.meetGreetRefund
+      ? `the Meet & Greet charge of ${details.refundAmount}`
+      : details.refundAmount;
+    const kept = details.amountRetained || details.remainingPaid;
+    const confirmation = buildCustomerCancellationConfirmation({
+      details,
+      businessName,
+      statutoryRights: true,
+      policyLink: true,
+      paymentParagraphs: [
+        NON_REFUNDABLE_WITHIN_24H_PAYMENT,
+        `As a goodwill gesture, we have refunded ${what} to your original payment method. ${REFUND_FUNDS_TIMING}`,
+        `The remaining ${kept} is non-refundable, and no further payment is due for this booking.`,
+      ],
+    });
+    return {
+      customer: { subject, text: confirmation.text, html: lightCustomerEmailHtml(confirmation.html) },
+      owner: buildOwnerCancellationEmail(
+        details,
+        `Cancellation (<24h, goodwill refund ${details.refundAmount}) — ${details.customerName} — ${ref}`,
         businessName,
       ),
     };

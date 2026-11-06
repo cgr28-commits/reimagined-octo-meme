@@ -1847,6 +1847,10 @@ async function completeRefundSideEffects(
       sumUpTransactionId: record.transactionId,
       cumulativeRefundedValue: cumulative,
       amountRetained: formatPaidAmount(remainingAfter, record.currency || "GBP"),
+      meetGreetRefund:
+        typeof record.meetGreetFeeGbp === "number" &&
+        record.meetGreetFeeGbp > 0 &&
+        Math.abs(record.meetGreetFeeGbp - input.refundAmount) < 0.01,
       paymentStatusAfter: record.paymentStatus,
       operationalStatusAfter: operationalAfter,
       initiatedBy:
