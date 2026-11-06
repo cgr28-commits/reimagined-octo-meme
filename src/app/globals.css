@@ -2488,86 +2488,6 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-homepage-quote-fields] select,
   .homepage-hero [data-homepage-quote-fields] [data-schedule-control] { height: 3rem; min-height: 3rem; line-height: normal; }
 
-  /* ---- Quote results ----
-     Left two-thirds: vehicles side by side as large equal tiles, then the journey
-     summary and price breakdown, then the quote links. Right: price card + Book. */
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr);
-    grid-template-rows: auto auto auto auto 1fr;
-    column-gap: 1.25rem;
-    row-gap: 0.75rem;
-    align-items: start;
-    margin-top: 0.75rem;
-  }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > * { margin-top: 0 !important; grid-column: 1 / -1; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > #quote-results-start,
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > #quote-book-now-anchor { position: absolute; top: 0; left: 0; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-vehicle-categories] { grid-column: 1 / 3; grid-row: 1; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-homepage-journey-summary] { grid-column: 1; grid-row: 2; align-self: stretch; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-price-breakdown] { grid-column: 2; grid-row: 2; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-homepage-return-breakdown-desktop] { grid-column: 2; grid-row: 3; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-business-class-upgrade] { grid-column: 1; grid-row: 3; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-actions],
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block:not([data-homepage-return-breakdown-desktop]) { grid-column: 1 / 3; grid-row: 4; align-self: start; }
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-card] {
-    grid-column: 3; grid-row: 1 / 6; align-self: stretch;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 1.1rem 1.4rem !important;
-  }
-
-  /* Vehicle options: side by side, large equal tiles — car on top, name and capacity
-     underneath, tick in the corner. */
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [role="list"] {
-    grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.75rem;
-  }
-  /* All suitable vehicles show here, including the 7-seater for small parties
-     (laptops under 1200px still hide it when a car fits). */
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: block; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] {
-    min-height: 0 !important; height: 11.25rem !important; justify-content: center;
-    padding: 0.75rem 0.9rem !important; border-radius: 1rem;
-  }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
-    display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.35rem;
-  }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 5.25rem; width: 10.5rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category="minibus"] [data-vehicle-option-copy] > span.flex {
-    display: flex; justify-content: center; font-size: 0.85rem;
-  }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.font-bold:not([data-vehicle-name]) {
-    white-space: nowrap; font-size: 0.75rem;
-  }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1.1rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.85rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] {
-    position: absolute; top: -0.25rem; right: -0.25rem; height: 1.6rem !important; width: 1.6rem !important; font-size: 0.85rem;
-  }
-
-  /* Price card: bigger price, readable reassurance lines, taller Book button. */
-  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 2.75rem; }
-  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
-    font-size: 0.85rem; line-height: 1.45;
-  }
-  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { min-height: 3rem; font-size: 1rem; }
-
-  /* Route / email / start over / enquiry: one quiet line of links. */
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid {
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem 2rem;
-  }
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button,
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a,
-  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block:not([data-homepage-return-breakdown-desktop]) button {
-    min-height: 0 !important; height: auto; width: auto; flex-direction: row; gap: 0.4rem;
-    padding: 0.2rem 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important;
-    font-size: 0.85rem; font-weight: 600; color: rgba(255, 255, 255, 0.82); justify-content: flex-start;
-  }
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button:hover,
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a:hover { color: #34d399; text-decoration: underline; }
-  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button svg { height: 1rem; width: 1rem; }
 }
 
 @media (min-width: 1536px) {
@@ -2589,74 +2509,156 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary { width: 100%; }
 }
 
-/* Desktop homepage (1200px+): fewer boxes. Inside the quote panel the journey summary,
-   price breakdown and price area sit on the panel itself (a thin divider marks the price
-   column); vehicles are light outline tiles; the promo cards drop their box. */
-@media (min-width: 1200px) {
-  .homepage-hero #quote-results-summary [data-homepage-journey-summary],
-  .homepage-hero #quote-results-summary > [data-quote-price-breakdown],
-  .homepage-hero #quote-results-summary > [data-homepage-return-breakdown-desktop] {
-    background: transparent !important; border: 0 !important; box-shadow: none !important;
-    padding-left: 0 !important; padding-right: 0 !important;
-  }
-  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary { padding-left: 0; }
 
-  .homepage-hero #quote-results-summary > [data-quote-result-card] {
+/* ==========================================================================
+   Desktop homepage quote results + service cards (1200px+), Nov 2026 refinement.
+   Order follows what the customer needs: 1 journey, 2 vehicles, 3 price, 4 book.
+     ┌──────────── journey (from / to, party) ────────────┐ ┌─────────┐
+     │ vehicle · vehicle · vehicle · vehicle               │ │  price  │
+     │ price breakdown            │ quote links            │ │  Book   │
+     └─────────────────────────────────────────────────────┘ └─────────┘
+   Type scale: labels 0.75rem caps · body 0.9rem · addresses 1.15rem ·
+   vehicle names 1.05rem · price 3.1rem. Layout only; no quote logic changes.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.95fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 1.5rem;
+    row-gap: 1.1rem;
+    align-items: start;
+    margin-top: 1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > * { margin-top: 0 !important; grid-column: 1 / 3; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > #quote-results-start,
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > #quote-book-now-anchor { position: absolute; top: 0; left: 0; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-homepage-journey-summary] { grid-column: 1 / 3; grid-row: 1; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-vehicle-categories] { grid-column: 1 / 3; grid-row: 2; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-business-class-upgrade] { grid-column: 1 / 3; grid-row: 3; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-price-breakdown] { grid-column: 1; grid-row: 4; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-homepage-return-breakdown-desktop] { grid-column: 1; grid-row: 5; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-actions],
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block:not([data-homepage-return-breakdown-desktop]) { grid-column: 2; grid-row: 4; align-self: center; }
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-result-card] {
+    grid-column: 3; grid-row: 1 / 6; align-self: stretch;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 1.25rem 0 1.25rem 2rem !important;
     background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
     border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
-    padding-left: 2rem !important;
   }
 
+  /* Section labels (VEHICLE OPTIONS, YOUR JOURNEY): small caps, subordinate. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-options-heading],
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary]::before {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-options-heading] { margin-bottom: 0.6rem; }
+
+  /* 1 · Journey: pickup and destination as two clear, readable lines. */
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.5rem; row-gap: 0.4rem;
+    background: transparent !important; border: 0 !important; padding: 0 !important;
+  }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary]::before { content: "Your journey"; grid-column: 1 / -1; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] > p:first-child { display: contents; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-arrow] { display: none; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-from],
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-to] {
+    display: block; position: relative; padding-left: 1.6rem;
+    font-size: 1.15rem; line-height: 1.4; font-weight: 600; color: #fff;
+  }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-from]::before,
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-to]::before {
+    position: absolute; left: 0; top: 0.05rem;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; color: #34d399;
+  }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-from]::before { content: "\25CF"; font-size: 0.8rem; top: 0.2rem; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] [data-journey-to]::before { content: "\25B6"; font-size: 0.7rem; top: 0.3rem; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] > p + p {
+    margin: 0 !important; padding-left: 1.6rem; font-size: 0.9rem; line-height: 1.4; color: rgba(255, 255, 255, 0.75);
+  }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] > p:nth-child(2) { grid-column: 1; }
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] > p:nth-child(3) { grid-column: 2; }
+
+  /* 2 · Vehicles: four equal tiles in a row; the selected one in green. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: block; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [role="list"] {
+    grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.85rem;
+  }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] {
-    background: transparent !important; color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important; box-shadow: none !important;
+    min-height: 0 !important; height: 9.25rem !important; justify-content: center;
+    padding: 0.6rem 0.75rem !important; border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.03) !important; color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important; box-shadow: none !important;
     transition: border-color 200ms ease, background-color 200ms ease;
   }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:hover {
-    border-color: rgba(52, 211, 153, 0.5) !important;
-  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:hover { border-color: rgba(52, 211, 153, 0.55) !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] {
-    border: 2px solid #34d399 !important; background: rgba(52, 211, 153, 0.08) !important;
+    border: 2px solid #34d399 !important; background: rgba(52, 211, 153, 0.1) !important;
   }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] .text-navy { color: #fff !important; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] [data-vehicle-option-copy] > span:not([data-vehicle-name]) { color: rgba(255, 255, 255, 0.75) !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
+    display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.3rem; height: 100%; justify-content: center;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 4.4rem; width: 9rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category="minibus"] [data-vehicle-option-copy] > span.flex { display: flex; justify-content: center; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] .text-navy { color: #fff !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1.05rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span:not([data-vehicle-name]) {
+    font-size: 0.85rem !important; font-weight: 500; color: rgba(255, 255, 255, 0.75) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.font-bold:not([data-vehicle-name]) {
+    white-space: nowrap; font-size: 0.75rem !important; color: #fcd34d !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] {
+    position: absolute; top: -0.15rem; right: -0.2rem; height: 1.5rem !important; width: 1.5rem !important; font-size: 0.8rem;
+  }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="false"] [data-vehicle-selection-indicator] {
     background: transparent !important; border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
   }
 
-  .homepage-hero-rail {
-    background: transparent; border-color: transparent; padding: 0;
+  /* Price breakdown: a clear link, same weight as body text. */
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown],
+  .homepage-hero #quote-results-summary > [data-homepage-return-breakdown-desktop] {
+    background: rgba(255, 255, 255, 0.03) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; box-shadow: none !important;
+    border-radius: 0.85rem; font-size: 0.9rem;
   }
-  .homepage-hero-rail:hover,
-  .homepage-hero-rail:focus-within { border-color: transparent; box-shadow: none; }
-  .homepage-hero-rail-slide img { border-radius: 0.9rem; }
-}
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary { font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); }
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary > *:first-child,
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary span:first-child { font-size: 0.95rem; font-weight: 600; color: #fff; }
 
-/* Desktop homepage results (1200px+): better balance — slimmer vehicle tiles, larger
-   journey details and price breakdown, and a more prominent Book button. */
-@media (min-width: 1200px) {
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] { height: 8.5rem !important; padding: 0.5rem 0.75rem !important; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 3.9rem; width: 8rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.8rem; }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] { gap: 0.2rem; }
-
-  /* Journey details: easy to read. */
-  .homepage-hero #quote-results-summary [data-homepage-journey-summary] p:first-child {
-    font-size: 1.05rem; line-height: 1.45; font-weight: 600; color: #fff;
+  /* Quote links: easy to spot and click (padded targets, icons, hover tint). */
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid {
+    display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 0.4rem 0.5rem;
   }
-  .homepage-hero #quote-results-summary [data-homepage-journey-summary] p + p {
-    margin-top: 0.35rem; font-size: 0.9rem; line-height: 1.4; color: rgba(255, 255, 255, 0.8);
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button,
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a,
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > div.md\:block:not([data-homepage-return-breakdown-desktop]) button {
+    min-height: 2.5rem !important; height: auto; width: auto; flex-direction: row; gap: 0.45rem;
+    padding: 0.45rem 0.8rem !important; border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: transparent !important; box-shadow: none !important; border-radius: 999px !important;
+    font-size: 0.875rem; font-weight: 600; color: rgba(255, 255, 255, 0.88);
+    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
   }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button:hover,
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > a:hover,
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button:focus-visible {
+    border-color: rgba(52, 211, 153, 0.6) !important; color: #34d399; background: rgba(52, 211, 153, 0.08) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > button svg { height: 1rem; width: 1rem; }
 
-  /* Price breakdown link: same weight as the journey details. */
-  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary span:first-child,
-  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary > *:first-child { font-size: 1rem; font-weight: 600; }
-  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary { font-size: 0.9rem; }
-  .homepage-hero #quote-results-summary > [data-homepage-return-breakdown-desktop] { font-size: 0.9rem; }
-
-  /* Price and Book button: more prominent. */
-  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 3.1rem; }
+  /* 3 + 4 · Price and Book: the strongest element on the right. */
+  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
+    font-size: 0.85rem; line-height: 1.5;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] { margin-top: 0.4rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 3.1rem; line-height: 1.05; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.75rem; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button {
     min-height: 3.6rem; font-size: 1.15rem; font-weight: 700; letter-spacing: 0.01em;
     border-radius: 0.9rem; box-shadow: 0 10px 28px rgba(34, 197, 94, 0.35);
@@ -2665,4 +2667,34 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button:hover {
     transform: translateY(-1px); box-shadow: 0 14px 34px rgba(34, 197, 94, 0.45);
   }
+
+  /* Google reviews: the same rating shows inside the price area once there is a
+     price, so the badge under the quote panel is hidden then (one indicator). */
+  .homepage-hero .homepage-hero-quote:has([data-quote-results="ready"]) > [data-hero-reviews-badge] { display: none; }
+
+  /* ---- Service cards under the quote tool ---- */
+  .homepage-hero .homepage-hero-layout > .homepage-hero-rails { gap: 1.75rem; margin-top: 1rem; align-items: stretch; }
+  .homepage-hero-rail {
+    background: transparent; border: 0; padding: 0; border-radius: 0;
+  }
+  .homepage-hero-rail:hover, .homepage-hero-rail:focus-within { border-color: transparent; box-shadow: none; transform: none; }
+  .homepage-hero-rail-slide { display: flex; flex-direction: column; }
+  .homepage-hero-rail-slide > p:first-child { font-size: 0.75rem; letter-spacing: 0.12em; }
+  .homepage-hero-rail-slide img {
+    height: auto !important; aspect-ratio: 16 / 9; width: 100%; object-fit: cover; border-radius: 1rem;
+    transition: transform 300ms ease, box-shadow 300ms ease;
+  }
+  .homepage-hero-rail:hover .homepage-hero-rail-slide img { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4); }
+  .homepage-hero-rail-slide [data-rail-title] { margin-top: 1rem; font-size: 1.3rem; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; }
+  .homepage-hero-rail-slide [data-rail-text] { margin-top: 0.5rem; font-size: 0.975rem; line-height: 1.6; color: rgba(255, 255, 255, 0.8); }
+  .homepage-hero-rail-slide [data-rail-cta] {
+    margin-top: auto; padding-top: 1rem; align-self: flex-start;
+    font-size: 1rem; font-weight: 700; color: #34d399;
+  }
+  .homepage-hero-rail-slide [data-rail-cta]:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .homepage-hero-rail [data-rail-dots] { margin-top: 0.9rem; justify-content: flex-start; }
+}
+
+@media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
+  .homepage-hero-rail:hover .homepage-hero-rail-slide img { transform: none; }
 }

@@ -8667,7 +8667,9 @@ function QuoteCard({
                         data-homepage-journey-summary
                       >
                         <p className="font-semibold leading-snug">
-                          {pickupLabel || "Pickup"} → {dropoffLabel || "Drop-off"}
+                          <span data-journey-from>{pickupLabel || "Pickup"}</span>{" "}
+                          <span data-journey-arrow aria-hidden="true">→</span>{" "}
+                          <span data-journey-to>{dropoffLabel || "Drop-off"}</span>
                         </p>
                         {returnJourney ? (
                           <p className="mt-1 text-xs font-medium text-emerald">

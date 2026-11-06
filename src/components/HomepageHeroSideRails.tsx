@@ -113,10 +113,11 @@ function RotatingRail({
                 height={270}
                 className="mt-3 h-36 w-full rounded-lg object-cover"
               />
-              <p className="mt-3 text-[1.05rem] font-semibold leading-snug text-white">{card.title}</p>
-              <p className="mt-2 text-sm leading-relaxed text-white/75">{card.text}</p>
+              <p data-rail-title className="mt-3 text-[1.05rem] font-semibold leading-snug text-white">{card.title}</p>
+              <p data-rail-text className="mt-2 text-sm leading-relaxed text-white/75">{card.text}</p>
               <Link
                 href={card.href}
+                data-rail-cta
                 tabIndex={shown ? 0 : -1}
                 className="mt-3 inline-block text-sm font-semibold text-emerald hover:underline"
               >
@@ -127,7 +128,7 @@ function RotatingRail({
         })}
       </div>
       {cards.length > 1 ? (
-        <div className="mt-4 flex justify-center gap-2">
+        <div className="mt-4 flex justify-center gap-2" data-rail-dots>
           {cards.map((card, index) => (
             <button
               key={card.key}
