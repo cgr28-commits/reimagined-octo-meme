@@ -129,8 +129,9 @@ export default function StripeCardPayClient() {
 
   /**
    * Stripe fires its "ready" events before the options are painted (the frames
-   * start ~2px tall). Keep the placeholder until the payment list frame and,
-   * when a wallet is offered, the Apple Pay / Google Pay button have real height.
+   * start ~2px tall). Keep the placeholder until the payment list frame has real
+   * height. The Apple Pay / Google Pay button only draws once it's visible, so
+   * we just wait for it to report in and keep its space reserved (no jump).
    */
   function waitUntilDrawn() {
     const started = Date.now();
@@ -144,9 +145,8 @@ export default function StripeCardPayClient() {
     const timer = window.setInterval(() => {
       const express = expressStateRef.current;
       const paymentDrawn = frameHeight("stripe-payment-element") >= 48;
-      const expressDrawn = express.ready && (!express.wallets || frameHeight("stripe-express-checkout") >= 30);
       // Never leave the customer stuck on the placeholder.
-      if ((paymentDrawn && expressDrawn) || Date.now() - started > 12000) {
+      if ((paymentDrawn && express.ready) || Date.now() - started > 12000) {
         window.clearInterval(timer);
         setElementsReady(true);
       }
@@ -341,7 +341,7 @@ export default function StripeCardPayClient() {
                 : "pointer-events-none absolute inset-x-4 top-0 h-0 overflow-hidden opacity-0 sm:inset-x-5"
             }
           >
-            <div id="stripe-express-checkout" className="mt-3" />
+            <div id="stripe-express-checkout" className={walletsShown ? "mt-3 min-h-[44px]" : "mt-3"} />
             {walletsShown ? (
               <p className="my-2 text-center text-[11px] uppercase tracking-wider text-white/50">
                 or pay by card
