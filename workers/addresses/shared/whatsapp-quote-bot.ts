@@ -229,6 +229,10 @@ export function isWhatsAppGreeting(text: string): boolean {
   return t === "" || GREETING.test(t);
 }
 
+/** "Don't need the taxi" from a customer who has a paid booking: a person handles it. */
+export const WHATSAPP_BOOKED_NOT_NEEDED_REPLY =
+  "Thanks for letting us know. As you have a booking with us, I've passed this to our team and they'll reply to you here shortly.";
+
 /** Fixed goodbye when the customer no longer needs a taxi (the AI writes its own when available). */
 export const WHATSAPP_NOT_NEEDED_REPLY =
   "No problem at all, thanks for letting us know. If you ever need a taxi again, just message us here. Safe travels! 😊";

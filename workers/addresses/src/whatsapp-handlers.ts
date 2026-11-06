@@ -51,6 +51,7 @@ import {
   buildWhatsAppPriceValueReply,
   buildWhatsAppQuoteReply,
   WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
+  WHATSAPP_BOOKED_NOT_NEEDED_REPLY,
   decideWhatsAppReply,
   describeWhatsAppDraft,
   describeWhatsAppField,
@@ -679,6 +680,29 @@ async function handleInboundMessage(
     logEvent("whatsapp_bot_handoff", phone);
     await cancelWhatsAppFollowUp(store, phone);
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+  }
+
+  if (decision.action === "answer" && decision.ai?.declined && !isTeamPhone) {
+    // "Don't need the taxi" from someone with a paid booking is a cancellation, which
+    // needs a person (refund terms), not a cheery goodbye (6 Nov 2026).
+    let hasBooking = false;
+    try {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 0, futureDays: 180, limit: 250 });
+      hasBooking = upcomingCustomerBookings(upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone))).length > 0;
+    } catch (err) {
+      logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    }
+    if (hasBooking) {
+      await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+      await cancelWhatsAppFollowUp(store, phone);
+      await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+      logEvent("whatsapp_booking_cancel_handoff", phone);
+      await store.put(conversationKey(phone), JSON.stringify(conversation), {
+        expirationTtl: CONVERSATION_TTL_SECONDS,
+      });
+      await reply(env, phone, WHATSAPP_BOOKED_NOT_NEEDED_REPLY);
+      return;
+    }
   }
 
   if (decision.action === "answer") {
