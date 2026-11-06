@@ -2588,3 +2588,46 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary { width: 100%; }
 }
+
+/* Desktop homepage (1200px+): fewer boxes. Inside the quote panel the journey summary,
+   price breakdown and price area sit on the panel itself (a thin divider marks the price
+   column); vehicles are light outline tiles; the promo cards drop their box. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary],
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown],
+  .homepage-hero #quote-results-summary > [data-homepage-return-breakdown-desktop] {
+    background: transparent !important; border: 0 !important; box-shadow: none !important;
+    padding-left: 0 !important; padding-right: 0 !important;
+  }
+  .homepage-hero #quote-results-summary > [data-quote-price-breakdown] summary { padding-left: 0; }
+
+  .homepage-hero #quote-results-summary > [data-quote-result-card] {
+    background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.12) !important;
+    padding-left: 2rem !important;
+  }
+
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] {
+    background: transparent !important; color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important; box-shadow: none !important;
+    transition: border-color 200ms ease, background-color 200ms ease;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:hover {
+    border-color: rgba(52, 211, 153, 0.5) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] {
+    border: 2px solid #34d399 !important; background: rgba(52, 211, 153, 0.08) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] .text-navy { color: #fff !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] [data-vehicle-option-copy] > span:not([data-vehicle-name]) { color: rgba(255, 255, 255, 0.75) !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="false"] [data-vehicle-selection-indicator] {
+    background: transparent !important; border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  }
+
+  .homepage-hero-rail {
+    background: transparent; border-color: transparent; padding: 0;
+  }
+  .homepage-hero-rail:hover,
+  .homepage-hero-rail:focus-within { border-color: transparent; box-shadow: none; }
+  .homepage-hero-rail-slide img { border-radius: 0.9rem; }
+}
