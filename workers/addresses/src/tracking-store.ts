@@ -146,6 +146,9 @@ async function createTrackingLegRecord(
     journeyLeg: leg.journeyLeg,
     pairedToken: leg.pairedToken,
     sharingActive: false,
+    ...(booking.bookingType === "bespoke"
+      ? { bookingType: "bespoke" as const, bespokeQuoteReference: booking.bespokeQuoteReference }
+      : {}),
   };
 
   if (booking.isAirportTrip) {

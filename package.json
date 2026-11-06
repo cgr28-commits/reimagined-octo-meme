@@ -160,7 +160,9 @@
     "check:stripe-hold-refund": "npx tsx scripts/check-stripe-hold-refund.mts",
     "check:bespoke-quote": "npx tsx scripts/check-bespoke-quote.ts",
     "check:owner-key-not-in-url": "npx tsx scripts/check-owner-key-not-in-url.ts",
-    "check:bespoke-payment": "npx tsx scripts/check-bespoke-payment.ts"
+    "check:bespoke-payment": "npx tsx scripts/check-bespoke-payment.ts",
+    "check:bespoke-isolation": "npx tsx scripts/check-bespoke-isolation.ts",
+    "check:bespoke-preview": "npx tsx scripts/check-bespoke-preview.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

@@ -98,6 +98,8 @@ export type AirportPickupReminderInput = {
   returnCancelledAt?: string | null;
   journeyStatus?: string | null;
   isRefundTest?: boolean | null;
+  /** "bespoke" = manually priced quotation — standard airport instructions are not sent. */
+  bookingType?: "bespoke" | null;
   /** Ignored. Tests pass a driver mobile to prove it is never copied into the message. */
   assignedDriverMobile?: string | null;
   /** Short customer reference (MAT-####). Payment and checkout ids are not used. */
@@ -108,6 +110,7 @@ export type AirportPickupReminderSkipReason =
   | "already_sent"
   | "cancelled"
   | "not_customer_booking"
+  | "bespoke_quotation"
   | "journey_finished"
   | "not_from_airport"
   | "not_today"
@@ -460,6 +463,7 @@ export function evaluateAirportPickupReminder(
 
   if (input.reminderSentAt?.trim()) return skip("already_sent");
   if (input.isRefundTest) return skip("not_customer_booking");
+  if (input.bookingType === "bespoke") return skip("bespoke_quotation");
   if (isCancelledBooking(input)) return skip("cancelled");
   if (input.journeyStatus === "completed") return skip("journey_finished");
   if (!isAirportCollection(input)) return skip("not_from_airport");

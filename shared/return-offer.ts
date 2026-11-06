@@ -107,6 +107,8 @@ export type ReturnOfferBookingSnapshot = {
   journeyDuration?: string;
   isRefundTest?: boolean;
   isAmendmentTestFixture?: boolean;
+  /** "bespoke" = manually priced quotation — never offered an airport return discount. */
+  bookingType?: "bespoke";
 };
 
 export type ReturnOfferPlaceSnapshot = {
@@ -285,6 +287,9 @@ export function isEligibleForReturnOffer(
     now?: Date;
   },
 ): ReturnOfferEligibilityResult {
+  if (booking.bookingType === "bespoke") {
+    return { eligible: false, reason: "bespoke_quotation" };
+  }
   if (booking.isRefundTest || booking.isAmendmentTestFixture) {
     return { eligible: false, reason: "operational_test" };
   }
@@ -650,6 +655,7 @@ export function paidBookingToReturnOfferSnapshot(booking: {
   journeyDuration?: string;
   isRefundTest?: boolean;
   isAmendmentTestFixture?: boolean;
+  bookingType?: "bespoke";
 }): ReturnOfferBookingSnapshot {
   return {
     paymentReference: booking.paymentReference,
@@ -672,6 +678,7 @@ export function paidBookingToReturnOfferSnapshot(booking: {
     journeyDuration: booking.journeyDuration,
     isRefundTest: booking.isRefundTest,
     isAmendmentTestFixture: booking.isAmendmentTestFixture,
+    ...(booking.bookingType === "bespoke" ? { bookingType: "bespoke" as const } : {}),
   };
 }
 
@@ -697,6 +704,8 @@ export function returnOfferIneligibleReasonLabel(reason: string): string {
       return "";
     case "operational_test":
       return "Operational test booking";
+    case "bespoke_quotation":
+      return "Manually priced Event / Business Class booking";
     case "awaiting_completion":
       return "Waiting for the journey to complete";
     case "too_close_to_outbound":

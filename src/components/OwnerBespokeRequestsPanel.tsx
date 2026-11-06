@@ -28,6 +28,7 @@ import {
   type BespokeNotification,
   type BespokeOwnerActionInput,
   type BespokeOwnerView,
+  type BespokeCalendarStatus,
 } from "@/lib/bespoke-quote-api";
 
 type Props = { ownerKey: string };
@@ -238,12 +239,14 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [customerLink, setCustomerLink] = useState<string | null>(null);
+  const [calendar, setCalendar] = useState<BespokeCalendarStatus | null>(null);
 
   const reload = useCallback(async () => {
     try {
       const data = await fetchOwnerBespokeRequest(ownerKey, reference);
       setRequest(data.request);
       setNotifications(data.notifications);
+      setCalendar(data.calendar ?? null);
     } catch (e) {
       setMessage({ tone: "error", text: e instanceof Error ? e.message : "Could not load this request." });
     }
@@ -269,6 +272,7 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
         });
         setRequest(result.request);
         setNotifications(result.notifications);
+        if (result.calendar) setCalendar(result.calendar);
         if (result.customerLink) setCustomerLink(result.customerLink);
         const status = result.email?.status;
         const emailNote =
@@ -337,6 +341,23 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
           <p className="mt-2 text-sm font-semibold text-emerald">
             Booking {r.bookingReference} — in Jobs and the Calendar
           </p>
+        ) : null}
+        {r.status === "CONFIRMED" && calendar?.configured ? (
+          calendar.eventIds.length > 0 ? (
+            <p className="mt-1 text-xs text-white/55">In Google Calendar ({calendar.eventIds.length} event{calendar.eventIds.length === 1 ? "" : "s"}).</p>
+          ) : (
+            <div className="mt-2 rounded-xl border border-amber-300/40 bg-amber-500/10 p-3 text-sm text-amber-50">
+              <p>Not confirmed in Google Calendar. Retrying is safe — it never creates a duplicate.</p>
+              <button
+                type="button"
+                className={`${secondaryButton} mt-2`}
+                disabled={Boolean(busy)}
+                onClick={() => void run("Calendar", { type: "retry_calendar" })}
+              >
+                Retry calendar
+              </button>
+            </div>
+          )
         ) : null}
         {r.status === "PAID" ? (
           <p className="mt-2 text-sm text-amber-100">

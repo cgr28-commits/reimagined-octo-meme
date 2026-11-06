@@ -34,6 +34,8 @@ export type BespokeNotification = {
   deliveryAt?: string;
 };
 
+export type BespokeCalendarStatus = { configured: boolean; paymentReference?: string; eventIds: string[] };
+
 export type BespokeOwnerActionInput =
   | { type: "owner_start_review" }
   | {
@@ -47,6 +49,7 @@ export type BespokeOwnerActionInput =
   | { type: "owner_issue_quote"; amountGbp: number; validityHours: number; customerMessage?: string }
   | { type: "resend_quote_email" }
   | { type: "resend_notification"; kind: "acknowledgement" | "expiry" }
+  | { type: "retry_calendar" }
   | { type: "owner_decline"; note?: string }
   | { type: "owner_cancel"; note?: string }
   | { type: "owner_resolve_review"; resolution: "accept_payment" | "manual_refund_required"; note: string }
@@ -87,7 +90,7 @@ export async function fetchOwnerBespokeRequests(
 export async function fetchOwnerBespokeRequest(
   ownerKey: string,
   reference: string,
-): Promise<{ request: BespokeOwnerView; notifications: BespokeNotification[] }> {
+): Promise<{ request: BespokeOwnerView; notifications: BespokeNotification[]; calendar?: BespokeCalendarStatus }> {
   const url = new URL(`${WORKER_BASE}/owner/bespoke-quotes/detail`);
   url.searchParams.set("reference", reference);
   return parse(await fetch(url.toString(), { headers: ownerHeaders(ownerKey), cache: "no-store" }));
@@ -103,6 +106,8 @@ export async function postOwnerBespokeAction(
   replayed?: boolean;
   customerLink?: string;
   email?: { key: string; status: string };
+  calendar?: BespokeCalendarStatus;
+  calendarResult?: string;
 }> {
   return parse(
     await fetch(`${WORKER_BASE}/owner/bespoke-quotes/action`, {

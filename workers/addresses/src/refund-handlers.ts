@@ -2097,6 +2097,9 @@ export async function savePaidBookingRecordFromConfirm(input: {
     amountPaidLabel: input.amountPaidLabel,
     originalAmount: input.onlineAmountPaid ?? input.amount,
     amountRefunded: 0,
+    ...(input.booking.bookingType === "bespoke"
+      ? { bookingType: "bespoke" as const, bespokeQuoteReference: input.booking.bespokeQuoteReference }
+      : {}),
     customerName: input.booking.customerName,
     customerEmail: input.booking.customerEmail,
     mobileNumber: input.booking.mobileNumber,

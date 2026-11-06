@@ -52,6 +52,7 @@ import { getPaidBookingRecord, savePaidBookingRecord } from "./paid-booking-stor
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { attachCalendarEventIdToTrackingJob, findTrackingJobsByPaymentReference } from "./tracking-store";
+import { calendarConfiguredFor, logBespokeBookingCalendar } from "./bespoke-calendar";
 import { runPaymentOperation, PaymentOperationBusy, paymentOperationHash } from "./payment-operation";
 import {
   finalizePaidCheckout,
@@ -140,8 +141,12 @@ export function buildBespokeBookingDetails(record: BespokeQuoteRecord): PaidBook
     suitcases: 0,
     vehicle,
     // Bespoke jobs are not treated as airport-transfer bookings by flag-based
-    // airport automations (flight watch, airport fees). See Phase 3 report.
+    // airport automations (flight watch, airport fees).
     isAirportTrip: false,
+    // Explicit type, copied onto the paid record AND the tracking job at creation:
+    // return-offer emails and airport pickup reminders skip bespoke bookings.
+    bookingType: "bespoke",
+    bespokeQuoteReference: record.reference,
   };
 }
 
@@ -450,6 +455,7 @@ export async function completeBespokeBooking(
   let bookingReference = record.bookingReference ?? "";
   let calendarEvents = 0;
   let trackingCreated = false;
+  let calendarUncertain: string | undefined;
 
   if (record.status === "PAID") {
     try {
@@ -477,13 +483,21 @@ export async function completeBespokeBooking(
       // 2. Jobs.
       const tracking = await createTrackingJobForPaidBooking(env as never, booking, payment.paymentReference);
       trackingCreated = tracking.created;
-      // 3. Calendar — only once.
+      // 3. Calendar — duplicate-safe (event id derived from the payment reference).
+      //    A calendar problem never blocks or un-confirms a paid booking: it is
+      //    flagged to the owner, who can retry safely (same id → no duplicate).
       let calendarIds = existing?.calendarEventIds ?? [];
       let byLeg = existing?.calendarEventIdsByLeg;
-      if (calendarIds.length === 0 && deps.logPaidBookingCalendar) {
-        const calendar = await deps.logPaidBookingCalendar(env, booking, amountLabel, payment.paymentReference);
-        calendarIds = calendar.eventIds ?? [];
-        byLeg = calendar.calendarEventIdsByLeg;
+      if (calendarIds.length === 0) {
+        const calendar = await logBespokeBookingCalendar(env, booking, amountLabel, payment.paymentReference).catch(
+          (error: unknown) => ({ status: "uncertain" as const, eventIds: [] as string[], error: error instanceof Error ? error.message : "calendar error" }),
+        );
+        if (calendar.status === "logged") {
+          calendarIds = calendar.eventIds;
+          byLeg = calendar.byLeg;
+        } else if (calendar.status === "uncertain") {
+          calendarUncertain = calendar.error;
+        }
       }
       calendarEvents = calendarIds.length;
       await savePaidBookingRecordFromConfirm({
@@ -513,6 +527,10 @@ export async function completeBespokeBooking(
     // 4. CONFIRMED only now (I3).
     const marked = await applyAction(env, deps, reference, { type: "system_mark_booked", bookingReference });
     if (!marked.ok) return { ok: false, error: `mark_booked_${marked.code}` };
+  }
+
+  if (calendarUncertain) {
+    await notifyOwnerOfCalendarProblem(env, deps, record, payment, calendarUncertain);
   }
 
   // 5. Emails, once each.
@@ -663,4 +681,62 @@ export async function handleOrphanBespokePayment(
     console.error("bespoke orphan payment record failed", parsed.reference, recorded.code);
   }
   return true;
+}
+
+async function notifyOwnerOfCalendarProblem(
+  env: BespokePaymentEnv & BespokeReadyEnv,
+  deps: BespokePaymentDeps,
+  record: BespokeQuoteRecord,
+  payment: BespokePaymentEntry,
+  detail: string,
+): Promise<void> {
+  const key = `owner_calendar:${payment.paymentReference}`.replace(/[^A-Za-z0-9:_-]/g, "-").slice(0, 120);
+  await sendOnce(env, deps, record.reference, key, "owner_calendar_problem", "owner", () => ({
+    subject: `Check the calendar — ${record.reference}`,
+    text: [
+      `The booking for ${record.reference} is paid and confirmed, but adding it to Google Calendar could not be confirmed (${detail}).`,
+      "No duplicate will be created: use 'Retry calendar' in Owner Dashboard → More → Event & Business Class.",
+    ].join("\n"),
+    html: `<p>The booking for ${record.reference} is paid and confirmed, but adding it to Google Calendar could not be confirmed.</p><p>No duplicate will be created: use <strong>Retry calendar</strong> in Owner Dashboard → More → Event &amp; Business Class.</p>`,
+    to: ownerInbox(env),
+  })).catch(() => undefined);
+}
+
+export type CalendarStatus = { configured: boolean; paymentReference?: string; eventIds: string[] };
+
+/** Owner detail: is the confirmed booking in the calendar? */
+export async function bespokeCalendarStatus(rawEnv: BespokePaymentEnv, record: BespokeQuoteRecord): Promise<CalendarStatus> {
+  const payment = [...record.payments].reverse().find((p) => p.outcome === "accepted" && !p.refundedManuallyAt);
+  if (!rawEnv.TRACKING_STORE || !payment || record.status !== "CONFIRMED") {
+    return { configured: calendarConfiguredFor(rawEnv), eventIds: [] };
+  }
+  const paid = await getPaidBookingRecord(rawEnv.TRACKING_STORE, payment.paymentReference);
+  return { configured: calendarConfiguredFor(rawEnv), paymentReference: payment.paymentReference, eventIds: paid?.calendarEventIds ?? [] };
+}
+
+/**
+ * Owner "Retry calendar": safe to repeat — the event id is derived from the
+ * payment reference, so an event that already exists is found and reused.
+ */
+export async function retryBespokeCalendar(
+  rawEnv: BespokePaymentEnv,
+  record: BespokeQuoteRecord,
+): Promise<{ ok: boolean; status: string; eventIds: string[] }> {
+  if (!rawEnv.TRACKING_STORE || record.status !== "CONFIRMED") return { ok: false, status: "not_confirmed", eventIds: [] };
+  const payment = [...record.payments].reverse().find((p) => p.outcome === "accepted" && !p.refundedManuallyAt);
+  if (!payment) return { ok: false, status: "no_payment", eventIds: [] };
+  const store = rawEnv.TRACKING_STORE;
+  const paid = await getPaidBookingRecord(store, payment.paymentReference);
+  if (!paid) return { ok: false, status: "no_booking_record", eventIds: [] };
+  if ((paid.calendarEventIds ?? []).length > 0) return { ok: true, status: "already_logged", eventIds: paid.calendarEventIds ?? [] };
+  const calendar = await logBespokeBookingCalendar(rawEnv, buildBespokeBookingDetails(record), formatPaidAmount(payment.amountGbp), payment.paymentReference).catch(
+    (error: unknown) => ({ status: "uncertain" as const, eventIds: [] as string[], error: error instanceof Error ? error.message : "calendar error" }),
+  );
+  if (calendar.status !== "logged") return { ok: false, status: calendar.status, eventIds: [] };
+  await savePaidBookingRecord(store, { ...paid, calendarEventIds: calendar.eventIds, calendarEventIdsByLeg: calendar.byLeg });
+  for (const job of await findTrackingJobsByPaymentReference(store, payment.paymentReference)) {
+    const eventId = job.journeyLeg === "return" ? calendar.byLeg.return : calendar.byLeg.outbound;
+    if (eventId) await attachCalendarEventIdToTrackingJob(store, job.token, eventId);
+  }
+  return { ok: true, status: "logged", eventIds: calendar.eventIds };
 }

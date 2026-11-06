@@ -66,6 +66,14 @@ import {
 import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
+  /**
+   * Explicit booking type. "bespoke" = manually priced Event / Business Class
+   * quotation (not an instant airport booking). Airport automations (return-offer
+   * emails, airport pickup reminders) skip these. Missing = ordinary booking.
+   */
+  bookingType?: "bespoke";
+  /** Bespoke quotation reference (MATNI-BQ-…) when bookingType is "bespoke". */
+  bespokeQuoteReference?: string;
   /** Selected IDs bound to the validated quote; no new address-precision requirement. */
   pickupPlaceId?: string;
   dropoffPlaceId?: string;

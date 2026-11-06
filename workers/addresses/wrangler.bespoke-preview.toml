@@ -28,7 +28,9 @@
 # GOOGLE_ADS_*, WHATSAPP_*/D360_API_KEY, DRIVER_ACCESS_KEY from production.
 
 name = "reimagined-octo-meme-bespoke-preview"
-main = "src/index.ts"
+# Preview-only entry: wraps src/index.ts with a default-deny outbound guard
+# (test-mode Stripe only, emails only to PREVIEW_EMAIL_ALLOWLIST). See src/preview-entry.ts.
+main = "src/preview-entry.ts"
 compatibility_date = "2025-08-01"
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 workers_dev = true
@@ -82,6 +84,15 @@ command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
 enabled = true
 
 [vars]
+# Required by src/preview-entry.ts — the Worker refuses to run without it.
+PREVIEW_ENVIRONMENT = "bespoke-preview"
+# Every outgoing email (bespoke AND existing airport code paths, incl. hard-coded
+# owner alerts) is blocked unless ALL recipients are listed here.
+PREVIEW_EMAIL_ALLOWLIST = "REPLACE_WITH_TESTER_EMAIL"
+# Owner alerts that honour these settings go to the tester, not bookings@.
+BOOKING_TO_EMAIL = "REPLACE_WITH_TESTER_EMAIL"
+BOOKING_NOTIFICATION_EMAIL = "REPLACE_WITH_TESTER_EMAIL"
+OWNER_EMAIL_COPY_ADDRESS = "REPLACE_WITH_TESTER_EMAIL"
 BESPOKE_QUOTES_ENABLED = "1"
 PAYMENT_PROVIDER = "stripe-test"
 # Comma-separated tester inboxes. Replace before deploy; only these can pay with Stripe test cards.

@@ -57,8 +57,10 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   bespokeOnlinePaymentAvailable,
+  bespokeCalendarStatus,
   completeBespokeBooking,
   expireBespokeCheckoutAfterCancel,
+  retryBespokeCalendar,
   finalizeBespokeCheckoutViaSharedPath,
   reconcileBespokeAttempt,
   startBespokeCheckout,
@@ -385,7 +387,17 @@ async function updateRegistry(env: ReadyEnv, record: BespokeQuoteRecord): Promis
   const open = OPEN_STATUSES.includes(record.status) && record.quote;
   // PAID = money recorded but booking not yet created: keep it due so every sweep
   // retries the booking until it exists (then CONFIRMED clears it).
-  const expiresAt = record.status === "PAID" ? record.updatedAt : open ? record.quote!.expiresAt : null;
+  // PAYMENT_STARTED tracks the 30-minute ATTEMPT expiry (not the quote's, which can
+  // be days away), so a payment that was never recorded (tab closed, webhook lost)
+  // is found by checking Stripe within ~30 minutes.
+  const expiresAt =
+    record.status === "PAID"
+      ? record.updatedAt
+      : record.status === "PAYMENT_STARTED" && record.paymentAttempt
+        ? record.paymentAttempt.expiresAt
+        : open
+          ? record.quote!.expiresAt
+          : null;
   await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-set", {
     reference: record.reference,
     expiresAt,
@@ -849,7 +861,8 @@ async function ownerDetail(url: URL, env: ReadyEnv, origin: string | null, deps:
       ({ record, notifications } = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference));
     }
   }
-  return respond({ ok: true, request: toBespokeQuoteOwnerView(record!), notifications }, 200, origin);
+  const calendar = await bespokeCalendarStatus(env as BespokePaymentEnv, record!).catch(() => null);
+  return respond({ ok: true, request: toBespokeQuoteOwnerView(record!), notifications, ...(calendar ? { calendar } : {}) }, 200, origin);
 }
 
 function str(value: unknown): string | undefined {
@@ -863,7 +876,10 @@ function num(value: unknown): number | undefined {
 }
 
 /** Rebuild the action from known fields only — never pass a browser object through. */
-type OwnerOnlyAction = { type: "resend_quote_email" } | { type: "resend_notification"; kind: "acknowledgement" | "expiry" };
+type OwnerOnlyAction =
+  | { type: "resend_quote_email" }
+  | { type: "resend_notification"; kind: "acknowledgement" | "expiry" }
+  | { type: "retry_calendar" };
 
 function buildOwnerAction(raw: Record<string, unknown>): BespokeQuoteAction | OwnerOnlyAction | null {
   switch (raw.type) {
@@ -894,6 +910,8 @@ function buildOwnerAction(raw: Record<string, unknown>): BespokeQuoteAction | Ow
       };
     case "resend_quote_email":
       return { type: "resend_quote_email" };
+    case "retry_calendar":
+      return { type: "retry_calendar" };
     case "resend_notification": {
       const kind = raw.kind === "acknowledgement" || raw.kind === "expiry" ? raw.kind : null;
       return kind ? { type: "resend_notification", kind } : null;
@@ -935,6 +953,19 @@ async function ownerAction(request: Request, env: ReadyEnv, origin: string | nul
   const raw = body.action;
   const built = raw && typeof raw === "object" ? buildOwnerAction(raw as Record<string, unknown>) : null;
   if (!built) return respond({ error: "Unknown action." }, 400, origin);
+
+  if (built.type === "retry_calendar") {
+    // Safe to repeat: the calendar event id is derived from the payment reference.
+    const state = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);
+    if (!state.record) return respond({ error: "Request not found" }, 404, origin);
+    const retried = await retryBespokeCalendar(env as BespokePaymentEnv, state.record);
+    const calendar = await bespokeCalendarStatus(env as BespokePaymentEnv, state.record).catch(() => null);
+    return respond(
+      { ok: retried.ok, changed: false, calendarResult: retried.status, request: toBespokeQuoteOwnerView(state.record), notifications: state.notifications, ...(calendar ? { calendar } : {}) },
+      retried.ok ? 200 : 409,
+      origin,
+    );
+  }
 
   if (built.type === "resend_notification") {
     return ownerResendNotification(env, deps, origin, reference, built.kind, idempotencyKey);

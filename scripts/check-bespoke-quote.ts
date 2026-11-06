@@ -1037,7 +1037,14 @@ async function main(): Promise<void> {
   assert.match(quotationPage, /referrer: "no-referrer"/);
   assert.ok(!read("scripts/generate-sitemap.mjs").includes("/quotation/"), "quotation page is not in the sitemap");
   assert.match(read("workers/addresses/src/index.ts"), /env\.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON/, "expiry sweep is flag-gated");
-  for (const file of ["shared/a2a-quote-payment-email.ts", "shared/booking-notifications.ts", "workers/addresses/src/worker-email.ts", "shared/whatsapp-templates.ts"]) {
+  // booking-notifications.ts: only the approved PaidBookingDetails type marker (change #4);
+  // every email template in it stays free of bespoke code.
+  const notifications = read("shared/booking-notifications.ts");
+  const typeStart = notifications.indexOf("export type PaidBookingDetails = {");
+  const markerBlock = notifications.slice(typeStart, notifications.indexOf("bespokeQuoteReference?: string;", typeStart) + 40);
+  assert.ok(markerBlock.length < 800, "marker sits at the top of PaidBookingDetails");
+  assert.ok(!/bespoke/i.test(notifications.replace(markerBlock, "")), "no bespoke code in the airport email templates");
+  for (const file of ["shared/a2a-quote-payment-email.ts", "workers/addresses/src/worker-email.ts", "shared/whatsapp-templates.ts"]) {
     try {
       assert.ok(!/bespoke/i.test(read(file)), `${file} must not change for bespoke quotes`);
     } catch (error) {

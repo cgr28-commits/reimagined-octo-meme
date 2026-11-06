@@ -6,7 +6,7 @@
  * Run: npx tsx scripts/check-bespoke-payment.ts
  */
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHmac, generateKeyPairSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { BespokeQuoteCoordinator } from "../workers/addresses/src/bespoke-quote-coordinator";
 import { QuoteLeadCoordinator } from "../workers/addresses/src/quote-lead-coordinator";
@@ -34,6 +34,7 @@ function isoDate(daysAhead: number): string {
 
 const kv = new Map<string, { value: string; metadata?: unknown }>();
 let failNextPendingSave = false;
+let failNextPaidSave = false;
 const KV = {
   async get(key: string, type?: unknown) {
     const value = kv.get(key)?.value ?? null;
@@ -47,6 +48,10 @@ const KV = {
     if (failNextPendingSave && key.startsWith("pending-checkout:")) {
       failNextPendingSave = false;
       throw new Error("simulated crash while storing the checkout");
+    }
+    if (failNextPaidSave && key.startsWith("booking:ref:")) {
+      failNextPaidSave = false;
+      throw new Error("simulated storage failure while creating the booking");
     }
     kv.set(key, { value, metadata: opts?.metadata });
   },
@@ -131,6 +136,7 @@ type Session = {
 type Mail = { audience: string; to: string; subject: string; body: string };
 const mails: Mail[] = [];
 const sessions = new Map<string, Session>();
+const calendarEvents = new Map<string, unknown>();
 const idempotency = new Map<string, string>();
 const stripeCalls: string[] = [];
 const nonStripeCalls: string[] = [];
@@ -171,6 +177,19 @@ function createSessionDirect(reference: string, amountPence: number): Session {
 (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
   const url = String(input instanceof Request ? input.url : input);
   const method = (init.method ?? "GET").toUpperCase();
+  if (url.startsWith("https://oauth2.googleapis.com/token")) return Response.json({ access_token: "ya29.test", expires_in: 3600 });
+  const cal = /^https:\/\/www\.googleapis\.com\/calendar\/v3\/calendars\/[^/]+\/events(?:\/([^/?]+))?/.exec(url);
+  if (cal) {
+    if (method === "GET" && cal[1]) {
+      const ev = calendarEvents.get(decodeURIComponent(cal[1]));
+      return ev ? Response.json(ev) : new Response("not found", { status: 404 });
+    }
+    const body = JSON.parse(String(init.body ?? "{}")) as { id?: string };
+    const id = String(body.id ?? `google_${calendarEvents.size + 1}`);
+    if (calendarEvents.has(id)) return Response.json({ error: { code: 409 } }, { status: 409 });
+    calendarEvents.set(id, body);
+    return Response.json({ ...body, id });
+  }
   if (url === "https://api.resend.com/emails" && method === "POST") {
     // Real Worker email path (Resend), captured instead of sent.
     const payload = JSON.parse(String(init.body ?? "{}")) as { to?: string | string[]; subject?: string; text?: string };
@@ -244,6 +263,12 @@ const baseEnv = {
   STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
   GOOGLE_PLACES_API_KEY: "x",
   RESEND_API_KEY: "re_test_mock",
+  GOOGLE_CALENDAR_ID: "owner-calendar@example.com",
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: JSON.stringify({
+    client_email: "calendar@test.iam.gserviceaccount.com",
+    private_key: generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+    token_uri: "https://oauth2.googleapis.com/token",
+  }),
 };
 let env: BespokeQuoteEnv & Record<string, unknown> = { ...baseEnv };
 configureStripe({ STRIPE_SECRET_KEY: "sk_live_mock_never_sent" });
@@ -399,7 +424,9 @@ async function main() {
   assert.equal(d.request.bookingReference, paid!.customerReference, "CONFIRMED carries the booking reference");
   assert.match(paid!.notes ?? "", new RegExp(a.ref));
   assert.equal((await findTrackingJobsByPaymentReference(KV, payRef)).length, 1, "one job in Jobs");
-  assert.equal(calendarCalls, 1, "one calendar event");
+  assert.equal(calendarEvents.size, 1, "one calendar event (bespoke duplicate-safe calendar)");
+  assert.equal(calendarCalls, 0, "the airport calendar logger is never used for bespoke bookings");
+  assert.deepEqual(paid!.calendarEventIds, [...calendarEvents.keys()]);
   const newMails = mails.slice(mailsBefore);
   assert.equal(newMails.filter((m) => /Booking confirmed/.test(m.subject)).length, 1, "one confirmation email");
   assert.equal(newMails.filter((m) => /Paid and confirmed/.test(m.subject)).length, 1, "one owner alert");
@@ -411,7 +438,7 @@ async function main() {
   await webhook(c1.json.checkoutId);
   await finalizeBespokeCheckoutViaSharedPath(env, deps, c1.json.checkoutId);
   assert.equal((await detail(a.ref)).request.payments.length, 1);
-  assert.equal(calendarCalls, 1);
+  assert.equal(calendarEvents.size, 1, "still one calendar event after repeated finalisation");
   assert.equal(mails.length, mailsBefore + newMails.length, "no duplicate emails");
   assert.equal((await call("/bespoke-quotes/checkout", { token: a.token })).json.code, "already_paid");
   assert.equal(count("POST /refunds"), 0);
@@ -420,7 +447,7 @@ async function main() {
   const e = await quotedRequest(99);
   const ce = await call("/bespoke-quotes/checkout", { token: e.token });
   pay(ce.json.checkoutId);
-  calendarFailNext = true;
+  failNextPaidSave = true;
   await call("/bespoke-quotes/payment-status", { token: e.token, checkoutId: ce.json.checkoutId });
   let de = await detail(e.ref);
   assert.equal(de.request.status, "PAID", "money recorded, not confirmed without a booking (I2, I3)");
@@ -570,6 +597,30 @@ async function main() {
   await runBespokeExpirySweep(env, deps as never);
   assert.equal((await detail(un.ref)).request.status, "EXPIRED", "released after the Stripe session lifetime");
   clock.offsetMs = 0;
+
+  console.log("=== 10b. Paid, but never recorded (tab closed, webhook lost) — long-validity quote ===");
+  clock.offsetMs = 0;
+  const lw = await quotedRequest(93, 24 * 7);
+  const clw = await call("/bespoke-quotes/checkout", { token: lw.token });
+  pay(clw.json.checkoutId); // no browser return, no webhook
+  clock.offsetMs = 31 * 60_000; // just past the 30-minute checkout attempt
+  const sweep3 = await runBespokeExpirySweep(env, deps as never);
+  assert.equal(sweep3.paymentsFound, 1, `found within ~30 minutes, not at the 7-day quote expiry: ${JSON.stringify(sweep3)}`);
+  const dlw = await detail(lw.ref);
+  assert.equal(dlw.request.status, "CONFIRMED");
+  assert.equal(dlw.request.payments.length, 1);
+  // Unpaid long-validity checkout: session expired, quote back to QUOTED (still valid), re-payable.
+  clock.offsetMs = 0;
+  const lu = await quotedRequest(94, 24 * 7);
+  const clu = await call("/bespoke-quotes/checkout", { token: lu.token });
+  clock.offsetMs = 31 * 60_000;
+  await runBespokeExpirySweep(env, deps as never);
+  assert.equal(sessions.get(clu.json.checkoutId)!.status, "expired", "abandoned session closed");
+  assert.equal((await detail(lu.ref)).request.status, "QUOTED", "quote still valid and payable again");
+  clock.offsetMs = 0;
+  const again = await call("/bespoke-quotes/checkout", { token: lu.token });
+  assert.equal(again.status, 200);
+  assert.notEqual(again.json.checkoutId, clu.json.checkoutId, "a fresh session; the old one can no longer be paid");
 
   console.log("=== 11. Stripe only: never SumUp ===");
   const noStripeEnv = { ...baseEnv, PAYMENT_PROVIDER: "", STRIPE_SECRET_KEY: "", SUMUP_API_KEY: "sumup_live_x", SUMUP_MERCHANT_CODE: "M1" };

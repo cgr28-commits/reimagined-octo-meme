@@ -121,6 +121,8 @@ export function airportPickupReminderInput(
     returnCancelledAt: paid?.returnCancelledAt,
     journeyStatus: job.journeyStatus,
     isRefundTest: paid?.isRefundTest,
+    // Explicit type from the paid record, or the tracking job if the record is unavailable.
+    bookingType: paid?.bookingType ?? job.bookingType,
     assignedDriverMobile: job.assignedDriverMobile,
     customerReference: paid?.customerReference,
   };
