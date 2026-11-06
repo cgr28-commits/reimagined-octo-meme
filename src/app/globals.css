@@ -2428,8 +2428,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-homepage-quote-fields] {
     display: grid;
     grid-template-columns:
-      minmax(0, 1.6fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.9fr)
-      minmax(0, 0.95fr) minmax(0, 0.95fr) auto;
+      minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr)
+      minmax(0, 0.85fr) minmax(0, 0.85fr) auto;
     column-gap: 0.75rem;
     row-gap: 0.35rem;
     align-items: start;
@@ -2469,7 +2469,13 @@ body:has(.cookie-consent-banner--modal) {
   }
 
   /* Fields: comfortable 48px controls with matching label rows. */
-  .homepage-hero [data-homepage-quote-fields] .form-label { margin-bottom: 0.35rem; min-height: 1.1rem; }
+  /* Labels get room for two lines (e.g. "Scheduled flight arrival time") and sit on
+     the bottom of that space, so every box in the row lines up. */
+  .homepage-hero [data-homepage-quote-fields] .form-label {
+    display: flex; align-items: flex-end; min-height: 2.05rem; margin-bottom: 0.35rem;
+    font-size: 0.72rem; line-height: 1.1; letter-spacing: 0.06em;
+  }
+  .homepage-hero [data-homepage-quote-fields] div:has(> .form-label):not(.form-label) { margin-bottom: 0; }
   .homepage-hero [data-homepage-quote-fields] input.address-input,
   .homepage-hero [data-homepage-quote-fields] input.quote-datetime-input,
   .homepage-hero [data-homepage-quote-fields] select,
