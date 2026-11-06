@@ -66,6 +66,17 @@ const READ_COPY =
 
 const MEET_COPY = "Your driver will then meet you at the designated pickup location.";
 
+// Meet & Greet: the driver waits inside Arrivals, so the customer has nowhere
+// to go and no need to call when they land.
+const MEET_GREET_READ_COPY =
+  "Please read the information below, as it explains where your driver will meet you.";
+const MEET_GREET_WHERE_COPY =
+  "After collecting your baggage, go through to the arrivals hall. Your driver will be waiting there with a name board showing your name, and will help you with your luggage.";
+const MEET_GREET_HELP_HEADING = "IF YOU CAN'T SEE YOUR DRIVER";
+const MEET_GREET_HELP_COPY =
+  "You don't need to go anywhere else or contact us when you land. We monitor your flight, so your driver will be in arrivals waiting for you.";
+const MEET_GREET_CONTACT_INTRO = "If you can't see your driver in arrivals, please contact us:";
+
 export type AirportPickupReminderLeg = "outbound" | "return";
 
 export type AirportPickupReminderInput = {
@@ -164,6 +175,11 @@ export function airportPickupWhatsAppDraft(input: AirportPickupReminderInput): s
       : terminal === "T2"
         ? `${airportName}, Terminal 2`
         : airportName;
+  const meetGreet =
+    airport === "DUB" ? dublinPaidMeetGreet(input) : resolveReminderAirportAccess(input, airport) === "meet-greet";
+  if (meetGreet) {
+    return `${who} I have arrived at ${place} and I can't see my driver in arrivals for ${booking}.`;
+  }
   return `${who} I have arrived at ${place} and I'm now at the pickup location for ${booking}.`;
 }
 
@@ -392,12 +408,14 @@ export function buildAirportPickupReminderMessage(
   const belfastExpress = (airport === "BFS" || airport === "BHD") && resolveReminderAirportAccess(input, airport) === "express";
   const expressMeetingPoint = airport === "BHD" ? "Express Pick-Up & Drop-Off area" : "Drop-Off Zone";
   const whatsAppHref = airportPickupWhatsAppHref(input);
+  const meetGreet =
+    airport === "DUB" ? dublinPaidMeetGreet(input) : resolveReminderAirportAccess(input, airport) === "meet-greet";
   const lines = [
     airportPickupReminderGreeting(input.customerName),
     "",
     INTRO_COPY,
     "",
-    READ_COPY,
+    meetGreet ? MEET_GREET_READ_COPY : READ_COPY,
     "",
     "YOUR COLLECTION",
     `Airport: ${airportName}`,
@@ -405,10 +423,12 @@ export function buildAirportPickupReminderMessage(
     ...(option ? [`Collection option: ${option}`] : []),
     "",
     "WHERE TO GO",
-    directions,
+    meetGreet ? MEET_GREET_WHERE_COPY : directions,
     "",
-    "WHEN YOU ARE READY",
-    airport === "DUB"
+    meetGreet ? MEET_GREET_HELP_HEADING : "WHEN YOU ARE READY",
+    meetGreet
+      ? MEET_GREET_HELP_COPY
+      : airport === "DUB"
       ? "Please contact your driver to let them know you have collected your baggage and are waiting in Arrivals."
       : belfastExpress
       ? `Please contact your driver once you are at the ${expressMeetingPoint} and ready to be collected, so they can drive over to meet you.`
@@ -418,7 +438,9 @@ export function buildAirportPickupReminderMessage(
   if (whatsAppHref) {
     lines.push(
       "",
-      (belfastExpress || airport === "DUB") ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
+      meetGreet
+        ? MEET_GREET_CONTACT_INTRO
+        : (belfastExpress || airport === "DUB") ? "If you need help contacting your driver, please contact us:" : CONTACT_INTRO,
       "",
       "MESSAGE US ON WHATSAPP",
       whatsAppHref,
@@ -428,7 +450,13 @@ export function buildAirportPickupReminderMessage(
     );
   }
 
-  lines.push("", airport === "DUB" ? "Your driver will meet you in Arrivals." : MEET_COPY, "", "We look forward to welcoming you.", "", BUSINESS_NAME);
+  lines.push(
+    "",
+    ...(meetGreet ? [] : [airport === "DUB" ? "Your driver will meet you in Arrivals." : MEET_COPY, ""]),
+    "We look forward to welcoming you.",
+    "",
+    BUSINESS_NAME,
+  );
   return lines.join("\n");
 }
 
@@ -543,10 +571,10 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
       }).join("");
       return `<div style="margin:20px 0;">${sectionTitle("Your collection")}<table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table></div>`;
     }
-    let safe = escapeHtml(lines.slice(heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY" ? 1 : 0).join("\n")).replace(/\n/g, "<br />");
+    let safe = escapeHtml(lines.slice(heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY" || heading === MEET_GREET_HELP_HEADING ? 1 : 0).join("\n")).replace(/\n/g, "<br />");
     safe = safe.replace(BUSINESS_PHONE_DISPLAY, `<a href="tel:${BUSINESS_PHONE_TEL}" style="color:${navy};">${BUSINESS_PHONE_DISPLAY}</a>`);
     safe = safe.replace(BUSINESS_LANDLINE_DISPLAY, `<a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${navy};">${BUSINESS_LANDLINE_DISPLAY}</a>`);
-    if (heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY") {
+    if (heading === "WHERE TO GO" || heading === "WHEN YOU ARE READY" || heading === MEET_GREET_HELP_HEADING) {
       const showMap = heading === "WHERE TO GO" && mapAfterDirections && Boolean(mapHtml);
       if (showMap) mapPlaced = true;
       return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"><tr><td style="padding:20px 24px;">${sectionTitle(heading)}<div style="font-size:14px;line-height:1.8;color:#475569;">${safe}</div>${showMap ? mapHtml : ""}</td></tr></table>`;
