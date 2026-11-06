@@ -101,6 +101,7 @@ export default function StripeCardPayClient() {
   const [journey, setJourney] = useState<JourneySummary | null>(null);
   const checkoutRef = useRef<StripeCheckout | null>(null);
   const expressStateRef = useRef<{ ready: boolean; wallets: boolean }>({ ready: false, wallets: false });
+  const startedRef = useRef(false);
 
   // Apple Pay / Google Pay / Link must pass their confirm event to Stripe.
   async function confirmPayment(expressEvent?: Record<string, unknown>) {
