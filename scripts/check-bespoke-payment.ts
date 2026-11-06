@@ -112,7 +112,23 @@ function namespace<T extends { fetch(r: Request): Promise<Response> }>(make: () 
     },
   } as unknown as DurableObjectNamespace;
 }
-const BESPOKE_NS = namespace(() => new TestBespokeCoordinator(fakeState()));
+const BESPOKE_NS_INNER = namespace(() => new TestBespokeCoordinator(fakeState()));
+let failNextRecordPayment = false;
+const BESPOKE_NS = {
+  idFromName: (name: string) => BESPOKE_NS_INNER.idFromName(name),
+  get: (id: DurableObjectId) => {
+    const stub = BESPOKE_NS_INNER.get(id);
+    return {
+      fetch: async (url: string, init?: RequestInit) => {
+        if (failNextRecordPayment && String(url).endsWith("/apply") && String(init?.body ?? "").includes("system_record_payment")) {
+          failNextRecordPayment = false;
+          throw new Error("simulated Durable Object outage while recording the payment");
+        }
+        return stub.fetch(url, init);
+      },
+    };
+  },
+} as unknown as DurableObjectNamespace;
 const LEAD_NS = namespace(() => new QuoteLeadCoordinator(fakeState()));
 
 // ---------------------------------------------------------------------------
@@ -234,6 +250,12 @@ function createSessionDirect(reference: string, amountPence: number): Session {
     if (s.status !== "open") return Response.json({ error: { message: "Only open sessions can be expired" } }, { status: 400 });
     s.status = "expired";
     return Response.json(s);
+  }
+  if (method === "GET" && path === "/checkout/sessions") {
+    const q = new URL(url).searchParams;
+    const since = Number(q.get("created[gte]") ?? 0);
+    const data = [...sessions.values()].filter((x) => (!q.get("status") || x.status === q.get("status")) && x.created >= since);
+    return Response.json({ object: "list", data, has_more: false });
   }
   const get = /^\/checkout\/sessions\/([^/]+)$/.exec(path);
   if (method === "GET" && get) {
@@ -621,6 +643,67 @@ async function main() {
   const again = await call("/bespoke-quotes/checkout", { token: lu.token });
   assert.equal(again.status, 200);
   assert.notEqual(again.json.checkoutId, clu.json.checkoutId, "a fresh session; the old one can no longer be paid");
+
+  console.log("=== 10c. Webhook acknowledged, but recording the payment failed ===");
+  clock.offsetMs = 0;
+  const wf = await quotedRequest(95, 48);
+  const cwf = await call("/bespoke-quotes/checkout", { token: wf.token });
+  pay(cwf.json.checkoutId);
+  failNextRecordPayment = true;
+  const hookRes = await webhook(cwf.json.checkoutId);
+  assert.equal(hookRes.status, 200, "the existing webhook route acknowledges even when processing failed");
+  assert.equal((await detail(wf.ref)).request.payments.length, 0, "payment not recorded yet");
+  clock.offsetMs = 31 * 60_000;
+  const sweepWf = await runBespokeExpirySweep(env, deps as never);
+  assert.ok(sweepWf.paymentsFound >= 1, JSON.stringify(sweepWf));
+  assert.equal((await detail(wf.ref)).request.status, "CONFIRMED", "recovered by the sweep");
+  clock.offsetMs = 0;
+
+  console.log("=== 10d. Owner cancelled while the customer was paying, webhook processing failed ===");
+  const cp = await quotedRequest(96, 48);
+  const ccp = await call("/bespoke-quotes/checkout", { token: cp.token });
+  pay(ccp.json.checkoutId); // payment completes…
+  await owner(cp.ref, { type: "owner_cancel", note: "cancelled at the same moment" }); // …session expiry now fails (already complete)
+  assert.equal((await detail(cp.ref)).request.status, "CANCELLED");
+  const sweepCp = await runBespokeExpirySweep(env, deps as never); // no webhook at all
+  assert.ok(sweepCp.awaitingPaymentCheck >= 1, JSON.stringify(sweepCp));
+  const dcp = await detail(cp.ref);
+  assert.equal(dcp.request.payments.length, 1, "payment after cancellation is recorded, not lost");
+  assert.equal(dcp.request.status, "PAYMENT_REVIEW");
+  assert.ok(dcp.request.review.reasons.includes("paid_after_cancellation"));
+  // Cancelled and NOT paid: session expired, attempt closed, nothing left to watch.
+  const cn = await quotedRequest(97, 48);
+  const ccn = await call("/bespoke-quotes/checkout", { token: cn.token });
+  await owner(cn.ref, { type: "owner_cancel", note: "no driver" });
+  await runBespokeExpirySweep(env, deps as never);
+  const dcn = await detail(cn.ref);
+  assert.equal(dcn.request.paymentAttempt, undefined, "attempt closed once Stripe confirms the session is expired");
+  assert.equal(sessions.get(ccn.json.checkoutId)!.status, "expired");
+  const quietCn = await runBespokeExpirySweep(env, deps as never);
+  assert.equal(quietCn.awaitingPaymentCheck, 0, "no longer watched");
+
+  console.log("=== 10e. Our own tracking lost entirely → hourly Stripe backstop ===");
+  const bs = await quotedRequest(98, 48);
+  const cbs = await call("/bespoke-quotes/checkout", { token: bs.token });
+  pay(cbs.json.checkoutId);
+  // Simulate every write we rely on having failed: registry entry and pending record gone.
+  await BESPOKE_NS.get(BESPOKE_NS.idFromName("registry:open-quotes")).fetch("https://bespoke-quote/registry-set", {
+    method: "POST",
+    body: JSON.stringify({ reference: bs.ref, expiresAt: null }),
+  });
+  kv.delete(`pending-checkout:${cbs.json.checkoutId}`);
+  clock.offsetMs = 31 * 60_000;
+  const noRegistry = await runBespokeExpirySweep(env, deps as never, { now: new Date(Date.now() - 3 * 3_600_000) });
+  assert.equal((await detail(bs.ref)).request.payments.length, noRegistry.backstopRecovered > 0 ? 1 : 0);
+  const backstop = await runBespokeExpirySweep(env, deps as never, { now: new Date(Date.now() + 7 * 3_600_000) });
+  const dbs = await detail(bs.ref);
+  assert.equal(dbs.request.payments.length, 1, `Stripe backstop recorded it: ${JSON.stringify(backstop)}`);
+  assert.ok(["CONFIRMED", "PAYMENT_REVIEW"].includes(dbs.request.status), dbs.request.status);
+  const again2 = await runBespokeExpirySweep(env, deps as never, { now: new Date(Date.now() + 9 * 3_600_000) });
+  assert.equal(again2.backstopRecovered, 0, "backstop is idempotent");
+  assert.equal((await detail(bs.ref)).request.payments.length, 1);
+  assert.ok(!stripeCalls.some((c) => c.startsWith("POST /refunds")), "never refunds");
+  clock.offsetMs = 0;
 
   console.log("=== 11. Stripe only: never SumUp ===");
   const noStripeEnv = { ...baseEnv, PAYMENT_PROVIDER: "", STRIPE_SECRET_KEY: "", SUMUP_API_KEY: "sumup_live_x", SUMUP_MERCHANT_CODE: "M1" };

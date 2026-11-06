@@ -709,6 +709,8 @@ export type BespokeQuoteAction =
   | { type: "system_begin_payment"; quoteVersion: number; attemptId: string; tokenHash: string }
   | { type: "system_attach_checkout"; attemptId: string; checkoutId: string; paymentUrl?: string }
   | { type: "system_release_payment_attempt"; attemptId: string; reason: string }
+  /** Cancelled/declined with a checkout that Stripe confirms was never paid: forget the attempt. */
+  | { type: "system_close_cancelled_attempt"; attemptId: string; reason: string }
   | { type: "system_record_payment"; paymentReference: string; checkoutId?: string; amountGbp: number }
   | { type: "system_mark_booked"; bookingReference: string };
 
@@ -991,6 +993,18 @@ export function applyBespokeQuoteAction(
       }
       delete record.paymentAttempt;
       return commit("system", isBespokeQuoteExpired(record, now) ? "EXPIRED" : "QUOTED", note(action.reason, 200));
+    }
+
+    case "system_close_cancelled_attempt": {
+      const attempt = record.paymentAttempt;
+      if (!["CANCELLED", "DECLINED"].includes(from) || !attempt || attempt.attemptId !== action.attemptId) {
+        return unchanged("nothing_to_close");
+      }
+      if (attempt.checkoutId && record.payments.some((p) => p.checkoutId === attempt.checkoutId)) {
+        return fail("payment_recorded", "A payment is already recorded for this checkout.");
+      }
+      delete record.paymentAttempt;
+      return commit("system", from, note(action.reason, 200));
     }
 
     case "system_record_payment": {

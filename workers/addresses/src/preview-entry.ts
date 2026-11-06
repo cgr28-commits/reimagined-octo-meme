@@ -17,6 +17,7 @@
  */
 
 import worker from "./index";
+import { corsHeaders } from "../shared/google-places";
 
 export { RefundCoordinator, QuoteLeadCoordinator, MeetGreetCoordinator, ConsentLedger, BespokeQuoteCoordinator } from "./index";
 
@@ -25,6 +26,8 @@ type PreviewEnv = Record<string, unknown> & {
   STRIPE_SECRET_KEY?: string;
   PREVIEW_EMAIL_ALLOWLIST?: string;
   PREVIEW_EXTRA_ALLOWED_HOSTS?: string;
+  /** The ONE website allowed to call this preview Worker (exact https origin, no wildcard). */
+  PREVIEW_SITE_ORIGIN?: string;
 };
 
 /** Hosts the preview may call. Everything else is blocked. */
@@ -49,7 +52,38 @@ export function previewMisconfiguration(env: PreviewEnv): string | null {
   const key = String(env.STRIPE_SECRET_KEY ?? "").trim();
   if (key && !/^(sk|rk)_test_/.test(key)) return "STRIPE_SECRET_KEY must be a Stripe TEST key on preview";
   if (!String(env.PREVIEW_EMAIL_ALLOWLIST ?? "").trim()) return "PREVIEW_EMAIL_ALLOWLIST must list the tester inboxes";
+  if (!isExactHttpsOrigin(env.PREVIEW_SITE_ORIGIN)) return "PREVIEW_SITE_ORIGIN must be one exact https origin (no wildcard, no path)";
   return null;
+}
+
+/** "https://host" only — no wildcard, path, query, port or trailing slash. */
+export function isExactHttpsOrigin(value: unknown): value is string {
+  if (typeof value !== "string" || value.includes("*")) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.port && url.origin === value && /^[a-z0-9.-]+$/.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * CORS on preview: ONLY PREVIEW_SITE_ORIGIN may read responses. The production
+ * allow-list (shared/google-places.ts) is left unchanged; this wrapper overrides
+ * it for the preview Worker alone, so neither the live website nor any other
+ * site can call the preview API from a browser.
+ */
+function previewCors(response: Response, requestOrigin: string | null, siteOrigin: string): Response {
+  const out = new Response(response.body, response);
+  if (requestOrigin === siteOrigin) {
+    out.headers.set("Access-Control-Allow-Origin", siteOrigin);
+    out.headers.set("Access-Control-Allow-Credentials", "true");
+    out.headers.set("Vary", "Origin");
+  } else {
+    out.headers.delete("Access-Control-Allow-Origin");
+    out.headers.delete("Access-Control-Allow-Credentials");
+  }
+  return out;
 }
 
 function emailsIn(value: unknown): string[] {
@@ -124,7 +158,23 @@ export default {
     const problem = previewMisconfiguration(env);
     if (problem) return refuse(problem);
     installPreviewOutboundGuard(env);
-    return worker.fetch(request, env as never, ctx);
+    const siteOrigin = env.PREVIEW_SITE_ORIGIN as string;
+    const origin = request.headers.get("Origin");
+    if (request.method === "OPTIONS") {
+      if (origin !== siteOrigin) return new Response(null, { status: 403 });
+      const base = corsHeaders(siteOrigin) as Record<string, string>;
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": siteOrigin,
+          "Access-Control-Allow-Methods": base["Access-Control-Allow-Methods"] ?? "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": base["Access-Control-Allow-Headers"] ?? "Content-Type",
+          "Access-Control-Allow-Credentials": "true",
+          Vary: "Origin",
+        },
+      });
+    }
+    return previewCors(await worker.fetch(request, env as never, ctx), origin, siteOrigin);
   },
   async scheduled(event: ScheduledEvent, env: PreviewEnv, ctx: ExecutionContext): Promise<void> {
     const problem = previewMisconfiguration(env);

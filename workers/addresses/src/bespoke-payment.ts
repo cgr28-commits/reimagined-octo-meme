@@ -331,6 +331,26 @@ export async function finalizeBespokeCheckout(input: {
   logPaidBookingCalendar?: LogPaidBookingCalendarFn;
   deps?: BespokePaymentDeps;
 }): Promise<FinalizePaidCheckoutResult> {
+  // NEVER throw from here: the shared per-checkout payment claim keeps its lock
+  // when the work throws (for manual reconciliation), which would block every
+  // later retry — including the recovery sweep — for this checkout. A failure
+  // instead returns paid:false, which releases the claim so the next call retries.
+  try {
+    return await finalizeBespokeCheckoutUnsafe(input);
+  } catch (error) {
+    console.error("bespoke finalize failed; will retry", input.pending.bespokeQuoteReference, error instanceof Error ? error.message : "unknown");
+    return result({ ok: false, paid: false, error: "Bespoke payment not yet recorded (temporary error); will retry" });
+  }
+}
+
+async function finalizeBespokeCheckoutUnsafe(input: {
+  env: BespokePaymentEnv;
+  checkoutId: string;
+  pending: PendingCheckoutRecord;
+  checkout?: SumUpCheckoutDetails;
+  logPaidBookingCalendar?: LogPaidBookingCalendarFn;
+  deps?: BespokePaymentDeps;
+}): Promise<FinalizePaidCheckoutResult> {
   const env = ready(input.env);
   const reference = input.pending.bespokeQuoteReference ?? "";
   const deps: BespokePaymentDeps = { ...(input.deps ?? {}), logPaidBookingCalendar: input.logPaidBookingCalendar ?? input.deps?.logPaidBookingCalendar };
@@ -616,8 +636,7 @@ export async function reconcileBespokeAttempt(
   const checkout = await getSumUpCheckout("stripe", attempt.checkoutId).catch(() => null);
   if (!checkout) return "wait";
   if (isSumUpCheckoutPaid(checkout)) {
-    await finalizeBespokeCheckoutViaSharedPath(env, deps, attempt.checkoutId);
-    return "paid";
+    return (await finalizeAndConfirmRecorded(env, deps, reference, attempt.checkoutId)) ? "paid" : "wait";
   }
   if (checkout.status === "PENDING") {
     try {
@@ -626,8 +645,7 @@ export async function reconcileBespokeAttempt(
       // Expiry refused — most likely completed meanwhile. Re-check and finalise.
       const again = await getSumUpCheckout("stripe", attempt.checkoutId).catch(() => null);
       if (again && isSumUpCheckoutPaid(again)) {
-        await finalizeBespokeCheckoutViaSharedPath(env, deps, attempt.checkoutId);
-        return "paid";
+        return (await finalizeAndConfirmRecorded(env, deps, reference, attempt.checkoutId)) ? "paid" : "wait";
       }
       return "wait";
     }
@@ -739,4 +757,140 @@ export async function retryBespokeCalendar(
     if (eventId) await attachCalendarEventIdToTrackingJob(store, job.token, eventId);
   }
   return { ok: true, status: "logged", eventIds: calendar.eventIds };
+}
+
+// ---------------------------------------------------------------------------
+// D. Cancelled while at checkout — settle with Stripe before forgetting it
+// ---------------------------------------------------------------------------
+
+/**
+ * The owner cancelled (or declined) while a Stripe session was open. Cancel tries
+ * to expire the session, but if the customer was paying at that moment the
+ * expiry fails and the payment completes. If the webhook's processing then fails
+ * (the route still answers 200, so Stripe never retries), nothing else would
+ * look at this request again. The sweep keeps it listed until Stripe settles it:
+ *   paid    → recorded (→ owner review: paid after cancellation)
+ *   open    → session expired now, then the attempt is closed
+ *   expired → attempt closed
+ */
+export async function reconcileCancelledCheckout(
+  rawEnv: BespokePaymentEnv,
+  deps: BespokePaymentDeps,
+  reference: string,
+): Promise<"paid" | "closed" | "wait" | "nothing"> {
+  const env = ready(rawEnv);
+  if (!env) return "nothing";
+  configureStripe(env);
+  const record = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference)).record;
+  const attempt = record?.paymentAttempt;
+  if (!record || !attempt || !["CANCELLED", "DECLINED"].includes(record.status)) return "nothing";
+  const close = async (reason: string) => {
+    const closed = await applyAction(env, deps, reference, { type: "system_close_cancelled_attempt", attemptId: attempt.attemptId, reason });
+    return closed.ok ? ("closed" as const) : ("wait" as const);
+  };
+  if (!attempt.checkoutId || !isStripeCheckoutId(attempt.checkoutId)) {
+    return nowOf(deps).getTime() - Date.parse(attempt.startedAt) >= UNKNOWN_SESSION_RELEASE_AFTER_MS
+      ? close("cancelled; no checkout session known; past Stripe session lifetime")
+      : "wait";
+  }
+  const checkout = await getSumUpCheckout("stripe", attempt.checkoutId).catch(() => null);
+  if (!checkout) return "wait";
+  if (isSumUpCheckoutPaid(checkout)) {
+    return (await finalizeAndConfirmRecorded(env, deps, reference, attempt.checkoutId)) ? "paid" : "wait";
+  }
+  if (checkout.status === "PENDING") {
+    try {
+      await expireStripeCheckoutSession(attempt.checkoutId);
+    } catch {
+      const again = await getSumUpCheckout("stripe", attempt.checkoutId).catch(() => null);
+      if (again && isSumUpCheckoutPaid(again)) {
+        return (await finalizeAndConfirmRecorded(env, deps, reference, attempt.checkoutId)) ? "paid" : "wait";
+      }
+      return "wait";
+    }
+  }
+  return close("cancelled; Stripe session expired unpaid");
+}
+
+// ---------------------------------------------------------------------------
+// E. Stripe backstop — Stripe itself is the source of truth
+// ---------------------------------------------------------------------------
+
+export type StripeBackstopResult = { ran: boolean; sessionsChecked: number; bespokeSessions: number; recovered: number; errors: number };
+
+/**
+ * Hourly: ask Stripe for checkout sessions completed in the last `hours`, and make
+ * sure every bespoke one (client reference "bq-…") is recorded. Independent of our
+ * own pending records, registry and index, so a payment cannot stay unrecorded
+ * because one of those writes failed or a webhook was acknowledged but not
+ * processed. Idempotent: an already-recorded payment is a no-op.
+ * Read-only towards Stripe (GET only). Airport sessions are ignored.
+ */
+export async function runBespokeStripeBackstop(
+  rawEnv: BespokePaymentEnv,
+  deps: BespokePaymentDeps,
+  options: { hours?: number; maxPages?: number } = {},
+): Promise<StripeBackstopResult> {
+  const result: StripeBackstopResult = { ran: false, sessionsChecked: 0, bespokeSessions: 0, recovered: 0, errors: 0 };
+  const env = ready(rawEnv);
+  const key = String(rawEnv.STRIPE_SECRET_KEY ?? "").trim();
+  if (!env || !key || !bespokeFeatureEnabled(env)) return result;
+  configureStripe(env);
+  result.ran = true;
+  const since = Math.floor(nowOf(deps).getTime() / 1000) - (options.hours ?? 48) * 3600;
+  let startingAfter = "";
+  for (let page = 0; page < (options.maxPages ?? 10); page++) {
+    const url = new URL("https://api.stripe.com/v1/checkout/sessions");
+    url.searchParams.set("status", "complete");
+    url.searchParams.set("limit", "100");
+    url.searchParams.set("created[gte]", String(since));
+    if (startingAfter) url.searchParams.set("starting_after", startingAfter);
+    let list: { data?: Array<{ id?: string; client_reference_id?: string | null; payment_status?: string }>; has_more?: boolean };
+    try {
+      const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${key}` } });
+      if (!response.ok) {
+        result.errors += 1;
+        break;
+      }
+      list = await response.json();
+    } catch {
+      result.errors += 1;
+      break;
+    }
+    for (const session of list.data ?? []) {
+      result.sessionsChecked += 1;
+      const parsed = parseBespokeCheckoutReference(session.client_reference_id);
+      if (!parsed || !session.id || !isStripeCheckoutId(session.id)) continue;
+      result.bespokeSessions += 1;
+      try {
+        const before = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, parsed.reference)).record;
+        const known = before?.payments.some((p) => p.checkoutId === session.id);
+        if (known) continue;
+        const pending = env.TRACKING_STORE ? await getPendingCheckout(env.TRACKING_STORE, session.id) : null;
+        if (pending?.checkoutKind === "bespoke") await finalizeBespokeCheckoutViaSharedPath(env, deps, session.id);
+        else await handleOrphanBespokePayment(env, deps, session.id);
+        const after = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, parsed.reference)).record;
+        if (after?.payments.some((p) => p.checkoutId === session.id)) result.recovered += 1;
+        else result.errors += 1;
+      } catch {
+        result.errors += 1;
+      }
+    }
+    const last = list.data?.[list.data.length - 1]?.id;
+    if (!list.has_more || !last) break;
+    startingAfter = last;
+  }
+  return result;
+}
+
+/** Finalise through the shared path, then confirm the payment really is recorded. */
+async function finalizeAndConfirmRecorded(
+  env: BespokePaymentEnv & BespokeReadyEnv,
+  deps: BespokePaymentDeps,
+  reference: string,
+  checkoutId: string,
+): Promise<boolean> {
+  await finalizeBespokeCheckoutViaSharedPath(env, deps, checkoutId).catch(() => null);
+  const after = (await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference)).record;
+  return Boolean(after?.payments.some((p) => p.checkoutId === checkoutId));
 }

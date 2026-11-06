@@ -63,6 +63,8 @@ import {
   retryBespokeCalendar,
   finalizeBespokeCheckoutViaSharedPath,
   reconcileBespokeAttempt,
+  reconcileCancelledCheckout,
+  runBespokeStripeBackstop,
   startBespokeCheckout,
   type BespokePaymentEnv,
 } from "./bespoke-payment";
@@ -390,8 +392,11 @@ async function updateRegistry(env: ReadyEnv, record: BespokeQuoteRecord): Promis
   // PAYMENT_STARTED tracks the 30-minute ATTEMPT expiry (not the quote's, which can
   // be days away), so a payment that was never recorded (tab closed, webhook lost)
   // is found by checking Stripe within ~30 minutes.
+  // Cancelled/declined while a Stripe session existed: keep it due until Stripe
+  // confirms that session was paid (recorded) or expired (attempt closed).
+  const cancelledWithCheckout = (record.status === "CANCELLED" || record.status === "DECLINED") && Boolean(record.paymentAttempt);
   const expiresAt =
-    record.status === "PAID"
+    record.status === "PAID" || cancelledWithCheckout
       ? record.updatedAt
       : record.status === "PAYMENT_STARTED" && record.paymentAttempt
         ? record.paymentAttempt.expiresAt
@@ -479,6 +484,9 @@ export type BespokeExpirySweepResult = {
   /** Paid requests whose booking creation is retried this run. */
   bookingRetries: number;
   bookingsCompleted: number;
+  /** Hourly Stripe backstop. */
+  backstopRan: boolean;
+  backstopRecovered: number;
   errors: number;
 };
 
@@ -491,7 +499,7 @@ export type BespokeExpirySweepResult = {
 export async function runBespokeExpirySweep(
   env: BespokeQuoteEnv,
   deps: BespokeQuoteDeps = {},
-  options: { limit?: number } = {},
+  options: { limit?: number; now?: Date } = {},
 ): Promise<BespokeExpirySweepResult> {
   const result: BespokeExpirySweepResult = {
     ran: false,
@@ -503,6 +511,8 @@ export async function runBespokeExpirySweep(
     attemptsReleased: 0,
     bookingRetries: 0,
     bookingsCompleted: 0,
+    backstopRan: false,
+    backstopRecovered: 0,
     errors: 0,
   };
   if (!bespokeFeatureEnabled(env) || !env.BESPOKE_QUOTE_COORDINATOR) return result;
@@ -516,7 +526,11 @@ export async function runBespokeExpirySweep(
   // expired, attempt released). Inconclusive → flagged and re-checked in 30 min.
   const checkPayment = async (reference: string) => {
     result.paymentChecks += 1;
-    const outcome = await reconcileBespokeAttempt(env as BespokePaymentEnv, deps, reference).catch(() => "wait" as const);
+    let outcome: string = await reconcileBespokeAttempt(env as BespokePaymentEnv, deps, reference).catch(() => "wait");
+    if (outcome === "nothing") {
+      const cancelled = await reconcileCancelledCheckout(env as BespokePaymentEnv, deps, reference).catch(() => "wait" as const);
+      outcome = cancelled === "closed" ? "released" : cancelled;
+    }
     if (outcome === "paid") result.paymentsFound += 1;
     else if (outcome === "released") result.attemptsReleased += 1;
     else if (outcome === "wait") toFlag.push(reference);
@@ -533,6 +547,11 @@ export async function runBespokeExpirySweep(
         if (applied.code === "not_found") {
           await callCoordinator(ready.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-set", { reference, expiresAt: null });
         } else result.errors += 1;
+        continue;
+      }
+      if ((applied.record.status === "CANCELLED" || applied.record.status === "DECLINED") && applied.record.paymentAttempt) {
+        result.awaitingPaymentCheck += 1;
+        await checkPayment(reference);
         continue;
       }
       if (applied.record.status === "PAID") {
@@ -559,6 +578,21 @@ export async function runBespokeExpirySweep(
   }
   if (toFlag.length > 0) {
     await callCoordinator(ready.BESPOKE_QUOTE_COORDINATOR, REGISTRY_NAME, "registry-due", { limit: 1, flag: toFlag });
+  }
+  // Once an hour: Stripe itself is checked for completed bespoke sessions we have
+  // not recorded (independent of registry, index and pending records).
+  const hourBucket = Math.floor((options.now ?? new Date()).getTime() / 3_600_000);
+  const claim = await callCoordinator<{ claimed?: boolean }>(ready.BESPOKE_QUOTE_COORDINATOR, `backstop:${hourBucket}`, "claim", {
+    value: "stripe-backstop",
+    ttlSeconds: 7200,
+  }).catch(() => ({ claimed: false }));
+  if (claim.claimed) {
+    const backstop = await runBespokeStripeBackstop(env as BespokePaymentEnv, deps).catch(() => null);
+    if (backstop) {
+      result.backstopRan = backstop.ran;
+      result.backstopRecovered = backstop.recovered;
+      result.errors += backstop.errors;
+    }
   }
   return result;
 }

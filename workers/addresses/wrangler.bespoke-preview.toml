@@ -99,9 +99,13 @@ PAYMENT_PROVIDER = "stripe-test"
 STRIPE_TEST_EMAILS = "REPLACE_WITH_TESTER_EMAIL"
 # Bespoke emails are skipped for every other address.
 BESPOKE_EMAIL_ALLOWLIST = "REPLACE_WITH_TESTER_EMAIL"
+# The ONE website allowed to call this Worker (exact origin; CORS enforced in
+# src/preview-entry.ts). Proposed Cloudflare Pages project "matni-bespoke-preview"
+# — change all three lines together if the project gets a different host.
+PREVIEW_SITE_ORIGIN = "https://matni-bespoke-preview.pages.dev"
 # Customer quotation links point at the preview site, never the live site.
-SITE_ORIGIN = "https://REPLACE_WITH_PREVIEW_SITE_HOST"
-TURNSTILE_ALLOWED_HOSTNAMES = "REPLACE_WITH_PREVIEW_SITE_HOST"
+SITE_ORIGIN = "https://matni-bespoke-preview.pages.dev"
+TURNSTILE_ALLOWED_HOSTNAMES = "matni-bespoke-preview.pages.dev"
 # Stripe holds off for preview: Phase 3 charges immediately.
 STRIPE_HOLDS_ENABLED = "false"
 WHATSAPP_BOT_ENABLED = "false"

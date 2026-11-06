@@ -18,6 +18,7 @@ const goodEnv = {
   PREVIEW_ENVIRONMENT: "bespoke-preview",
   STRIPE_SECRET_KEY: "sk_test_preview",
   PREVIEW_EMAIL_ALLOWLIST: TESTER,
+  PREVIEW_SITE_ORIGIN: "https://matni-bespoke-preview.pages.dev",
 };
 
 async function main() {
@@ -31,11 +32,35 @@ async function main() {
   assert.equal((await entry.fetch(req(), { ...goodEnv, STRIPE_SECRET_KEY: "rk_live_real" } as never)).status, 503);
   assert.equal((await entry.fetch(req(), { ...goodEnv, PREVIEW_EMAIL_ALLOWLIST: "" } as never)).status, 503);
   assert.equal(preview.previewMisconfiguration(goodEnv), null);
+  for (const bad of ["https://*.pages.dev", "*", "https://matni-bespoke-preview.pages.dev/", "http://matni-bespoke-preview.pages.dev", "https://x.pages.dev/path", "https://x.pages.dev:8443", ""]) {
+    assert.notEqual(preview.previewMisconfiguration({ ...goodEnv, PREVIEW_SITE_ORIGIN: bad }), null, `origin "${bad}" refused`);
+  }
   let jobsRan = false;
   const origScheduled = (await import("../workers/addresses/src/index")).default.scheduled;
   void origScheduled;
   await entry.scheduled({ cron: "*/5 * * * *", scheduledTime: Date.now() } as never, { ...goodEnv, STRIPE_SECRET_KEY: "sk_live_x" } as never, { waitUntil() { jobsRan = true; } } as never);
   assert.equal(jobsRan, false, "no scheduled jobs on a misconfigured preview");
+
+  console.log("=== CORS: only the one preview website ===");
+  const site = goodEnv.PREVIEW_SITE_ORIGIN;
+  const pre = (origin: string) =>
+    entry.fetch(new Request("https://preview.example/bespoke-quotes/view", { method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "POST" } }), goodEnv as never);
+  const okPre = await pre(site);
+  assert.equal(okPre.status, 204);
+  assert.equal(okPre.headers.get("Access-Control-Allow-Origin"), site);
+  assert.match(okPre.headers.get("Access-Control-Allow-Headers") ?? "", /X-Owner-Key/);
+  for (const other of ["https://www.myairporttaxini.co.uk", "https://my-airport-taxi-ni-preview.pages.dev", "https://evil.example", "https://matni-bespoke-preview.pages.dev.evil.example"]) {
+    const r = await pre(other);
+    assert.equal(r.status, 403, `${other} preflight refused`);
+    assert.equal(r.headers.get("Access-Control-Allow-Origin"), null);
+    const get = await entry.fetch(new Request("https://preview.example/bespoke-quotes/view", { method: "POST", headers: { Origin: other, "Content-Type": "application/json" }, body: "{}" }), goodEnv as never);
+    assert.equal(get.headers.get("Access-Control-Allow-Origin"), null, `${other} cannot read preview responses`);
+  }
+  const fromSite = await entry.fetch(new Request("https://preview.example/bespoke-quotes/view", { method: "POST", headers: { Origin: site, "Content-Type": "application/json" }, body: "{}" }), goodEnv as never);
+  assert.equal(fromSite.headers.get("Access-Control-Allow-Origin"), site);
+  const prodCors = readFileSync("shared/google-places.ts", "utf8");
+  assert.ok(!prodCors.includes("matni-bespoke-preview"), "production CORS allow-list unchanged");
+  assert.ok(!/["'`]\*["'`]/.test(readFileSync("workers/addresses/src/preview-entry.ts", "utf8").replace(/value\.includes\("\*"\)/, "")), "no wildcard origin in the preview entry");
 
   console.log("=== Default-deny outbound guard ===");
   preview.installPreviewOutboundGuard(goodEnv);
