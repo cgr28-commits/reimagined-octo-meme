@@ -100,16 +100,7 @@ export default function StripeCardPayClient() {
   const [elementsReady, setElementsReady] = useState(false);
   const [journey, setJourney] = useState<JourneySummary | null>(null);
   const checkoutRef = useRef<StripeCheckout | null>(null);
-  const loadedPartsRef = useRef(new Set<string>());
-
-  // Reveal Apple Pay and the payment list together, so nothing jumps in later.
-  function markLoaded(part: "express" | "payment") {
-    loadedPartsRef.current.add(part);
-    if (loadedPartsRef.current.has("express") && loadedPartsRef.current.has("payment")) {
-      setElementsReady(true);
-    }
-  }
-  const startedRef = useRef(false);
+  const expressStateRef = useRef<{ ready: boolean; wallets: boolean }>({ ready: false, wallets: false });
 
   // Apple Pay / Google Pay / Link must pass their confirm event to Stripe.
   async function confirmPayment(expressEvent?: Record<string, unknown>) {
@@ -133,6 +124,32 @@ export default function StripeCardPayClient() {
       setMessage(error instanceof Error ? error.message : "Your payment didn't go through.");
       setView("ready");
     }
+  }
+
+  /**
+   * Stripe fires its "ready" events before the options are painted (the frames
+   * start ~2px tall). Keep the placeholder until the payment list frame and,
+   * when a wallet is offered, the Apple Pay / Google Pay button have real height.
+   */
+  function waitUntilDrawn() {
+    const started = Date.now();
+    const frameHeight = (id: string) =>
+      Math.max(
+        0,
+        ...Array.from(document.querySelectorAll<HTMLIFrameElement>(`#${id} iframe`)).map(
+          (frame) => frame.getBoundingClientRect().height,
+        ),
+      );
+    const timer = window.setInterval(() => {
+      const express = expressStateRef.current;
+      const paymentDrawn = frameHeight("stripe-payment-element") >= 48;
+      const expressDrawn = express.ready && (!express.wallets || frameHeight("stripe-express-checkout") >= 30);
+      // Never leave the customer stuck on the placeholder.
+      if ((paymentDrawn && expressDrawn) || Date.now() - started > 12000) {
+        window.clearInterval(timer);
+        setElementsReady(true);
+      }
+    }, 150);
   }
 
   useEffect(() => {
@@ -208,8 +225,9 @@ export default function StripeCardPayClient() {
         });
         express.on("ready", (event) => {
           const methods = event.availablePaymentMethods as Record<string, boolean> | undefined;
-          setWalletsShown(Boolean(methods && Object.values(methods).some(Boolean)));
-          markLoaded("express");
+          const wallets = Boolean(methods && Object.values(methods).some(Boolean));
+          expressStateRef.current = { ready: true, wallets };
+          setWalletsShown(wallets);
         });
         express.on("confirm", (event) => {
           void confirmPayment(event);
@@ -221,14 +239,12 @@ export default function StripeCardPayClient() {
         const payment = checkout.createPaymentElement({
           layout: { type: "accordion", spacedAccordionItems: true },
         });
-        payment.on("ready", () => markLoaded("payment"));
         payment.on("loaderror", () => {
           setMessage("The secure payment form couldn't load. Please refresh the page or contact us.");
           setElementsReady(true);
         });
-        // Never leave the customer stuck on the placeholder.
-        window.setTimeout(() => setElementsReady(true), 12000);
         payment.mount("#stripe-payment-element");
+        waitUntilDrawn();
         setView("ready");
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "We couldn't open this payment link.");
