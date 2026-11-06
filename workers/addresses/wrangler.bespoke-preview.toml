@@ -1,0 +1,103 @@
+# Isolated PREVIEW Worker for Event / Business Class bespoke quotes (Phase 3 testing).
+# DO NOT deploy until the owner approves. Nothing in CI or deploy-worker.yml uses this file.
+# Full proposal: docs/bespoke-quotes-preview-environment.md
+#
+# Isolation guarantees (by construction):
+# - Separate Worker name  → its own Durable Object namespaces and SQLite storage.
+#   (Durable Objects belong to the Worker script, so production quote/refund/
+#   consent objects are unreachable from here.)
+# - Separate KV namespaces → placeholders below must be NEW namespaces. Never paste
+#   the production KV ids from wrangler.toml (a test fails if they appear here).
+# - No [[send_email]] binding  → Cloudflare Email cannot send from here.
+# - PAYMENT_PROVIDER = "stripe-test" → Stripe ONLY for STRIPE_TEST_EMAILS, and the
+#   key must be a Stripe TEST key (sk_test_…). No SumUp secrets are set, so no other
+#   customer can reach a live card provider.
+# - BESPOKE_EMAIL_ALLOWLIST → bespoke emails only to the listed test inboxes.
+# - Turnstile: Cloudflare's documented TEST secret (always passes) — no real widget.
+#
+# Secrets to set ONLY on this Worker (after approval), e.g.
+#   npx wrangler secret put STRIPE_SECRET_KEY --config wrangler.bespoke-preview.toml
+#     STRIPE_SECRET_KEY          sk_test_… (Stripe test mode)
+#     STRIPE_WEBHOOK_SECRET      whsec_… from a TEST-mode webhook endpoint pointing here
+#     TURNSTILE_SECRET_KEY       1x0000000000000000000000000000000AA (Cloudflare test secret)
+#     OWNER_ACCESS_KEY           a NEW preview-only key (never the production key)
+#     RESEND_API_KEY             optional: a separate, restricted Resend key
+#     RESEND_DELIVERY_WEBHOOK_SECRET  optional: secret of a preview-only Resend webhook
+#     GOOGLE_PLACES_API_KEY      optional: a referrer-restricted key for address search
+# Never set on this Worker: SUMUP_API_KEY, SUMUP_MERCHANT_CODE, live Stripe keys,
+# GOOGLE_ADS_*, WHATSAPP_*/D360_API_KEY, DRIVER_ACCESS_KEY from production.
+
+name = "reimagined-octo-meme-bespoke-preview"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
+workers_dev = true
+
+# Replace after creating NEW isolated namespaces (owner approval first):
+#   npx wrangler kv namespace create BESPOKE_PREVIEW_TRACKING_STORE
+#   npx wrangler kv namespace create BESPOKE_PREVIEW_BOOKING_COUNTER
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "REPLACE_WITH_BESPOKE_PREVIEW_TRACKING_STORE_ID"
+
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "REPLACE_WITH_BESPOKE_PREVIEW_BOOKING_COUNTER_ID"
+
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
+
+[[durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"
+
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
+[[durable_objects.bindings]]
+name = "BESPOKE_QUOTE_COORDINATOR"
+class_name = "BespokeQuoteCoordinator"
+
+# Fresh script: one migration creates every class in THIS Worker only.
+[[migrations]]
+tag = "preview-v1"
+new_sqlite_classes = [
+  "RefundCoordinator",
+  "QuoteLeadCoordinator",
+  "MeetGreetCoordinator",
+  "ConsentLedger",
+  "BespokeQuoteCoordinator",
+]
+
+[build]
+command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
+
+[observability]
+enabled = true
+
+[vars]
+BESPOKE_QUOTES_ENABLED = "1"
+PAYMENT_PROVIDER = "stripe-test"
+# Comma-separated tester inboxes. Replace before deploy; only these can pay with Stripe test cards.
+STRIPE_TEST_EMAILS = "REPLACE_WITH_TESTER_EMAIL"
+# Bespoke emails are skipped for every other address.
+BESPOKE_EMAIL_ALLOWLIST = "REPLACE_WITH_TESTER_EMAIL"
+# Customer quotation links point at the preview site, never the live site.
+SITE_ORIGIN = "https://REPLACE_WITH_PREVIEW_SITE_HOST"
+TURNSTILE_ALLOWED_HOSTNAMES = "REPLACE_WITH_PREVIEW_SITE_HOST"
+# Stripe holds off for preview: Phase 3 charges immediately.
+STRIPE_HOLDS_ENABLED = "false"
+WHATSAPP_BOT_ENABLED = "false"
+FLIGHT_WATCH_ENABLED = "false"
+VOICE_ENABLE_BOOKING_TOOLS = "0"
+
+# Only the 5-minute job (bespoke expiry sweep). No hourly job: no review requests,
+# quote reports or reminders from preview.
+[triggers]
+crons = ["*/5 * * * *"]

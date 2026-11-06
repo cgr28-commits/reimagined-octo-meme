@@ -270,15 +270,19 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
         setRequest(result.request);
         setNotifications(result.notifications);
         if (result.customerLink) setCustomerLink(result.customerLink);
+        const status = result.email?.status;
         const emailNote =
-          result.email?.status === "sent"
-            ? " Email sent."
-            : result.email?.status === "skipped"
-              ? " Email not sent (public service is off)."
-              : result.email
-                ? " Email NOT sent — see Notifications."
-                : "";
-        setMessage({ tone: result.email && result.email.status !== "sent" && result.email.status !== "skipped" ? "error" : "ok", text: `${label}: saved.${emailNote}` });
+          status === "accepted" || status === "sent"
+            ? " Email accepted by the provider (delivery not yet confirmed)."
+            : status === "skipped"
+              ? " Email not sent (public service is off, or recipient not allowed)."
+              : status === "already_claimed"
+                ? " Already handled — no duplicate email sent."
+                : result.email
+                  ? " Email NOT confirmed — see Notifications."
+                  : "";
+        const emailProblem = Boolean(result.email) && !["accepted", "sent", "skipped", "already_claimed"].includes(status ?? "");
+        setMessage({ tone: emailProblem ? "error" : "ok", text: `${label}: ${result.replayed ? "already done" : "saved"}.${emailNote}` });
       } catch (e) {
         if (e instanceof BespokeApiError && e.code === "version_conflict") {
           setMessage({ tone: "error", text: "This request was changed elsewhere. It has been refreshed — please check and try again." });
@@ -433,11 +437,13 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
 
       <NotificationsList
         notifications={notifications}
-        canResend={r.status === "QUOTED"}
+        canResendQuote={r.status === "QUOTED"}
+        canResendExpiry={r.status === "EXPIRED"}
         busy={busy}
-        onResend={() =>
+        onResendQuote={() =>
           void run("Resend", { type: "resend_quote_email" }, "Send the quotation again with a NEW link? The previous link will stop working.")
         }
+        onResendOther={(kind, warning) => void run("Resend", { type: "resend_notification", kind }, warning)}
       />
 
       <PaymentsList
@@ -675,38 +681,104 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   quotation_expired: "Expiry email",
 };
 
+/**
+ * Honest delivery wording: "accepted" means the provider took the message, not
+ * that it reached the inbox. Only signed provider events can say "delivered".
+ */
+export function notificationStatusText(n: BespokeNotification): { text: string; tone: "ok" | "warn" | "muted" } {
+  if (n.status === "sending") return { text: "Outcome unknown — not retried automatically", tone: "warn" };
+  if (n.status === "failed") return { text: `Failed${n.error ? ` (${n.error})` : ""}`, tone: "warn" };
+  if (n.status === "skipped") return { text: `Not sent${n.error ? ` (${n.error.replace(/_/g, " ")})` : ""}`, tone: "muted" };
+  // accepted (or legacy "sent")
+  switch (n.delivery) {
+    case "delivered":
+      return { text: "Delivered (confirmed by provider)", tone: "ok" };
+    case "bounced":
+      return { text: "Bounced — not delivered", tone: "warn" };
+    case "complained":
+      return { text: "Delivered, then marked as spam by recipient", tone: "warn" };
+    case "failed":
+      return { text: "Provider reported delivery failure", tone: "warn" };
+    case "delayed":
+      return { text: "Accepted by provider — delivery delayed", tone: "warn" };
+    default:
+      return {
+        text: n.providerMessageId
+          ? "Accepted by provider — delivery not yet confirmed"
+          : "Accepted by provider — delivery tracking unavailable",
+        tone: "muted",
+      };
+  }
+}
+
 function NotificationsList({
   notifications,
-  canResend,
+  canResendQuote,
+  canResendExpiry,
   busy,
-  onResend,
+  onResendQuote,
+  onResendOther,
 }: {
   notifications: BespokeNotification[];
-  canResend: boolean;
+  canResendQuote: boolean;
+  canResendExpiry: boolean;
   busy: string | null;
-  onResend: () => void;
+  onResendQuote: () => void;
+  onResendOther: (kind: "acknowledgement" | "expiry", warning: string) => void;
 }) {
+  const latest = (kind: string) => [...notifications].reverse().find((n) => n.kind === kind);
+  const duplicateWarning = (kind: string, label: string) => {
+    const last = latest(kind);
+    const mightHaveArrived =
+      last && (last.status === "accepted" || last.status === "sent" || last.status === "sending") && last.delivery !== "bounced";
+    return mightHaveArrived
+      ? `The previous ${label} may already have reached the customer (${notificationStatusText(last).text}). Send another copy anyway?`
+      : `Send the ${label} again?`;
+  };
   return (
     <section className={card}>
       <p className={sectionTitle}>Notifications</p>
+      <p className="mt-1 text-xs text-white/45">
+        &ldquo;Accepted&rdquo; means the email provider took the message. Only &ldquo;Delivered&rdquo; confirms it reached the inbox.
+      </p>
       {notifications.length === 0 ? <p className="mt-2 text-sm text-white/55">None yet.</p> : null}
       <ul className="mt-2 space-y-1 text-sm">
-        {notifications.map((n) => (
-          <li key={n.key} className="break-words text-white/80">
-            {NOTIFICATION_LABELS[n.kind] ?? n.kind} —{" "}
-            <span className={n.status === "sent" ? "text-emerald" : n.status === "skipped" ? "text-white/55" : "text-amber-100"}>
-              {n.status === "sending" ? "outcome unknown (not retried automatically)" : n.status}
-            </span>
-            {n.error && n.status !== "sent" ? <span className="text-white/45"> ({n.error})</span> : null}
-            <span className="text-white/40"> · {formatUkInstant(n.finishedAt ?? n.claimedAt, { withZoneLabel: false })}</span>
-          </li>
-        ))}
+        {notifications.map((n) => {
+          const st = notificationStatusText(n);
+          return (
+            <li key={n.key} className="break-words text-white/80">
+              {NOTIFICATION_LABELS[n.kind] ?? n.kind} —{" "}
+              <span className={st.tone === "ok" ? "text-emerald" : st.tone === "warn" ? "text-amber-100" : "text-white/55"}>{st.text}</span>
+              <span className="text-white/40"> · {formatUkInstant(n.deliveryAt ?? n.finishedAt ?? n.claimedAt, { withZoneLabel: false })}</span>
+            </li>
+          );
+        })}
       </ul>
-      {canResend ? (
-        <button type="button" className={`${secondaryButton} mt-3`} disabled={Boolean(busy)} onClick={onResend}>
-          {busy === "Resend" ? "Sending…" : "Resend quotation (new link)"}
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {canResendQuote ? (
+          <button type="button" className={secondaryButton} disabled={Boolean(busy)} onClick={onResendQuote}>
+            {busy === "Resend" ? "Sending…" : "Resend quotation (new link)"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className={secondaryButton}
+          disabled={Boolean(busy)}
+          onClick={() => onResendOther("acknowledgement", duplicateWarning("request_acknowledgement", "acknowledgement email"))}
+        >
+          Resend acknowledgement
         </button>
-      ) : null}
+        {canResendExpiry ? (
+          <button
+            type="button"
+            className={secondaryButton}
+            disabled={Boolean(busy)}
+            onClick={() => onResendOther("expiry", duplicateWarning("quotation_expired", "expiry email"))}
+          >
+            Resend expiry email
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }

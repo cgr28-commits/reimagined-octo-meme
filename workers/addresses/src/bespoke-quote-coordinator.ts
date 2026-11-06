@@ -32,18 +32,36 @@ const REGISTRY_LIMIT = 5000;
 /**
  * Once-only notification log, kept beside the record (not inside it, so email
  * bookkeeping never bumps the record version an owner is editing against).
- *  - "sending": claimed; a send is in flight or the Worker died mid-send. Never
- *    retried automatically (the email may have gone) — owner can resend.
- *  - "sent" / "failed" / "skipped": final for that key.
+ *  - "sending": claimed; a send is in flight or the Worker died mid-send. Shown
+ *    as "outcome unknown". Never retried automatically (the email may have gone).
+ *  - "accepted": the provider ACCEPTED the message. This is NOT proof of delivery.
+ *  - "failed" / "skipped": final for that key.
+ * `delivery` is only set from signed provider delivery events (Resend webhooks).
  */
+export type BespokeDeliveryEvent = "delivered" | "delayed" | "bounced" | "complained" | "failed";
+
 export type BespokeNotificationEntry = {
   key: string;
   kind: string;
-  status: "sending" | "sent" | "failed" | "skipped";
+  /** "sent" is a legacy alias of "accepted" (Phase 2 development records). */
+  status: "sending" | "accepted" | "sent" | "failed" | "skipped";
   claimedAt: string;
   finishedAt?: string;
   provider?: string;
+  /** Provider message id (Resend) — lets delivery events find this entry. */
+  providerMessageId?: string;
   error?: string;
+  delivery?: BespokeDeliveryEvent;
+  deliveryAt?: string;
+};
+
+/** A later "delayed" never hides a final outcome; final outcomes are kept. */
+const DELIVERY_RANK: Record<BespokeDeliveryEvent, number> = {
+  delayed: 1,
+  delivered: 2,
+  complained: 3,
+  bounced: 3,
+  failed: 3,
 };
 
 type RegistryEntry = { expiresAt: string; flaggedAt?: string };
@@ -94,6 +112,8 @@ export class BespokeQuoteCoordinator implements DurableObject {
         return this.notifyBegin(body);
       case "notify-finish":
         return this.notifyFinish(body);
+      case "notify-delivery":
+        return this.notifyDelivery(body);
       case "registry-set":
         return this.registrySet(body);
       case "registry-due":
@@ -185,8 +205,8 @@ export class BespokeQuoteCoordinator implements DurableObject {
 
   private async notifyFinish(body: Record<string, unknown>): Promise<Response> {
     const key = typeof body.key === "string" ? body.key : "";
-    const status = body.status;
-    if (status !== "sent" && status !== "failed" && status !== "skipped") return json({ error: "Invalid status" }, 400);
+    const status = body.status === "sent" ? "accepted" : body.status;
+    if (status !== "accepted" && status !== "failed" && status !== "skipped") return json({ error: "Invalid status" }, 400);
     return this.ctx.blockConcurrencyWhile(async () => {
       const log = (await this.ctx.storage.get<BespokeNotificationEntry[]>(NOTIFICATIONS_KEY)) ?? [];
       const entry = log.find((e) => e.key === key);
@@ -195,7 +215,35 @@ export class BespokeQuoteCoordinator implements DurableObject {
       entry.status = status;
       entry.finishedAt = this.now().toISOString();
       if (typeof body.provider === "string") entry.provider = body.provider.slice(0, 40);
+      if (typeof body.providerMessageId === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(body.providerMessageId)) {
+        entry.providerMessageId = body.providerMessageId;
+      }
       if (typeof body.error === "string") entry.error = body.error.slice(0, 300);
+      await this.ctx.storage.put(NOTIFICATIONS_KEY, log);
+      return json({ ok: true, entry });
+    });
+  }
+
+  /** Record a signed provider delivery event for an accepted email (idempotent). */
+  private async notifyDelivery(body: Record<string, unknown>): Promise<Response> {
+    const key = typeof body.key === "string" ? body.key : "";
+    const event = body.event as BespokeDeliveryEvent;
+    const messageId = typeof body.providerMessageId === "string" ? body.providerMessageId : "";
+    const at = typeof body.at === "string" && !Number.isNaN(Date.parse(body.at)) ? body.at : this.now().toISOString();
+    if (!key || !(event in DELIVERY_RANK)) return json({ error: "Invalid delivery event" }, 400);
+    return this.ctx.blockConcurrencyWhile(async () => {
+      const log = (await this.ctx.storage.get<BespokeNotificationEntry[]>(NOTIFICATIONS_KEY)) ?? [];
+      const entry = log.find((e) => e.key === key);
+      if (!entry) return json({ error: "Unknown notification" }, 404);
+      // The event must be for the exact message we sent under this key.
+      if (!entry.providerMessageId || entry.providerMessageId !== messageId) {
+        return json({ error: "Message id mismatch" }, 409);
+      }
+      if (entry.delivery && DELIVERY_RANK[entry.delivery] >= DELIVERY_RANK[event]) {
+        return json({ ok: true, entry, unchanged: true });
+      }
+      entry.delivery = event;
+      entry.deliveryAt = at;
       await this.ctx.storage.put(NOTIFICATIONS_KEY, log);
       return json({ ok: true, entry });
     });

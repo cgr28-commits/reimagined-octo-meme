@@ -33,8 +33,12 @@ import {
   handleBespokeQuoteRoute,
   isBespokeQuotePath,
   runBespokeExpirySweep,
+  handleBespokeDeliveryWebhook,
+  isBespokeDeliveryWebhookPath,
   type BespokeQuoteEnv,
 } from "../workers/addresses/src/bespoke-quote-handlers";
+import { signResendWebhookForTest } from "../workers/addresses/src/owner-inbox-store";
+import { notificationStatusText } from "../src/components/OwnerBespokeRequestsPanel";
 import {
   buildBespokeOwnerNewRequestEmail,
   buildBespokeQuotationEmail,
@@ -534,8 +538,9 @@ async function main(): Promise<void> {
 
   const kv = new Map<string, { value: string; metadata?: unknown }>();
   const fakeKv = {
-    async get(key: string) {
-      return kv.get(key)?.value ?? null;
+    async get(key: string, type?: string) {
+      const value = kv.get(key)?.value ?? null;
+      return value !== null && type === "json" ? JSON.parse(value) : value;
     },
     async put(key: string, value: string, opts?: { metadata?: unknown }) {
       kv.set(key, { value, metadata: opts?.metadata });
@@ -550,11 +555,13 @@ async function main(): Promise<void> {
   type Sent = { audience: "customer" | "owner"; to: string; subject: string; body: string; html: string; key?: string };
   const sent: Sent[] = [];
   let emailMode: "ok" | "fail" | "throw" = "ok";
+  let messageCounter = 0;
   const mailer = (audience: "customer" | "owner") => async (_env: unknown, payload: { to: string; subject: string; body: string; htmlBody?: string; idempotencyKey?: string }) => {
     if (emailMode === "throw") throw new Error("network died mid-send");
     if (emailMode === "fail") return { sent: false, error: "provider rejected", provider: "resend" };
+    messageCounter += 1;
     sent.push({ audience, to: payload.to, subject: payload.subject, body: payload.body, html: payload.htmlBody ?? "", key: payload.idempotencyKey });
-    return { sent: true, provider: "resend" };
+    return { sent: true, provider: "resend", resendId: `re_test_${messageCounter}` };
   };
   const deps = {
     fetchImpl: (async () =>
@@ -725,7 +732,7 @@ async function main(): Promise<void> {
   const sentBeforeQuote = sent.length;
   res = await act({ type: "owner_issue_quote", amountGbp: 140, validityHours: 48, customerMessage: "Hi Jane", tokenHash: "f".repeat(64) }, "k-quote-0001");
   assert.equal(res.status, 200, res.text);
-  assert.equal(res.json.email.status, "sent");
+  assert.equal(res.json.email.status, "accepted");
   const customerLink: string = res.json.customerLink;
   assert.match(customerLink, /^https:\/\/www\.myairporttaxini\.co\.uk\/quotation\/#t=/);
   const customerToken = tokenFromLink(customerLink);
@@ -755,7 +762,7 @@ async function main(): Promise<void> {
   console.log("=== Resend quotation (new link, once per click) ===");
   res = await act({ type: "resend_quote_email" }, "k-resend-001");
   assert.equal(res.status, 200, res.text);
-  assert.equal(res.json.email.status, "sent");
+  assert.equal(res.json.email.status, "accepted");
   const newToken = tokenFromLink(res.json.customerLink);
   assert.notEqual(newToken, customerToken);
   version = res.json.request.version;
@@ -883,6 +890,87 @@ async function main(): Promise<void> {
   assert.equal(sys.ok, true);
   assert.equal((await applyBespokeSystemAction({ ...env, BESPOKE_QUOTE_COORDINATOR: undefined }, reference, { type: "system_expire" })).ok, false);
 
+  console.log("=== Email delivery visibility ===");
+  // Provider acceptance is recorded as "accepted" (not "delivered").
+  const dvReq = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "deliver@example.com" }), turnstileToken: "x" } });
+  const dvRef: string = dvReq.json.reference;
+  let dvNotes = (await detailOf(dvRef)).notifications as Array<{ key: string; status: string; providerMessageId?: string; delivery?: string }>;
+  const dvAck = dvNotes.find((n) => n.key === "ack")!;
+  assert.equal(dvAck.status, "accepted");
+  assert.ok(dvAck.providerMessageId, "provider message id recorded");
+  assert.equal(dvAck.delivery, undefined, "acceptance is not delivery");
+  assert.equal(notificationStatusText(dvAck as never).text, "Accepted by provider — delivery not yet confirmed");
+  assert.ok(!/deliver(ed)? \(/i.test(notificationStatusText(dvAck as never).text.replace("delivery not yet confirmed", "")));
+  // Delivery webhook is disabled unless its own secret is configured.
+  const whBody = (type: string, emailId: string) => JSON.stringify({ type, created_at: new Date().toISOString(), data: { email_id: emailId } });
+  const whCall = async (body: string, opts: { secret?: string; badSig?: boolean } = {}) => {
+    const secret = "whsec_" + Buffer.from("bespoke-delivery-test-secret").toString("base64");
+    const id = `msg_${Math.random().toString(36).slice(2)}`;
+    const ts = String(Math.floor(Date.now() / 1000));
+    const sig = await signResendWebhookForTest(secret, id, ts, body);
+    const req = new Request("https://worker.example/webhooks/resend-bespoke-delivery", {
+      method: "POST",
+      headers: { "svix-id": id, "svix-timestamp": ts, "svix-signature": opts.badSig ? "v1,AAAA" : sig },
+      body,
+    });
+    return handleBespokeDeliveryWebhook(req, { ...env, RESEND_DELIVERY_WEBHOOK_SECRET: opts.secret ?? secret });
+  };
+  assert.ok(isBespokeDeliveryWebhookPath("/webhooks/resend-bespoke-delivery"));
+  assert.equal((await whCall(whBody("email.delivered", dvAck.providerMessageId!), { secret: "" })).status, 404, "off unless configured");
+  assert.equal((await whCall(whBody("email.delivered", dvAck.providerMessageId!), { badSig: true })).status, 401, "signature required");
+  assert.equal((await whCall(whBody("email.delivered", "re_not_ours_123"))).status, 200, "other emails ignored");
+  assert.equal((await whCall(whBody("email.opened", dvAck.providerMessageId!))).status, 200, "unmapped event types ignored");
+  dvNotes = (await detailOf(dvRef)).notifications;
+  assert.equal(dvNotes.find((n) => n.key === "ack")!.delivery, undefined, "nothing recorded from ignored events");
+  assert.equal((await whCall(whBody("email.delivered", dvAck.providerMessageId!))).status, 200);
+  dvNotes = (await detailOf(dvRef)).notifications;
+  assert.equal(dvNotes.find((n) => n.key === "ack")!.delivery, "delivered");
+  assert.equal(notificationStatusText(dvNotes.find((n) => n.key === "ack") as never).text, "Delivered (confirmed by provider)");
+  // A late "delayed" never hides "delivered"; repeated events are idempotent.
+  await whCall(whBody("email.delivery_delayed", dvAck.providerMessageId!));
+  await whCall(whBody("email.delivered", dvAck.providerMessageId!));
+  dvNotes = (await detailOf(dvRef)).notifications;
+  assert.equal(dvNotes.find((n) => n.key === "ack")!.delivery, "delivered");
+  // Bounce on the owner alert is shown as not delivered.
+  const ownerNote = dvNotes.find((n) => n.key === "owner_new")!;
+  if (ownerNote.providerMessageId) {
+    await whCall(whBody("email.bounced", ownerNote.providerMessageId));
+    dvNotes = (await detailOf(dvRef)).notifications;
+    assert.equal(dvNotes.find((n) => n.key === "owner_new")!.delivery, "bounced");
+  }
+  assert.equal(notificationStatusText({ key: "x", kind: "quotation", status: "sending", claimedAt: "" }).text, "Outcome unknown — not retried automatically");
+  assert.equal(notificationStatusText({ key: "x", kind: "quotation", status: "accepted", claimedAt: "" }).text, "Accepted by provider — delivery tracking unavailable");
+  assert.equal(notificationStatusText({ key: "x", kind: "quotation", status: "accepted", claimedAt: "", providerMessageId: "re_1", delivery: "bounced" }).tone, "warn");
+
+  console.log("=== Safe manual resend ===");
+  const dvVersion: number = (await detailOf(dvRef)).request.version;
+  const sentBeforeAckResend = sent.length;
+  const ackResend = await act({ type: "resend_notification", kind: "acknowledgement" }, "k-ackre-001", dvVersion, dvRef);
+  assert.equal(ackResend.status, 200, ackResend.text);
+  assert.equal(ackResend.json.email.status, "accepted");
+  assert.equal(sent.length, sentBeforeAckResend + 1);
+  const ackReplay = await act({ type: "resend_notification", kind: "acknowledgement" }, "k-ackre-001", dvVersion, dvRef);
+  assert.equal(ackReplay.json.email.status, "already_claimed", "double-click sends one email");
+  assert.equal(sent.length, sentBeforeAckResend + 1);
+  assert.equal((await act({ type: "resend_notification", kind: "expiry" }, "k-expre-001", dvVersion, dvRef)).status, 409, "expiry resend only for expired quotes");
+  assert.equal((await act({ type: "resend_notification", kind: "owner_new" }, "k-bad-00001", dvVersion, dvRef)).status, 400);
+  assert.equal((await detailOf(dvRef)).request.version, dvVersion, "resending changes no request state");
+  const sweptResend = await act({ type: "resend_notification", kind: "expiry" }, "k-expre-002", (await detailOf(sweepRef)).request.version, sweepRef);
+  assert.equal(sweptResend.status, 200, sweptResend.text);
+  assert.equal(sweptResend.json.email.status, "accepted");
+
+  console.log("=== Preview email allowlist ===");
+  const allowEnv = { BESPOKE_EMAIL_ALLOWLIST: "tester@example.com" };
+  const sentBeforeAllow = sent.length;
+  const blocked = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "real.customer@example.com" }), turnstileToken: "x" }, envOverride: allowEnv });
+  const blockedNotes = (await call(`/owner/bespoke-quotes/detail?reference=${blocked.json.reference}`, { method: "GET", owner: OWNER, envOverride: allowEnv })).json.notifications;
+  assert.equal(blockedNotes.find((n: { key: string }) => n.key === "ack").status, "skipped");
+  assert.equal(blockedNotes.find((n: { key: string }) => n.key === "ack").error, "recipient_not_in_preview_allowlist");
+  assert.equal(sent.filter((m) => m.to === "real.customer@example.com").length, 0, "never emails a non-allowlisted address");
+  const allowed = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "tester@example.com" }), turnstileToken: "x" }, envOverride: allowEnv });
+  assert.equal(allowed.status, 201);
+  assert.ok(sent.slice(sentBeforeAllow).some((m) => m.to === "tester@example.com"));
+
   console.log("=== Email templates ===");
   const tpl = await quoted(realNow);
   tpl.owner.internalNotes = "PRIVATE-NOTE";
@@ -910,6 +998,25 @@ async function main(): Promise<void> {
   assert.ok(wrangler.indexOf("v4-consent-ledger") < wrangler.indexOf("v5-bespoke-quote-coordinator"), "v5 appended after v4");
   assert.match(wrangler, /new_sqlite_classes = \["BespokeQuoteCoordinator"\]/);
   assert.ok(!/^\s*BESPOKE_QUOTES_ENABLED\s*=/m.test(wrangler), "public flag is not switched on in config");
+  // Phase 3-prep guards: isolated preview config.
+  const preview = read("workers/addresses/wrangler.bespoke-preview.toml");
+  assert.match(preview, /^name = "reimagined-octo-meme-bespoke-preview"$/m);
+  for (const prodId of ["53fa3cc2bd46436f90ae19200e599ea1", "869e2c2e02004d4a88c9cfbf563f1d6a"]) {
+    assert.ok(!preview.includes(prodId), "preview must never bind production KV");
+  }
+  assert.match(preview, /^PAYMENT_PROVIDER = "stripe-test"$/m);
+  assert.match(preview, /^BESPOKE_EMAIL_ALLOWLIST = /m);
+  assert.ok(!/^\[\[send_email\]\]/m.test(preview), "no Cloudflare Email binding on preview");
+  assert.match(preview, /^crons = \["\*\/5 \* \* \* \*"\]$/m);
+  assert.ok(!/BESPOKE_EMAIL_ALLOWLIST\s*=/.test(wrangler), "allowlist is preview-only");
+  for (const wf of ["deploy-worker.yml", "deploy-pages.yml", "deploy-pages-preview.yml"]) {
+    assert.ok(!read(`.github/workflows/${wf}`).includes("bespoke-preview"), `${wf} must not deploy the preview config`);
+  }
+  // Live pricing constants untouched.
+  assert.match(read("shared/universal-distance-pricing.ts"), /UNIVERSAL_ESTATE_PREMIUM_GBP = 7;/);
+  assert.match(read("shared/universal-distance-pricing.ts"), /minibusMultiplier \?\? 1\.55/);
+  assert.match(read("shared/return-journey-discount-rate.json"), /"returnJourneyDiscountRate": 0\.05/);
+  assert.match(read("shared/bfs-minimum-fare.ts"), /if \(!estate && kind !== "saloon"\) return vehicleFareGbp;/);
   // Phase 2 guards.
   const clientApi = read("src/lib/bespoke-quote-api.ts");
   assert.ok(!/[?&]key=|searchParams\.set\("key"/.test(clientApi), "owner key never placed in a URL");

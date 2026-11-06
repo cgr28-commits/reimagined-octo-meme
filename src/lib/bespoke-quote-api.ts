@@ -22,11 +22,16 @@ export type BespokeOwnerView = Omit<BespokeQuoteRecord, "quote"> & {
 export type BespokeNotification = {
   key: string;
   kind: string;
-  status: "sending" | "sent" | "failed" | "skipped";
+  /** "accepted" = provider accepted the message (NOT proof of delivery). "sent" is a legacy alias. */
+  status: "sending" | "accepted" | "sent" | "failed" | "skipped";
   claimedAt: string;
   finishedAt?: string;
   provider?: string;
+  providerMessageId?: string;
   error?: string;
+  /** Only set from signed provider delivery events. */
+  delivery?: "delivered" | "delayed" | "bounced" | "complained" | "failed";
+  deliveryAt?: string;
 };
 
 export type BespokeOwnerActionInput =
@@ -41,6 +46,7 @@ export type BespokeOwnerActionInput =
   | { type: "owner_set_costs"; estimatedDriverCostGbp: number | null; estimatedOtherCostsGbp: number | null; internalNotes?: string }
   | { type: "owner_issue_quote"; amountGbp: number; validityHours: number; customerMessage?: string }
   | { type: "resend_quote_email" }
+  | { type: "resend_notification"; kind: "acknowledgement" | "expiry" }
   | { type: "owner_decline"; note?: string }
   | { type: "owner_cancel"; note?: string }
   | { type: "owner_resolve_review"; resolution: "accept_payment" | "manual_refund_required"; note: string }

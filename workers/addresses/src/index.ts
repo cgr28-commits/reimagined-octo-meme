@@ -380,7 +380,13 @@ export { RefundCoordinator } from "./refund-coordinator";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
 // Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
 export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
-import { handleBespokeQuoteRoute, isBespokeQuotePath, runBespokeExpirySweep } from "./bespoke-quote-handlers";
+import {
+  handleBespokeDeliveryWebhook,
+  handleBespokeQuoteRoute,
+  isBespokeDeliveryWebhookPath,
+  isBespokeQuotePath,
+  runBespokeExpirySweep,
+} from "./bespoke-quote-handlers";
 import {
   coordinatorClaim,
   coordinatorPeek,
@@ -680,6 +686,10 @@ type Env = {
   /** Cloudflare Turnstile secret (Worker secret). Public bespoke requests fail closed without it. */
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_ALLOWED_HOSTNAMES?: string;
+  /** Signing secret for the separate bespoke delivery-events Resend webhook. Unset = route disabled. */
+  RESEND_DELIVERY_WEBHOOK_SECRET?: string;
+  /** Preview only: bespoke emails go only to these addresses. Never set in production. */
+  BESPOKE_EMAIL_ALLOWLIST?: string;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -4804,6 +4814,9 @@ export default {
 
     if (isBespokeQuotePath(url.pathname)) {
       return handleBespokeQuoteRoute(request, env, origin);
+    }
+    if (isBespokeDeliveryWebhookPath(url.pathname)) {
+      return handleBespokeDeliveryWebhook(request, env);
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {

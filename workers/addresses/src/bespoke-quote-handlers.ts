@@ -50,7 +50,8 @@ import {
   type BespokeEmail,
 } from "../shared/bespoke-quote-emails";
 import { parseTurnstileHostnames, verifyTurnstileToken } from "../shared/turnstile";
-import type { BespokeNotificationEntry, CoordinatorApplyResponse } from "./bespoke-quote-coordinator";
+import type { BespokeDeliveryEvent, BespokeNotificationEntry, CoordinatorApplyResponse } from "./bespoke-quote-coordinator";
+import { verifyResendWebhookSignature } from "./owner-inbox-store";
 import { listBespokeIndex, writeBespokeIndexEntry } from "./bespoke-quote-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import {
@@ -72,6 +73,17 @@ export type BespokeQuoteEnv = DriverAuthEnv &
     TURNSTILE_ALLOWED_HOSTNAMES?: string;
     /** Site origin for customer links (defaults to the live site). */
     SITE_ORIGIN?: string;
+    /**
+     * Signing secret of a SEPARATE Resend webhook used only for delivery events
+     * (email.delivered / bounced / complained / delivery_delayed / failed).
+     * Unset = the delivery webhook route is disabled (404).
+     */
+    RESEND_DELIVERY_WEBHOOK_SECRET?: string;
+    /**
+     * Preview safety: comma-separated recipient allowlist. When set, bespoke emails
+     * to any other address are NOT sent (logged as skipped). Never set in production.
+     */
+    BESPOKE_EMAIL_ALLOWLIST?: string;
   };
 
 export type BespokeQuoteDeps = {
@@ -169,6 +181,7 @@ type ReadyEnv = BespokeQuoteEnv & { BESPOKE_QUOTE_COORDINATOR: DurableObjectName
 
 export type NotificationOutcome = {
   key: string;
+  /** "accepted" means the provider accepted the message — NOT proof of delivery. */
   status: BespokeNotificationEntry["status"] | "already_claimed";
   entry?: BespokeNotificationEntry;
 };
@@ -207,7 +220,10 @@ async function sendOnce(
   );
   if (!claim.claimed) return { key, status: "already_claimed", entry: claim.entry };
 
-  const finish = async (status: "sent" | "failed" | "skipped", extra: { provider?: string; error?: string } = {}) => {
+  const finish = async (
+    status: "accepted" | "failed" | "skipped",
+    extra: { provider?: string; error?: string; providerMessageId?: string } = {},
+  ) => {
     const done = await callCoordinator<{ entry?: BespokeNotificationEntry }>(
       env.BESPOKE_QUOTE_COORDINATOR,
       `quote:${reference}`,
@@ -226,6 +242,13 @@ async function sendOnce(
     return finish("failed", { error: error instanceof Error ? error.message : "build_failed" });
   }
   if (!email) return finish("skipped", { error: "nothing_to_send" });
+  const allowlist = (env.BESPOKE_EMAIL_ALLOWLIST ?? "")
+    .split(",")
+    .map((a) => a.trim().toLowerCase())
+    .filter(Boolean);
+  if (allowlist.length > 0 && !allowlist.includes(email.to.trim().toLowerCase())) {
+    return finish("skipped", { error: "recipient_not_in_preview_allowlist" });
+  }
 
   const payload: EmailPayload = {
     to: email.to,
@@ -248,9 +271,78 @@ async function sendOnce(
     console.error("bespoke email threw", reference, key, error instanceof Error ? error.message : "unknown");
     return { key, status: "sending" };
   }
-  return result.sent
-    ? finish("sent", { provider: result.provider })
-    : finish("failed", { provider: result.provider, error: result.error ?? "send_failed" });
+  if (!result.sent) return finish("failed", { provider: result.provider, error: result.error ?? "send_failed" });
+  if (result.resendId && env.TRACKING_STORE) {
+    // Lets signed delivery events find this notification. Best effort.
+    await env.TRACKING_STORE.put(
+      resendMessageKey(result.resendId),
+      JSON.stringify({ reference, key }),
+      { expirationTtl: 60 * 60 * 24 * 30 },
+    ).catch(() => undefined);
+  }
+  return finish("accepted", { provider: result.provider, ...(result.resendId ? { providerMessageId: result.resendId } : {}) });
+}
+
+function resendMessageKey(messageId: string): string {
+  return `bq:resend:${messageId}`;
+}
+
+// ---------------------------------------------------------------------------
+// Delivery events (separate, signed Resend webhook — disabled unless configured)
+// ---------------------------------------------------------------------------
+
+const DELIVERY_WEBHOOK_ROUTE = /^\/(?:api\/)?webhooks\/resend-bespoke-delivery\/?$/;
+
+export function isBespokeDeliveryWebhookPath(pathname: string): boolean {
+  return DELIVERY_WEBHOOK_ROUTE.test(pathname);
+}
+
+const RESEND_EVENT_MAP: Record<string, BespokeDeliveryEvent> = {
+  "email.delivered": "delivered",
+  "email.delivery_delayed": "delayed",
+  "email.bounced": "bounced",
+  "email.complained": "complained",
+  "email.failed": "failed",
+};
+
+/**
+ * Records delivery outcomes for bespoke emails only. Events for any other email
+ * (airport bookings etc.) are acknowledged and ignored — nothing else changes.
+ */
+export async function handleBespokeDeliveryWebhook(request: Request, env: BespokeQuoteEnv): Promise<Response> {
+  const secret = env.RESEND_DELIVERY_WEBHOOK_SECRET?.trim();
+  if (!secret || !env.BESPOKE_QUOTE_COORDINATOR || !env.TRACKING_STORE) return new Response("Not found", { status: 404 });
+  if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  const body = await request.text();
+  if (body.length > 64 * 1024) return new Response("Too large", { status: 413 });
+  const valid = await verifyResendWebhookSignature({
+    secret,
+    id: request.headers.get("svix-id"),
+    timestamp: request.headers.get("svix-timestamp"),
+    signatureHeader: request.headers.get("svix-signature"),
+    body,
+  });
+  if (!valid) return new Response("invalid signature", { status: 401 });
+  let event: { type?: string; created_at?: string; data?: { email_id?: string } };
+  try {
+    event = JSON.parse(body);
+  } catch {
+    return new Response("bad json", { status: 400 });
+  }
+  const mapped = event.type ? RESEND_EVENT_MAP[event.type] : undefined;
+  const messageId = String(event.data?.email_id ?? "").trim();
+  if (!mapped || !/^[A-Za-z0-9_-]{1,100}$/.test(messageId)) return new Response("ignored", { status: 200 });
+  const target = await env.TRACKING_STORE.get<{ reference?: string; key?: string }>(resendMessageKey(messageId), "json");
+  if (!target?.reference || !target.key || !isBespokeQuoteReference(target.reference)) {
+    return new Response("ignored", { status: 200 });
+  }
+  await callCoordinator(env.BESPOKE_QUOTE_COORDINATOR, `quote:${target.reference}`, "notify-delivery", {
+    key: target.key,
+    event: mapped,
+    providerMessageId: messageId,
+    at: event.created_at,
+  });
+  return new Response("ok", { status: 200 });
 }
 
 function quoteEmailKey(record: BespokeQuoteRecord, suffix = ""): string {
@@ -653,7 +745,9 @@ function num(value: unknown): number | undefined {
 }
 
 /** Rebuild the action from known fields only — never pass a browser object through. */
-function buildOwnerAction(raw: Record<string, unknown>): BespokeQuoteAction | { type: "resend_quote_email" } | null {
+type OwnerOnlyAction = { type: "resend_quote_email" } | { type: "resend_notification"; kind: "acknowledgement" | "expiry" };
+
+function buildOwnerAction(raw: Record<string, unknown>): BespokeQuoteAction | OwnerOnlyAction | null {
   switch (raw.type) {
     case "owner_start_review":
       return { type: "owner_start_review" };
@@ -682,6 +776,10 @@ function buildOwnerAction(raw: Record<string, unknown>): BespokeQuoteAction | { 
       };
     case "resend_quote_email":
       return { type: "resend_quote_email" };
+    case "resend_notification": {
+      const kind = raw.kind === "acknowledgement" || raw.kind === "expiry" ? raw.kind : null;
+      return kind ? { type: "resend_notification", kind } : null;
+    }
     case "owner_decline":
       return { type: "owner_decline", note: str(raw.note) };
     case "owner_cancel":
@@ -719,6 +817,10 @@ async function ownerAction(request: Request, env: ReadyEnv, origin: string | nul
   const raw = body.action;
   const built = raw && typeof raw === "object" ? buildOwnerAction(raw as Record<string, unknown>) : null;
   if (!built) return respond({ error: "Unknown action." }, 400, origin);
+
+  if (built.type === "resend_notification") {
+    return ownerResendNotification(env, deps, origin, reference, built.kind, idempotencyKey);
+  }
 
   // A new link is minted for a new quote, or to resend (the old secret is never stored).
   let action: BespokeQuoteAction;
@@ -764,6 +866,47 @@ async function ownerAction(request: Request, env: ReadyEnv, origin: string | nul
       ...(email ? { email } : {}),
       // Shown once to the owner (e.g. to share by phone if email failed). Not stored.
       ...(fresh ? { customerLink: bespokeQuotationUrl(token!, siteOrigin(env)) } : {}),
+    },
+    200,
+    origin,
+  );
+}
+
+/**
+ * Manual resend of the acknowledgement or expiry email. No state change: the
+ * click's idempotency key is part of the notification key, so a double-click or
+ * network retry sends at most one extra email. Quotation resends use
+ * "resend_quote_email" (which also replaces the link).
+ */
+async function ownerResendNotification(
+  env: ReadyEnv,
+  deps: BespokeQuoteDeps,
+  origin: string | null,
+  reference: string,
+  kind: "acknowledgement" | "expiry",
+  idempotencyKey: string,
+): Promise<Response> {
+  const state = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);
+  const record = state.record;
+  if (!record) return respond({ error: "Request not found" }, 404, origin);
+  if (kind === "expiry" && record.status !== "EXPIRED") {
+    return respond({ error: "The expiry email can only be resent for an expired quotation.", code: "invalid_status" }, 409, origin);
+  }
+  const key = kind === "acknowledgement" ? `ack:resend-${idempotencyKey}` : `${quoteEmailKey(record, ":expired")}:resend-${idempotencyKey}`;
+  const email = await sendOnce(env, deps, reference, key, kind === "acknowledgement" ? "request_acknowledgement" : "quotation_expired", "customer", () => ({
+    ...(kind === "acknowledgement" ? buildBespokeRequestAcknowledgementEmail(record) : buildBespokeQuotationExpiredEmail(record)),
+    to: record.customer.email,
+    toName: record.customer.name,
+  }));
+  const after = await getBespokeQuoteState(env.BESPOKE_QUOTE_COORDINATOR, reference);
+  return respond(
+    {
+      ok: true,
+      changed: false,
+      ...(email.status === "already_claimed" ? { replayed: true } : {}),
+      request: toBespokeQuoteOwnerView(after.record ?? record),
+      notifications: after.notifications,
+      email,
     },
     200,
     origin,
