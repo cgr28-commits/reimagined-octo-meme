@@ -117,16 +117,16 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
     metaDescription:
       "Pre-booked private taxi from your Belfast door to Dublin Airport in around two hours. Fixed price agreed before you pay, M1 tolls included. Business Class available.",
     intro:
-      "Flying from Dublin Airport? Pre-book a private taxi with My Airport Taxi NI and we collect you from your Belfast home, hotel or office and drive you straight to Dublin Airport, door to door. No coach to catch with your bags and no long-stay parking to pay for. The journey is usually around two hours on the A1 and M1, and the price is fixed and agreed before you pay, with M1 tolls included. Dublin Airport is already selected in the quote box: enter your Belfast address and the number of passengers and suitcases to see your price, then book and pay securely online. For early flights we regularly collect overnight, and we plan your pickup with a sensible buffer before check-in. Travelling for business or want something more comfortable? Choose Business Class for a premium car. Coming back to Belfast? Add the return on the same form and, where an instant price is shown, you get 5% off the combined fare. On the way home, your driver meets you in Arrivals at Dublin Airport and tracks your flight.",
-    journeyInfo: `Belfast to Dublin Airport follows the A1/M1 corridor across the border. The airport guide describes it as around two hours from Belfast in normal traffic. Applicable M1 tolls are included on the quoted Dublin fare. ${TRAFFIC}`,
+      "Flying from Dublin Airport? Pre-book a private taxi with My Airport Taxi NI and we collect you from your Belfast home, hotel or office and drive you straight to Dublin Airport, door to door. No coach to catch with your bags and no long-stay parking to pay for. The journey is usually around two hours on the A1 and M1, and the price is fixed and agreed before you pay, with M1 tolls included. Enter your Belfast address, passengers and suitcases in the quote box above to see your price, then book and pay securely online. For early flights we regularly collect overnight, and we plan your pickup with a sensible buffer before check-in. Travelling for business or want something more comfortable? Choose Business Class for a premium car. Coming back to Belfast? Add the return on the same form and, where an instant price is shown, you get 5% off the combined fare. On the way home, your driver meets you in Arrivals at Dublin Airport and tracks your flight.",
+    journeyInfo: `Belfast to Dublin Airport takes around two hours in normal traffic, via the A1 and M1. M1 tolls are included in your fare. ${TRAFFIC}`,
     goingToAirport:
-      "We collect at your Belfast door and drive you to Dublin Airport. Book far enough ahead of check-in for a cross-border journey, including overnight pickups for early flights. Applicable M1 tolls are included on Dublin Airport fares. Drop-off follows the Dublin Airport arrangement used on our other Dublin pages. Tell us the terminal when you know it for the way back.",
+      "We collect you at your Belfast door and drive you straight to your terminal at Dublin Airport. For early flights we collect overnight and plan your pickup with time to spare before check-in. M1 tolls are included.",
     fromAirport:
-      "Travelling from Dublin Airport to Belfast is a separate inbound page, or the return leg on this quote. Share the flight number and the terminal. We monitor the arrival where possible and adjust the planned Belfast collection. Airport pickups include up to 60 minutes complimentary waiting.",
+      "Coming back? Add the return on the same quote, or use our Dublin Airport to Belfast page. Give us your flight number and your driver meets you in Arrivals, tracks your flight and waits up to 60 minutes free of charge.",
     whyBookIntro:
-      "This is the outbound Belfast to Dublin Airport booking: a cross-border fare with M1 tolls included, confirmed before you pay.",
+      "One fixed price for the whole cross-border trip, M1 tolls included, confirmed before you pay.",
     localAreasText:
-      "City-centre hotels, offices, south Belfast and the Titanic Quarter. Enter the full address. A south Belfast start is not the same pin as a city-centre hotel when the journey joins the A1.",
+      "Anywhere in Belfast: city-centre hotels and offices, the Titanic Quarter, and homes in north, south, east and west Belfast. Enter your full address for an exact price.",
     faqs: [
       {
         question: "Can I get a taxi from Belfast to Dublin Airport?",
@@ -136,32 +136,32 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
       {
         question: "How much is a taxi from Belfast to Dublin Airport?",
         answer:
-          "The quote box on this page already has Dublin Airport selected. Enter the Belfast address. Applicable M1 tolls are included in the Dublin Airport fare the quote tool shows. We do not publish one Belfast–Dublin fare, because the pickup pin changes the mapped start.",
+          "Enter your Belfast address in the quote box at the top of this page and you'll see your fixed price straight away, with M1 tolls included. The price depends on exactly where we collect you.",
       },
       {
         question: "How long does Belfast to Dublin Airport take?",
         answer:
-          "The airport guide describes Dublin Airport as around two hours from Belfast in normal traffic, usually via the A1 and M1. Traffic conditions along the A1/M1 corridor can add to that. The quote tool maps the time from your street. Journey times are approximate and can vary depending on traffic and time of day.",
+          "Around two hours in normal traffic, via the A1 and M1. The quote shows the time from your address. Traffic and time of day can add to it.",
       },
       {
         question: "Are M1 tolls included from Belfast to Dublin Airport?",
         answer:
-          "Yes. Applicable M1 tolls are included in the Dublin Airport fare the quote tool shows for this Belfast departure.",
+          "Yes. M1 tolls are included in the price you see.",
       },
       {
         question: "Can I book an early Belfast pickup for a Dublin departure?",
         answer:
-          "Yes. Overnight and very early Belfast pickups are accepted on the quote form. Leave a buffer for a cross-border run rather than treating Dublin like a Belfast airport.",
+          "Yes. We regularly collect overnight for early flights. Allow plenty of time for check-in, as the journey is around two hours.",
       },
       {
         question: "Which Dublin terminal should I name?",
         answer:
-          "Tell us the terminal when you know it so a return collection uses the right arrivals point. Drop-off on the way out follows the Dublin Airport arrangement already used on our other Dublin pages.",
+          "Tell us your terminal if you know it and we'll drop you there. If you've booked a return, your terminal and flight number let your driver meet you in the right Arrivals hall.",
       },
       {
         question: "Can I add the journey back from Dublin Airport to Belfast?",
         answer:
-          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare. Landing at Dublin and travelling only northbound is also covered on the separate Dublin Airport to Belfast page.",
+          "Yes. Choose Return on the quote form. Where an instant price is shown, you get 5% off the combined fare.",
       },
     ],
   },
