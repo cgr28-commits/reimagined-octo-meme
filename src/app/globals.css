@@ -2555,3 +2555,17 @@ body:has(.cookie-consent-banner--modal) {
   body:has(.homepage-hero) header .desktop-shell,
   .homepage-hero .homepage-hero-layout.desktop-shell { max-width: 1600px; }
 }
+
+/* Desktop 1200–1439px: six fields across the top row; the Get My Fixed Price button
+   moves to the right of the second row so no field gets cramped. */
+@media (min-width: 1200px) and (max-width: 1439.98px) {
+  .homepage-hero [data-homepage-quote-fields] {
+    grid-template-columns:
+      minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr)
+      minmax(0, 0.85fr) minmax(0, 0.85fr);
+  }
+  .homepage-hero [data-homepage-quote-fields] > [data-quote-price-action] {
+    grid-column: 5 / 7; grid-row: 2; align-self: start; padding-top: 0.35rem;
+  }
+  .homepage-hero [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary { width: 100%; }
+}
