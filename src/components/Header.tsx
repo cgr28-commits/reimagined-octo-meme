@@ -25,6 +25,15 @@ const DESKTOP_MORE_HREFS = new Set([
 const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
 // Shown in the bar from 1280px; under "More" on smaller laptops.
 const WIDE_BAR_HREFS = new Set(["/tours/"]);
+// Desktop (1200px+): no "More" menu and no phone number in the bar. These links sit in
+// the bar directly; the homepage shortcuts (Vehicles, Check Flights, Areas, Why Us) stay
+// in the footer Quick Links and on the homepage itself.
+const DESKTOP_WIDE_DIRECT_HREFS = new Set([
+  "/tours/",
+  "/belfast-grand-central-station-taxi/",
+  "/belfast-cruise-terminal-transfers/",
+  "/#faq",
+]);
 const WIDE_BAR_LINKS = NAV_LINKS.filter((link) => WIDE_BAR_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
@@ -230,14 +239,16 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={`whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald${
-                  DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : WIDE_BAR_HREFS.has(link.href) ? " lg:hidden xl:inline" : ""
+                  DESKTOP_WIDE_DIRECT_HREFS.has(link.href)
+                    ? " lg:hidden min-[1200px]:inline"
+                    : DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : ""
                 }`}
               >
                 {link.label}
               </SiteNavLink>
             ))}
             {DESKTOP_MORE_LINKS.length > 0 ? (
-              <details className="group relative hidden lg:block" data-desktop-nav-more>
+              <details className="group relative hidden lg:block min-[1200px]:hidden" data-desktop-nav-more>
                 <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald [&::-webkit-details-marker]:hidden">
                   More
                   <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -255,7 +266,7 @@ export default function Header() {
                         }
                       }}
                       className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-emerald${
-                        WIDE_BAR_HREFS.has(link.href) ? " xl:hidden" : ""
+                        ""
                       }`}
                     >
                       {link.label}
@@ -272,7 +283,7 @@ export default function Header() {
               href={`tel:${SITE.officeLandline}`}
               data-header-call
               aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg min-[1200px]:hidden"
             >
               <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
               <span className="hidden xl:inline">{SITE.officeLandlineDisplay}</span>

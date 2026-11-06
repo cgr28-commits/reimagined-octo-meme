@@ -6,14 +6,14 @@ import { withBasePath } from "@/lib/paths";
 import { TOURS } from "@/lib/tours";
 
 /**
- * Wide-desktop only (see .homepage-hero-rails in globals.css): fills the empty
- * navy space either side of the centred homepage quote form. Hidden on phones,
- * tablets and laptops, so the quote flow there is unchanged.
+ * Desktop only (1200px+, see .homepage-hero-rails in globals.css): a row of three
+ * equal cards under the homepage quote tool. Hidden on phones, tablets and smaller
+ * laptops, so the quote flow there is unchanged.
  *
- * Left: rotates Business Class, the estate car and the 7-seater.
- * Right: rotates the private day tours.
- * Both boxes change together every few seconds, pause while either is hovered
- * or focused, and stay still for visitors who prefer reduced motion.
+ * Card 1: Business Class. Card 2: rotates the estate car and the 7-seater.
+ * Card 3: rotates the private day tours.
+ * The rotating cards change together every few seconds, pause while any card is
+ * hovered or focused, and stay still for visitors who prefer reduced motion.
  */
 type RailCard = {
   key: string;
@@ -25,7 +25,7 @@ type RailCard = {
   cta: string;
 };
 
-const LEFT_CARDS: readonly RailCard[] = [
+const BUSINESS_CLASS_CARDS: readonly RailCard[] = [
   {
     key: "business-class",
     label: "Business Class",
@@ -35,6 +35,9 @@ const LEFT_CARDS: readonly RailCard[] = [
     href: "/transfers/business-class-dublin-airport/",
     cta: "See Business Class",
   },
+];
+
+const VEHICLE_CARDS: readonly RailCard[] = [
   {
     key: "estate",
     label: "Estate car",
@@ -55,7 +58,7 @@ const LEFT_CARDS: readonly RailCard[] = [
   },
 ];
 
-const RIGHT_CARDS: readonly RailCard[] = TOURS.map((tour) => ({
+const TOUR_CARDS: readonly RailCard[] = TOURS.map((tour) => ({
   key: tour.slug,
   label: "Private day tours",
   image: tour.image.replace(/\.webp$/, "-card.webp"),
@@ -69,12 +72,14 @@ const ROTATE_MS = 10000;
 
 function RotatingRail({
   side,
+  label,
   cards,
   active,
   onPick,
   onPause,
 }: {
-  side: "left" | "right";
+  side: "business" | "vehicles" | "tours";
+  label: string;
   cards: readonly RailCard[];
   active: number;
   onPick: (index: number) => void;
@@ -83,7 +88,7 @@ function RotatingRail({
   return (
     <aside
       className={`homepage-hero-rail homepage-hero-rail-${side}`}
-      aria-label={side === "left" ? "Business Class, estate and 7-seater" : "Private day tours"}
+      aria-label={label}
       onMouseEnter={() => onPause(true)}
       onMouseLeave={() => onPause(false)}
       onFocus={() => onPause(true)}
@@ -142,21 +147,21 @@ function RotatingRail({
 }
 
 export default function HomepageHeroSideRails() {
-  // One shared timer, so both boxes change at the same moment.
+  // One shared timer, so the rotating cards change at the same moment.
   const [tick, setTick] = useState(0);
-  const [leftPick, setLeftPick] = useState<number | null>(null);
-  const [rightPick, setRightPick] = useState<number | null>(null);
+  const [vehiclePick, setVehiclePick] = useState<number | null>(null);
+  const [tourPick, setTourPick] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
     if (paused) return;
-    const desktop = window.matchMedia("(min-width: 1360px)");
+    const desktop = window.matchMedia("(min-width: 1200px)");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (!desktop.matches || reducedMotion.matches) return;
     const interval = window.setInterval(() => {
       setTick((t) => t + 1);
-      setLeftPick(null);
-      setRightPick(null);
+      setVehiclePick(null);
+      setTourPick(null);
     }, ROTATE_MS);
     return () => window.clearInterval(interval);
   }, [paused]);
@@ -164,17 +169,27 @@ export default function HomepageHeroSideRails() {
   return (
     <div className="homepage-hero-rails" data-homepage-hero-rails>
       <RotatingRail
-        side="left"
-        cards={LEFT_CARDS}
-        active={leftPick ?? tick % LEFT_CARDS.length}
-        onPick={setLeftPick}
+        side="business"
+        label="Business Class"
+        cards={BUSINESS_CLASS_CARDS}
+        active={0}
+        onPick={() => {}}
         onPause={setPaused}
       />
       <RotatingRail
-        side="right"
-        cards={RIGHT_CARDS}
-        active={rightPick ?? tick % RIGHT_CARDS.length}
-        onPick={setRightPick}
+        side="vehicles"
+        label="Estate car and 7-seater"
+        cards={VEHICLE_CARDS}
+        active={vehiclePick ?? tick % VEHICLE_CARDS.length}
+        onPick={setVehiclePick}
+        onPause={setPaused}
+      />
+      <RotatingRail
+        side="tours"
+        label="Private day tours"
+        cards={TOUR_CARDS}
+        active={tourPick ?? tick % TOUR_CARDS.length}
+        onPick={setTourPick}
         onPause={setPaused}
       />
     </div>
