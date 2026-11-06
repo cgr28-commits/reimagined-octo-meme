@@ -183,10 +183,19 @@ async function main() {
       const sizes: Record<string, number> = {};
       for (const sample of CASES) {
         await page.getByLabel("Passenger name").fill(sample.name);
+        const expectedText = sample.name.replace(/\s*\n\s*/g, "\n");
+        // The editor's live preview proves the typed name is in state before Display is tapped.
+        await page.waitForFunction(
+          (want) => document.querySelector("[data-testid=name-board-preview-name]")?.textContent === want,
+          expectedText,
+        );
         await page.getByRole("button", { name: "Display Name Board" }).click();
         const dialog = page.getByRole("dialog", { name: "Pickup name board" });
         await dialog.waitFor();
         await page.waitForTimeout(80);
+        // Then the full-screen board must show that same name (fails if it ever opens stale).
+        const shown = await page.getByTestId("name-board-name").textContent();
+        assert.equal(shown, expectedText, `${vp.label} · ${sample.label}: board opens with the name just typed`);
         const m = await page.evaluate(() => {
           const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTMLElement;
           const overlay = q("name-board-overlay").getBoundingClientRect();
