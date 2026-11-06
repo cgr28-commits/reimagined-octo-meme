@@ -50,7 +50,7 @@ export default function HeroSlideshow() {
           <HeroBenefitsRow />
           <QuoteCard presentation="homepage" homepagePolish />
           <QuoteHelpContact />
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex justify-center" data-hero-reviews-badge>
             <GoogleReviewsBadge />
           </div>
         </div>
