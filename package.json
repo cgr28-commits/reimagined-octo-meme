@@ -159,7 +159,9 @@
     "check:christmas-pricing": "node --import tsx scripts/check-christmas-pricing.ts",
     "check:stripe-hold-refund": "npx tsx scripts/check-stripe-hold-refund.ts",
     "check:owner-name-board": "npx tsx scripts/check-owner-name-board.ts",
-    "check:owner-name-board-browser": "npx tsx scripts/check-owner-name-board-browser.ts"
+    "check:owner-name-board-browser": "npx tsx scripts/check-owner-name-board-browser.ts",
+    "check:driver-locator": "npx tsx scripts/check-driver-locator.ts",
+    "check:driver-locator-browser": "npx tsx scripts/check-driver-locator-browser.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

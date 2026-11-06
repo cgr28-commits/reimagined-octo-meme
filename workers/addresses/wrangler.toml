@@ -45,6 +45,10 @@ class_name = "MeetGreetCoordinator"
 name = "CONSENT_LEDGER"
 class_name = "ConsentLedger"
 
+[[durable_objects.bindings]]
+name = "DRIVER_LOCATOR"
+class_name = "DriverLocator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -62,6 +66,12 @@ new_sqlite_classes = ["MeetGreetCoordinator"]
 [[migrations]]
 tag = "v4-consent-ledger"
 new_sqlite_classes = ["ConsentLedger"]
+
+# Find Your Driver: latest-position-only store (SQLite-backed, works on the Workers Free plan).
+# Routes stay 404 until DRIVER_LOCATOR_MODE is set to "owner-test" or "on" (owner approval).
+[[migrations]]
+tag = "v5-driver-locator"
+new_sqlite_classes = ["DriverLocator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"

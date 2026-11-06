@@ -19,6 +19,7 @@ import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
+import { FIND_DRIVER_LINK_STRIP_SCRIPT } from "../../shared/driver-locator";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -137,6 +138,9 @@ export default function RootLayout({
       <body className="overflow-x-clip antialiased">
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
+        </Script>
+        <Script id="strip-find-driver-link" strategy="beforeInteractive">
+          {FIND_DRIVER_LINK_STRIP_SCRIPT}
         </Script>
         <Script id="matni-landing-click-id" strategy="beforeInteractive">
           {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}

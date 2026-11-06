@@ -184,11 +184,12 @@ console.log("\n=== 6. Privacy: name never leaves the device ===");
     }
   }
   // The panel takes no owner key / props: it cannot call the Worker.
-  assert.match(
-    sources.panel,
-    /export default function NameBoardPanel\(\{ prefill = null \}: \{ prefill\?: NameBoardPrefill \| null \}\)/,
-    "no owner key / API props: the board cannot call the Worker",
+  const signature = sources.panel.slice(
+    sources.panel.indexOf("export default function NameBoardPanel("),
+    sources.panel.indexOf(") {", sources.panel.indexOf("export default function NameBoardPanel(")),
   );
+  assert.match(signature, /prefill\?: NameBoardPrefill \| null;/);
+  assert.doesNotMatch(signature, /ownerKey|driverKey|accessKey|apiBase|fetch/i, "no key / API props: the board cannot call the Worker");
   assert.match(sources.panel, /autoComplete="off"/);
   ok("no network, analytics, URL, title, console, cookie or sessionStorage use");
 }
@@ -199,12 +200,12 @@ console.log("\n=== 7. Access: signed-in dashboard / driver portal only, no publi
   // Owner: More → Name Board tab, only after the owner key is verified.
   assert.match(
     page,
-    /isOwnerView && savedKey && ownerToolTab === "name-board" \? \(\s*<div id="owner-tool-panel-name-board"[\s\S]{0,300}<NameBoardPanel prefill=\{nameBoardPrefill\} \/>/,
+    /isOwnerView && savedKey && ownerToolTab === "name-board" \? \(\s*<div id="owner-tool-panel-name-board"[\s\S]{0,300}<NameBoardPanel prefill=\{nameBoardPrefill\}(?: liveStatus=\{<LocatorBoardBadge \/>\})? \/>/,
   );
   // Driver: only with a verified driver key/session, opened from their own job card.
   assert.match(
     page,
-    /savedKey && !isOwnerView && driverNameBoardOpen \? \(\s*<div id="driver-name-board"[\s\S]{0,500}<NameBoardPanel prefill=\{nameBoardPrefill\} \/>/,
+    /savedKey && !isOwnerView && driverNameBoardOpen \? \(\s*<div id="driver-name-board"[\s\S]{0,500}<NameBoardPanel prefill=\{nameBoardPrefill\}(?: liveStatus=\{<LocatorBoardBadge \/>\})? \/>/,
   );
   assert.equal((page.match(/<NameBoardPanel\b/g) ?? []).length, 2, "rendered in exactly two gated places");
   // Job-card launcher is only provided when signed in.

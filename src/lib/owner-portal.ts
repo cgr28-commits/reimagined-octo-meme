@@ -38,6 +38,7 @@ export function shouldHidePublicSalesWidgets(pathname: string | null | undefined
     path === "/book-quote" ||
     path === "/quick-quote" ||
     path === "/booking-confirmed" ||
-    path === "/tip"
+    path === "/tip" ||
+    path === "/find-your-driver"
   );
 }

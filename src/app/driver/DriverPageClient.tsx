@@ -35,6 +35,7 @@ import OwnerLiveAvailabilityCard from "@/components/OwnerLiveAvailabilityCard";
 import OwnerPricingPanel from "@/components/OwnerPricingPanel";
 import OwnerPostcodePricingPanel from "@/components/OwnerPostcodePricingPanel";
 import NameBoardPanel, { type NameBoardPrefill } from "@/components/NameBoardPanel";
+import { DriverLocatorControls, DriverLocatorProvider, LocatorBoardBadge } from "@/components/DriverLocator";
 import type { MapMarker, MapRoutePoint } from "@/components/LiveTrackMap";
 import {
   customerTelHref,
@@ -1784,6 +1785,13 @@ function DriverJobCard({
               Show name board
             </button>
           ) : null}
+          {!isRefunded && !isPendingForDriver ? (
+            <DriverLocatorControls
+              job={job}
+              canOperate={isOwner || isAcceptedAssignment}
+              onShowNameBoard={openNameBoard}
+            />
+          ) : null}
           {(isOwner || isAcceptedAssignment) && job.customerMobile && (
             <p className="mt-2 text-sm text-emerald">{job.customerMobile}</p>
           )}
@@ -3236,6 +3244,7 @@ export default function DriverPageClient({
 
   return (
     <NameBoardLauncherContext.Provider value={savedKey ? openNameBoardFromJob : null}>
+      <DriverLocatorProvider accessKey={savedKey} role={savedKey ? viewRole : null}>
       <OwnerPortalHeader
         variant={isOwnerPortal ? "owner" : "driver"}
         title={isOwnerPortal ? "Owner Dashboard" : "My Jobs"}
@@ -3723,7 +3732,7 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "name-board" ? (
                 <div id="owner-tool-panel-name-board" role="tabpanel" aria-label="Name Board">
                   <OwnerToolBackBar title="Name Board" onBack={() => setOwnerToolTab("more")} />
-                  <NameBoardPanel prefill={nameBoardPrefill} />
+                  <NameBoardPanel prefill={nameBoardPrefill} liveStatus={<LocatorBoardBadge />} />
                 </div>
               ) : null}
 
@@ -3770,7 +3779,7 @@ export default function DriverPageClient({
                   >
                     Close name board
                   </button>
-                  <NameBoardPanel prefill={nameBoardPrefill} />
+                  <NameBoardPanel prefill={nameBoardPrefill} liveStatus={<LocatorBoardBadge />} />
                 </div>
               ) : null}
 
@@ -4203,6 +4212,7 @@ export default function DriverPageClient({
         </div>
       </main>
       <Footer />
+      </DriverLocatorProvider>
     </NameBoardLauncherContext.Provider>
   );
 }

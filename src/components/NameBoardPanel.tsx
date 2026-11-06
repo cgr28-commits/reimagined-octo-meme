@@ -230,7 +230,14 @@ export type NameBoardPrefill = {
   requestId: number;
 };
 
-export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoardPrefill | null }) {
+export default function NameBoardPanel({
+  prefill = null,
+  liveStatus = null,
+}: {
+  prefill?: NameBoardPrefill | null;
+  /** Optional small status line on the board (e.g. "Sharing live location"). Rendered as given. */
+  liveStatus?: React.ReactNode;
+}) {
   const ids = useId();
   const inputId = `${ids}-name`;
   const hintId = `${ids}-hint`;
@@ -506,9 +513,12 @@ export default function NameBoardPanel({ prefill = null }: { prefill?: NameBoard
               showWelcome={settings.showWelcome}
               variant="board"
               footerNote={
-                <p className={`${styles.boardNote} ${styles.portraitOnly}`} data-testid="name-board-rotate-hint">
-                  Turn your phone sideways for a bigger name
-                </p>
+                <>
+                  {liveStatus}
+                  <p className={`${styles.boardNote} ${styles.portraitOnly}`} data-testid="name-board-rotate-hint">
+                    Turn your phone sideways for a bigger name
+                  </p>
+                </>
               }
             >
               <div className={styles.controls}>

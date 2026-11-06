@@ -47,6 +47,8 @@ import { voiceAuthDenied } from "./voice-auth";
 export { ConsentLedger } from "./consent-ledger";
 import { handleOwnerSendMeetGreetEmail, handleMeetGreetUpgrade, confirmMeetGreetWebhook, recoverMeetGreetEmails } from "./meet-greet-upgrade-handlers";
 export { MeetGreetCoordinator } from "./meet-greet-upgrade-handlers";
+export { DriverLocator } from "./driver-locator";
+import { handleLocatorRequest, parseLocatorRoute } from "./driver-locator";
 import { processDueJourneyReminders } from "./journey-reminder-handlers";
 import {
   isValidCapacityPassengerCount,
@@ -669,6 +671,10 @@ type Env = {
   REFUND_COORDINATOR?: DurableObjectNamespace;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
+  /** Find Your Driver: latest-position-only store, one object per booking leg. */
+  DRIVER_LOCATOR?: DurableObjectNamespace;
+  /** Find Your Driver switch: "off" (default) | "owner-test" | "on". */
+  DRIVER_LOCATOR_MODE?: string;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -4789,6 +4795,18 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    // Find Your Driver (isolated from the retired /track routes). 404 unless DRIVER_LOCATOR_MODE is set.
+    const locatorRoute = parseLocatorRoute(url.pathname);
+    if (locatorRoute) {
+      return handleLocatorRequest(
+        locatorRoute,
+        request,
+        env,
+        origin,
+        (env as { SITE_URL?: string }).SITE_URL?.trim() || "https://www.myairporttaxini.co.uk",
+      );
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
