@@ -136,7 +136,7 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
       {
         question: "How much is a taxi from Belfast to Dublin Airport?",
         answer:
-          "Enter your Belfast address in the quote box at the top of this page and you'll see your fixed price straight away, with M1 tolls included. The price depends on exactly where we collect you.",
+          "Prices start from £238, with M1 tolls included. Enter your Belfast address in the quote box at the top of this page and you'll see your exact fixed price straight away. The price depends on exactly where we collect you.",
       },
       {
         question: "How long does Belfast to Dublin Airport take?",

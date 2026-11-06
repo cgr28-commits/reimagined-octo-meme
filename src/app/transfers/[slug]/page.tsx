@@ -253,7 +253,12 @@ export default async function TransferRoutePage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             {quoteFirstLede ? (
-              <p className="mt-4 text-lg leading-relaxed text-white/80">{quoteFirstLede}</p>
+              <>
+                <p className="mt-4 text-lg leading-relaxed text-white/80">{quoteFirstLede}</p>
+                <p className="mt-3 text-base font-semibold text-emerald">
+                  From £238. Enter your address below for your exact fixed price.
+                </p>
+              </>
             ) : (
               introDetails
             )}
