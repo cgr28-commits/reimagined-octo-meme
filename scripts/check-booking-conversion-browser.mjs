@@ -98,7 +98,9 @@ try {
   assert.doesNotMatch(await visible.innerText(),/Terminal pick-up included|60 Minutes Airport Waiting|Your own pre-booked transfer/);
   const positions=await visible.evaluate(el=>({reassurance:el.querySelector('[data-quote-reassurance]').getBoundingClientRect().bottom,fare:el.querySelector('[data-quote-result-price]').getBoundingClientRect().top}));
   assert.ok(positions.reassurance<=positions.fare);
-  if(beforeDimensions) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
+  // Phones and tablets must match the baseline exactly. From 1200px the unified desktop
+  // journey restyles the price panel on purpose, so only its behaviour is checked there.
+  if(beforeDimensions && width<1200) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
   await card.screenshot({path:`${output}/${width}-quote.png`});
   await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).click();
   await page.locator('#name').waitFor();
