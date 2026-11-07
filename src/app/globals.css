@@ -3988,6 +3988,7 @@ body:has(.cookie-consent-banner--modal) {
     margin-top: 0 !important; border-top: 0; padding-top: 0.4rem !important;
   }
 
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { justify-content: flex-start !important; }
   /* Request-only 7 Seater: indicative "From" price, then Request a quote. */
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-request] { display: grid !important; justify-items: end; gap: 0.3rem; text-align: right; }
   .homepage-hero [data-vehicle-desktop-from] { display: grid; font-size: 1.2rem; font-weight: 800; color: var(--u-navy); line-height: 1.1; }
