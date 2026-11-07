@@ -3720,3 +3720,17 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] { padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 6.25rem; }
 }
+
+/* Address suggestions on the homepage (1200px+): light, like the white quote panel. */
+@media (min-width: 1200px) {
+  body:has(.homepage-hero) .address-suggestions-overlay {
+    background: #fff !important; border: 1px solid #e3e8ef !important; border-radius: 0.9rem !important;
+    box-shadow: 0 22px 44px -18px rgba(11, 31, 58, 0.35) !important; color: #0f1b2d;
+  }
+  body:has(.homepage-hero) .address-suggestions-overlay button { background: #fff !important; border-color: #eef2f6 !important; }
+  body:has(.homepage-hero) .address-suggestions-overlay button:is(:hover, :focus-visible, [aria-selected="true"]) { background: #f2f6fb !important; }
+  body:has(.homepage-hero) .address-suggestions-overlay button :is(span, p, div) { color: #5b6b80 !important; -webkit-text-fill-color: #5b6b80; }
+  body:has(.homepage-hero) .address-suggestions-overlay button :is(span, p, div):first-child,
+  body:has(.homepage-hero) .address-suggestions-overlay button .font-semibold { color: #0b1f3a !important; -webkit-text-fill-color: #0b1f3a; }
+  body:has(.homepage-hero) .address-suggestions-overlay button svg { color: #0b1f3a !important; }
+}
