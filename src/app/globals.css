@@ -3213,6 +3213,5 @@ body:has(.cookie-consent-banner--modal) {
     .homepage-hero [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.35rem !important; }
     .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay { min-height: 3rem !important; }
     .homepage-hero [data-checkout-aside] #step3-payment-actions label { font-size: 0.76rem !important; line-height: 1.35; }
-    .homepage-hero [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] p.text-xs { display: none; }
   }
 }
