@@ -3666,3 +3666,9 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown][data-checkout-breakdown-open="false"] { display: none !important; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] { order: 9; }
 }
+
+/* Checkout: the (hidden) schedule section and the first card draw no rule at the panel top. */
+@media (min-width: 1200px) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > section[data-quote-schedule] { border: 0 !important; padding: 0 !important; margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > #step3-customer-details { border-top: 0 !important; margin-top: 0 !important; }
+}
