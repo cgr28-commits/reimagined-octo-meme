@@ -56,6 +56,7 @@ import {
   describeWhatsAppDraft,
   describeWhatsAppField,
   detectWhatsAppIntent,
+  isWhatsAppSendQuoteMessage,
   newWhatsAppConversation,
   nextMissingField,
   parseWhatsAppMenuChoice,
@@ -80,6 +81,13 @@ import {
   whatsAppFullAddress,
 } from "../shared/whatsapp-address-check";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
+import {
+  applyClaudeLedTurn,
+  buildClaudeLedContext,
+  isWhatsAppMachineReply,
+  type ClaudeLedDecision,
+} from "../shared/whatsapp-claude-led";
+import { claudeLedClient } from "./whatsapp-claude-led";
 import { voiceAddressMatchScore } from "../shared/voice-address-search";
 import { collectVoiceAddressSuggestions } from "./voice-address";
 import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
@@ -173,6 +181,11 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * confirms the full address. Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
    */
   WHATSAPP_ADDRESS_CHECK?: string;
+  /**
+   * Claude-led chat: Claude reads every message and runs the conversation (prices still only
+   * from the quote engine). Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
+   */
+  WHATSAPP_CLAUDE_LED?: string;
 };
 
 /** Pilot switch: unset/"off" nobody, "all" everyone, else comma-separated numbers. */
@@ -192,6 +205,11 @@ function pilotSettingLabel(setting: string | undefined): "off" | "all" | "pilot"
 /** Whether this customer gets the quick-tap choices (see WHATSAPP_QUICK_CHOICES). */
 export function whatsAppQuickChoicesEnabled(env: WhatsAppEnv, phone: string): boolean {
   return whatsAppPilotEnabled(env.WHATSAPP_QUICK_CHOICES, phone);
+}
+
+/** Whether Claude runs this customer's chat (see WHATSAPP_CLAUDE_LED); needs ANTHROPIC_API_KEY. */
+export function whatsAppClaudeLedEnabled(env: WhatsAppEnv, phone: string): boolean {
+  return Boolean(env.ANTHROPIC_API_KEY?.trim()) && whatsAppPilotEnabled(env.WHATSAPP_CLAUDE_LED, phone);
 }
 
 /** Whether typed addresses are checked on Google for this customer (see WHATSAPP_ADDRESS_CHECK). */
@@ -325,6 +343,8 @@ export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> 
         // "off" | "all" | "pilot" — never lists the pilot numbers.
         quickChoices: pilotSettingLabel(env.WHATSAPP_QUICK_CHOICES),
         addressCheck: pilotSettingLabel(env.WHATSAPP_ADDRESS_CHECK),
+        claudeLed: pilotSettingLabel(env.WHATSAPP_CLAUDE_LED),
+        claudeKeySet: Boolean(env.ANTHROPIC_API_KEY?.trim()),
         ...(diag ?? {}),
       },
       null,
@@ -632,11 +652,32 @@ async function handleInboundMessage(
       }
     }
   }
-  const decision = decideWhatsAppReply(existing, message.text, {
-    profileName: message.profileName,
-    quickChoices: whatsAppQuickChoicesEnabled(env, phone),
-    addressPick,
-  });
+  // Claude-led chat: Claude reads the message and decides; the rules flow is the fallback.
+  const claudeLed =
+    whatsAppClaudeLedEnabled(env, phone) &&
+    !isWhatsAppSendQuoteMessage(message.text) &&
+    !isWhatsAppMachineReply(message.text);
+  let decision: ClaudeLedDecision | null = null;
+  if (claudeLed) {
+    let base = existing;
+    let said = message.text;
+    if (addressPick) {
+      // The customer tapped "Yes" on the Google address: it goes on the quote as confirmed.
+      base = base ? { ...base, draft: { ...base.draft } } : newWhatsAppConversation(new Date());
+      base.draft[addressPick.field] = addressPick.address;
+      base.draft[addressPick.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"] = addressPick.placeId;
+      said = `[The customer tapped to confirm the ${addressPick.field === "pickupAddress" ? "pickup" : "destination"} address: ${addressPick.address}]`;
+    }
+    decision = await decideWithClaude(env, store, phone, base, said, message.profileName);
+    if (decision) logEvent("whatsapp_claude_led", phone, { action: decision.action, endChat: Boolean(decision.endChat) });
+  }
+  if (!decision) {
+    decision = decideWhatsAppReply(existing, message.text, {
+      profileName: message.profileName,
+      quickChoices: whatsAppQuickChoicesEnabled(env, phone),
+      addressPick,
+    });
+  }
   let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
 
@@ -646,7 +687,7 @@ async function handleInboundMessage(
     (decision.action === "answer" || decision.action === "none" || decision.action === "quote") &&
     whatsAppAddressCheckEnabled(env, phone)
   ) {
-    const field = whatsAppAddressFieldToCheck(conversation);
+    const field = whatsAppAddressFieldToCheck(conversation, { includePostcoded: claudeLed });
     if (field) {
       const check = await lookUpWhatsAppAddress(env, store, phone, conversation, field);
       if (check) {
@@ -682,7 +723,13 @@ async function handleInboundMessage(
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
   }
 
-  if (decision.action === "answer" && decision.ai?.declined && !isTeamPhone) {
+  if (decision.endChat) {
+    // Claude-led: the customer no longer needs a taxi — no chaser for the old quote.
+    await cancelWhatsAppFollowUp(store, phone);
+    logEvent("whatsapp_quote_declined", phone);
+  }
+
+  if (((decision.action === "answer" && decision.ai?.declined) || decision.endChat) && !isTeamPhone) {
     // "Don't need the taxi" from someone with a paid booking is a cancellation, which
     // needs a person (refund terms), not a cheery goodbye (6 Nov 2026).
     let hasBooking = false;
@@ -1095,6 +1142,32 @@ async function notifyOwnerOfHandoff(
  * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
  * fixed fallback reply.
  */
+/** One Claude-led turn; null when Claude is unavailable (the rules flow then answers). */
+async function decideWithClaude(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  existing: WhatsAppConversation | null,
+  said: string,
+  profileName: string | undefined,
+): Promise<ClaudeLedDecision | null> {
+  try {
+    const chat = await getWhatsAppChat(store, phone);
+    // The message itself was just logged; send the turns before it for context.
+    const recentChat = (chat?.messages ?? [])
+      .slice(-13, -1)
+      .map((m) => `${m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .join("\n");
+    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
+    const turn = await claudeLedClient.turn(env, context);
+    if (!turn) return null;
+    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
+  } catch (err) {
+    logEvent("whatsapp_claude_led_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
+}
+
 async function answerCustomerQuestion(
   env: WhatsAppEnv,
   store: KVNamespace,

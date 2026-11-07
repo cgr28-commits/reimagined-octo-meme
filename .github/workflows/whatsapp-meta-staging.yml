@@ -9,6 +9,9 @@ on:
     branches: [claude/meta-whatsapp-staging-test]
     paths:
       - ".github/workflows/whatsapp-meta-staging.yml"
+      - "shared/**"
+      - "workers/addresses/**"
+      - "scripts/check-whatsapp-claude-led.ts"
   workflow_dispatch:
 
 concurrency:
@@ -39,6 +42,20 @@ jobs:
         working-directory: workers/addresses
         run: npm ci
 
+      - name: Install site dependencies (for the WhatsApp checks)
+        run: npm ci
+
+      - name: WhatsApp checks (Claude-led chat + existing bot, Meta and templates)
+        run: |
+          npx tsx scripts/check-whatsapp-claude-led.ts
+          npm run check:whatsapp-quote-bot
+          npm run check:whatsapp-meta-cloud
+          npm run check:whatsapp-templates
+
+      - name: Typecheck worker
+        working-directory: workers/addresses
+        run: npm run typecheck
+
       - name: Check secrets are present (names only)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -48,6 +65,8 @@ jobs:
           WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
           WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
           WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           missing=0
           for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID WHATSAPP_ACCESS_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_APP_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_BUSINESS_ACCOUNT_ID; do
@@ -57,6 +76,8 @@ jobs:
           if [ "$WHATSAPP_PHONE_NUMBER_ID" != "1321323411073732" ]; then
             echo "::error::WHATSAPP_PHONE_NUMBER_ID is not the Meta test number — refusing."; missing=1
           fi
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::error::Missing GitHub secret ANTHROPIC_API_KEY (Claude runs the test chat)"; missing=1; else echo "ok: ANTHROPIC_API_KEY"; fi
+          if [ -z "$GOOGLE_PLACES_API_KEY" ]; then echo "::warning::No Google Places key — address confirmation will be skipped on staging"; else echo "ok: GOOGLE_PLACES_API_KEY"; fi
           exit $missing
 
       - name: Check the Meta access token works (no secrets printed)
@@ -79,7 +100,19 @@ jobs:
           WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
           WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
           WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node scripts/setup-whatsapp-staging.mjs
+
+      - name: Google key for address confirmation (staging Worker only)
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          if [ -n "$GOOGLE_PLACES_API_KEY" ]; then
+            printf '%s' "$GOOGLE_PLACES_API_KEY" | npx wrangler secret put GOOGLE_PLACES_API_KEY --config wrangler.staging.toml
+          fi
 
       - name: Work out the staging Worker URL
         id: url
