@@ -2932,7 +2932,7 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-emerald, [class*="text-emerald/"]) { color: var(--co-green-dark) !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-red-300, .text-red-400, [role="alert"]) { color: #b91c1c !important; }
-  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(p, span).text-xs:not([data-booking-nav-heading]),
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(p, span).text-xs:not([data-booking-nav-heading]):not(#step2-flight-details > div:first-child > p),
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details .quote-helper-text,
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details #child-seat-availability,
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details p.mt-1\.5 {
