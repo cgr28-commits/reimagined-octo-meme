@@ -2750,131 +2750,431 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { margin-top: 0.75rem; display: flex; justify-content: center; }
 }
 
+/* Booking step, 1024px and wider: the summary, notices and payment now sit in one wrapper
+   ([data-checkout-aside]). Below 1200px (and on every page other than the homepage) that
+   wrapper is display: contents, so these rules keep the 1024–1199px layout exactly as it
+   was when they were direct children of the form / travel details. */
+@media (min-width: 1024px) {
+  [data-checkout-aside] > [data-back-to-quote] { display: none; }
+  :where([data-checkout-aside] > :not(:last-child)) { margin-block-end: 0.75rem; }
+  [data-checkout-aside] > #step2-journey-summary,
+  [data-checkout-aside] > #customer-smart-availability-blocked {
+    break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.5rem;
+  }
+  #step2-journey-summary > * > [data-checkout-summary-details] > p.mt-1 { margin-top: 0.15rem; }
+}
+
 /* ==========================================================================
-   Desktop booking & payment (1200px+), Nov 2026. Same wide panel as the quote.
-     Your details (4 across) · Flight details
-     A  Airport access: outbound | return side by side (one-way: options side by side)
-     B  Booking summary: journey + dates | fare breakdown | total (full width)
-     C  Terms & consent | Pay button (green once details + terms are complete)
-   Layout only: selections, charges, validation and payment are unchanged.
+   Desktop checkout — Concept A (1200px+, homepage booking step only). Nov 2026.
+   Left (≈65%): white cards on a light canvas — 1 Your details, 2 Flight details,
+   3 Airport arrangements. Right (≈35%): navy booking panel, sticky; journey and
+   addresses scroll inside it while the fare, total, terms and Pay button stay put.
+   Layout and styling only. Mobile, tablet and anything below 1200px are unaffected.
    ========================================================================== */
 @media (min-width: 1200px) {
-  .homepage-hero .quote-flow:has(#step2-travel-details) { padding: 1.25rem 1.75rem 1.5rem !important; }
-  .homepage-hero .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1.35rem; letter-spacing: 0.04em; }
-  .homepage-hero #quoteForm:has(> #step2-travel-details) { display: flex; flex-direction: column; gap: 1.1rem; }
-  .homepage-hero #quoteForm:has(> #step2-travel-details) > * { margin: 0 !important; }
-  .homepage-hero #step2-travel-details > * { margin-bottom: 0 !important; }
-
-  /* Your details: four across. */
-  .homepage-hero #step3-customer-details > div.space-y-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.9fr) !important; column-gap: 1rem !important;
-  }
-  .homepage-hero #step3-customer-details > p[data-booking-nav-heading],
-  .homepage-hero section:has(> [data-terminal-access]) > [data-terminal-access] > header > p:first-child {
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  body:has(.homepage-hero [data-checkout-aside]) {
+    --co-header: 4.5rem;
+    --co-ink: #0f1b2d;
+    --co-muted: #5b6b80;
+    --co-line: #e3e8ef;
+    --co-field: #cfd7e2;
+    --co-navy: #0b1f3a;
+    --co-green: #22b14c;
+    --co-green-dark: #15803d;
+    --co-green-tint: #e9f7ee;
+    --co-mint: #6ee7b7;
   }
 
-  /* A · Airport access. */
-  .homepage-hero section:has(> [data-terminal-access]) {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; align-items: start;
-    padding: 1.25rem 1.4rem !important; border-radius: 1rem;
+  /* Compact branded header: logo only while booking. */
+  body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] > div:first-child,
+  body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] > div:nth-child(2) > :not(:first-child) {
+    display: none !important;
   }
-  .homepage-hero section:has(> [data-terminal-access]) > * { margin-top: 0 !important; }
-  .homepage-hero section:has(> [data-terminal-access]) > :not([data-terminal-access]) { grid-column: 1 / -1; }
-  /* One airport leg only: its choices sit side by side across the width. */
-  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) > [data-terminal-access] { grid-column: 1 / -1; }
-  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;
+  body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] > div:nth-child(2) {
+    height: var(--co-header); padding-top: 0; padding-bottom: 0; max-width: 80rem;
   }
-  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset > * { margin: 0 !important; }
-  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset > :is(legend, p) { grid-column: 1 / -1; }
-  /* Return bookings: label the outbound column to match "Return journey". */
-  .homepage-hero section:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
-    content: "Outbound journey"; display: block; margin-bottom: 0.15rem;
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
-  }
-  .homepage-hero [data-terminal-access] { display: flex; flex-direction: column; gap: 0.75rem; }
-  .homepage-hero [data-terminal-access] > * { margin: 0 !important; }
-  .homepage-hero [data-terminal-access] h3 { font-size: 1.1rem; font-weight: 700; }
-  .homepage-hero [data-terminal-access] header > p:last-child { font-size: 0.9rem; color: rgba(255, 255, 255, 0.72); }
-  .homepage-hero [data-terminal-access] legend { font-size: 0.95rem; margin-bottom: 0.6rem; }
-  .homepage-hero [data-terminal-access] fieldset { display: flex; flex-direction: column; gap: 0.6rem; }
-  .homepage-hero [data-terminal-access] fieldset > * { margin: 0 !important; }
-  .homepage-hero [data-terminal-access] label.grid {
-    grid-template-columns: 1.15rem minmax(0, 1fr) auto; column-gap: 0.85rem; row-gap: 0.3rem;
-    padding: 0.9rem 1rem; border-radius: 0.9rem; font-size: 1rem; min-height: 4.6rem; align-content: start;
-    transition: border-color 150ms ease, background-color 150ms ease;
-  }
-  .homepage-hero [data-terminal-access] label.grid:hover { border-color: rgba(52, 211, 153, 0.55); }
-  .homepage-hero [data-terminal-access] label.grid:has(input:checked) {
-    border: 2px solid #34d399 !important; background: rgba(52, 211, 153, 0.1) !important; padding: calc(0.9rem - 1px) calc(1rem - 1px);
-  }
-  .homepage-hero [data-terminal-access] label.grid:has(input:focus-visible) { outline: 3px solid #6ee7b7; outline-offset: 2px; }
-  .homepage-hero [data-terminal-access] label.grid input { height: 1.15rem; width: 1.15rem; margin-top: 0.1rem; }
-  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(1) { font-size: 1rem; font-weight: 700; }
-  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(2) { font-size: 1rem; font-weight: 700; }
-  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(3) { font-size: 0.875rem; line-height: 1.5; color: rgba(255, 255, 255, 0.75); }
-  .homepage-hero [data-terminal-access] fieldset > p { font-size: 0.8rem; }
+  body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] .quote-header-logo { height: 3.1rem; width: auto; }
 
-  /* B · Booking summary: journey | breakdown | total. */
-  .homepage-hero #step2-journey-summary > #quote-price-summary {
-    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.7fr);
-    grid-auto-flow: row dense; column-gap: 2rem; row-gap: 0.35rem; align-items: start;
-    padding: 1.25rem 1.5rem !important; border-radius: 1rem;
+  /* Light canvas: the homepage hero and sections below step aside. */
+  .homepage-hero:has([data-checkout-aside]) { background: #f4f6f9; }
+  .homepage-hero:has([data-checkout-aside]) :is(.homepage-hero-media, .homepage-hero-rails, #homepage-booking-intro, .hero-benefits-row, [data-hero-reviews-badge], .quote-help-contact) {
+    display: none !important;
   }
-  .homepage-hero #quote-price-summary > * { margin: 0 !important; grid-column: 1; }
-  .homepage-hero #quote-price-summary::before {
-    content: "Booking summary"; grid-column: 1 / -1; margin-bottom: 0.3rem;
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  .homepage-hero:has([data-checkout-aside]) .homepage-hero-layout {
+    display: block !important; max-width: 80rem !important; margin-inline: auto;
+    padding: calc(var(--co-header) + 1.75rem) 2.5rem 3.5rem !important; min-height: 0 !important;
   }
-  .homepage-hero #quote-price-summary > [data-checkout-route] { font-size: 1.15rem; line-height: 1.4; }
-  .homepage-hero #quote-price-summary > [data-checkout-party] { font-size: 0.95rem; color: rgba(255, 255, 255, 0.8); }
-  .homepage-hero #quote-price-summary > [data-checkout-pickup-time],
-  .homepage-hero #quote-price-summary > [data-checkout-return-time] { font-size: 0.95rem; }
-  .homepage-hero #quote-price-summary > [data-checkout-summary-controls] { margin-top: 0.35rem !important; font-size: 0.85rem; column-gap: 1.25rem; }
-  .homepage-hero #quote-price-summary > [data-checkout-access],
-  .homepage-hero #quote-price-summary > [data-meet-greet-summary] { grid-column: 2; font-size: 0.85rem; line-height: 1.5; }
-  .homepage-hero #quote-price-summary > [data-checkout-breakdown] {
-    display: block; grid-column: 2; grid-row: 2 / span 6; font-size: 0.9rem;
-    padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1);
+  .homepage-hero:has([data-checkout-aside]) .homepage-hero-quote { max-width: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  main:has(> .homepage-hero [data-checkout-aside]) > section:not(.homepage-hero) { display: none; }
+
+  /* Two columns. The form is display: contents so the heading, the details and the panel
+     share one grid; the panel spans both rows and sits level with the heading. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(23rem, 0.54fr); grid-template-rows: auto 1fr;
+    column-gap: 2.25rem; row-gap: 0; align-items: start;
+    max-width: none !important; margin: 0 !important; padding: 0 !important;
+    background: none !important; border: 0 !important; border-radius: 0 !important;
+    box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    color: var(--co-ink);
   }
-  /* The access line names what was chosen (e.g. Meet & Greet); it heads the breakdown column. */
-  .homepage-hero #quote-price-summary > [data-checkout-access] { grid-row: 2; padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.85); }
-  .homepage-hero #quote-price-summary > [data-meet-greet-summary] { grid-row: 3; padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1); }
-  .homepage-hero #quote-price-summary:has(> [data-checkout-access]) > [data-checkout-breakdown] { grid-row: 3 / span 6; padding-top: 0.35rem; }
-  .homepage-hero #quote-price-summary:has(> [data-checkout-access]):has(> [data-meet-greet-summary]) > [data-checkout-breakdown] { grid-row: 4 / span 6; }
-  .homepage-hero #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { font-size: 0.9rem; line-height: 1.6; }
-  .homepage-hero #quote-price-summary > [data-checkout-total] {
-    grid-column: 3; grid-row: 2 / span 6; align-self: center; justify-self: end; text-align: right;
-    font-size: 2.6rem !important; line-height: 1.1; letter-spacing: -0.02em;
+  .homepage-hero .quote-flow:has([data-checkout-aside])::before,
+  .homepage-hero .quote-flow:has([data-checkout-aside])::after { display: none !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > #quoteForm { display: contents !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > #quoteForm > :not(#step2-travel-details):not([data-checkout-aside]) { grid-column: 1; }
+
+  /* Heading row: back link · progress · secure, then the title and the journey line. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child {
+    grid-column: 1; grid-row: 1; display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 1.5rem; align-items: center;
+    margin: 0 0 1.5rem !important; padding: 0;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-back-to-quote] {
+    grid-column: 1; grid-row: 1; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > h2 {
+    grid-column: 1 / -1; grid-row: 2; margin-top: 1.1rem !important;
+    font-size: 2rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--co-navy);
+    text-transform: lowercase;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > h2::first-letter { text-transform: uppercase; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div.quote-secondary { display: none !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) {
+    grid-column: 1 / -1; grid-row: 4; margin-top: 1rem !important; background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25);
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) :is(p, .text-white, .text-emerald) { color: var(--co-ink); }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-checkout-desktop-bar] { display: contents; }
+  .homepage-hero [data-checkout-progress] {
+    grid-column: 3; grid-row: 1; display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0; padding: 0;
+    font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
+  }
+  .homepage-hero [data-checkout-progress] li { display: flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
+  .homepage-hero [data-checkout-progress] li + li::before { content: ""; width: 1.75rem; height: 1.5px; background: #c9d2de; margin-right: 0.3rem; }
+  .homepage-hero [data-checkout-progress] li > span[aria-hidden] {
+    width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center;
+    font-size: 0.75rem; font-weight: 800; border: 1.5px solid #c9d2de; background: #fff; color: var(--co-muted);
+  }
+  .homepage-hero [data-checkout-progress-step="done"] > span[aria-hidden] { background: var(--co-green); border-color: var(--co-green); color: #fff; }
+  .homepage-hero [data-checkout-progress-step="current"] { color: var(--co-ink); }
+  .homepage-hero [data-checkout-progress-step="current"] > span[aria-hidden] { background: var(--co-navy); border-color: var(--co-navy); color: #fff; }
+  .homepage-hero [data-checkout-secure] {
+    grid-column: 4; grid-row: 1; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+    font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
+  }
+  .homepage-hero [data-checkout-secure]::before {
+    content: ""; width: 0.95rem; height: 0.95rem; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1 / -1; grid-row: 3; margin-top: 0.35rem !important; font-size: 0.95rem; color: var(--co-muted); }
+
+  /* ---------- Left column: white cards ---------- */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details {
+    grid-column: 1; grid-row: 2; display: flex !important; flex-direction: column; gap: 1.25rem; counter-reset: co-step;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(#step3-customer-details, #step2-flight-details, section[aria-label="Airport services"], section[data-quote-schedule]) {
+    background: #fff !important; border: 1px solid var(--co-line) !important; border-radius: 1rem !important;
+    padding: 1.6rem 1.75rem 1.75rem !important; box-shadow: 0 1px 2px rgba(15, 27, 45, 0.04) !important;
+    color: var(--co-ink); counter-increment: co-step;
+  }
+  /* Card headings with a numbered badge. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > p[data-booking-nav-heading],
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child > p {
+    display: flex; align-items: center; gap: 0.65rem; margin: 0 0 1.15rem !important;
+    font-size: 1.125rem; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--co-navy) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child { display: block !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > p[data-booking-nav-heading]::before,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child > p::before,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::before {
+    content: counter(co-step); flex: none; width: 1.65rem; height: 1.65rem; border-radius: 0.5rem;
+    display: grid; place-items: center; background: var(--co-navy); color: #fff; font-size: 0.8125rem; font-weight: 800;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > * + * { margin-top: 0 !important; }
+
+  /* Fields: light, neutral borders, navy focus, red when invalid. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.form-label, label.form-label) {
+    color: var(--co-ink) !important; font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.45rem !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input.quote-text-input:not([type="checkbox"]):not([type="radio"]), textarea, .quote-datetime-shell) {
+    height: 3rem !important; min-height: 3rem !important; border-radius: 0.65rem !important;
+    background: #fff !important; color: var(--co-ink) !important; font-size: 0.95rem !important;
+    border: 1px solid var(--co-field) !important; box-shadow: none !important; outline: none;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details textarea { height: auto !important; min-height: 5rem !important; padding: 0.75rem 0.9rem; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-datetime-shell input { border: 0 !important; height: 100% !important; min-height: 0 !important; background: transparent !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input, textarea)::placeholder { color: #97a3b3 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input.quote-text-input, textarea):focus,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-datetime-shell:focus-within {
+    border-color: var(--co-navy) !important; box-shadow: 0 0 0 3px rgba(11, 31, 58, 0.14) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input, textarea)[aria-invalid="true"] {
+    border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+  }
+  /* Text that was white on the dark panel. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-white, h2, h3, legend) { color: var(--co-ink); }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is([class*="text-white/"], .quote-secondary, .quote-helper-text) {
+    color: var(--co-muted) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-emerald, [class*="text-emerald/"]) { color: var(--co-green-dark) !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-red-300, .text-red-400, [role="alert"]) { color: #b91c1c !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(p, span).text-xs,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-helper-text,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details #child-seat-availability,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details p.mt-1\.5 {
+    font-size: 0.8rem !important; line-height: 1.5 !important; margin-top: 0.45rem;
   }
 
-  /* C · Terms & consent | payment. */
-  .homepage-hero #quoteForm > #step3-payment-actions {
-    display: grid !important; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: 2.5rem; row-gap: 0.6rem;
-    align-items: start; padding: 1.25rem 1.5rem; border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03);
+  /* 1 · Your details: two by two. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > div.space-y-3 {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; column-gap: 1.25rem !important; row-gap: 1.15rem !important;
   }
-  .homepage-hero #step3-payment-actions > * { grid-column: 1 !important; margin-top: 0 !important; }
-  .homepage-hero #step3-payment-actions > .sr-only { position: absolute; }
-  .homepage-hero #step3-payment-actions > div:has(.btn-pay) { grid-column: 2 !important; grid-row: 1 / span 4; }
-  .homepage-hero #step3-payment-actions > div:first-of-type + div p.text-emerald,
-  .homepage-hero #step3-payment-actions p.text-emerald { font-size: 1rem; font-weight: 700; }
-  .homepage-hero #step3-payment-actions label { font-size: 0.95rem !important; line-height: 1.45; }
-  .homepage-hero #step3-payment-actions > button.w-full.text-xs,
-  .homepage-hero #step3-payment-actions > [data-start-new-quote-controls] { justify-self: start; width: auto; }
-  .homepage-hero #step3-payment-actions [data-pay-hint] {
-    display: block; margin-bottom: 0.5rem; padding: 0.55rem 0.8rem; border-radius: 0.7rem;
-    background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35);
-    font-size: 0.875rem; line-height: 1.45; color: #fde68a;
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-booking-meet-greet] {
+    background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25) !important; color: var(--co-ink);
   }
-  .homepage-hero #step3-payment-actions .btn-pay {
-    min-height: 3.75rem !important; font-size: 1.15rem; border-radius: 0.9rem;
-    background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.3);
+  /* Child seats: one segmented control. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] {
+    display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0 !important;
+    border: 1px solid var(--co-field); border-radius: 0.65rem; overflow: hidden; height: 3rem;
   }
-  .homepage-hero #step3-payment-actions[data-pay-ready="true"] .btn-pay {
-    background: #2fbf4a; border-color: #2fbf4a; color: #071c38;
-    box-shadow: 0 10px 28px rgba(34, 197, 94, 0.35);
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > * {
+    margin: 0 !important; height: 100% !important; min-height: 0 !important; border: 0 !important; border-radius: 0 !important;
+    border-right: 1px solid var(--co-field) !important; background: #fff !important; color: var(--co-ink) !important;
+    box-shadow: none !important; font-weight: 700; font-size: 0.9rem;
   }
-  .homepage-hero #step3-payment-actions[data-pay-ready="true"] .btn-pay:hover:not(:disabled) { background: #3ad25a; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :last-child { border-right: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :is([aria-pressed="true"], [aria-checked="true"], .quote-choice-selected) {
+    background: var(--co-navy) !important; color: #fff !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: -3px; }
+
+  /* 2 · Flight details: the helper reads as an information note. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details input { max-width: 22rem; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field > label {
+    margin-bottom: 0.45rem; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--co-ink) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field > .quote-helper-text {
+    display: block; margin-top: 0.9rem !important; padding: 0.8rem 1rem; border-radius: 0.75rem; background: #f2f6fb; color: #33465e !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field:last-child > .quote-helper-text::after {
+    content: " Airport pickups include up to 60 minutes complimentary waiting from your flight’s actual landing time, where a valid flight number has been provided.";
+  }
+
+  /* 3 · Airport arrangements: outbound | return side by side, as clean radio lists. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"] {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2rem; row-gap: 0;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::before { grid-row: 1; grid-column: 1; align-self: center; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::after {
+    content: "Airport arrangements"; grid-row: 1; grid-column: 1 / -1; align-self: center; padding-left: 2.3rem; margin-bottom: 1.15rem;
+    font-size: 1.125rem; font-weight: 800; color: var(--co-navy); line-height: 1.65rem;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"] > * { grid-row: 2; margin: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:not(:has(> [data-terminal-access] ~ [data-terminal-access])) > [data-terminal-access] { grid-column: 1 / -1; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] { display: flex; flex-direction: column; gap: 0; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header { margin-bottom: 0.85rem !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header > p:first-child,
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
+    display: inline-block; margin-bottom: 0.6rem !important; padding: 0.2rem 0.55rem; border-radius: 0.4rem;
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header > p:first-child { background: #fff4e5; color: #b45309 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
+    content: "Outbound"; background: #e8eef7; color: var(--co-navy);
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] h3 { font-size: 1rem; font-weight: 800; color: var(--co-ink); line-height: 1.35; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] header > p:last-child { margin-top: 0.2rem; font-size: 0.85rem !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] legend {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset { display: flex; flex-direction: column; gap: 0; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] {
+    grid-template-columns: 1.25rem minmax(0, 1fr) auto !important; column-gap: 0.8rem !important; row-gap: 0.2rem !important;
+    min-height: 0 !important; padding: 0.95rem 0.6rem !important; border: 0 !important; border-top: 1px solid var(--co-line) !important;
+    border-radius: 0 !important; background: transparent !important; color: var(--co-ink) !important; box-shadow: none !important;
+    font-size: 0.9rem; transition: background-color 150ms ease;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:last-of-type { border-bottom: 1px solid var(--co-line) !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:hover { background: #f7f9fc !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:has(input:checked) {
+    background: linear-gradient(90deg, var(--co-green-tint), rgba(233, 247, 238, 0) 92%) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(1) { font-size: 0.95rem; font-weight: 700; color: var(--co-ink); }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(2) { font-size: 0.95rem; font-weight: 800; color: var(--co-ink) !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option="free"] > span:nth-of-type(2) { color: var(--co-green-dark) !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(3) { font-size: 0.83rem !important; line-height: 1.55; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset input[type="radio"] {
+    appearance: none; -webkit-appearance: none; width: 1.25rem; height: 1.25rem; margin: 0.05rem 0 0; border-radius: 50%;
+    border: 2px solid #b7c2d0; background: #fff; cursor: pointer;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset input[type="radio"]:checked {
+    border-color: var(--co-green); background: var(--co-green); box-shadow: inset 0 0 0 3px #fff;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] input:focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: 2px; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] [data-access-note] { padding: 0.6rem 0 0 !important; font-size: 0.75rem !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > p[role="status"] {
+    padding: 0.8rem 1rem !important; border-radius: 0.75rem !important; border: 1px solid rgba(21, 128, 61, 0.25) !important;
+    background: var(--co-green-tint) !important; color: var(--co-ink) !important; font-size: 0.83rem !important;
+  }
+  /* Meet & Greet: an add-on with a switch, below the pickup options. */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] {
+    order: 3; margin-top: 1rem !important; padding: 0.9rem 1rem !important; border-radius: 0.75rem !important;
+    border: 1px dashed #cdd6e2 !important; background: #f7f9fc !important; grid-template-columns: 2.5rem minmax(0, 1fr) auto !important;
+    align-items: center !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"]:has(input:checked) {
+    border-style: solid !important; border-color: rgba(34, 177, 76, 0.45) !important; background: var(--co-green-tint) !important;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] > span:nth-of-type(3) { grid-column: 2 / 4 !important; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none; width: 2.5rem; height: 1.45rem; margin: 0; border-radius: 999px; cursor: pointer;
+    background: #cbd5e1 radial-gradient(circle at 0.72rem 50%, #fff 0.52rem, transparent 0.56rem) no-repeat;
+    transition: background-color 150ms ease, background-position 150ms ease;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"]:checked {
+    background: var(--co-green) radial-gradient(circle at 1.78rem 50%, #fff 0.52rem, transparent 0.56rem) no-repeat;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input:disabled { opacity: 0.7; cursor: default; }
+
+  /* ---------- Right column: the navy booking panel ---------- */
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] {
+    grid-column: 2; grid-row: 1 / span 2; align-self: start;
+    position: sticky; top: calc(var(--co-header) + 1.25rem);
+    /* Fits the visible screen both where the panel starts and once it sticks. */
+    max-height: calc(100vh - var(--co-header) - 2.75rem);
+    max-height: calc(100dvh - var(--co-header) - 2.75rem);
+    display: flex !important; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--co-navy); color: #fff; border-radius: 1.15rem;
+    box-shadow: 0 24px 50px -24px rgba(11, 31, 58, 0.6);
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > * { margin: 0 !important; flex: none; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > [data-back-to-quote] { display: none; }
+  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > :is(div:has(> [role="alert"]), #customer-smart-availability-blocked) { padding: 0.75rem 1.4rem 0; }
+  /* Journey details shrink and scroll first; if the screen is shorter still, the whole
+     summary scrolls inside itself, and only then the panel. Pay is never pushed off. */
+  .homepage-hero [data-checkout-aside] > #step2-journey-summary { flex: 1 1 auto !important; min-height: 8rem; display: flex; flex-direction: column; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+    margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > * { margin: 0 !important; flex: none; }
+  /* Header row: YOUR BOOKING · Edit journey · Change airport access. */
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] {
+    order: -1; display: flex; flex-wrap: wrap; align-items: center; column-gap: 1rem; row-gap: 0.15rem; padding: 1.25rem 1.4rem 0.7rem;
+    font-size: 0.8rem !important;
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls]::before {
+    content: "Your booking"; margin-right: auto;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] > details { display: none; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button { min-height: 0 !important; padding: 0.1rem 0 !important; color: var(--co-mint); }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button:hover { color: #fff; }
+  /* Journey details: scroll inside the panel, with soft shadows when there is more. */
+  .homepage-hero [data-checkout-aside] [data-checkout-summary-details] {
+    flex: 1 1 auto !important; min-height: 3rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 1.4rem 0.4rem;
+    background:
+      linear-gradient(var(--co-navy) 30%, rgba(11, 31, 58, 0)) top / 100% 1.5rem no-repeat local,
+      linear-gradient(rgba(11, 31, 58, 0), var(--co-navy) 70%) bottom / 100% 1.5rem no-repeat local,
+      radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.45), transparent) top / 100% 0.6rem no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.45), transparent) bottom / 100% 0.6rem no-repeat scroll;
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-summary-details]:focus-visible { outline: 2px solid var(--co-mint); outline-offset: -2px; }
+  .homepage-hero [data-checkout-aside] [data-checkout-summary-details] > :is([data-checkout-route], [data-checkout-party], [data-checkout-pickup-time], [data-checkout-return-time]) { display: none; }
+  .homepage-hero [data-checkout-aside] [data-checkout-summary-details] > [data-checkout-access] { margin-top: 0.7rem !important; font-size: 0.78rem; line-height: 1.5; color: rgba(255, 255, 255, 0.7); }
+  .homepage-hero [data-checkout-aside] [data-checkout-desktop-details] { display: block; }
+  .homepage-hero [data-checkout-aside] [data-checkout-route-stops] { position: relative; list-style: none; margin: 0; padding: 0 0 0 1.5rem; }
+  .homepage-hero [data-checkout-aside] [data-checkout-route-stops]::before {
+    content: ""; position: absolute; left: 0.34rem; top: 0.6rem; bottom: 1.4rem; width: 2px;
+    background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 0 3px, transparent 3px 6px);
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop] { position: relative; padding-bottom: 0.6rem; }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop]::before {
+    content: ""; position: absolute; left: -1.5rem; top: 0.22rem; width: 0.8rem; height: 0.8rem; border-radius: 50%;
+    border: 2.5px solid var(--co-mint); background: var(--co-navy); box-sizing: border-box;
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop="to"]::before { background: var(--co-mint); }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop-name] { font-size: 0.95rem; font-weight: 700; line-height: 1.3; }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop-address] { margin-top: 0.1rem; font-size: 0.78rem; line-height: 1.4; color: rgba(255, 255, 255, 0.65); overflow-wrap: anywhere; }
+  .homepage-hero [data-checkout-aside] [data-checkout-legs] { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem; margin: 0.45rem 0 0; }
+  .homepage-hero [data-checkout-aside] [data-checkout-leg] { border-radius: 0.65rem; padding: 0.5rem 0.7rem; background: rgba(255, 255, 255, 0.06); }
+  .homepage-hero [data-checkout-aside] [data-checkout-leg] dt { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--co-mint); }
+  .homepage-hero [data-checkout-aside] [data-checkout-leg="return"] dt { color: #fcd34d; }
+  .homepage-hero [data-checkout-aside] [data-checkout-leg] dd { margin: 0.1rem 0 0; font-size: 0.85rem; font-weight: 700; }
+  .homepage-hero [data-checkout-aside] [data-checkout-vehicle] {
+    display: flex; align-items: center; gap: 0.55rem; margin-top: 0.5rem; padding: 0.5rem 0.7rem; border-radius: 0.65rem;
+    background: rgba(255, 255, 255, 0.06); font-size: 0.82rem; font-weight: 600;
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-vehicle]::before {
+    content: ""; flex: none; width: 1.25rem; height: 1.25rem; background: var(--co-mint);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 17h14v-4.5l-1.6-4.2A2 2 0 0 0 15.5 7h-7a2 2 0 0 0-1.9 1.3L5 12.5z'/%3E%3Ccircle cx='7.5' cy='17' r='1.5'/%3E%3Ccircle cx='16.5' cy='17' r='1.5'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 17h14v-4.5l-1.6-4.2A2 2 0 0 0 15.5 7h-7a2 2 0 0 0-1.9 1.3L5 12.5z'/%3E%3Ccircle cx='7.5' cy='17' r='1.5'/%3E%3Ccircle cx='16.5' cy='17' r='1.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-included] {
+    list-style: none; margin: 0.6rem 0 0; padding: 0.6rem 0.75rem; border-radius: 0.65rem; background: rgba(110, 231, 183, 0.08);
+    display: grid; gap: 0.25rem; font-size: 0.76rem; line-height: 1.45; color: rgba(255, 255, 255, 0.86);
+  }
+  .homepage-hero [data-checkout-aside] [data-checkout-included] li { display: flex; gap: 0.45rem; }
+  .homepage-hero [data-checkout-aside] [data-checkout-included] li::before { content: "✓"; color: var(--co-mint); font-weight: 800; }
+  /* Fare: Meet & Greet line, breakdown and total — always visible below the journey. */
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-meet-greet-summary] { padding: 0.55rem 1.4rem 0; font-size: 0.82rem; color: rgba(255, 255, 255, 0.85); }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] {
+    display: block; margin: 0.55rem 1.4rem 0 !important; padding-top: 0.55rem; border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { font-size: 0.82rem; line-height: 1.55; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] {
+    order: 10; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    margin: 0.55rem 1.4rem 0 !important; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-label] { font-size: 0.9rem; font-weight: 700; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-label]::after { content: " to pay"; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-amount] { font-size: 2.05rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  /* Request-only journeys keep their own total wording ("Total TBC" etc.). */
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total]:not(:has([data-checkout-total-amount])) { font-size: 1.15rem; }
+
+  /* Terms, offers, notices and the Pay button. */
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions {
+    display: flex !important; flex-wrap: wrap; column-gap: 1.1rem; row-gap: 0.55rem; align-items: center;
+    padding: 0.85rem 1.4rem 1.15rem; margin: 0 !important;
+  }
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions > * { flex: 1 1 100%; margin: 0 !important; }
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions > .sr-only { position: absolute; flex: none; }
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.5rem !important; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions p.text-emerald { color: var(--co-mint); font-size: 0.82rem; font-weight: 700; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions label {
+    min-height: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; border-radius: 0 !important;
+    gap: 0.6rem !important; font-size: 0.8rem !important; line-height: 1.45; color: rgba(255, 255, 255, 0.9);
+  }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions label :is(span, .text-white\/92, .quote-secondary) { font-size: 0.8rem !important; color: rgba(255, 255, 255, 0.88) !important; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions label input[type="checkbox"] { width: 1.05rem; height: 1.05rem; margin-top: 0.1rem; accent-color: var(--co-green); }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions a { color: #9be8bd; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-pay-hint] {
+    display: block; padding: 0.5rem 0.7rem; border-radius: 0.6rem; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.35);
+    font-size: 0.78rem; line-height: 1.45; color: #fde68a;
+  }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions p.text-xs { font-size: 0.75rem; text-align: center; color: rgba(255, 255, 255, 0.62); }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay {
+    min-height: 3.4rem !important; padding: 0.6rem 1rem !important; border-radius: 0.8rem; font-size: 1.05rem; font-weight: 800;
+    background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions[data-pay-ready="true"] .btn-pay {
+    background: var(--co-green); border-color: var(--co-green); color: #fff; box-shadow: 0 10px 24px -10px rgba(34, 177, 76, 0.8);
+  }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions[data-pay-ready="true"] .btn-pay:hover:not(:disabled) { background: #28c456; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions :is(.btn-primary, .btn-secondary) { min-height: 3rem; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions #payment-loading-status:empty { display: none; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] { margin-top: 0.4rem !important; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-booking-payment-options] > div.grid { grid-template-columns: 1fr !important; }
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions > :is(button.w-full.text-xs, [data-start-new-quote-controls]) {
+    flex: 0 0 auto; width: auto; margin-top: 0.15rem !important; font-size: 0.78rem;
+  }
+  .homepage-hero [data-checkout-aside] > #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; padding: 0; font-size: 0.78rem; }
 }

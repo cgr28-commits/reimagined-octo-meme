@@ -6900,6 +6900,64 @@ function QuoteCard({
     const isTooSoonCheckout = Boolean(
       payNow && liveQuote && isTooSoonPickup && !ownerClosed && !checkoutBlocked,
     );
+    // Desktop (1200px+) side panel only — hidden below 1200px. Display text from existing
+    // state; no pricing or booking logic. Waiting wording follows the published Terms
+    // (AIRPORT_WAITING_FROM_LANDING: 60 minutes from actual landing, with a valid flight
+    // number; other pickups 10 minutes) and only names the pickups this booking has.
+    const checkoutWhenLine =
+      tripDate && tripTime ? `${formatBookingDate(tripDate)} · ${formatCustomerClock(tripTime) || tripTime}` : null;
+    const checkoutReturnWhenLine =
+      returnJourney && returnDate && returnTime
+        ? `${formatBookingDate(returnDate)} · ${formatCustomerClock(returnTime) || returnTime}`
+        : null;
+    const outboundPickupAtAirport = checkoutTimeLabel("outbound") !== "Pickup time";
+    const returnPickupAtAirport = returnJourney && checkoutTimeLabel("return") !== "Pickup time";
+    const waitingLine = (leg: string, atAirport: boolean) =>
+      atAirport
+        ? `${leg} airport pickup: up to 60 minutes complimentary waiting from your flight’s actual landing time, with a valid flight number`
+        : `${leg} pickup: up to 10 minutes complimentary waiting`;
+    const checkoutIncludedLines = [
+      ...(payNow ? ["Fixed price, confirmed before you pay"] : []),
+      waitingLine(returnJourney ? "Outbound" : "Your", outboundPickupAtAirport),
+      ...(returnJourney ? [waitingLine("Return", returnPickupAtAirport)] : []),
+    ];
+    const checkoutDesktopDetails = (
+      <>
+        <ol data-checkout-route-stops aria-label="Journey">
+          <li data-checkout-stop="from">
+            <p data-checkout-stop-name>{(pickupLabel || "Pickup").split(",")[0]}</p>
+            {pickupAddress ? <p data-checkout-stop-address>{pickupAddress}</p> : null}
+          </li>
+          <li data-checkout-stop="to">
+            <p data-checkout-stop-name>{(dropoffLabel || "Destination").split(",")[0]}</p>
+            {dropoffAddress ? <p data-checkout-stop-address>{dropoffAddress}</p> : null}
+          </li>
+        </ol>
+        {checkoutWhenLine ? (
+          <dl data-checkout-legs>
+            <div data-checkout-leg="outbound">
+              <dt>
+                {returnJourney ? "Outbound" : "Pickup"}
+                {outboundPickupAtAirport ? " · flight lands" : ""}
+              </dt>
+              <dd>{checkoutWhenLine}</dd>
+            </div>
+            {checkoutReturnWhenLine ? (
+              <div data-checkout-leg="return">
+                <dt>Return{returnPickupAtAirport ? " · flight lands" : ""}</dt>
+                <dd>{checkoutReturnWhenLine}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+        <p data-checkout-vehicle>{partyLine}</p>
+        <ul data-checkout-included aria-label="What’s included">
+          {checkoutIncludedLines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </>
+    );
 
     return (
       <>
@@ -7142,7 +7200,12 @@ function QuoteCard({
 
           {renderFlightDetailsSection(2)}
           {renderExpressChoiceInPriceCard("full")}
+        </div>
 
+        {/* Summary, payment and their notices. Below 1024px a plain stack with the same
+            spacing as before; 1024–1199px display: contents (unchanged layout); 1200px+
+            on the homepage, the sticky booking panel beside the details. */}
+        <div data-checkout-aside className="max-lg:space-y-3 lg:contents">
           <div id="step2-journey-summary" ref={step2JourneySummaryRef}>
           <QuoteCheckoutSummary
             routeLine={`${(pickupLabel || "Pickup").split(",")[0]} → ${(dropoffLabel || "Destination").split(",")[0]}`}
@@ -7161,6 +7224,7 @@ function QuoteCard({
                 : null
             }
             accessLine={checkoutAccessLine()}
+            desktopDetails={presentation === "homepage" ? checkoutDesktopDetails : undefined}
             onEditJourney={() => navigateQuoteStep(1)}
             changeAccessLabel={undefined}
             onChangeDropOff={
@@ -7218,7 +7282,6 @@ function QuoteCard({
               />
             </div>
           ) : null}
-        </div>
 
         {paymentError && !(payNow && liveQuote) && !checkoutBlocked && !ownerClosed ? (
           <div className="space-y-3">
@@ -7636,6 +7699,7 @@ function QuoteCard({
               {saveQuotePrompt}
             </p>
           ) : null}
+        </div>
         </div>
       </>
     );
@@ -8392,6 +8456,27 @@ function QuoteCard({
         </ol>
         ) : null}
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
+        {quoteStep >= 2 && presentation === "homepage" ? (
+          /* Desktop (1200px+) checkout header only — hidden below 1200px. */
+          <div className="hidden" data-checkout-desktop-bar>
+            <ol data-checkout-progress aria-label="Booking progress">
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Quote<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="current" aria-current="step">
+                <span aria-hidden="true">2</span> Your booking
+              </li>
+              <li data-checkout-progress-step="next">
+                <span aria-hidden="true">3</span> Secure payment
+              </li>
+            </ol>
+            <p data-checkout-secure>Secure booking</p>
+            <p data-checkout-desktop-subtitle>
+              {returnJourney ? "Return transfer" : "One-way transfer"} ·{" "}
+              {(pickupLabel || "Pickup").split(",")[0]} {returnJourney ? "⇄" : "→"} {(dropoffLabel || "Destination").split(",")[0]}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <form

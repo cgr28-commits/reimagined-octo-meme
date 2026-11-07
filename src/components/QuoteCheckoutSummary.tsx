@@ -14,6 +14,8 @@ type Props = {
   onEditJourney: () => void;
   onChangeDropOff?: (() => void) | null;
   changeAccessLabel?: string;
+  /** Desktop (1200px+) only: the journey laid out for the side panel. Hidden below 1200px. */
+  desktopDetails?: ReactNode;
   children?: ReactNode;
 };
 
@@ -33,8 +35,12 @@ export default function QuoteCheckoutSummary({
   onEditJourney,
   onChangeDropOff,
   changeAccessLabel = "Change airport access",
+  desktopDetails,
   children,
 }: Props) {
+  // "Total £48" → label + amount, so the desktop panel can style the amount on its own.
+  // Same text and spacing on every screen size.
+  const totalMatch = /^(Total)\s+(.+)$/.exec(totalLabel);
   return (
     <div
       id="quote-price-summary"
@@ -42,6 +48,8 @@ export default function QuoteCheckoutSummary({
       tabIndex={-1}
       className="scroll-mt-44 rounded-xl quote-panel px-3.5 py-3 outline-none md:scroll-mt-28"
     >
+      <div data-checkout-summary-details>
+      {desktopDetails ? <div className="hidden" data-checkout-desktop-details>{desktopDetails}</div> : null}
       <p className="text-sm font-semibold leading-snug break-words text-white" data-checkout-route>{routeLine}</p>
       <p className="mt-1 text-sm quote-secondary" data-checkout-party>{detailLine}</p>
       {whenLine ? (
@@ -55,7 +63,16 @@ export default function QuoteCheckoutSummary({
         </p>
       ) : null}
       {accessLine ? <p className="mt-1 text-xs text-white/75" data-checkout-access>{accessLine}</p> : null}
-      <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl" data-checkout-total>{totalLabel}</p>
+      </div>
+      <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl" data-checkout-total>
+        {totalMatch ? (
+          <>
+            <span data-checkout-total-label>{totalMatch[1]}</span> <span data-checkout-total-amount>{totalMatch[2]}</span>
+          </>
+        ) : (
+          totalLabel
+        )}
+      </p>
       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs font-semibold" data-checkout-summary-controls>
         {pickupAddress && destinationAddress ? (
           <details className="min-w-0 text-white/75 open:basis-full">
