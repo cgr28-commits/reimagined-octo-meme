@@ -5808,9 +5808,14 @@ function QuoteCard({
           setAirportCode(classified.airport);
           setTripMode("address");
         }
+        // Meet & Greet chosen at the vehicle step is part of the price the customer agreed,
+        // so it must not show as a "fare changed" at checkout.
+        const vehicleStepUpgradeGbp = desktopMeetGreetUpgrades()
+          .filter((upgrade) => upgrade.selected && upgrade.inTransferFare)
+          .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0);
         provisionalQuotedAmountRef.current =
           paymentAmount != null && Number.isFinite(paymentAmount)
-            ? paymentAmount
+            ? paymentAmount + vehicleStepUpgradeGbp
             : liveQuote?.amount ?? null;
         setHomepageFareChangeAck(false);
       }
@@ -8101,6 +8106,8 @@ function QuoteCard({
       legLabel: string | null;
       feeGbp: number;
       selected: boolean;
+      /** True when checkout folds this fee into the transfer fare (Belfast airports); Dublin is added separately. */
+      inTransferFare: boolean;
       toggle: () => void;
     };
     if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return [] as Upgrade[];
@@ -8140,6 +8147,7 @@ function QuoteCard({
         legLabel: returnJourney ? (visit.leg === "return" ? "Return pickup" : "Outbound pickup") : null,
         feeGbp: meetGreetFeeGbp(visit.airportCode, publicPricing.meetGreet),
         selected: current === "meet-greet",
+        inTransferFare: true,
         toggle: () =>
           setTerminalAccessChoices((choices) => ({
             ...choices,
@@ -8154,6 +8162,7 @@ function QuoteCard({
         legLabel: returnJourney ? "Outbound pickup" : null,
         feeGbp: bookingMeetGreetPrice,
         selected: bookingMeetGreetSelected,
+        inTransferFare: false,
         toggle: () => setBookingMeetGreetSelected((selected) => !selected),
       });
     }
