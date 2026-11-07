@@ -13,11 +13,13 @@ type Props = {
   meetGreetIncluded: boolean;
   terminalFee: number;
   meetGreetFee: number;
+  /** Desktop: already offered under the vehicles, so the checkout copy is hidden by CSS (1200px+). */
+  meetGreetOfferedEarlier?: boolean;
 };
 
 export default function TerminalAccessOptions(props: Props) {
   const { leg, airportCode, service, choice, onChange, freeAvailable, meetGreetIncluded,
-    terminalFee, meetGreetFee } = props;
+    terminalFee, meetGreetFee, meetGreetOfferedEarlier = false } = props;
   const id = `${leg}-${airportCode}-${service}`;
   const meetGreet = choice === "meet-greet" || meetGreetIncluded;
   const pickup = service === "pick-up";
@@ -32,7 +34,7 @@ export default function TerminalAccessOptions(props: Props) {
       <h3 className="text-sm font-semibold leading-snug text-white">Airport {direction} — {name}</h3>
       <p className="mt-1 text-xs text-white/70">{pickup ? "Choose how you’d like to meet your driver." : "Choose where you’d like your driver to drop you off."}</p>
     </header>
-    {pickup && <label className={card(meetGreet)} data-access-option="meet-greet">
+    {pickup && <label className={card(meetGreet)} data-access-option="meet-greet" data-offered-at-vehicle-step={meetGreetOfferedEarlier ? "true" : undefined}>
       <input type="checkbox" checked={meetGreet} disabled={meetGreetIncluded}
         onChange={(event) => onChange(event.target.checked ? "meet-greet" : freeAvailable ? "free" : "express")}
         className="mt-0.5 h-4 w-4 accent-emerald" />

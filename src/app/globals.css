@@ -4294,3 +4294,10 @@ body:has(.cookie-consent-banner--modal) {
     display: none;
   }
 }
+
+/* Desktop booking (homepage and hub pages): Meet & Greet is offered once, under the vehicle choices.
+   Checkout does not repeat an offer that was already shown there; the chosen upgrade stays in the
+   total and the price breakdown. Mobile and tablet still offer it at checkout as before. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow [data-offered-at-vehicle-step="true"] { display: none !important; }
+}

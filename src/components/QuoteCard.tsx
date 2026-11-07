@@ -3372,6 +3372,16 @@ function QuoteCard({
     };
   }, [presentation, quoteStep]);
 
+  // Desktop vehicle step: remember which Meet & Greet upgrades were offered under the vehicles,
+  // so checkout does not offer the same upgrade a second time (hidden by desktop CSS only).
+  const [vehicleStepMeetGreetKeys, setVehicleStepMeetGreetKeys] = useState("");
+  useEffect(() => {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return;
+    const keys = desktopMeetGreetUpgrades().map((upgrade) => upgrade.key).join(",");
+    setVehicleStepMeetGreetKeys((current) => (current === keys ? current : keys));
+  });
+  const offeredAtVehicleStep = (key: string) => vehicleStepMeetGreetKeys.split(",").includes(key);
+
   // Desktop vehicle step: publish the navy summary's height so its sticky offset can keep the
   // bottom (Continue to booking) reachable when it is taller than the window (CSS: --rc-h).
   useEffect(() => {
@@ -6608,6 +6618,7 @@ function QuoteCard({
           freeAvailable={true} meetGreetIncluded={included}
           terminalFee={leg.airportCode === "BFS" ? publicPricing.terminalAccess.bfsGbp : publicPricing.terminalAccess.bhdGbp}
           meetGreetFee={leg.airportCode === "BFS" ? publicPricing.meetGreet.bfsGbp : publicPricing.meetGreet.bhdGbp}
+          meetGreetOfferedEarlier={leg.service === "pick-up" && offeredAtVehicleStep(airportVisitKey(leg))}
           />;
       })}
     </section>;
@@ -7207,7 +7218,7 @@ function QuoteCard({
                 ) : null}
               </div>
               {bookingMeetGreetEligible ? (
-                <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet>
+                <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet data-offered-at-vehicle-step={offeredAtVehicleStep("dub-meet-greet") ? "true" : undefined}>
                   <h3 className="text-sm font-bold">Enhance Your Airport Pickup</h3>
                   <p className="mt-1 text-sm font-semibold">Meet &amp; Greet Service — {formatMeetGreetGbp(bookingMeetGreetPrice)}</p>
                   <p id="booking-meet-greet-description" className="mt-1 text-xs leading-snug">Your driver will meet you inside the airport arrivals hall with a personalised name board and assist you to your vehicle.</p>
