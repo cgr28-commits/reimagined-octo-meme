@@ -3734,3 +3734,32 @@ body:has(.cookie-consent-banner--modal) {
   body:has(.homepage-hero) .address-suggestions-overlay button .font-semibold { color: #0b1f3a !important; -webkit-text-fill-color: #0b1f3a; }
   body:has(.homepage-hero) .address-suggestions-overlay button svg { color: #0b1f3a !important; }
 }
+
+/* One navy price panel, the same at every laptop size and on both steps (Nov 2026):
+   journey · tags (date, trip, party, vehicle) · what's included · price · one green button.
+   No items are added or removed by screen height. */
+@media (min-width: 1200px) {
+  /* Vehicle step */
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] > :first-child { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] > :last-child { display: block !important; font-size: 0.75rem; color: rgba(255, 255, 255, 0.6) !important; -webkit-text-fill-color: rgba(255, 255, 255, 0.6); }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-results-journey] { padding: 1.25rem 1.5rem 1rem !important; }
+  .homepage-hero [data-quote-result-card] [data-results-chips] { margin-top: 0.8rem !important; }
+  .homepage-hero [data-quote-result-card] [data-results-chip-vehicle] { background: rgba(110, 231, 183, 0.16); color: var(--u-mint); font-weight: 700; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center { margin-top: 0 !important; padding: 1rem 1.5rem 1.25rem !important; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] { margin-bottom: 0.75rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 2.6rem !important; line-height: 1.05; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] > p:first-child { font-size: 0.72rem !important; font-weight: 800 !important; letter-spacing: 0.12em !important; text-transform: uppercase; color: rgba(255, 255, 255, 0.65) !important; }
+
+  /* Checkout total: same style as the vehicle step — small label above, big price below. */
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] {
+    display: flex !important; flex-direction: column !important; align-items: flex-start !important; justify-content: flex-start !important; gap: 0.3rem !important;
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-label] {
+    font-size: 0.72rem !important; font-weight: 800 !important; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.65) !important;
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-amount] {
+    font-size: 2.6rem !important; font-weight: 800 !important; letter-spacing: -0.03em; line-height: 1.05; color: #fff !important;
+  }
+}

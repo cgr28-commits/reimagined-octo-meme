@@ -8042,6 +8042,9 @@ function QuoteCard({
             {tripTime ? tripTime.slice(0, 5) : "—"}
           </span>
           <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
+          <span data-results-chip data-results-chip-vehicle>
+            {quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle)}
+          </span>
           <span data-results-chip>
             {party} passenger{party === 1 ? "" : "s"}
             {" · "}
