@@ -3882,3 +3882,23 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-quote-result-card] [data-results-included] { gap: 0.35rem; margin-top: 0.75rem; }
   .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center { margin-top: 0.8rem !important; padding: 0.9rem 1.5rem 1.05rem !important; }
 }
+
+/* Mockup match, refinements (1200px+). */
+@media (min-width: 1200px) {
+  /* An older rule hides paragraphs in the quote heading; the vehicle-step title must show. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child [data-results-desktop-bar] > :is([data-results-desktop-title], [data-results-desktop-subtitle]) { display: block !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child [data-results-desktop-bar] > [data-results-desktop-phone] { display: flex !important; }
+
+  /* Vehicle rows: name on its own line (badge beside it when on request), then capacity, then description. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { grid-column: 1 / -1 !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy]:has([data-vehicle-desktop-badge]) [data-vehicle-name] { grid-column: 1 !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex ~ span.flex { display: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > :is(span.block:not([data-vehicle-name]), span.flex) { white-space: nowrap; }
+
+  /* Navy panel order: journey · chosen vehicle · included · price. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-card] { display: flex !important; flex-direction: column; }
+  .homepage-hero [data-quote-result-card] > [data-results-journey] { order: 1; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { order: 2; margin: 0 1.5rem !important; }
+  .homepage-hero [data-quote-result-card] > [data-results-included] { order: 3; }
+  .homepage-hero [data-quote-result-card] > :not([data-results-journey]):not([data-quote-vehicle-summary]):not([data-results-included]) { order: 4; }
+}

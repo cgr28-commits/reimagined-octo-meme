@@ -38,7 +38,7 @@ const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 const DESKTOP_DESCRIPTIONS: Record<string, string> = {
   saloon: "Comfortable for most airport trips",
   estate: "More boot space for extra luggage, golf bags or buggies",
-  executive: "Premium executive car",
+  executive: "Send a request and we’ll confirm a price by email",
   minibus: "For families and groups travelling together",
 };
 
