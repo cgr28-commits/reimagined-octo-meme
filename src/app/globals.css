@@ -3983,7 +3983,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-results-upgrade-lines] > p { display: flex; justify-content: space-between; gap: 1rem; margin: 0; color: rgba(255, 255, 255, 0.82); }
   .homepage-hero [data-results-upgrade-lines] > [data-results-upgrade-total] { align-items: center; margin-top: 0.35rem; color: #fff; font-size: 0.95rem; font-weight: 700; }
   .homepage-hero [data-results-upgrade-lines] > [data-results-upgrade-total] > strong { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
-  .homepage-hero [data-quote-result-card]:has(> [data-results-upgrade-lines]) [data-quote-result-price] { display: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card]:has(> [data-results-upgrade-lines]) [data-quote-result-price] { display: none !important; }
   .homepage-hero #quote-results-summary [data-quote-result-card]:has(> [data-results-upgrade-lines]) > div.mt-1.min-w-0.text-center {
     margin-top: 0 !important; border-top: 0; padding-top: 0.4rem !important;
   }
