@@ -264,6 +264,7 @@ import {
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown";
 import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
+import { PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE, previewNotificationsDisabled } from "@/lib/preview-notifications";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -5539,6 +5540,10 @@ function QuoteCard({
       return;
     }
     if (!validateCheckoutRequiredFields()) {
+      return;
+    }
+    if (previewNotificationsDisabled()) {
+      setSubmitError(PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE);
       return;
     }
     notifyOwnerQuoteContactIfReady();

@@ -1,3 +1,4 @@
+import { assertPreviewNotificationsAllowed } from "@/lib/preview-notifications";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import type { BookingDetails } from "@/lib/booking-message";
 
@@ -106,6 +107,7 @@ export type PublicA2aQuoteSummary = {
 export async function createA2aQuoteRequest(
   booking: BookingDetails,
 ): Promise<{ reference: string; status: string }> {
+  assertPreviewNotificationsAllowed();
   const response = await fetch(`${WORKER_BASE}/a2a-quotes`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },

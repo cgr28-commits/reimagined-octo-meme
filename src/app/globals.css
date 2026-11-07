@@ -4248,3 +4248,48 @@ body:has(.cookie-consent-banner--modal) {
     padding-right: max(2.5rem, calc((80rem - 100vw) / 2 + 74px)) !important;
   }
 }
+
+/* Hub pages (LocationQuoteSection): white journey form at desktop only, matching the homepage.
+   Step 1 only — the vehicle step and checkout on hub pages keep their current styling. */
+@media (min-width: 1200px) {
+  [data-landing-quote] .quote-flow.glass-card:has([data-homepage-quote-fields]):not([data-quote-results]) {
+    background: #fff; border-color: transparent; color: #0f1b2d; border-radius: 20px;
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55); backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  [data-landing-quote] .quote-flow:has([data-homepage-quote-fields]):not([data-quote-results]) > div:first-child h2 {
+    color: #0b1f3a; font-family: var(--font-sans), system-ui, sans-serif; font-weight: 800; font-size: 1.4rem; letter-spacing: -0.01em;
+  }
+  [data-landing-quote] .quote-flow:has([data-homepage-quote-fields]):not([data-quote-results]) > div:first-child p { color: #5b6b80; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(label.form-label, p.form-label) {
+    color: #071c38; -webkit-text-fill-color: #071c38; font-size: 0.85rem; font-weight: 700; text-transform: none; letter-spacing: 0;
+  }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.text-emerald, .text-emerald\/90) { color: #15803d; -webkit-text-fill-color: #15803d; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.quote-secondary, .text-white\/75, .text-white\/70, .text-white\/60, .quote-help-contact) { color: #5b6b80; -webkit-text-fill-color: #5b6b80; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.text-red-400, .text-red-300) { color: #b91c1c; -webkit-text-fill-color: #b91c1c; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .border-t.bg-white\/5 { background: #f3f6f9; border-color: #dce4ee; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border, select, .quote-datetime-input) {
+    background: #fff; border: 1.5px solid #7d8ea4; color: #0f1b2d; -webkit-text-fill-color: #0f1b2d;
+  }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border:focus-within, select:focus, .quote-datetime-input:focus) {
+    border-color: #071c38; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.35);
+  }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input:not([type=checkbox]):not([type=radio]) { color: #0f1b2d; -webkit-text-fill-color: #0f1b2d; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input::placeholder { color: #5f6f84; -webkit-text-fill-color: #5f6f84; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input.address-input { height: 2.85rem; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] div.relative:has(> .quote-datetime-input) { border: 0; background: transparent; height: auto; overflow: visible; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .quote-datetime-input { height: 2.85rem; border-radius: 0.75rem; color-scheme: light; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] select { height: 2.85rem; color-scheme: light; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.text-emerald svg, svg.text-emerald, span.text-emerald) { color: #1f4f86; -webkit-text-fill-color: currentColor; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] [role=group][aria-label="Journey type"] { background: #f3f6f9; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] [role=group][aria-label="Journey type"] button[aria-pressed=true] {
+    background: #fff; color: #0b1f3a; -webkit-text-fill-color: #0b1f3a; box-shadow: 0 2px 6px rgba(11, 31, 58, 0.14);
+  }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] [role=group][aria-label="Journey type"] button[aria-pressed=false] { color: #5b6b80; -webkit-text-fill-color: #5b6b80; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] [role=group][aria-label="Journey type"] button[aria-pressed=false]:hover { background: #e8eef5; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .btn-primary {
+    background: #15803d; background-image: none; color: #fff; -webkit-text-fill-color: #fff; min-height: 3.375rem; font-weight: 700; box-shadow: none; opacity: 1;
+  }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .btn-primary:disabled { background: #15803d; opacity: 0.9; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .btn-primary:hover:not(:disabled) { background: #116932; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .btn-primary:focus-visible { outline: 3px solid #071c38; outline-offset: 3px; }
+}

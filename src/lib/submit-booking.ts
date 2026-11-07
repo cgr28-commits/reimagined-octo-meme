@@ -1,4 +1,5 @@
 import { SITE } from "@/lib/data";
+import { assertPreviewNotificationsAllowed } from "@/lib/preview-notifications";
 import type { BookingDetails } from "@/lib/booking-message";
 import { buildBookingMessage } from "@/lib/booking-message";
 import { resolveBookingsApiUrl } from "@/lib/worker-api";
@@ -268,6 +269,7 @@ export async function submitEnquiryByEmail(
   submission: EnquirySubmission,
   options?: { allowFormSubmitFallback?: boolean },
 ): Promise<string> {
+  assertPreviewNotificationsAllowed();
   if (submission.booking && !isValidCapacityPassengerCount(submission.booking.passengers)) {
     throw new Error(PUBLIC_MINIBUS_PASSENGER_LIMIT_ERROR);
   }
@@ -332,6 +334,7 @@ export async function submitEnquiryByEmail(
 }
 
 export async function submitBookingByEmail(details: BookingDetails): Promise<string> {
+  assertPreviewNotificationsAllowed();
   return submitEnquiryByEmail(
     {
       customerName: details.customerName,
@@ -346,6 +349,7 @@ export async function submitBookingByEmail(details: BookingDetails): Promise<str
 
 /** Mobile WhatsApp path — log to worker/calendar without requiring owner email. */
 export async function submitMobileWhatsAppBooking(details: BookingDetails): Promise<string> {
+  assertPreviewNotificationsAllowed();
   const submission: EnquirySubmission = {
     customerName: details.customerName,
     message: buildBookingMessage(details),
@@ -367,6 +371,7 @@ export async function submitMobileWhatsAppBooking(details: BookingDetails): Prom
 }
 
 export async function submitMobileWhatsAppEnquiry(submission: EnquirySubmission): Promise<string> {
+  assertPreviewNotificationsAllowed();
   if (BOOKINGS_API_URL) {
     try {
       const result = await submitViaWorker({ ...submission, sendEmail: false });
