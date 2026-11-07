@@ -8031,8 +8031,23 @@ function QuoteCard({
           </button>
         </div>
         <ol data-results-route>
-          <li data-results-stop="from">{pickupLabel || "Pickup"}</li>
-          <li data-results-stop="to">{dropoffLabel || "Drop-off"}</li>
+          {(
+            [
+              ["from", "Pickup", pickupLabel || "Pickup"],
+              ["to", "Drop-off", dropoffLabel || "Drop-off"],
+            ] as const
+          ).map(([key, role, label]) => {
+            const [name, ...rest] = label.split(", ");
+            return (
+              <li key={key} data-results-stop={key}>
+                <strong>{name}</strong>
+                <span>
+                  {role}
+                  {rest.length ? ` · ${rest.filter((part) => part !== "UK").join(", ")}` : ""}
+                </span>
+              </li>
+            );
+          })}
         </ol>
         <p data-results-chips>
           <span data-results-chip>
@@ -8042,9 +8057,6 @@ function QuoteCard({
             {tripTime ? tripTime.slice(0, 5) : "—"}
           </span>
           <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
-          <span data-results-chip data-results-chip-vehicle>
-            {quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle)}
-          </span>
           <span data-results-chip>
             {party} passenger{party === 1 ? "" : "s"}
             {" · "}
@@ -8062,6 +8074,24 @@ function QuoteCard({
           ) : null}
         </p>
       </div>
+    );
+  }
+
+  /** Desktop (1200px+) price panel: what the fare includes (published policy wording). */
+  function renderDesktopResultsIncluded() {
+    if (presentation !== "homepage") return null;
+    const requestOnly = publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly;
+    const airportPickup = checkoutTimeLabel("outbound") !== "Pickup time";
+    return (
+      <ul className="hidden" data-results-included>
+        {requestOnly ? null : <li>Fixed price, confirmed before you pay</li>}
+        <li>
+          {airportPickup
+            ? "Up to 60 minutes’ complimentary waiting from your flight’s actual landing time"
+            : "Up to 10 minutes’ complimentary waiting at pickup"}
+        </li>
+        <li>Free cancellation up to 24 hours before pickup</li>
+      </ul>
     );
   }
 
@@ -8195,7 +8225,7 @@ function QuoteCard({
       return (
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
-          desktopJourney={renderDesktopResultsJourney()}
+          desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}</>}
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
@@ -8275,7 +8305,7 @@ function QuoteCard({
       <>
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
-        desktopJourney={renderDesktopResultsJourney()}
+        desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}</>}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
@@ -8730,18 +8760,37 @@ function QuoteCard({
         </ol>
         ) : null}
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
+        {quoteStep === 1 && presentation === "homepage" && quoteResultsReady ? (
+          /* Desktop (1200px+) vehicle step header only — hidden below 1200px. */
+          <div className="hidden" data-results-desktop-bar>
+            <ol data-checkout-progress aria-label="Booking progress">
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="current" aria-current="step">
+                <span aria-hidden="true">2</span> Vehicle
+              </li>
+              <li data-checkout-progress-step="next">
+                <span aria-hidden="true">3</span> Details &amp; payment
+              </li>
+            </ol>
+            <a data-results-desktop-phone href="tel:+442896022952">028 9602 2952</a>
+            <p data-results-desktop-title>Choose your vehicle</p>
+            <p data-results-desktop-subtitle>Fixed prices, confirmed before you pay.</p>
+          </div>
+        ) : null}
         {quoteStep >= 2 && presentation === "homepage" ? (
           /* Desktop (1200px+) checkout header only — hidden below 1200px. */
           <div className="hidden" data-checkout-desktop-bar>
             <ol data-checkout-progress aria-label="Booking progress">
               <li data-checkout-progress-step="done">
-                <span aria-hidden="true">✓</span> Quote<span className="sr-only"> (completed)</span>
+                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Vehicle<span className="sr-only"> (completed)</span>
               </li>
               <li data-checkout-progress-step="current" aria-current="step">
-                <span aria-hidden="true">2</span> Your booking
-              </li>
-              <li data-checkout-progress-step="next">
-                <span aria-hidden="true">3</span> Secure payment
+                <span aria-hidden="true">3</span> Details &amp; payment
               </li>
             </ol>
             <p data-checkout-secure>Secure booking</p>

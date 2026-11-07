@@ -34,6 +34,14 @@ const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
+/** Desktop (1200px+) only: one plain line under each vehicle. Hidden below 1200px. */
+const DESKTOP_DESCRIPTIONS: Record<string, string> = {
+  saloon: "Comfortable for most airport trips",
+  estate: "More boot space for extra luggage, golf bags or buggies",
+  executive: "Premium executive car",
+  minibus: "For families and groups travelling together",
+};
+
 const CATEGORIES = [
   {
     id: "saloon" as const,
@@ -163,6 +171,7 @@ export default function QuoteVehicleCategories({
               role="listitem"
               className="min-w-0"
               data-vehicle-not-needed={notNeeded ? "true" : undefined}
+              data-vehicle-request-row={fits && requestQuoteVehicles.includes(option.vehicle) ? "true" : undefined}
             >
               <button
                 type="button"
@@ -195,8 +204,8 @@ export default function QuoteVehicleCategories({
                     {fits && requestQuoteVehicles.includes(option.vehicle) ? (
                       <span className="mt-0.5 block text-[0.78rem] font-bold text-navy" data-vehicle-on-request>On request · Request quote</span>
                     ) : null}
-                    {option.id === "estate" ? (
-                      <span className="hidden" data-vehicle-desktop-tag>Extra luggage space</span>
+                    {fits && requestQuoteVehicles.includes(option.vehicle) ? (
+                      <span className="hidden" data-vehicle-desktop-badge>On request</span>
                     ) : null}
                     {option.capacity ? (
                       <span className="mt-0.5 block text-[0.84rem] font-semibold leading-tight text-navy">
@@ -223,8 +232,13 @@ export default function QuoteVehicleCategories({
                         {"\u00a0"}
                       </span>
                     )}
+                    <span className="hidden" data-vehicle-desktop-desc>
+                      {DESKTOP_DESCRIPTIONS[option.id]}
+                    </span>
                   </span>
-                  {fits && desktopPrices[option.vehicle] ? (
+                  {fits && requestQuoteVehicles.includes(option.vehicle) ? (
+                    <span className="hidden" data-vehicle-desktop-request>Request a quote</span>
+                  ) : fits && desktopPrices[option.vehicle] ? (
                     <span className="hidden" data-vehicle-desktop-price>
                       {desktopPrices[option.vehicle]}
                     </span>
