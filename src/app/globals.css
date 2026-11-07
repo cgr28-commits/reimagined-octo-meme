@@ -4267,17 +4267,17 @@ body:has(.cookie-consent-banner--modal) {
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.quote-secondary, .text-white\/75, .text-white\/70, .text-white\/60, .quote-help-contact) { color: #5b6b80; -webkit-text-fill-color: #5b6b80; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.text-red-400, .text-red-300) { color: #b91c1c; -webkit-text-fill-color: #b91c1c; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .border-t.bg-white\/5 { background: #f3f6f9; border-color: #dce4ee; }
-  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border, select, .quote-datetime-input) {
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border, select) {
     background: #fff; border: 1.5px solid #7d8ea4; color: #0f1b2d; -webkit-text-fill-color: #0f1b2d;
   }
-  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border:focus-within, select:focus, .quote-datetime-input:focus) {
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.rounded-\[0\.75rem\].border:focus-within, select:focus) {
     border-color: #071c38; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.35);
   }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input:not([type=checkbox]):not([type=radio]) { color: #0f1b2d; -webkit-text-fill-color: #0f1b2d; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input::placeholder { color: #5f6f84; -webkit-text-fill-color: #5f6f84; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input.address-input { height: 2.85rem; }
-  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] div.relative:has(> .quote-datetime-input) { border: 0; background: transparent; height: auto; overflow: visible; }
-  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .quote-datetime-input { height: 2.85rem; border-radius: 0.75rem; color-scheme: light; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] div.relative:has(> .quote-datetime-input) { height: 2.85rem; }
+  [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .quote-datetime-input { height: 100%; line-height: normal; color-scheme: light; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] select { height: 2.85rem; color-scheme: light; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(.text-emerald svg, svg.text-emerald, span.text-emerald) { color: #1f4f86; -webkit-text-fill-color: currentColor; }
   [data-landing-quote] .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] [role=group][aria-label="Journey type"] { background: #f3f6f9; }
