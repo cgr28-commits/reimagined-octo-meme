@@ -1,0 +1,126 @@
+name: WhatsApp Meta staging (test number only)
+
+# Deploys the isolated Meta Cloud API test Worker (reimagined-octo-meme-whatsapp-staging)
+# with the Meta TEST number secrets, then points the TEST app's webhook at it.
+# Never touches the production Worker, production KV, 360dialog or 07549 815538.
+
+on:
+  push:
+    branches: [claude/meta-whatsapp-staging-test]
+    paths:
+      - ".github/workflows/whatsapp-meta-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: whatsapp-meta-staging
+  cancel-in-progress: false
+
+env:
+  META_TEST_APP_ID: "1039305779196634" # "Airport Taxi NI Test" app
+  GRAPH: https://graph.facebook.com/v25.0
+  STAGING_WORKER: reimagined-octo-meme-whatsapp-staging
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workers/addresses/package-lock.json
+
+      - name: Sync shared modules into worker
+        run: node scripts/sync-worker-shared.mjs
+
+      - name: Install worker dependencies
+        working-directory: workers/addresses
+        run: npm ci
+
+      - name: Check secrets are present (names only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }}
+        run: |
+          missing=0
+          for n in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID WHATSAPP_ACCESS_TOKEN WHATSAPP_PHONE_NUMBER_ID WHATSAPP_APP_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_BUSINESS_ACCOUNT_ID; do
+            if [ -z "${!n}" ]; then echo "::error::Missing GitHub secret $n"; missing=1; else echo "ok: $n"; fi
+          done
+          # Safety: the phone number ID must be the Meta TEST number, never production.
+          if [ "$WHATSAPP_PHONE_NUMBER_ID" != "1321323411073732" ]; then
+            echo "::error::WHATSAPP_PHONE_NUMBER_ID is not the Meta test number — refusing."; missing=1
+          fi
+          exit $missing
+
+      - name: Check the Meta access token works (no secrets printed)
+        env:
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+        run: |
+          curl -sS -G "$GRAPH/$WHATSAPP_PHONE_NUMBER_ID" \
+            --data-urlencode "fields=display_phone_number,verified_name,quality_rating" \
+            --data-urlencode "access_token=$WHATSAPP_ACCESS_TOKEN" | tee /tmp/phone.json
+          echo
+          if grep -q '"error"' /tmp/phone.json; then echo "::error::Meta rejected the access token (it may have expired — they last ~24h)."; exit 1; fi
+
+      - name: Deploy isolated staging Worker + set its secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }}
+        run: node scripts/setup-whatsapp-staging.mjs
+
+      - name: Work out the staging Worker URL
+        id: url
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          sub=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')
+          if [ -z "$sub" ] || [ "$sub" = "null" ]; then echo "::error::Could not read workers.dev subdomain"; exit 1; fi
+          base="https://$STAGING_WORKER.$sub.workers.dev"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "Staging Worker: $base"
+          sleep 10
+          echo "--- /whatsapp/status ---"
+          curl -sS "$base/whatsapp/status"; echo
+
+      - name: Point the Meta TEST app webhook at the staging Worker
+        env:
+          WHATSAPP_APP_SECRET: ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_VERIFY_TOKEN: ${{ secrets.WHATSAPP_VERIFY_TOKEN }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_BUSINESS_ACCOUNT_ID: ${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }}
+          BASE: ${{ steps.url.outputs.base }}
+        run: |
+          callback="$BASE/whatsapp/webhook"
+          echo "Callback URL: $callback"
+          # App-level webhook subscription (Meta calls the callback to verify it right away).
+          curl -sS -X POST "$GRAPH/$META_TEST_APP_ID/subscriptions" \
+            --data-urlencode "object=whatsapp_business_account" \
+            --data-urlencode "callback_url=$callback" \
+            --data-urlencode "verify_token=$WHATSAPP_VERIFY_TOKEN" \
+            --data-urlencode "fields=messages" \
+            --data-urlencode "access_token=$META_TEST_APP_ID|$WHATSAPP_APP_SECRET" | tee /tmp/sub.json
+          echo
+          grep -q '"success":true' /tmp/sub.json || { echo "::error::Webhook subscription failed"; exit 1; }
+          # Subscribe the test app to the test WhatsApp Business Account.
+          curl -sS -X POST "$GRAPH/$WHATSAPP_BUSINESS_ACCOUNT_ID/subscribed_apps" \
+            --data-urlencode "access_token=$WHATSAPP_ACCESS_TOKEN" | tee /tmp/waba.json
+          echo
+          grep -q '"success":true' /tmp/waba.json || { echo "::error::WABA subscription failed"; exit 1; }
+          echo "--- current app subscriptions ---"
+          curl -sS -G "$GRAPH/$META_TEST_APP_ID/subscriptions" \
+            --data-urlencode "access_token=$META_TEST_APP_ID|$WHATSAPP_APP_SECRET" | jq '.data[] | {object, callback_url, active, fields: [.fields[].name]}'
