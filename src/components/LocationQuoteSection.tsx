@@ -44,7 +44,7 @@ export default function LocationQuoteSection({
       </span>
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 text-center">
+        <div data-landing-quote-header className="mb-8 text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{eyebrow}</p>
           <h2
             data-booking-nav-heading
@@ -57,6 +57,8 @@ export default function LocationQuoteSection({
           </p>
         </div>
         {pickupNotice ? <p className="mb-6 rounded-xl border border-emerald/30 bg-emerald/5 p-4 text-sm leading-relaxed text-white/85"><strong>Station pickup:</strong> {pickupNotice}</p> : null}
+        {/* data-hub-quote: desktop (>=1200px) uses the homepage quote, vehicle and checkout presentation. */}
+        <div data-hub-quote>
         <QuoteCard
           bookingIntroduction={bookingIntroduction}
           presentation="homepage"
@@ -66,6 +68,7 @@ export default function LocationQuoteSection({
           preferMinibus={preferMinibus}
           businessClassAnyRoute={businessClassAnyRoute}
         />
+        </div>
       </div>
       {showStickyQuote ? <LandingPageStickyQuoteCta /> : null}
     </section>

@@ -3360,7 +3360,7 @@ function QuoteCard({
   useEffect(() => {
     if (presentation !== "homepage" || quoteStep < 2 || typeof window === "undefined") return;
     if (typeof ResizeObserver === "undefined") return;
-    const aside = document.querySelector<HTMLElement>(".homepage-hero [data-checkout-aside]");
+    const aside = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-checkout-aside]");
     if (!aside) return;
     const update = () => aside.style.setProperty("--co-aside-h", `${Math.ceil(aside.offsetHeight)}px`);
     update();
@@ -3377,7 +3377,7 @@ function QuoteCard({
   useEffect(() => {
     if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady || typeof window === "undefined") return;
     if (typeof ResizeObserver === "undefined") return;
-    const card = document.querySelector<HTMLElement>(".homepage-hero [data-quote-result-card]");
+    const card = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-quote-result-card]");
     if (!card) return;
     const update = () => card.style.setProperty("--rc-h", `${Math.ceil(card.offsetHeight)}px`);
     update();
@@ -8323,7 +8323,7 @@ function QuoteCard({
             if (opening && typeof window !== "undefined") {
               // (scrollIntoView does nothing inside a sticky panel, so scroll the page by the overflow.)
               window.setTimeout(() => {
-                const button = document.querySelector<HTMLElement>(".homepage-hero [data-quote-result-card] [data-quote-result-main-action] button");
+                const button = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-quote-result-card] [data-quote-result-main-action] button");
                 if (!button) return;
                 const overflow = button.getBoundingClientRect().bottom - window.innerHeight + 16;
                 if (overflow > 0) window.scrollBy({ top: overflow, behavior: "smooth" });

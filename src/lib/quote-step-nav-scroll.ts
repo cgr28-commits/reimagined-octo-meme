@@ -514,8 +514,8 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
   const heading = document.querySelector<HTMLElement>(mobile
     ? "[data-quote-selected-vehicle-card]"
     : window.matchMedia("(min-width: 1200px)").matches &&
-        document.querySelector(".homepage-hero #quote-results-summary [data-homepage-journey-summary]")
-      ? ".homepage-hero #quote-results-summary [data-homepage-journey-summary]"
+        document.querySelector(":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]")
+      ? ":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]"
       : "[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
