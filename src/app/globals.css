@@ -4165,3 +4165,68 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) and (max-height: 720px) {
   .homepage-hero [data-quote-result-card] > [data-results-included] { display: none !important; }
 }
+
+/* Vehicle step, navy summary (1200px+): View route, price breakdown and quote actions.
+   The old action row's buttons under the vehicle list are replaced by these links. */
+@media (min-width: 1200px) {
+  /* Sticky, but never taller than the window: if the summary grows (e.g. breakdown open),
+     it scrolls up just enough to keep its bottom, with Continue to booking, reachable. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-card] {
+    top: min(8.5rem, calc(100dvh - var(--rc-h, 0px) - 0.75rem));
+  }
+  .homepage-hero:has([data-results-secondary-actions]) [data-quote-result-actions] > div.grid { display: none !important; }
+  .homepage-hero:has([data-results-breakdown]) .quote-flow[data-quote-results="ready"] [data-quote-price-breakdown] { display: none !important; }
+
+  /* View route: a quiet link at the end of the journey chips. */
+  .homepage-hero [data-quote-result-card] [data-results-chips] [data-results-view-route] {
+    display: inline-flex; align-items: center; gap: 0.3rem; margin-left: auto; padding: 0.15rem 0.1rem;
+    font-size: 0.8rem; font-weight: 700; color: #9cc3f0; background: none; border: 0; cursor: pointer;
+  }
+  .homepage-hero [data-quote-result-card] [data-results-chips]:has([data-results-view-route]) { display: flex; flex-wrap: wrap; align-items: center; }
+  .homepage-hero [data-quote-result-card] [data-results-view-route]:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Price breakdown: a small light-blue toggle under the total; lines open inside the panel. */
+  .homepage-hero [data-quote-result-card] [data-results-breakdown] { display: block !important; margin-top: 0.15rem; text-align: left; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-toggle] {
+    display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.1rem 0; background: none; border: 0; cursor: pointer;
+    font-size: 0.8rem; font-weight: 700; color: #9cc3f0;
+  }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-toggle]:hover { color: #fff; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-toggle] svg { transition: transform 150ms ease; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown][data-open="true"] [data-results-breakdown-toggle] svg { transform: rotate(180deg); }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] {
+    margin-top: 0.45rem; padding: 0.6rem 0.75rem; border-radius: 0.7rem; background: rgba(156, 195, 240, 0.08); border: 1px solid rgba(156, 195, 240, 0.2);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel][hidden] { display: none; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] dl { display: grid; gap: 0.25rem; margin: 0; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] dl > div { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.82rem; color: rgba(255, 255, 255, 0.82); }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] [data-results-breakdown-total] { margin-top: 0.2rem; padding-top: 0.35rem; border-top: 1px solid rgba(255, 255, 255, 0.14); font-weight: 700; color: #fff; }
+  .homepage-hero [data-quote-result-card] [data-results-breakdown-panel] > p { margin: 0.4rem 0 0; font-size: 0.72rem; color: rgba(255, 255, 255, 0.6); }
+
+  /* Secondary actions under Continue: compact links, then a quiet "Start a new quote". */
+  .homepage-hero [data-quote-result-card] [data-results-secondary-actions] { display: grid !important; justify-items: center; gap: 0.3rem; margin-top: 0.7rem; }
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] { display: flex; justify-content: center; align-items: center; gap: 1.1rem; }
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] > button,
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] .desktop-results-link {
+    display: inline-flex !important; align-items: center; gap: 0.35rem; padding: 0.15rem 0; min-height: 0; background: none; border: 0; cursor: pointer;
+    font-size: 0.82rem; font-weight: 700; color: #9cc3f0;
+  }
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] .desktop-results-link svg { width: 0.95rem !important; height: 0.95rem !important; }
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] > button:hover,
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] .desktop-results-link:hover { color: #fff; }
+  .homepage-hero [data-quote-result-card] [data-results-secondary-row] > button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .homepage-hero [data-quote-result-card] [data-results-start-new] {
+    padding: 0.1rem 0; background: none; border: 0; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: rgba(255, 255, 255, 0.55);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .homepage-hero [data-quote-result-card] [data-results-start-new]:hover { color: #fff; }
+  .homepage-hero [data-quote-result-card] :is([data-results-view-route], [data-results-breakdown-toggle], [data-results-secondary-row] > button, .desktop-results-link, [data-results-start-new]):focus-visible {
+    outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px;
+  }
+}
+/* Short windows: the chosen vehicle is already marked "Selected" in the list, so its row in
+   the summary steps aside to make room for the breakdown link above Continue. */
+@media (min-width: 1200px) and (max-height: 720px) {
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { display: none !important; }
+}

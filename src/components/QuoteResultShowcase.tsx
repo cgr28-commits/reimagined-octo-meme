@@ -48,6 +48,10 @@ type QuoteResultShowcaseProps = {
   requestQuote?: { heading: string; description: string };
   /** Desktop (1200px+) only: the journey summary at the top of the price panel. */
   desktopJourney?: ReactNode;
+  /** Desktop (1200px+) only: between the total and the main action (price breakdown). */
+  desktopBreakdown?: ReactNode;
+  /** Desktop (1200px+) only: after the main action (secondary quote actions). */
+  desktopActions?: ReactNode;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -99,6 +103,8 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       onRetryPrice,
       requestQuote,
       desktopJourney = null,
+      desktopBreakdown = null,
+      desktopActions = null,
     },
     ref,
   ) {
@@ -297,7 +303,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
 
           </div>
         </div>
+        {desktopBreakdown}
         <div className="mt-3" data-quote-result-main-action>{bookButton}</div>
+        {desktopActions}
         <div data-quote-footer-grid>
           <div data-quote-layout-reference aria-hidden="true" inert>
             <p className="mt-1.5 text-xs font-semibold leading-tight">The price you see is the price you pay.</p>
