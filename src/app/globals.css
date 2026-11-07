@@ -3257,7 +3257,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .homepage-hero-media { display: none; }
   body:has(.homepage-hero) header .desktop-shell,
   .homepage-hero .homepage-hero-layout.desktop-shell { max-width: 80rem; }
-  .homepage-hero .homepage-hero-layout { padding: 2.25rem 2.5rem 3.5rem; row-gap: 1.6rem; }
+  .homepage-hero .homepage-hero-layout { padding: 3rem 2.5rem 3.5rem; row-gap: 1.6rem; }
 
   /* Heading: the original H1, left-aligned and prominent. */
   .homepage-hero #homepage-booking-intro { text-align: left; padding-top: 0; }
@@ -3335,6 +3335,7 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .form-label {
     min-height: 0; margin-bottom: 0.45rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--u-ink) !important;
+    -webkit-text-fill-color: var(--u-ink); /* beats the label's important utility colour */
   }
   /* One Way / Return: a light segmented control on the title line. */
   .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > div:first-child { top: -4.15rem; width: 17rem; }
@@ -3364,4 +3365,194 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(p, span):is(.text-white, [class*="text-white/"]) { color: var(--u-muted) !important; }
   .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) #homepage-quote-requirements { color: var(--u-muted) !important; font-size: 0.82rem; }
+}
+
+/* ---------- Stage 2 (1200px+): vehicle choice | journey and price ---------- */
+@media (min-width: 1200px) {
+  .homepage-hero .quote-flow.glass-card[data-quote-results="ready"] {
+    background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"]::before,
+  .homepage-hero .quote-flow[data-quote-results="ready"]::after { display: none !important; }
+
+  /* Progress above the two panels; the quote heading stays for screen readers and scrolling. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child { margin: 0 0 1rem !important; min-height: 0; display: block !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > div.quote-secondary { display: none !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol {
+    display: flex !important; align-items: center; gap: 0.75rem; margin: 0 !important; padding: 0; list-style: none;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li {
+    display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0; min-height: 0; border: 0 !important; background: none !important; box-shadow: none !important;
+    color: rgba(255, 255, 255, 0.55); font-size: 0.85rem; font-weight: 700;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li + li::before {
+    content: ""; width: 2.25rem; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); margin-right: 0.25rem;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-done + li::before { background: var(--u-green); }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li > span { margin: 0 !important; font-size: 0.85rem !important; letter-spacing: 0 !important; text-transform: none !important; font-weight: 700; color: inherit !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li > span:first-child {
+    width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; flex: none;
+    border: 1.5px solid rgba(255, 255, 255, 0.3); font-size: 0.75rem !important;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-done { color: rgba(255, 255, 255, 0.82); }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-done > span:first-child { background: var(--u-green); border-color: var(--u-green); }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-done > span:first-child svg { color: #fff !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-active { color: #fff; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li.quote-step-active > span:first-child { background: #fff; border-color: #fff; color: var(--u-navy) !important; }
+
+  /* One grid for the step: white panel (drawn by ::before) | sticky navy price panel. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) var(--u-right); grid-template-rows: repeat(16, auto) 1fr;
+    column-gap: var(--u-gap); row-gap: 0; align-items: start; position: relative;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details::before {
+    content: ""; grid-column: 1; grid-row: 1 / -1; align-self: stretch; background: #fff; border-radius: var(--u-radius);
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55);
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details > *,
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > * {
+    grid-column: 1 !important; margin: 0 2rem !important; position: relative; z-index: 1; min-width: 0;
+  }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary { display: contents !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > :is(.sr-only, #quote-results-start, #quote-book-now-anchor) { position: absolute !important; margin: 0 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-journey-summary] { display: none !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"]:not([data-desktop-journey-editing="true"]) #step1-journey-details > [data-homepage-quote-fields] { display: none !important; }
+  .homepage-hero .quote-flow[data-desktop-journey-editing="true"] #step1-journey-details > [data-homepage-quote-fields] {
+    margin-top: 1.75rem !important; padding-bottom: 1.5rem; border-bottom: 1px solid var(--u-rule);
+  }
+  .homepage-hero .quote-flow[data-desktop-journey-editing="true"] [data-homepage-quote-scroll] > div:first-child { position: static !important; width: 17rem; }
+
+  /* Vehicles: one clear row each — light photo tile, name, capacity, price. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-vehicle-categories] { margin-top: 1.75rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-quote-vehicle-options-heading] {
+    margin: 0 0 1rem !important; font-size: 1.3rem !important; font-weight: 800; letter-spacing: -0.01em !important; text-transform: none !important; color: var(--u-navy) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [role="list"] {
+    grid-auto-flow: row !important; grid-template-columns: minmax(0, 1fr) !important; gap: 0.75rem !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] {
+    height: auto !important; min-height: 0 !important; padding: 0.85rem 1.25rem 0.85rem 0.85rem !important; border-radius: 1rem !important;
+    background: #fff !important; border: 1.5px solid var(--u-rule) !important; box-shadow: none !important; color: var(--u-ink);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:hover { border-color: #b9c4d2 !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] {
+    border: 2px solid var(--u-green) !important; background: linear-gradient(90deg, var(--u-green-tint), #fff 75%) !important;
+    box-shadow: 0 0 0 3px rgba(34, 177, 76, 0.14) !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:focus-visible { outline: 3px solid rgba(11, 31, 58, 0.4); outline-offset: 2px; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
+    display: grid !important; grid-template-columns: 10rem minmax(0, 1fr) auto 1.6rem; column-gap: 1.25rem; align-items: center; height: auto; position: static;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+    width: 10rem; height: 5.6rem; border-radius: 0.8rem; background: linear-gradient(180deg, #f6f8fb, #e7ecf2);
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] img { padding: 0.35rem 0.4rem 0.2rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] { text-align: left; width: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { order: -2; font-size: 1.2rem !important; font-weight: 800; color: var(--u-navy) !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] .text-navy { color: var(--u-navy) !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span:not([data-vehicle-name]) {
+    margin: 0 !important; font-size: 0.88rem !important; font-weight: 600 !important; color: #33465e !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: flex !important; align-items: center; gap: 0.35rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex svg { color: var(--u-navy); }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request],
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-tag] {
+    order: -1; display: inline-block !important; padding: 0.15rem 0.5rem; border-radius: 0.4rem; white-space: nowrap;
+    font-size: 0.7rem !important; font-weight: 800 !important; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { background: #fff4e5; color: #b45309 !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-tag] { background: var(--u-green-tint); color: var(--u-green-dark) !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-price] {
+    display: block; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; color: var(--u-navy); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] {
+    position: static !important; width: 1.6rem !important; height: 1.6rem !important; grid-column: 4; font-size: 0.85rem;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="false"] [data-vehicle-selection-indicator] {
+    background: #fff !important; border: 2px solid #b7c2d0 !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] { background: var(--u-green) !important; }
+
+  /* Secondary items on the white panel: breakdown, quote links, notices. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > :is([data-business-class-upgrade], [data-homepage-return-breakdown-desktop], [data-quote-result-actions], [data-quote-price-breakdown]) { margin-top: 1rem !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > :last-child:not([data-quote-result-card]),
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-price-breakdown] { margin-bottom: 1.75rem !important; }
+  .homepage-hero #quote-results-summary > :is([data-quote-price-breakdown], [data-homepage-return-breakdown-desktop], [data-business-class-upgrade]) {
+    background: var(--u-field) !important; border: 1px solid var(--u-rule) !important; border-radius: 0.9rem !important; color: var(--u-ink) !important; box-shadow: none !important;
+  }
+  .homepage-hero #quote-results-summary > :is([data-quote-price-breakdown], [data-homepage-return-breakdown-desktop], [data-business-class-upgrade], [data-quote-result-actions]) :is(.text-white, [class*="text-white/"], summary, summary *, p, dt, dd, li) { color: var(--u-ink) !important; }
+  .homepage-hero #quote-results-summary > :is([data-quote-price-breakdown], [data-homepage-return-breakdown-desktop], [data-business-class-upgrade]) :is(.text-emerald, [class*="text-emerald"]) { color: var(--u-green-dark) !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > :is(button, a) {
+    border: 1px solid var(--u-rule) !important; color: var(--u-navy) !important; background: #fff !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > :is(button, a):hover { border-color: var(--u-green) !important; color: var(--u-green-dark) !important; background: var(--u-green-tint) !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-actions] > div.grid > :is(button, a) * { color: inherit !important; }
+
+  /* Right: the navy panel — journey, chosen vehicle, price and Book. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-card] {
+    grid-column: 2 !important; grid-row: 1 / -1 !important; align-self: start !important; margin: 0 !important;
+    position: sticky !important; top: 8.5rem; z-index: 2;
+    display: block !important; padding: 0 !important; text-align: left;
+    background: var(--u-panel) !important; color: #fff !important; border: 1px solid var(--u-line) !important;
+    border-radius: var(--u-radius) !important; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7) !important; overflow: hidden;
+  }
+  .homepage-hero [data-quote-result-card] [data-results-journey] { display: block; padding: 1.4rem 1.5rem 1.1rem; }
+  .homepage-hero [data-quote-result-card] [data-results-journey-head] {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-journey-edit] {
+    min-height: 0; padding: 0.1rem 0; background: none; border: 0; cursor: pointer;
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--u-mint);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-journey-edit]:hover { color: #fff; }
+  .homepage-hero [data-quote-result-card] [data-results-journey-edit]:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+  .homepage-hero [data-quote-result-card] [data-results-route] { position: relative; list-style: none; margin: 0; padding: 0 0 0 1.5rem; display: grid; gap: 0.7rem; }
+  .homepage-hero [data-quote-result-card] [data-results-route]::before {
+    content: ""; position: absolute; left: 0.34rem; top: 0.55rem; bottom: 0.55rem; width: 2px;
+    background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 0 3px, transparent 3px 6px);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-stop] { position: relative; font-size: 0.97rem; font-weight: 700; line-height: 1.35; color: #fff; overflow-wrap: anywhere; }
+  .homepage-hero [data-quote-result-card] [data-results-stop]::before {
+    content: ""; position: absolute; left: -1.5rem; top: 0.22rem; width: 0.8rem; height: 0.8rem; border-radius: 50%; box-sizing: border-box;
+    border: 2.5px solid var(--u-mint); background: var(--u-panel);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-stop="to"]::before { background: var(--u-mint); border-radius: 3px; }
+  .homepage-hero [data-quote-result-card] [data-results-chips] { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.95rem 0 0; }
+  .homepage-hero [data-quote-result-card] [data-results-chip] {
+    padding: 0.35rem 0.7rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 0.8rem; font-weight: 600; color: rgba(255, 255, 255, 0.9);
+  }
+  .homepage-hero [data-quote-result-card] [data-results-chip-return] { color: #fcd34d; }
+  /* Chosen vehicle: one compact row. */
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] {
+    display: grid !important; grid-template-columns: 4.75rem minmax(0, 1fr); grid-template-areas: "art name" "art cap"; column-gap: 0.85rem; align-items: center;
+    margin: 0 1.5rem; padding: 0.55rem 0.8rem; border-radius: 0.8rem; background: rgba(255, 255, 255, 0.07); text-align: left;
+  }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] > :is([data-quote-result-detail-slot], [data-quote-party], .sr-only) { display: none !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-quote-result-heading] { grid-area: name; margin: 0; font-size: 0.97rem; color: #fff !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-quote-result-capacity] { grid-area: cap; margin: 0; font-size: 0.8rem; font-weight: 600; color: rgba(255, 255, 255, 0.7) !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-quote-result-art] {
+    grid-area: art; margin: 0; width: 4.75rem; height: 2.7rem; border-radius: 0.5rem; background: linear-gradient(180deg, #f6f8fb, #e7ecf2); overflow: hidden;
+  }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-quote-result-art] > span { width: 100% !important; height: 100% !important; max-width: none !important; }
+  /* Price block. */
+  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center {
+    margin: 1.1rem 0 0 !important; padding: 1.1rem 1.5rem 1.4rem; border-top: 1px solid var(--u-line); text-align: left !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] { margin-top: 0.35rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] > p:first-child,
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-manual-state] > p:first-child { font-size: 0.72rem !important; letter-spacing: 0.12em; color: rgba(255, 255, 255, 0.65) !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] :is(p, div) { justify-content: flex-start !important; text-align: left; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 3rem !important; color: #fff !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] [data-quote-fare-status="pending"] span,
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] [data-quote-fare-status="unavailable"] p { font-size: 1rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] :is(.text-navy, [class*="text-navy"]) { color: #fff !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-assurance] { color: var(--u-mint) !important; text-align: left; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { justify-content: flex-start !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { width: 100%; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-price-retry] { border-color: rgba(255, 255, 255, 0.3) !important; color: #fff !important; }
 }
