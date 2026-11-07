@@ -220,8 +220,9 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-navy">
             {desktopPriceLabel ? (
               <>
-                <span data-price-label-default>{priceLabel}</span>
-                <span className="hidden" data-price-label-desktop>{desktopPriceLabel}</span>
+                {/* <bdi>, not <span>: price-box rules size every span like the price itself. */}
+                <bdi data-price-label-default>{priceLabel}</bdi>
+                <bdi className="hidden" data-price-label-desktop>{desktopPriceLabel}</bdi>
               </>
             ) : (
               priceLabel
