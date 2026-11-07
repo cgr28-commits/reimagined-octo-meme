@@ -77,7 +77,11 @@ console.log("=== Checkout page is compact and sans-serif ===");
   assert.doesNotMatch(checkout, /Continue to your details/);
   assert.doesNotMatch(checkout, /Vehicle for this journey/);
   assert.doesNotMatch(checkout, /FinalPayableBreakdown/);
-  assert.doesNotMatch(checkout, /PromotionalPriceBreakdown/);
+  // Phones/tablets keep the compact summary. Only the desktop (1200px+) summary shows the
+  // existing fare breakdown, inside a wrapper that is `hidden` below that width.
+  const desktopBreakdown = /<div className="hidden" data-checkout-breakdown>[\s\S]*?<\/div>/;
+  assert.match(checkout, desktopBreakdown, "desktop fare breakdown must stay inside the hidden-by-default wrapper");
+  assert.doesNotMatch(checkout.replace(desktopBreakdown, ""), /PromotionalPriceBreakdown/);
   assert.doesNotMatch(checkout, /type="checkbox"[\s\S]*expressDropOffConfirmRemovalLabel/);
   console.log("OK  compact checkout copy, no serif price card");
 }
