@@ -3797,7 +3797,7 @@ body:has(.cookie-consent-banner--modal) {
     display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; font-weight: 700; color: rgba(255, 255, 255, 0.85);
   }
   .homepage-hero [data-results-desktop-phone]::before { content: "☏"; font-size: 1rem; }
-  .homepage-hero [data-results-desktop-phone]:hover { color: var(--u-mint); }
+  .homepage-hero [data-results-desktop-phone] { margin: 0; }
   .homepage-hero [data-checkout-progress] { font-size: 0.875rem !important; }
 
   /* Vehicle rows like the mockup: name, capacity on one line, a short description, price. */

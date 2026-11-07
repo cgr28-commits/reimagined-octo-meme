@@ -8774,7 +8774,7 @@ function QuoteCard({
                 <span aria-hidden="true">3</span> Details &amp; payment
               </li>
             </ol>
-            <a data-results-desktop-phone href="tel:+442896022952">028 9602 2952</a>
+            <p data-results-desktop-phone>028 9602 2952</p>
             <p data-results-desktop-title>Choose your vehicle</p>
             <p data-results-desktop-subtitle>Fixed prices, confirmed before you pay.</p>
           </div>
