@@ -8329,12 +8329,36 @@ function QuoteCard({
         returnDate,
         returnTime,
       });
-    const applyReturnOffer =
-      Boolean(returnOfferToken) && !returnJourney && isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
     const totalFor = (vehicleType: string): number | null => {
       const parts = authoritativeFareCacheRef.current.get(keyFor(vehicleType));
       if (!parts || parts.vehicleType !== vehicleType) return null;
-      const breakdown = buildOpenWebsiteFareBreakdown({
+      return desktopWebsiteTotalFromParts(vehicleType, parts);
+    };
+    const selectedCheck = totalFor(quoteVehicle);
+    if (selectedCheck == null || Math.abs(selectedCheck - transferTotal) >= 0.005) {
+      return labels;
+    }
+    const paxNow = effectivePartyPassengers(passengers, passengerLimit) ?? (passengers >= 1 ? passengers : null);
+    if (paxNow == null) return labels;
+    for (const vehicleType of suitableVehicleTypesForParty(paxNow, suitcases, {
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    })) {
+      if (vehicleType === quoteVehicle || requestOnly(vehicleType) || isExecutiveVehicle(vehicleType)) continue;
+      const total = totalFor(vehicleType);
+      if (total != null) labels[vehicleType] = formatQuote(total);
+    }
+    return labels;
+  }
+
+  /** Same website fare composition the selected vehicle's price uses, from journey/fixed/surcharge parts. */
+  function desktopWebsiteTotalFromParts(
+    vehicleType: string,
+    parts: { journeyFareGbp: number; airportFixedCostsGbp: number; nightWeekendSurchargeGbp?: number | null; preserveBfsMinimumPence?: boolean | null },
+  ): number | null {
+    const applyReturnOffer =
+      Boolean(returnOfferToken) && !returnJourney && isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
+    const breakdown = buildOpenWebsiteFareBreakdown({
         preserveFixedFarePence:
           Boolean(parts.preserveBfsMinimumPence) ||
           postcodeFareHasPence({
@@ -8361,24 +8385,32 @@ function QuoteCard({
         returnJourney,
         ...(applyReturnOffer ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate } : {}),
       });
-      const total = breakdown?.finalAmountPayableGbp;
-      return typeof total === "number" && Number.isFinite(total) ? total : null;
+    const total = breakdown?.finalAmountPayableGbp;
+    return typeof total === "number" && Number.isFinite(total) ? total : null;
+  }
+
+  /** On-device estimate parts for a vehicle (existing shared calculators), shaped like the Worker parts. */
+  function desktopEstimateParts(vehicleType: typeof quoteVehicle) {
+    const estimate = estimateFareFor(vehicleType);
+    if (!estimate || typeof estimate.amount !== "number" || !Number.isFinite(estimate.amount)) return null;
+    const fixed =
+      typeof estimate.airportFixedCostsGbp === "number" && Number.isFinite(estimate.airportFixedCostsGbp)
+        ? Math.max(0, Math.round(estimate.airportFixedCostsGbp * 100) / 100)
+        : 0;
+    const journey =
+      typeof estimate.journeyFareGbp === "number" && Number.isFinite(estimate.journeyFareGbp)
+        ? Math.max(0, Math.round(estimate.journeyFareGbp * 100) / 100)
+        : Math.max(0, Math.round((estimate.amount - fixed) * 100) / 100);
+    const surcharge =
+      typeof estimate.nightWeekendSurchargeGbp === "number" && Number.isFinite(estimate.nightWeekendSurchargeGbp)
+        ? Math.max(0, Math.round(estimate.nightWeekendSurchargeGbp * 100) / 100)
+        : 0;
+    return {
+      journeyFareGbp: journey,
+      airportFixedCostsGbp: fixed,
+      nightWeekendSurchargeGbp: surcharge,
+      preserveBfsMinimumPence: Boolean(estimate.preserveBfsMinimumPence),
     };
-    const selectedCheck = totalFor(quoteVehicle);
-    if (selectedCheck == null || Math.abs(selectedCheck - transferTotal) >= 0.005) {
-      return labels;
-    }
-    const paxNow = effectivePartyPassengers(passengers, passengerLimit) ?? (passengers >= 1 ? passengers : null);
-    if (paxNow == null) return labels;
-    for (const vehicleType of suitableVehicleTypesForParty(paxNow, suitcases, {
-      publicMinibusEnabled,
-      publicExecutiveEnabled,
-    })) {
-      if (vehicleType === quoteVehicle || requestOnly(vehicleType) || isExecutiveVehicle(vehicleType)) continue;
-      const total = totalFor(vehicleType);
-      if (total != null) labels[vehicleType] = formatQuote(total);
-    }
-    return labels;
   }
 
   /**
@@ -8389,8 +8421,23 @@ function QuoteCard({
   function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
     if (presentation !== "homepage" || quoteStep !== 1 || testChargeAmount != null) return {};
     if (!publicVehicleRequiresPersonalQuote(MINIBUS_VEHICLE_TYPE, publicPricing)) return {};
-    const estimate = estimateFareFor(MINIBUS_VEHICLE_TYPE);
-    const amount = estimate && typeof estimate.amount === "number" ? estimate.amount : null;
+    if (
+      !openWebsiteFareBreakdown ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating ||
+      transferPaymentAmount == null ||
+      !Number.isFinite(transferPaymentAmount) ||
+      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
+      isExecutiveVehicle(quoteVehicle)
+    ) {
+      return {};
+    }
+    // Self-check: the same estimate method must reproduce the selected vehicle's real quoted price.
+    const selectedParts = desktopEstimateParts(quoteVehicle);
+    const selectedTotal = selectedParts ? desktopWebsiteTotalFromParts(quoteVehicle, selectedParts) : null;
+    if (selectedTotal == null || Math.abs(selectedTotal - transferPaymentAmount) >= 0.005) return {};
+    const minibusParts = desktopEstimateParts(MINIBUS_VEHICLE_TYPE);
+    const amount = minibusParts ? desktopWebsiteTotalFromParts(MINIBUS_VEHICLE_TYPE, minibusParts) : null;
     return amount != null && Number.isFinite(amount) && amount > 0
       ? { [MINIBUS_VEHICLE_TYPE]: formatQuote(amount) }
       : {};
