@@ -10,7 +10,13 @@ const BENEFITS = [
   {
     title: "Fixed price",
     text: "The price you see is the price you pay, confirmed before you pay.",
-    icon: <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />,
+    // Pound sign (prices are in GBP).
+    icon: (
+      <>
+        <path d="M17 6.5a4.5 4.5 0 0 0-8 2.8V13c0 3-1.2 5.3-3 7h12" />
+        <path d="M6 13h9" />
+      </>
+    ),
   },
   {
     title: "Flight monitoring",
@@ -60,7 +66,7 @@ export default function DesktopQuoteBenefits() {
         ))}
       </ul>
       <div data-desktop-benefits-reviews>
-        <GoogleReviewsBadge />
+        <GoogleReviewsBadge variant="panel" />
       </div>
       <nav data-desktop-benefits-popular aria-label="Popular journeys">
         <p data-desktop-benefits-heading>Popular journeys</p>

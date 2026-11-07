@@ -4071,3 +4071,71 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-quote-result-card] [data-price-label-desktop] { display: inline !important; }
 }
 
+
+/* ===== Homepage pass (Nov 2026), desktop 1200px+ only ===== */
+@media (min-width: 1200px) {
+  /* Promo cards: rotating slides share one grid cell. The old 1.6s cross-fade showed the
+     outgoing and incoming slide at once, so headings and text overlapped. Now the outgoing
+     slide fades out completely before the next one fades in: only one is ever visible. */
+  .homepage-hero-rail-slide {
+    transform: none !important;
+    transition: opacity 0.45s ease, visibility 0s linear 0.45s !important;
+  }
+  .homepage-hero-rail-slide.is-active {
+    transition: opacity 0.45s ease 0.45s, visibility 0s linear 0.45s !important;
+  }
+
+  /* Quote fields: clearer edges, readable placeholders and an obvious focus state.
+     Borders ≥3:1 and placeholders ≥4.5:1 against white. */
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select, input[id$="-house"]) {
+    background: #fff !important; border: 1.5px solid #7d8ea4 !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select, input[id$="-house"]):hover {
+    border-color: #50627a !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus, input[id$="-house"]:focus) {
+    background: #fff !important; border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.35) !important; outline: none;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(input.address-input, input[id$="-house"])::placeholder { color: #5f6f84 !important; opacity: 1; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .homepage-schedule-prompt { color: #5f6f84 !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .form-label { font-size: 0.85rem; color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+
+  /* Google reviews in the navy panel: score, emerald stars, count and a clear Google link. */
+  .homepage-hero [data-desktop-benefits-reviews] [data-reviews-panel] {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%;
+    padding: 0.8rem 1rem; border-radius: 0.9rem; background: #0a2445; border: 1px solid rgba(156, 195, 240, 0.28);
+    color: #fff; transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .homepage-hero [data-desktop-benefits-reviews] [data-reviews-panel]:hover { border-color: rgba(47, 191, 74, 0.6); background: #0c2a50; }
+  .homepage-hero [data-desktop-benefits-reviews] [data-reviews-panel]:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .homepage-hero [data-reviews-panel] [data-reviews-score] { display: flex; align-items: center; gap: 0.55rem; }
+  .homepage-hero [data-reviews-panel] [data-reviews-score] > strong { font-size: 1.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .homepage-hero [data-reviews-panel] [data-reviews-stars] { font-size: 1.05rem; letter-spacing: 0.06em; color: #2fbf4a; -webkit-text-fill-color: #2fbf4a; }
+  .homepage-hero [data-reviews-panel] [data-reviews-meta] { display: grid; justify-items: end; gap: 0.1rem; text-align: right; font-size: 0.85rem; font-weight: 600; color: #fff; }
+  .homepage-hero [data-reviews-panel] [data-reviews-source] { font-size: 0.78rem; font-weight: 600; color: #9cc3f0; }
+}
+
+@media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
+  .homepage-hero-rail-slide, .homepage-hero-rail-slide.is-active { transition: none !important; }
+}
+
+/* Laptop browser windows (e.g. a 1366 × 768 screen leaves ~620–650px under the toolbar and
+   taskbar): a little less space around the form so the button is on screen. Fields stay 44px+. */
+@media (min-width: 1200px) and (max-height: 720px) {
+  .homepage-hero h1 { font-size: 2.35rem; }
+  .homepage-hero .homepage-hero-copy > p { margin-top: 0.3rem; max-width: 62rem; font-size: 1rem; }
+  .homepage-hero .homepage-hero-layout { row-gap: 0.9rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation]:not([data-quote-results]):not(:has(#step3-payment-actions)) { padding: 1.1rem 1.75rem 1.35rem !important; }
+  .homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child { margin-bottom: 0.45rem; min-height: 2.4rem; }
+  .homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] button { min-height: 1.95rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > div:first-child { top: -3.1rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] { row-gap: 0.5rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > section[data-quote-schedule] { row-gap: 0.5rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .form-label { margin-bottom: 0.3rem; min-height: 0 !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] input.address-input { height: 2.85rem !important; min-height: 2.85rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is([data-schedule-control], select) { height: 2.75rem !important; min-height: 2.75rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] [data-quote-schedule] input:is(#date, #time) { height: 2.75rem !important; min-height: 2.75rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-top: 0.15rem !important; }
+  .homepage-hero [data-desktop-quote-benefits] { padding: 1.1rem 1.3rem 1rem; }
+  .homepage-hero [data-desktop-benefits-list] { gap: 0.65rem; }
+}
