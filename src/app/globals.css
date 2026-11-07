@@ -2796,7 +2796,12 @@ body:has(.cookie-consent-banner--modal) {
   body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] .quote-header-logo { height: 3.1rem; width: auto; }
 
   /* Light canvas: the homepage hero and sections below step aside. */
-  .homepage-hero:has([data-checkout-aside]) { background: #f4f6f9; }
+  /* overflow: clip (not hidden) so the booking panel can stick. */
+  .homepage-hero:has([data-checkout-aside]) { background: #f4f6f9; overflow: clip !important; }
+  /* Step scrolls land with the title and progress in view, not under the header. */
+  .homepage-hero .quote-flow:has(#step3-payment-actions) :is(#step2-travel-details, #step3-customer-details, #step2-journey-summary, #quote-price-summary, #step3-payment-actions) {
+    scroll-margin-top: calc(var(--co-header) + 8.75rem) !important;
+  }
   .homepage-hero:has([data-checkout-aside]) :is(.homepage-hero-media, .homepage-hero-rails, #homepage-booking-intro, .hero-benefits-row, [data-hero-reviews-badge], .quote-help-contact) {
     display: none !important;
   }
@@ -2809,7 +2814,7 @@ body:has(.cookie-consent-banner--modal) {
 
   /* Two columns. The form is display: contents so the heading, the details and the panel
      share one grid; the panel spans both rows and sits level with the heading. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) {
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(23rem, 0.54fr); grid-template-rows: auto 1fr;
     column-gap: 2.25rem; row-gap: 0; align-items: start;
     max-width: none !important; margin: 0 !important; padding: 0 !important;
@@ -2817,34 +2822,34 @@ body:has(.cookie-consent-banner--modal) {
     box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     color: var(--co-ink);
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside])::before,
-  .homepage-hero .quote-flow:has([data-checkout-aside])::after { display: none !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > #quoteForm { display: contents !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > #quoteForm > :not(#step2-travel-details):not([data-checkout-aside]) { grid-column: 1; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions)::before,
+  .homepage-hero .quote-flow:has(#step3-payment-actions)::after { display: none !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > #quoteForm { display: contents !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > #quoteForm > :not(#step2-travel-details):not([data-checkout-aside]) { grid-column: 1; }
 
   /* Heading row: back link · progress · secure, then the title and the journey line. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child {
     grid-column: 1; grid-row: 1; display: grid !important;
     grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 1.5rem; align-items: center;
     margin: 0 0 1.5rem !important; padding: 0;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > * { margin: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-back-to-quote] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote] {
     grid-column: 1; grid-row: 1; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > h2 {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2 {
     grid-column: 1 / -1; grid-row: 2; margin-top: 1.1rem !important;
     font-size: 2rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--co-navy);
     text-transform: lowercase;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > h2::first-letter { text-transform: uppercase; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div.quote-secondary { display: none !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2::first-letter { text-transform: uppercase; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div.quote-secondary { display: none !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) {
     grid-column: 1 / -1; grid-row: 4; margin-top: 1rem !important; background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25);
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) :is(p, .text-white, .text-emerald) { color: var(--co-ink); }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) > div:first-child > [data-checkout-desktop-bar] { display: contents; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) :is(p, .text-white, .text-emerald) { color: var(--co-ink); }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] { display: contents; }
   .homepage-hero [data-checkout-progress] {
     grid-column: 3; grid-row: 1; display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0; padding: 0;
     font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
@@ -2870,178 +2875,179 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1 / -1; grid-row: 3; margin-top: 0.35rem !important; font-size: 0.95rem; color: var(--co-muted); }
 
   /* ---------- Left column: white cards ---------- */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details {
     grid-column: 1; grid-row: 2; display: flex !important; flex-direction: column; gap: 1.25rem; counter-reset: co-step;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details > * { margin: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(#step3-customer-details, #step2-flight-details, section[aria-label="Airport services"], section[data-quote-schedule]) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(#step3-customer-details, #step2-flight-details, section[aria-label="Airport services"], section[data-quote-schedule]) {
     background: #fff !important; border: 1px solid var(--co-line) !important; border-radius: 1rem !important;
     padding: 1.6rem 1.75rem 1.75rem !important; box-shadow: 0 1px 2px rgba(15, 27, 45, 0.04) !important;
     color: var(--co-ink); counter-increment: co-step;
   }
   /* Card headings with a numbered badge. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > p[data-booking-nav-heading],
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child > p {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details > p[data-booking-nav-heading],
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details > div:first-child > p {
     display: flex; align-items: center; gap: 0.65rem; margin: 0 0 1.15rem !important;
     font-size: 1.125rem; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--co-navy) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child { display: block !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > p[data-booking-nav-heading]::before,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details > div:first-child > p::before,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::before {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details > div:first-child { display: block !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details > p[data-booking-nav-heading]::before,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details > div:first-child > p::before,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]::before {
     content: counter(co-step); flex: none; width: 1.65rem; height: 1.65rem; border-radius: 0.5rem;
     display: grid; place-items: center; background: var(--co-navy); color: #fff; font-size: 0.8125rem; font-weight: 800;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > * + * { margin-top: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details > * + * { margin-top: 0 !important; }
 
   /* Fields: light, neutral borders, navy focus, red when invalid. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.form-label, label.form-label) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.form-label, label.form-label) {
     color: var(--co-ink) !important; font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.45rem !important;
+    letter-spacing: 0 !important; text-transform: none !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input.quote-text-input:not([type="checkbox"]):not([type="radio"]), textarea, .quote-datetime-shell) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(input.quote-text-input:not([type="checkbox"]):not([type="radio"]), textarea, .quote-datetime-shell) {
     height: 3rem !important; min-height: 3rem !important; border-radius: 0.65rem !important;
     background: #fff !important; color: var(--co-ink) !important; font-size: 0.95rem !important;
     border: 1px solid var(--co-field) !important; box-shadow: none !important; outline: none;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details textarea { height: auto !important; min-height: 5rem !important; padding: 0.75rem 0.9rem; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-datetime-shell input { border: 0 !important; height: 100% !important; min-height: 0 !important; background: transparent !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input, textarea)::placeholder { color: #97a3b3 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input.quote-text-input, textarea):focus,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-datetime-shell:focus-within {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details textarea { height: auto !important; min-height: 5rem !important; padding: 0.75rem 0.9rem; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details .quote-datetime-shell input { border: 0 !important; height: 100% !important; min-height: 0 !important; background: transparent !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(input, textarea)::placeholder { color: #97a3b3 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(input.quote-text-input, textarea):focus,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details .quote-datetime-shell:focus-within {
     border-color: var(--co-navy) !important; box-shadow: 0 0 0 3px rgba(11, 31, 58, 0.14) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(input, textarea)[aria-invalid="true"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(input, textarea)[aria-invalid="true"] {
     border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
   }
   /* Text that was white on the dark panel. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-white, h2, h3, legend) { color: var(--co-ink); }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is([class*="text-white/"], .quote-secondary, .quote-helper-text) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-white, h2, h3, legend) { color: var(--co-ink); }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is([class*="text-white/"], .quote-secondary, .quote-helper-text) {
     color: var(--co-muted) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-emerald, [class*="text-emerald/"]) { color: var(--co-green-dark) !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(.text-red-300, .text-red-400, [role="alert"]) { color: #b91c1c !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details :is(p, span).text-xs,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-travel-details .quote-helper-text,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details #child-seat-availability,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details p.mt-1\.5 {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-emerald, [class*="text-emerald/"]) { color: var(--co-green-dark) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-red-300, .text-red-400, [role="alert"]) { color: #b91c1c !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(p, span).text-xs,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details .quote-helper-text,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details #child-seat-availability,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details p.mt-1\.5 {
     font-size: 0.8rem !important; line-height: 1.5 !important; margin-top: 0.45rem;
   }
 
   /* 1 · Your details: two by two. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details > div.space-y-3 {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details > div.space-y-3 {
     display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; column-gap: 1.25rem !important; row-gap: 1.15rem !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-booking-meet-greet] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-booking-meet-greet] {
     background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25) !important; color: var(--co-ink);
   }
   /* Child seats: one segmented control. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] {
     display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0 !important;
     border: 1px solid var(--co-field); border-radius: 0.65rem; overflow: hidden; height: 3rem;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > * {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] > * {
     margin: 0 !important; height: 100% !important; min-height: 0 !important; border: 0 !important; border-radius: 0 !important;
     border-right: 1px solid var(--co-field) !important; background: #fff !important; color: var(--co-ink) !important;
     box-shadow: none !important; font-weight: 700; font-size: 0.9rem;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :last-child { border-right: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :is([aria-pressed="true"], [aria-checked="true"], .quote-choice-selected) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] > :last-child { border-right: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] > :is([aria-pressed="true"], [aria-checked="true"], .quote-choice-selected) {
     background: var(--co-navy) !important; color: #fff !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step3-customer-details [data-child-seat-options] > :focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: -3px; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] > :focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: -3px; }
 
   /* 2 · Flight details: the helper reads as an information note. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details input { max-width: 22rem; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field > label {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details input { max-width: 22rem; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details .quote-field > label {
     margin-bottom: 0.45rem; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--co-ink) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field > .quote-helper-text {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details .quote-field > .quote-helper-text {
     display: block; margin-top: 0.9rem !important; padding: 0.8rem 1rem; border-radius: 0.75rem; background: #f2f6fb; color: #33465e !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) #step2-flight-details .quote-field:last-child > .quote-helper-text::after {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details .quote-field:last-child > .quote-helper-text::after {
     content: " Airport pickups include up to 60 minutes complimentary waiting from your flight’s actual landing time, where a valid flight number has been provided.";
   }
 
   /* 3 · Airport arrangements: outbound | return side by side, as clean radio lists. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"] {
     display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2rem; row-gap: 0;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::before { grid-row: 1; grid-column: 1; align-self: center; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]::after {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]::before { grid-row: 1; grid-column: 1; align-self: center; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]::after {
     content: "Airport arrangements"; grid-row: 1; grid-column: 1 / -1; align-self: center; padding-left: 2.3rem; margin-bottom: 1.15rem;
     font-size: 1.125rem; font-weight: 800; color: var(--co-navy); line-height: 1.65rem;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"] > * { grid-row: 2; margin: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:not(:has(> [data-terminal-access] ~ [data-terminal-access])) > [data-terminal-access] { grid-column: 1 / -1; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] { display: flex; flex-direction: column; gap: 0; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > * { margin: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header { margin-bottom: 0.85rem !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header > p:first-child,
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"] > * { grid-row: 2; margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]:not(:has(> [data-terminal-access] ~ [data-terminal-access])) > [data-terminal-access] { grid-column: 1 / -1; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] { display: flex; flex-direction: column; gap: 0; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > header { margin-bottom: 0.85rem !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > header > p:first-child,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
     display: inline-block; margin-bottom: 0.6rem !important; padding: 0.2rem 0.55rem; border-radius: 0.4rem;
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > header > p:first-child { background: #fff4e5; color: #b45309 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > header > p:first-child { background: #fff4e5; color: #b45309 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
     content: "Outbound"; background: #e8eef7; color: var(--co-navy);
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] h3 { font-size: 1rem; font-weight: 800; color: var(--co-ink); line-height: 1.35; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] header > p:last-child { margin-top: 0.2rem; font-size: 0.85rem !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] legend {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] h3 { font-size: 1rem; font-weight: 800; color: var(--co-ink); line-height: 1.35; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] header > p:last-child { margin-top: 0.2rem; font-size: 0.85rem !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] legend {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset { display: flex; flex-direction: column; gap: 0; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > * { margin: 0 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset { display: flex; flex-direction: column; gap: 0; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset > * { margin: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] label[data-access-option] {
     grid-template-columns: 1.25rem minmax(0, 1fr) auto !important; column-gap: 0.8rem !important; row-gap: 0.2rem !important;
     min-height: 0 !important; padding: 0.95rem 0.6rem !important; border: 0 !important; border-top: 1px solid var(--co-line) !important;
     border-radius: 0 !important; background: transparent !important; color: var(--co-ink) !important; box-shadow: none !important;
     font-size: 0.9rem; transition: background-color 150ms ease;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:last-of-type { border-bottom: 1px solid var(--co-line) !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:hover { background: #f7f9fc !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > label[data-access-option]:has(input:checked) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset > label[data-access-option]:last-of-type { border-bottom: 1px solid var(--co-line) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset > label[data-access-option]:hover { background: #f7f9fc !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset > label[data-access-option]:has(input:checked) {
     background: linear-gradient(90deg, var(--co-green-tint), rgba(233, 247, 238, 0) 92%) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(1) { font-size: 0.95rem; font-weight: 700; color: var(--co-ink); }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(2) { font-size: 0.95rem; font-weight: 800; color: var(--co-ink) !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option="free"] > span:nth-of-type(2) { color: var(--co-green-dark) !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] label[data-access-option] > span:nth-of-type(3) { font-size: 0.83rem !important; line-height: 1.55; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset input[type="radio"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] label[data-access-option] > span:nth-of-type(1) { font-size: 0.95rem; font-weight: 700; color: var(--co-ink); }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] label[data-access-option] > span:nth-of-type(2) { font-size: 0.95rem; font-weight: 800; color: var(--co-ink) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] label[data-access-option="free"] > span:nth-of-type(2) { color: var(--co-green-dark) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] label[data-access-option] > span:nth-of-type(3) { font-size: 0.83rem !important; line-height: 1.55; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset input[type="radio"] {
     appearance: none; -webkit-appearance: none; width: 1.25rem; height: 1.25rem; margin: 0.05rem 0 0; border-radius: 50%;
     border: 2px solid #b7c2d0; background: #fff; cursor: pointer;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset input[type="radio"]:checked {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset input[type="radio"]:checked {
     border-color: var(--co-green); background: var(--co-green); box-shadow: inset 0 0 0 3px #fff;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] input:focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: 2px; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] [data-access-note] { padding: 0.6rem 0 0 !important; font-size: 0.75rem !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] fieldset > p[role="status"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] input:focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: 2px; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] [data-access-note] { padding: 0.6rem 0 0 !important; font-size: 0.75rem !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] fieldset > p[role="status"] {
     padding: 0.8rem 1rem !important; border-radius: 0.75rem !important; border: 1px solid rgba(21, 128, 61, 0.25) !important;
     background: var(--co-green-tint) !important; color: var(--co-ink) !important; font-size: 0.83rem !important;
   }
   /* Meet & Greet: an add-on with a switch, below the pickup options. */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"] {
     order: 3; margin-top: 1rem !important; padding: 0.9rem 1rem !important; border-radius: 0.75rem !important;
     border: 1px dashed #cdd6e2 !important; background: #f7f9fc !important; grid-template-columns: 2.5rem minmax(0, 1fr) auto !important;
     align-items: center !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"]:has(input:checked) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"]:has(input:checked) {
     border-style: solid !important; border-color: rgba(34, 177, 76, 0.45) !important; background: var(--co-green-tint) !important;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] > span:nth-of-type(3) { grid-column: 2 / 4 !important; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"] > span:nth-of-type(3) { grid-column: 2 / 4 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"] {
     appearance: none; -webkit-appearance: none; width: 2.5rem; height: 1.45rem; margin: 0; border-radius: 999px; cursor: pointer;
     background: #cbd5e1 radial-gradient(circle at 0.72rem 50%, #fff 0.52rem, transparent 0.56rem) no-repeat;
     transition: background-color 150ms ease, background-position 150ms ease;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"]:checked {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"] input[type="checkbox"]:checked {
     background: var(--co-green) radial-gradient(circle at 1.78rem 50%, #fff 0.52rem, transparent 0.56rem) no-repeat;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-terminal-access] > label[data-access-option="meet-greet"] input:disabled { opacity: 0.7; cursor: default; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > label[data-access-option="meet-greet"] input:disabled { opacity: 0.7; cursor: default; }
 
   /* ---------- Right column: the navy booking panel ---------- */
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] {
     grid-column: 2; grid-row: 1 / span 2; align-self: start;
     position: sticky; top: calc(var(--co-header) + 1.25rem);
     /* Fits the visible screen both where the panel starts and once it sticks. */
@@ -3052,9 +3058,9 @@ body:has(.cookie-consent-banner--modal) {
     box-shadow: 0 24px 50px -24px rgba(11, 31, 58, 0.6);
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
   }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > * { margin: 0 !important; flex: none; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > [data-back-to-quote] { display: none; }
-  .homepage-hero .quote-flow:has([data-checkout-aside]) [data-checkout-aside] > :is(div:has(> [role="alert"]), #customer-smart-availability-blocked) { padding: 0.75rem 1.4rem 0; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > * { margin: 0 !important; flex: none; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > [data-back-to-quote] { display: none; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > :is(div:has(> [role="alert"]), #customer-smart-availability-blocked) { padding: 0.75rem 1.4rem 0; }
   /* Journey details shrink and scroll first; if the screen is shorter still, the whole
      summary scrolls inside itself, and only then the panel. Pay is never pushed off. */
   .homepage-hero [data-checkout-aside] > #step2-journey-summary { flex: 1 1 auto !important; min-height: 8rem; display: flex; flex-direction: column; }
