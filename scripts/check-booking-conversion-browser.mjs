@@ -160,7 +160,9 @@ try {
  for(const width of [320,390,1280]) {
   const q=await quote(base,width,68,true,true);
   const visible=q.card.locator('[data-quote-changing-info]');
-  assert.match(await visible.innerText(),/60 Minutes Complimentary Waiting Time/);
+  // Desktop (1200px+) lists the airport waiting time in the summary panel's included list.
+  if(width<1200) assert.match(await visible.innerText(),/60 Minutes Complimentary Waiting Time/);
+  else assert.match(await q.card.innerText(),/Up to 60 minutes’ complimentary waiting/);
   assert.doesNotMatch(await visible.innerText(),/airport pickups/i);
   assert.equal(await visible.locator('[data-quote-reassurance]').count(),1);
   assert.ok(await q.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
