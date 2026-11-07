@@ -4301,3 +4301,9 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   :is(.homepage-hero, [data-hub-quote]) .quote-flow [data-offered-at-vehicle-step="true"] { display: none !important; }
 }
+
+/* Desktop checkout summary: when the open price breakdown already lists Meet & Greet,
+   do not repeat the charge on its own line above it. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside]:has([data-checkout-breakdown-open="true"] [data-breakdown-extra-line]) [data-meet-greet-summary] { display: none; }
+}
