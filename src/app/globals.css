@@ -4000,13 +4000,15 @@ body:has(.cookie-consent-banner--modal) {
    Rows stay single buttons (aria-pressed); the label is visual only. */
 @media (min-width: 1200px) {
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
-    grid-template-columns: 11rem minmax(0, 1fr) auto 7.25rem !important;
+    grid-template-columns: 11rem minmax(0, 1fr) auto 6.5rem !important; column-gap: 1rem !important;
   }
+  /* Capacity and luggage on their own lines so nothing runs into the price. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex:has(svg) { grid-column: 1 / -1 !important; white-space: normal !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { display: none !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-select] {
     grid-column: 4; justify-self: stretch; align-self: center;
     display: inline-flex !important; align-items: center; justify-content: center; gap: 0.4rem;
-    height: 2.25rem; padding: 0 0.85rem; margin-left: 0.25rem; border-radius: 999px;
+    height: 2.25rem; padding: 0 0.7rem; border-radius: 999px;
     border: 1px solid #d3dbe5; background: #fff; color: #33465e;
     font-size: 0.85rem; font-weight: 700; white-space: nowrap;
     transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
