@@ -3672,3 +3672,18 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > section[data-quote-schedule] { border: 0 !important; padding: 0 !important; margin: 0 !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > #step3-customer-details { border-top: 0 !important; margin-top: 0 !important; }
 }
+
+/* Stage 2: every white-panel item gets its own row (older rules placed two in one row),
+   so the journey form (when editing), vehicles, notices, breakdown and quote links stack
+   inside the white panel; the price panel spans them all. */
+@media (min-width: 1200px) {
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details { grid-template-rows: repeat(7, auto) 1fr !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details > [data-homepage-quote-fields] { grid-row: 1 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-vehicle-categories] { grid-row: 2 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-business-class-upgrade] { grid-row: 3 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-return-breakdown-desktop] { grid-row: 4 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-price-breakdown] { grid-row: 5 !important; margin-bottom: 0 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-actions] { grid-row: 6 !important; margin-bottom: 1.75rem !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-card] { grid-row: 1 / -1 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-journey-summary] { grid-row: auto !important; }
+}
