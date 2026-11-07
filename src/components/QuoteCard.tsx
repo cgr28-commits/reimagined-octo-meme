@@ -1044,6 +1044,8 @@ function QuoteCard({
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
+  /** Desktop (1200px+) only: the child seat row starts collapsed. Below 1200px the options always show. */
+  const [childSeatsPanelOpen, setChildSeatsPanelOpen] = useState(false);
   const [childSeatNotesError, setChildSeatNotesError] = useState("");
   const [saveQuoteSettings, setSaveQuoteSettings] = useState({ ...DEFAULT_SAVE_QUOTE_SETTINGS, enabled: false });
   useEffect(() => {
@@ -1337,6 +1339,16 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  /** Business Class journeys do not offer child seats: none are shown, validated or sent. */
+  const childSeatsOffered = !isExecutiveVehicle(quoteVehicle);
+  const bookingChildSeats = childSeatsOffered ? childSeats : 0;
+  useEffect(() => {
+    if (childSeatsOffered) return;
+    setChildSeats(0);
+    setChildSeatNotes("");
+    setChildSeatNotesError("");
+    setChildSeatsPanelOpen(false);
+  }, [childSeatsOffered]);
   const isVehiclePersonalQuote =
     publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   /**
@@ -4283,7 +4295,7 @@ function QuoteCard({
       setEmailAddressError("");
     }
 
-    if (childSeats > 0 && !childSeatNotes.trim()) {
+    if (bookingChildSeats > 0 && !childSeatNotes.trim()) {
       setChildSeatNotesError(QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes);
       ok = false;
     } else {
@@ -4344,8 +4356,8 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
       suitcasesExact: isFivePlusLuggage(suitcases as number) ? false : true,
-      childSeats,
-      childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
+      childSeats: bookingChildSeats,
+      childSeatNotes: bookingChildSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
       estimatedPrice: bookingMeetGreetActive && liveQuote ? formatQuote((pricedFare?.totalGbp ?? liveQuote.amount) + bookingMeetGreetCharge) : estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -6884,8 +6896,8 @@ function QuoteCard({
         ? `${vehicleShortLabel(quoteVehicle)} · ${formatPassengerChoice(effectivePassengers)} passenger${
             effectivePassengers === 1 ? "" : "s"
           } · ${formatSuitcaseChoice(suitcases)} suitcase${suitcases === 1 ? "" : "s"}${
-            childSeats > 0
-              ? ` · ${childSeats} child / booster seat${childSeats === 1 ? "" : "s"}`
+            bookingChildSeats > 0
+              ? ` · ${bookingChildSeats} child / booster seat${bookingChildSeats === 1 ? "" : "s"}`
               : ""
           }`
         : vehicleShortLabel(quoteVehicle);
@@ -7120,7 +7132,29 @@ function QuoteCard({
                   </label>
                 </section>
               ) : null}
-              <div>
+              {childSeatsOffered ? (
+              <div
+                data-child-seats
+                data-child-seats-open={childSeatsPanelOpen || Boolean(childSeatNotesError) ? "true" : "false"}
+              >
+                {/* Desktop (1200px+) only: one short row that opens the options. Hidden below 1200px,
+                    where the options below always show exactly as before. */}
+                <button
+                  type="button"
+                  className="hidden"
+                  data-child-seats-toggle
+                  aria-expanded={childSeatsPanelOpen || Boolean(childSeatNotesError)}
+                  aria-controls="child-seat-panel"
+                  onClick={() => setChildSeatsPanelOpen((open) => !(open || Boolean(childSeatNotesError)))}
+                >
+                  <span data-child-seats-toggle-label>Travelling with children? Request a child seat</span>
+                  {bookingChildSeats > 0 ? (
+                    <span data-child-seats-summary>
+                      {bookingChildSeats} child / booster seat{bookingChildSeats === 1 ? "" : "s"} requested
+                    </span>
+                  ) : null}
+                </button>
+                <div id="child-seat-panel" data-child-seats-panel>
                 <p className="form-label mb-1.5">Child / booster seats</p>
                 <div
                   className="grid w-52 max-w-full grid-cols-3 gap-2 md:w-full"
@@ -7194,7 +7228,9 @@ function QuoteCard({
                 <p id="child-seat-availability" className="mt-2 text-xs leading-relaxed text-white/65">
                   Child seats are requested subject to availability. We’ll confirm your request.
                 </p>
+                </div>
               </div>
+              ) : null}
             </div>
           </section>
 

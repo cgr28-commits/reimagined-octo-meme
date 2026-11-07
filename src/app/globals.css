@@ -2962,6 +2962,31 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details [data-child-seat-options] > :focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: -3px; }
 
+  /* Child seats: one short optional row, collapsed by default. Opens to the existing options
+     and notes; a chosen seat stays summarised on the row when closed. */
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details > div.space-y-3 > [data-child-seats] { grid-column: 1 / -1; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-toggle] {
+    display: flex !important; align-items: center; gap: 0.75rem; width: 100%; min-height: 3rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--co-line); border-radius: 0.75rem; background: #f7f9fc; color: var(--co-ink);
+    font-size: 0.9rem; font-weight: 600; text-align: left; cursor: pointer;
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-toggle]::before {
+    content: "+"; flex: none; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: grid; place-items: center;
+    background: var(--co-navy); color: #fff; font-size: 0.95rem; font-weight: 800; line-height: 1;
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-toggle][aria-expanded="true"]::before { content: "−"; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-toggle]:hover { border-color: #cdd6e2; background: #f2f6fb; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-toggle]:focus-visible { outline: 3px solid rgba(11, 31, 58, 0.35); outline-offset: 2px; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-summary] {
+    margin-left: auto; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--co-green-tint); color: var(--co-green-dark);
+    font-size: 0.8rem; font-weight: 700; white-space: nowrap;
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats][data-child-seats-open="false"] > [data-child-seats-panel] { display: none; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats][data-child-seats-open="true"] > [data-child-seats-panel] {
+    margin-top: 0.85rem; padding: 1rem 1.1rem 0.25rem; border-left: 3px solid var(--co-line);
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-child-seats-panel] [data-child-seat-options] { max-width: 22rem; }
+
   /* 2 · Flight details: the helper reads as an information note. */
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details input { max-width: 22rem; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-flight-details .quote-field > label {
@@ -3059,7 +3084,7 @@ body:has(.cookie-consent-banner--modal) {
     /* Fits the visible screen both where the panel starts and once it sticks. */
     max-height: calc(100vh - var(--co-header) - 2.75rem);
     max-height: calc(100dvh - var(--co-header) - 2.75rem);
-    display: flex !important; flex-direction: column; overflow-y: auto; overscroll-behavior: contain;
+    display: flex !important; flex-direction: column; overflow-y: auto;
     background: var(--co-navy); color: #fff; border-radius: 1.15rem;
     box-shadow: 0 24px 50px -24px rgba(11, 31, 58, 0.6);
     scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
@@ -3067,19 +3092,26 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > * { margin: 0 !important; flex: none; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > [data-back-to-quote] { display: none; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > :is(div:has(> [role="alert"]), #customer-smart-availability-blocked) { padding: 0.75rem 1.4rem 0; }
-  /* Journey details shrink and scroll first; if the screen is shorter still, the whole
-     summary scrolls inside itself, and only then the panel. Pay is never pushed off. */
-  .homepage-hero [data-checkout-aside] > #step2-journey-summary { flex: 1 1 auto !important; min-height: 8rem; display: flex; flex-direction: column; }
+  /* One scroll area: the journey and fare scroll together when the screen is short, with the
+     total pinned at its foot; terms and Pay sit below it and never move. Wheel, touchpad and
+     keyboard scrolling pass on to the page at either end (no scroll trapping). Only if the
+     payment block alone is taller than the screen does the whole panel scroll. */
+  .homepage-hero [data-checkout-aside] > #step2-journey-summary {
+    flex: 1 1 auto !important; min-height: 8rem; overflow-y: auto;
+    background:
+      linear-gradient(var(--co-navy) 30%, rgba(11, 31, 58, 0)) top / 100% 1.5rem no-repeat local,
+      radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.5), transparent) top / 100% 0.65rem no-repeat scroll,
+      var(--co-navy);
+    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  }
   .homepage-hero [data-checkout-aside] #quote-price-summary {
-    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column;
-    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+    display: flex; flex-direction: column;
     margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
   }
   .homepage-hero [data-checkout-aside] #quote-price-summary > * { margin: 0 !important; flex: none; }
   /* Header row: YOUR BOOKING · Edit journey · Change airport access. */
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] {
     order: -1; display: flex; flex-wrap: wrap; align-items: center; column-gap: 1rem; row-gap: 0.15rem; padding: 1.25rem 1.4rem 0.7rem;
-    position: sticky; top: 0; z-index: 1; background: var(--co-navy);
     font-size: 0.8rem !important;
   }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls]::before {
@@ -3091,17 +3123,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] > :is(details, button + button) { display: none; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button { min-height: 0 !important; padding: 0.1rem 0 !important; color: var(--co-mint); }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button:hover { color: #fff; }
-  /* Journey details: scroll inside the panel, with soft shadows when there is more. */
-  .homepage-hero [data-checkout-aside] [data-checkout-summary-details] {
-    flex: 1 1 auto !important; min-height: 2.75rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 1.4rem 0.4rem;
-    background:
-      linear-gradient(var(--co-navy) 30%, rgba(11, 31, 58, 0)) top / 100% 1.5rem no-repeat local,
-      linear-gradient(rgba(11, 31, 58, 0), var(--co-navy) 70%) bottom / 100% 1.5rem no-repeat local,
-      radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.45), transparent) top / 100% 0.6rem no-repeat scroll,
-      radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.45), transparent) bottom / 100% 0.6rem no-repeat scroll;
-    scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
-  }
-  .homepage-hero [data-checkout-aside] [data-checkout-summary-details]:focus-visible { outline: 2px solid var(--co-mint); outline-offset: -2px; }
+  .homepage-hero [data-checkout-aside] [data-checkout-summary-details] { padding: 0 1.4rem 0.4rem; }
   .homepage-hero [data-checkout-aside] [data-checkout-summary-details] > :is([data-checkout-route], [data-checkout-party], [data-checkout-pickup-time], [data-checkout-return-time]) { display: none; }
   .homepage-hero [data-checkout-aside] [data-checkout-summary-details] > [data-checkout-access] { margin-top: 0.7rem !important; font-size: 0.78rem; line-height: 1.5; color: rgba(255, 255, 255, 0.7); }
   .homepage-hero [data-checkout-aside] [data-checkout-desktop-details] { display: block; }
