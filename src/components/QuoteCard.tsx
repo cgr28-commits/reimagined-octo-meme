@@ -8300,14 +8300,12 @@ function QuoteCard({
             // Short windows: keep Continue to booking on screen when the lines open above it.
             if (opening && typeof window !== "undefined") {
               // (scrollIntoView does nothing inside a sticky panel, so scroll the page by the overflow.)
-              window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(() => {
-                  const button = document.querySelector<HTMLElement>(".homepage-hero [data-quote-result-card] [data-quote-result-main-action] button");
-                  if (!button) return;
-                  const overflow = button.getBoundingClientRect().bottom - window.innerHeight + 16;
-                  if (overflow > 0) window.scrollBy({ top: overflow, behavior: "smooth" });
-                });
-              });
+              window.setTimeout(() => {
+                const button = document.querySelector<HTMLElement>(".homepage-hero [data-quote-result-card] [data-quote-result-main-action] button");
+                if (!button) return;
+                const overflow = button.getBoundingClientRect().bottom - window.innerHeight + 16;
+                if (overflow > 0) window.scrollBy({ top: overflow, behavior: "smooth" });
+              }, 60);
             }
           }}
           onKeyDown={(event) => {
