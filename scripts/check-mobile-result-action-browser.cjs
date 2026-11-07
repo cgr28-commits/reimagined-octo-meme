@@ -117,7 +117,7 @@ async function main() {
     if (width < 1024) assert.ok(await page.locator('[data-quote-result-art]').isVisible());
     assert.equal(await page.locator('[data-quote-result-capacity]').isVisible(), width < 1024, 'Existing desktop layout suppresses the duplicate capacity line');
    }
-   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE/);
+   assert.match(m.label, /BOOK THIS TRANSFER|REQUEST QUOTE|Continue with/);
    // Desktop reveal can still be gliding when m.y is sampled. Poll until scrollY
    // stays calm — fixed short waits still race WebKit's long glide (settleDrift 78–359).
    const settleDeadline = Date.now() + (reduced ? 4000 : 12000);

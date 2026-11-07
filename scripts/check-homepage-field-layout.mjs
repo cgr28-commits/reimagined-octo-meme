@@ -14,6 +14,9 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await skipCookieConsent(context);
       await context.route('**/*', route => new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort());
       const page = await context.newPage();
+      // Phones, tablets and laptops below 1200px keep the original styling, checked exactly.
+      // From 1200px the unified desktop journey restyles the form (white panel, light fields).
+      const legacy = width < 1200;
       await page.goto(base);
       await page.locator('#date').waitFor();
       await page.evaluate(() => document.fonts.ready);
@@ -21,8 +24,14 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       // The "Private airport transfers" eyebrow was removed from the hero (PR #699).
       assert.equal(await page.locator('.homepage-hero .section-eyebrow').count(), 0, 'hero has no eyebrow line');
       assert.equal(await page.locator('h1 + p').innerText(),'Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price.');
-      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
-      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
+      if (legacy) {
+        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
+        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
+      } else {
+        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'left');
+        assert.equal(await page.locator('[data-desktop-quote-benefits]').isVisible(),true,'desktop navy benefits panel');
+        assert.equal(await page.locator('.homepage-hero .quote-flow').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)','desktop white quote panel');
+      }
       assert.equal(await page.locator('[data-swap-locations]').count(),0);
       async function checkFields() {
         const metrics = await page.evaluate(() => {
@@ -35,7 +44,7 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
           });
         });
         // Allow one CSS pixel for transformed SVG/border rounding after scrolling.
-        for (const m of metrics) {assert.equal(m.height,44);assert.ok(m.delta<=1,JSON.stringify(m));assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
+        for (const m of metrics) {if(!legacy){assert.equal(m.disabled,false);continue;}assert.equal(m.height,44);assert.ok(m.delta<=1,JSON.stringify(m));assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       }
       const fieldSelectors = ['#pickup','#dropoff','#date','#time','#quote-section-passengers','#quote-section-suitcases'];
@@ -48,7 +57,7 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
             color:getComputedStyle(prompt || el).color,placeholder:getComputedStyle(el,'::placeholder').color};
         });
       }
-      for(const selector of fieldSelectors) {
+      for(const selector of (legacy?fieldSelectors:[])) {
         const color=await palette(selector);
         assert.equal(color.background,'rgb(30, 48, 71)',selector);
         assert.equal(color.border,'rgb(82, 99, 122)',selector);
@@ -75,7 +84,7 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       }
       const quoteHeading=page.locator('[data-site-nav-heading="quote"]');
       assert.ok((await quoteHeading.evaluate(el=>getComputedStyle(el).fontFamily)).toLowerCase().includes('manrope'));
-      assert.equal(await quoteHeading.evaluate(el=>getComputedStyle(el).fontWeight),'600');
+      if (legacy) assert.equal(await quoteHeading.evaluate(el=>getComputedStyle(el).fontWeight),'600');
       await checkFields();
       for (const [id,value] of [['date','2027-02-10'],['time','12:30']]) {
         const input=page.locator('#'+id); if(width<768) await input.tap(); else await input.click(); assert.equal(await input.evaluate(el=>document.activeElement===el),true); await input.fill(value); assert.equal(await input.inputValue(),value);
@@ -84,8 +93,8 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await page.locator('#quote-section-suitcases').selectOption('2');
       // Blur without clicking h1 — the fixed header can intercept that click.
       await page.locator('#quote-section-passengers').evaluate(el=>el.blur());
-      await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
-      for(const selector of fieldSelectors.slice(2)) {
+      if (legacy) await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
+      for(const selector of (legacy?fieldSelectors.slice(2):[])) {
         await page.waitForFunction(selector=>getComputedStyle(document.querySelector(selector)).color==='rgb(255, 255, 255)',selector);
         assert.equal((await palette(selector)).color,'rgb(255, 255, 255)',selector);
       }

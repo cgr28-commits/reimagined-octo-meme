@@ -54,7 +54,7 @@ try {
    await page.locator('#returnTime').fill('14:00');
   }
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£|Continue with/i}).waitFor();
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
   await page.waitForTimeout(1200);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
@@ -89,7 +89,7 @@ try {
    const confirmedResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/quote/calculate' && response.request().postDataJSON()?.vehicleType===vehicle && response.ok());
    allowed.add(vehicle);for(const resolve of pending.get(vehicle)||[]) resolve(); pending.delete(vehicle);
    await page.evaluate(()=>{window.vehiclePhase='response';});
-   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i}).waitFor();
+   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£|Continue with/i}).waitFor();
    const genericButtonAt=await page.evaluate(()=>performance.now());
    // The generic CTA can still show a fallback price while the new response is
    // rendering. Paired 1280px WebKit runs show the same 14px pending/ready change
@@ -103,7 +103,7 @@ try {
     const amount=price?.textContent?.trim();
     // The customer total includes the existing airport fees/return treatment;
     // it is not just the mock's journey-fare component.
-    return /^£\d+(?:\.\d{2})?$/.test(amount || '') && button?.textContent?.trim()===`BOOK THIS TRANSFER — ${amount}` && !button.disabled;
+    return /^£\d+(?:\.\d{2})?$/.test(amount || '') && (button?.querySelector('[data-book-cta-default]')?.textContent ?? button?.textContent)?.trim()===`BOOK THIS TRANSFER — ${amount}` && !button.disabled;
    });
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
    // WebKit can expose the new DOM text before its updated font/layout has
@@ -120,7 +120,7 @@ try {
    await page.waitForTimeout(250);
    const frames=await page.evaluate(()=>{clearInterval(window.vehicleSampler);return window.vehicleFrames});
    const ready=await layout();
-   const booking=page.getByRole('button',{name:/BOOK THIS TRANSFER.*£/i});
+   const booking=page.getByRole('button',{name:/BOOK THIS TRANSFER.*£|Continue with/i});
    // Reveal the whole action before the accessibility check, as for vehicle
    // choices above. Chromium's nearest-edge scrolling can round to an integer
    // scroll offset and leave 0.34px outside the viewport with fractional layout.

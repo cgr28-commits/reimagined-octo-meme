@@ -100,6 +100,7 @@ export default function QuoteVehicleCategories({
   publicExecutiveEnabled = true,
   hideUnsuitable = false,
   requestQuoteVehicles = [],
+  desktopPrices = {},
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -111,6 +112,11 @@ export default function QuoteVehicleCategories({
   /** Homepage quote results list only vehicles that fit this party. */
   hideUnsuitable?: boolean;
   requestQuoteVehicles?: readonly string[];
+  /**
+   * Desktop (1200px+) only: the fare already calculated for each vehicle (e.g. "£48"),
+   * or a short status. Display only — never priced here. Hidden below 1200px.
+   */
+  desktopPrices?: Partial<Record<string, string>>;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -187,7 +193,10 @@ export default function QuoteVehicleCategories({
                       {option.title}
                     </span>
                     {fits && requestQuoteVehicles.includes(option.vehicle) ? (
-                      <span className="mt-0.5 block text-[0.78rem] font-bold text-navy">On request · Request quote</span>
+                      <span className="mt-0.5 block text-[0.78rem] font-bold text-navy" data-vehicle-on-request>On request · Request quote</span>
+                    ) : null}
+                    {option.id === "estate" ? (
+                      <span className="hidden" data-vehicle-desktop-tag>Extra luggage space</span>
                     ) : null}
                     {option.capacity ? (
                       <span className="mt-0.5 block text-[0.84rem] font-semibold leading-tight text-navy">
@@ -215,6 +224,11 @@ export default function QuoteVehicleCategories({
                       </span>
                     )}
                   </span>
+                  {fits && desktopPrices[option.vehicle] ? (
+                    <span className="hidden" data-vehicle-desktop-price>
+                      {desktopPrices[option.vehicle]}
+                    </span>
+                  ) : null}
                   {isSelected ? (
                     <span
                       data-vehicle-selection-indicator
