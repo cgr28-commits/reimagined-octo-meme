@@ -7399,6 +7399,7 @@ function QuoteCard({
               >
                 <PromotionalPriceBreakdown
                   alwaysShow
+                  extraLines={bookingMeetGreetActive ? [{ label: "Meet & Greet · Dublin Airport", gbp: bookingMeetGreetCharge }] : []}
                   breakdown={openWebsiteFareBreakdown}
                   service={expressSelection.service ?? "drop-off"}
                   freeAirportAccessSelected={

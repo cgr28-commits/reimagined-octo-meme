@@ -149,8 +149,11 @@ export function PromotionalPriceBreakdown({
   service = "drop-off",
   className = "",
   alwaysShow = false,
+  extraLines = [],
 }: {
   breakdown: WebsiteFareBreakdown;
+  /** Charges added on top of the transfer fare (e.g. Dublin Meet & Greet); included in Amount payable. */
+  extraLines?: ReadonlyArray<{ label: string; gbp: number }>;
   /**
    * When true, customer chose the free drop-off/pick-up area so Express was not
    * added. This is not an extra promotional −£5 on the journey fare.
@@ -180,7 +183,8 @@ export function PromotionalPriceBreakdown({
     ? "Return journey fare"
     : "Journey fare";
   const showSurchargeLine = hasSurcharge;
-  const finalPayableGbp = breakdown.finalAmountPayableGbp;
+  const extrasGbp = extraLines.reduce((sum, line) => sum + (Number.isFinite(line.gbp) ? line.gbp : 0), 0);
+  const finalPayableGbp = breakdown.finalAmountPayableGbp + extrasGbp;
   if (
     !alwaysShow &&
     !hasPromo &&
@@ -202,7 +206,7 @@ export function PromotionalPriceBreakdown({
             )}
           </span>
           <span className="text-sm font-semibold text-white">
-            {formatGbpFare(finalPayableGbp)}
+            {formatGbpFare(breakdown.finalAmountPayableGbp)}
           </span>
           <span className="font-semibold text-emerald">
             ✓ YOU SAVE {formatGbpFare(breakdown.totalPromotionalSavingGbp)}
@@ -290,6 +294,12 @@ export function PromotionalPriceBreakdown({
             </dd>
           </div>
         ) : null}
+        {extraLines.map((line) => (
+          <div key={line.label} className="flex justify-between gap-3" data-breakdown-extra-line>
+            <dt>{line.label}</dt>
+            <dd className="shrink-0 tabular-nums text-white/80">+{formatGbpFare(line.gbp)}</dd>
+          </div>
+        ))}
         <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-semibold text-white">
           <dt>Amount payable</dt>
           <dd className="shrink-0 tabular-nums">
