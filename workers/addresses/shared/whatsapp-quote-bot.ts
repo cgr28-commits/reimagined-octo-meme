@@ -237,7 +237,8 @@ export const WHATSAPP_BOOKED_NOT_NEEDED_REPLY =
 export const WHATSAPP_NOT_NEEDED_REPLY =
   "No problem at all, thanks for letting us know. If you ever need a taxi again, just message us here. Safe travels! 😊";
 
-const CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
+export const WHATSAPP_CONFIRM_BUTTONS = [WHATSAPP_BUTTONS.yes, WHATSAPP_BUTTONS.newQuote];
+const CONFIRM_BUTTONS = WHATSAPP_CONFIRM_BUTTONS;
 export const WHATSAPP_QUOTED_BUTTONS = [WHATSAPP_BUTTONS.newQuote];
 
 const BUSINESS_NAME = "My Airport Taxi NI";
@@ -367,7 +368,7 @@ function looksLikeAddress(text: string): boolean {
   return k.length >= 3 && k.length <= 200 && /[a-z]/i.test(k);
 }
 
-function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
+export function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
   const code = parseAirportCode(value);
   if (code) {
     draft.airportCode = code;
@@ -527,7 +528,7 @@ function addressPartOf(text: string, now: Date): string | null {
 }
 
 /** Fill airport-side address when only the airport (and direction) is known. */
-function completeAirportLegs(draft: WhatsAppQuoteDraft) {
+export function completeAirportLegs(draft: WhatsAppQuoteDraft) {
   if (!draft.airportCode || typeof draft.fromAirport !== "boolean") return;
   const label = airportLabel(draft.airportCode);
   if (draft.fromAirport && !draft.pickupAddress) draft.pickupAddress = label;
@@ -1158,7 +1159,7 @@ export function buildWhatsAppUnavailableReply(input: {
     : `${opener}\n\nPlease send me another date or time and I'll check it for you.`;
 }
 
-const HANDOFF_REPLY = `No problem, a member of our team will reply here shortly. 👍`;
+export const WHATSAPP_HANDOFF_REPLY = `No problem, a member of our team will reply here shortly. 👍`;
 
 /**
  * Handoff reply when the assistant runs on its own number and the team answers
@@ -1323,7 +1324,7 @@ function decideJourneyReply(
   const intent = detectWhatsAppIntent(text);
 
   if (intent === "agent") {
-    return { conversation, reply: HANDOFF_REPLY, action: "handoff" };
+    return { conversation, reply: WHATSAPP_HANDOFF_REPLY, action: "handoff" };
   }
   if (intent === "reset") {
     const fresh = newWhatsAppConversation(now);
