@@ -263,6 +263,7 @@ import {
 } from "@/components/QuoteFareTrust";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
 import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown";
+import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -1098,6 +1099,11 @@ function QuoteCard({
   const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
   /** Desktop (1200px+) vehicle step: price breakdown in the navy summary, collapsed by default. */
   const [desktopBreakdownOpen, setDesktopBreakdownOpen] = useState(false);
+  /** Vercel preview sites: the final Pay / request action is switched off (set after mount). */
+  const [previewPaymentsOff, setPreviewPaymentsOff] = useState(false);
+  useEffect(() => {
+    setPreviewPaymentsOff(previewPaymentsDisabled());
+  }, []);
   /** Desktop checkout fare breakdown: null follows the default (open when anything is added or discounted). */
   const [checkoutBreakdownOpen, setCheckoutBreakdownOpen] = useState<boolean | null>(null);
   const quoteFareInflightRef = useRef(
@@ -4720,6 +4726,10 @@ function QuoteCard({
       : PAYMENT_METHOD_FULL_ONLINE;
 
   async function handlePayNow() {
+    if (previewPaymentsDisabled()) {
+      setPaymentError(PREVIEW_PAYMENTS_DISABLED_MESSAGE);
+      return;
+    }
     if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
     if (!validateCheckoutRequiredFields()) return;
     paymentSubmitLock.current = true;
@@ -7736,13 +7746,15 @@ function QuoteCard({
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
+                  disabled={previewPaymentsOff || paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
                   aria-busy={paymentLoading}
                   aria-describedby={paymentLoading ? "payment-loading-status" : undefined}
                   className="btn-pay w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading ? <span aria-hidden="true" className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" /> : null}
-                  {paymentLoading
+                  {previewPaymentsOff
+                    ? "Payments are switched off on this preview"
+                    : paymentLoading
                     ? isAvailabilityRequest
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
@@ -7762,6 +7774,11 @@ function QuoteCard({
                                 ? fullPayButtonLabel(cardBalanceOffer.totalFare)
                                 : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
                 </button>
+                {previewPaymentsOff ? (
+                  <p data-preview-payments-off className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-center text-sm leading-snug text-white">
+                    {PREVIEW_PAYMENTS_DISABLED_MESSAGE}
+                  </p>
+                ) : null}
                 <p id="payment-loading-status" role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-white/85">
                   {paymentLoading && !isAvailabilityRequest
                     ? paymentSlow
