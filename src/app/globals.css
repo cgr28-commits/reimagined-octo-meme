@@ -2420,10 +2420,7 @@ body:has(.cookie-consent-banner--modal) {
 
   /* ---- Quote panel ---- */
   .homepage-hero .quote-flow.glass-card[data-quote-presentation] { max-width: none; padding: 1.25rem 1.5rem 1.35rem; }
-  /* Complete your booking stays a comfortable form width, centred. */
-  .homepage-hero .quote-flow.glass-card[data-quote-presentation]:has(#step2-travel-details) {
-    max-width: 60rem; margin-left: auto; margin-right: auto;
-  }
+  /* Complete your booking uses the same wide panel (laid out in the booking block below). */
   .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child {
     display: flex; align-items: center; min-height: 2.75rem; margin-bottom: 0.75rem;
   }
@@ -2751,4 +2748,128 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { min-height: 3.85rem; font-size: 1.2rem; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { margin-top: 0.75rem; display: flex; justify-content: center; }
+}
+
+/* ==========================================================================
+   Desktop booking & payment (1200px+), Nov 2026. Same wide panel as the quote.
+     Your details (4 across) · Flight details
+     A  Airport access: outbound | return side by side (one-way: options side by side)
+     B  Booking summary: journey + dates | fare breakdown | total (full width)
+     C  Terms & consent | Pay button (green once details + terms are complete)
+   Layout only: selections, charges, validation and payment are unchanged.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  .homepage-hero .quote-flow:has(#step2-travel-details) { padding: 1.25rem 1.75rem 1.5rem !important; }
+  .homepage-hero .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1.35rem; letter-spacing: 0.04em; }
+  .homepage-hero #quoteForm:has(> #step2-travel-details) { display: flex; flex-direction: column; gap: 1.1rem; }
+  .homepage-hero #quoteForm:has(> #step2-travel-details) > * { margin: 0 !important; }
+  .homepage-hero #step2-travel-details > * { margin-bottom: 0 !important; }
+
+  /* Your details: four across. */
+  .homepage-hero #step3-customer-details > div.space-y-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.9fr) !important; column-gap: 1rem !important;
+  }
+  .homepage-hero #step3-customer-details > p[data-booking-nav-heading],
+  .homepage-hero section:has(> [data-terminal-access]) > [data-terminal-access] > header > p:first-child {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* A · Airport access. */
+  .homepage-hero section:has(> [data-terminal-access]) {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; align-items: start;
+    padding: 1.25rem 1.4rem !important; border-radius: 1rem;
+  }
+  .homepage-hero section:has(> [data-terminal-access]) > * { margin-top: 0 !important; }
+  .homepage-hero section:has(> [data-terminal-access]) > :not([data-terminal-access]) { grid-column: 1 / -1; }
+  /* One airport leg only: its choices sit side by side across the width. */
+  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) > [data-terminal-access] { grid-column: 1 / -1; }
+  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;
+  }
+  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset > * { margin: 0 !important; }
+  .homepage-hero section:has(> [data-terminal-access]):not(:has(> [data-terminal-access] ~ [data-terminal-access])) [data-terminal-access] > fieldset > :is(legend, p) { grid-column: 1 / -1; }
+  /* Return bookings: label the outbound column to match "Return journey". */
+  .homepage-hero section:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
+    content: "Outbound journey"; display: block; margin-bottom: 0.15rem;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero [data-terminal-access] { display: flex; flex-direction: column; gap: 0.75rem; }
+  .homepage-hero [data-terminal-access] > * { margin: 0 !important; }
+  .homepage-hero [data-terminal-access] h3 { font-size: 1.1rem; font-weight: 700; }
+  .homepage-hero [data-terminal-access] header > p:last-child { font-size: 0.9rem; color: rgba(255, 255, 255, 0.72); }
+  .homepage-hero [data-terminal-access] legend { font-size: 0.95rem; margin-bottom: 0.6rem; }
+  .homepage-hero [data-terminal-access] fieldset { display: flex; flex-direction: column; gap: 0.6rem; }
+  .homepage-hero [data-terminal-access] fieldset > * { margin: 0 !important; }
+  .homepage-hero [data-terminal-access] label.grid {
+    grid-template-columns: 1.15rem minmax(0, 1fr) auto; column-gap: 0.85rem; row-gap: 0.3rem;
+    padding: 0.9rem 1rem; border-radius: 0.9rem; font-size: 1rem; min-height: 4.6rem; align-content: start;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .homepage-hero [data-terminal-access] label.grid:hover { border-color: rgba(52, 211, 153, 0.55); }
+  .homepage-hero [data-terminal-access] label.grid:has(input:checked) {
+    border: 2px solid #34d399 !important; background: rgba(52, 211, 153, 0.1) !important; padding: calc(0.9rem - 1px) calc(1rem - 1px);
+  }
+  .homepage-hero [data-terminal-access] label.grid:has(input:focus-visible) { outline: 3px solid #6ee7b7; outline-offset: 2px; }
+  .homepage-hero [data-terminal-access] label.grid input { height: 1.15rem; width: 1.15rem; margin-top: 0.1rem; }
+  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(1) { font-size: 1rem; font-weight: 700; }
+  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(2) { font-size: 1rem; font-weight: 700; }
+  .homepage-hero [data-terminal-access] label.grid > span:nth-of-type(3) { font-size: 0.875rem; line-height: 1.5; color: rgba(255, 255, 255, 0.75); }
+  .homepage-hero [data-terminal-access] fieldset > p { font-size: 0.8rem; }
+
+  /* B · Booking summary: journey | breakdown | total. */
+  .homepage-hero #step2-journey-summary > #quote-price-summary {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.7fr);
+    grid-auto-flow: row dense; column-gap: 2rem; row-gap: 0.35rem; align-items: start;
+    padding: 1.25rem 1.5rem !important; border-radius: 1rem;
+  }
+  .homepage-hero #quote-price-summary > * { margin: 0 !important; grid-column: 1; }
+  .homepage-hero #quote-price-summary::before {
+    content: "Booking summary"; grid-column: 1 / -1; margin-bottom: 0.3rem;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero #quote-price-summary > [data-checkout-route] { font-size: 1.15rem; line-height: 1.4; }
+  .homepage-hero #quote-price-summary > [data-checkout-party] { font-size: 0.95rem; color: rgba(255, 255, 255, 0.8); }
+  .homepage-hero #quote-price-summary > [data-checkout-pickup-time],
+  .homepage-hero #quote-price-summary > [data-checkout-return-time] { font-size: 0.95rem; }
+  .homepage-hero #quote-price-summary > [data-checkout-summary-controls] { margin-top: 0.35rem !important; font-size: 0.85rem; column-gap: 1.25rem; }
+  .homepage-hero #quote-price-summary > [data-checkout-access],
+  .homepage-hero #quote-price-summary > [data-meet-greet-summary] { grid-column: 2; font-size: 0.85rem; line-height: 1.5; }
+  .homepage-hero #quote-price-summary > [data-checkout-breakdown] {
+    display: block; grid-column: 2; grid-row: 2 / span 6; font-size: 0.9rem;
+    padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .homepage-hero #quote-price-summary:has(> [data-checkout-breakdown]) > [data-checkout-access] { display: none; }
+  .homepage-hero #quote-price-summary > [data-checkout-total] {
+    grid-column: 3; grid-row: 2 / span 6; align-self: center; justify-self: end; text-align: right;
+    font-size: 2.6rem !important; line-height: 1.1; letter-spacing: -0.02em;
+  }
+
+  /* C · Terms & consent | payment. */
+  .homepage-hero #quoteForm > #step3-payment-actions {
+    display: grid !important; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: 2.5rem; row-gap: 0.6rem;
+    align-items: start; padding: 1.25rem 1.5rem; border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.03);
+  }
+  .homepage-hero #step3-payment-actions > * { grid-column: 1 !important; margin-top: 0 !important; }
+  .homepage-hero #step3-payment-actions > .sr-only { position: absolute; }
+  .homepage-hero #step3-payment-actions > div:has(.btn-pay) { grid-column: 2 !important; grid-row: 1 / span 4; }
+  .homepage-hero #step3-payment-actions > div:first-of-type + div p.text-emerald,
+  .homepage-hero #step3-payment-actions p.text-emerald { font-size: 1rem; font-weight: 700; }
+  .homepage-hero #step3-payment-actions label { font-size: 0.95rem !important; line-height: 1.45; }
+  .homepage-hero #step3-payment-actions > button.w-full.text-xs,
+  .homepage-hero #step3-payment-actions > [data-start-new-quote-controls] { justify-self: start; width: auto; }
+  .homepage-hero #step3-payment-actions [data-pay-hint] {
+    display: block; margin-bottom: 0.5rem; padding: 0.55rem 0.8rem; border-radius: 0.7rem;
+    background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.35);
+    font-size: 0.875rem; line-height: 1.45; color: #fde68a;
+  }
+  .homepage-hero #step3-payment-actions .btn-pay {
+    min-height: 3.75rem !important; font-size: 1.15rem; border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.3);
+  }
+  .homepage-hero #step3-payment-actions[data-pay-ready="true"] .btn-pay {
+    background: #2fbf4a; border-color: #2fbf4a; color: #071c38;
+    box-shadow: 0 10px 28px rgba(34, 197, 94, 0.35);
+  }
+  .homepage-hero #step3-payment-actions[data-pay-ready="true"] .btn-pay:hover:not(:disabled) { background: #3ad25a; }
 }

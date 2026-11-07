@@ -1415,6 +1415,22 @@ function QuoteCard({
     Boolean(customerName.trim()) &&
     isValidMobileNumber(customerMobile) &&
     isValidEmailAddress(customerEmail);
+  /** Desktop pay button styling only (validation on Pay is unchanged): what is still missing. */
+  const checkoutPayMissing = [
+    customerName.trim() ? null : "your full name",
+    isValidMobileNumber(customerMobile) ? null : "a valid mobile number",
+    isValidEmailAddress(customerEmail) ? null : "a valid email address",
+    termsAccepted ? null : "agree to the terms",
+  ].filter((item): item is string => Boolean(item));
+  const checkoutPayReady = quoteStep >= 2 && checkoutPayMissing.length === 0;
+  const checkoutPayHint = checkoutPayMissing.length === 0
+    ? ""
+    : `To pay, please ${(() => {
+        const add = checkoutPayMissing.filter((item) => item !== "agree to the terms");
+        const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
+          checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
+        return parts.join(" and ");
+      })()}.`;
   const lastCheckoutBoxId = needsReturnCollectionFlightNumber
     ? "collectionFlightNumber"
     : needsOutboundFlightNumber
@@ -7160,6 +7176,20 @@ function QuoteCard({
             }
           >
             {bookingMeetGreetActive ? <p className="mt-1 text-sm font-semibold" data-meet-greet-summary>Meet &amp; Greet: {formatMeetGreetGbp(bookingMeetGreetCharge)}</p> : null}
+            {/* Desktop (1200px+) only: the fare breakdown beside the summary (vehicle fare,
+                airport access, return discount, total) — same breakdown as the quote. */}
+            {openWebsiteFareBreakdown ? (
+              <div className="hidden" data-checkout-breakdown>
+                <PromotionalPriceBreakdown
+                  alwaysShow
+                  breakdown={openWebsiteFareBreakdown}
+                  service={expressSelection.service ?? "drop-off"}
+                  freeAirportAccessSelected={
+                    expressSelection.eligible && airportAccessQuote.airportAccessChargeGbp === 0
+                  }
+                />
+              </div>
+            ) : null}
             {showChangeDropOff && expressEditingLeg != null
               ? renderExpressChoiceInPriceCard("full")
               : null}
@@ -7216,6 +7246,7 @@ function QuoteCard({
           id="step3-payment-actions"
           ref={step3PaymentActionsRef}
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
+          data-pay-ready={checkoutPayReady ? "true" : "false"}
         >
           <div id="quote-step2-next" className="sr-only" />
 
@@ -7508,6 +7539,9 @@ function QuoteCard({
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
+                ) : null}
+                {checkoutPayHint ? (
+                  <p className="hidden" data-pay-hint>{checkoutPayHint}</p>
                 ) : null}
                 <button
                   type="button"
