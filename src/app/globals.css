@@ -3237,3 +3237,131 @@ body:has(.cookie-consent-banner--modal) {
     .homepage-hero [data-checkout-aside] #step3-payment-actions label { font-size: 0.76rem !important; line-height: 1.35; }
   }
 }
+
+/* ==========================================================================
+   Unified desktop journey (1200px+), Nov 2026.
+   One look for all three stages on a deep navy page: a white panel on the left
+   (quote form → vehicle choice → booking details) and a navy panel on the right
+   (why book with us → journey and price → booking summary and payment), with the
+   same widths, corners, type and green buttons. Layout and styling only: pricing,
+   booking, payment and tracking are unchanged. Below 1200px nothing here applies.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  .homepage-hero {
+    --u-bg: #071c38; --u-panel: #0f2c52; --u-line: rgba(255, 255, 255, 0.1);
+    --u-ink: #0f1b2d; --u-navy: #0b1f3a; --u-muted: #5b6b80; --u-rule: #e3e8ef; --u-field: #f3f6f9; --u-field-line: #d5dce6;
+    --u-green: #22b14c; --u-green-dark: #15803d; --u-green-tint: #e9f7ee; --u-mint: #6ee7b7;
+    --u-right: 25rem; --u-gap: 1.75rem; --u-radius: 1.25rem;
+    background: radial-gradient(75rem 32rem at 18% -6%, #123a6b 0, rgba(18, 58, 107, 0) 62%), var(--u-bg) !important;
+  }
+  .homepage-hero .homepage-hero-media { display: none; }
+  body:has(.homepage-hero) header .desktop-shell,
+  .homepage-hero .homepage-hero-layout.desktop-shell { max-width: 80rem; }
+  .homepage-hero .homepage-hero-layout { padding: 2.25rem 2.5rem 3.5rem; row-gap: 1.6rem; }
+
+  /* Heading: the original H1, left-aligned and prominent. */
+  .homepage-hero #homepage-booking-intro { text-align: left; padding-top: 0; }
+  .homepage-hero h1 { font-size: 3.1rem; line-height: 1.06; font-weight: 800; letter-spacing: -0.028em; }
+  .homepage-hero .homepage-hero-copy > p { margin: 0.65rem 0 0; max-width: 46rem; font-size: 1.15rem; line-height: 1.5; color: rgba(255, 255, 255, 0.78); }
+
+  /* Two columns: quote panel | navy panel. */
+  .homepage-hero .homepage-hero-quote {
+    display: grid; grid-template-columns: minmax(0, 1fr) var(--u-right); column-gap: var(--u-gap); row-gap: 0.9rem; align-items: stretch;
+  }
+  .homepage-hero .homepage-hero-quote > * { grid-column: 1; min-width: 0; }
+  .homepage-hero .homepage-hero-quote > :is(.hero-benefits-row, [data-hero-reviews-badge]) { display: none !important; }
+  .homepage-hero .homepage-hero-quote > .quote-flow { grid-row: 1; }
+  .homepage-hero .homepage-hero-quote > .quote-help-contact { grid-row: 2; margin: 0; text-align: left; color: rgba(255, 255, 255, 0.7); }
+  .homepage-hero .homepage-hero-quote:has(> .quote-flow[data-quote-results]) > .quote-flow { grid-column: 1 / -1; }
+  .homepage-hero .homepage-hero-quote:has(> .quote-flow[data-quote-results]) > [data-desktop-quote-benefits],
+  .homepage-hero:has([data-checkout-aside]) [data-desktop-quote-benefits] { display: none !important; }
+
+  /* Right: navy panel (shared look). */
+  .homepage-hero [data-desktop-quote-benefits] {
+    display: block; grid-column: 2; grid-row: 1;
+    background: var(--u-panel); border: 1px solid var(--u-line); border-radius: var(--u-radius);
+    padding: 1.6rem 1.6rem 1.35rem; color: #fff; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7);
+  }
+  .homepage-hero [data-desktop-benefits-heading] {
+    margin: 0 0 1rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
+  }
+  .homepage-hero [data-desktop-benefits-list] { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+  .homepage-hero [data-desktop-benefits-list] > li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); column-gap: 0.9rem; align-items: start; }
+  .homepage-hero [data-desktop-benefit-icon] {
+    width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; display: grid; place-items: center; background: rgba(110, 231, 183, 0.12); color: var(--u-mint);
+  }
+  .homepage-hero [data-desktop-benefit-icon] svg { width: 1.2rem; height: 1.2rem; }
+  .homepage-hero [data-desktop-benefits-list] strong { display: block; font-size: 0.97rem; font-weight: 700; line-height: 1.3; }
+  .homepage-hero [data-desktop-benefits-list] li > span:last-child > span { display: block; margin-top: 0.2rem; font-size: 0.83rem; line-height: 1.45; color: rgba(255, 255, 255, 0.72); }
+  .homepage-hero [data-desktop-benefits-reviews] { margin-top: 1.35rem; }
+  .homepage-hero [data-desktop-benefits-reviews] a { width: 100%; justify-content: center; }
+  .homepage-hero [data-desktop-benefits-popular] { margin-top: 1.35rem; }
+  .homepage-hero [data-desktop-benefits-popular] [data-desktop-benefits-heading] { margin-bottom: 0.35rem; }
+  .homepage-hero [data-desktop-benefits-popular] a {
+    display: flex; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid var(--u-line);
+    font-size: 0.9rem; font-weight: 600; color: #fff; transition: color 150ms ease;
+  }
+  .homepage-hero [data-desktop-benefits-popular] a > span:last-child { color: var(--u-mint); }
+  .homepage-hero [data-desktop-benefits-popular] a:hover { color: var(--u-mint); }
+
+  /* ---------- Stage 1: the white quote panel ---------- */
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation]:not([data-quote-results]):not(:has(#step3-payment-actions)) {
+    background: #fff !important; color: var(--u-ink); border: 0 !important; border-radius: var(--u-radius) !important;
+    padding: 1.75rem 2rem 1.9rem !important; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  .homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child { min-height: 3rem; margin-bottom: 1.1rem; }
+  .homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child h2 { color: var(--u-navy) !important; font-size: 1.4rem !important; font-weight: 800; letter-spacing: -0.01em; }
+  .homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child .quote-secondary { display: none; }
+
+  /* Fields: stacked like the mockup — two large address boxes, then date | time,
+     passengers | suitcases, then one full-width button. */
+  .homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields],
+  .homepage-hero .quote-flow[data-desktop-journey-editing="true"] [data-homepage-quote-fields] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important; column-gap: 1rem; row-gap: 0.95rem;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > section[data-quote-schedule] {
+    grid-row: auto !important; grid-column: 1 / -1 !important; grid-template-columns: subgrid; row-gap: 0.95rem;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) #passenger-luggage-section > div:nth-child(1) { grid-column: 1 !important; grid-row: auto !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) #passenger-luggage-section > div:nth-child(2) { grid-column: 2 !important; grid-row: auto !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] > [data-quote-price-action] {
+    grid-column: 1 / -1 !important; grid-row: auto !important; align-self: stretch; padding: 0.35rem 0 0 !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary {
+    width: 100%; min-height: 3.6rem; height: 3.6rem; border-radius: 0.9rem; font-size: 1.1rem; font-weight: 800;
+    box-shadow: 0 12px 26px -12px rgba(34, 177, 76, 0.85);
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .form-label {
+    min-height: 0; margin-bottom: 0.45rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--u-ink) !important;
+  }
+  /* One Way / Return: a light segmented control on the title line. */
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > div:first-child { top: -4.15rem; width: 17rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > div:first-child > .form-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] { background: var(--u-field) !important; border-radius: 0.8rem; }
+  .homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] button { color: var(--u-muted) !important; background: transparent !important; border-radius: 0.6rem; }
+  .homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] button[aria-pressed="true"] { background: #fff !important; color: var(--u-navy) !important; box-shadow: 0 2px 6px rgba(11, 31, 58, 0.14); }
+  .homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] [data-return-discount-note] { color: var(--u-green-dark) !important; }
+
+  /* Light, large fields. */
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select) {
+    background: var(--u-field) !important; border: 1.5px solid transparent !important; border-radius: 0.8rem !important; box-shadow: none !important; color: var(--u-ink) !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus) {
+    background: #fff !important; border-color: var(--u-navy) !important; box-shadow: 0 0 0 4px rgba(11, 31, 58, 0.1) !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] input.address-input {
+    height: 3.6rem !important; min-height: 3.6rem !important; font-size: 1.05rem; font-weight: 600; color: var(--u-ink) !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] input.address-input::placeholder { color: #8391a3 !important; font-weight: 500; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is([data-schedule-control], select) { height: 3.25rem !important; min-height: 3.25rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is([data-schedule-control] *, select) { color: var(--u-ink) !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(.homepage-field-icon, [data-gps-location], svg) { color: var(--u-navy) !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] .homepage-schedule-prompt { color: #8391a3 !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] input[id$="-house"] {
+    background: var(--u-field) !important; color: var(--u-ink) !important; border: 1.5px solid transparent !important;
+  }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is(p, span):is(.text-white, [class*="text-white/"]) { color: var(--u-muted) !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) #homepage-quote-requirements { color: var(--u-muted) !important; font-size: 0.82rem; }
+}
