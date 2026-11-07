@@ -273,7 +273,7 @@ try {
       await suggestion.waitFor({state:'visible'});
       // force: local "Co. Dublin, Ireland" overlay can still sit above the mock Terminal 2 row.
       // Desktop (1200px+): a normal click, so Playwright waits until the row itself can take it.
-      if (width >= 1200) { await suggestion.scrollIntoViewIfNeeded(); await suggestion.click(); }
+      if (width >= 1200) { await suggestion.evaluate(el=>el.scrollIntoView({block:'nearest'})); await page.waitForTimeout(300); await suggestion.click(); }
       else await suggestion.click({force:true});
       await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
       assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
