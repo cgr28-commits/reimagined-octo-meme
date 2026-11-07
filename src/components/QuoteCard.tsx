@@ -785,6 +785,27 @@ function websiteAirportAccessLeadLabel(selection: { eligible: boolean; legs: rea
   return selection.eligible ? "Free Airport Access — Long Stay; optional terminal services selected in booking details" : undefined;
 }
 
+/** Journey summary date, e.g. "Mon, 9 Nov 2026"; keeps the chosen calendar day in every time zone. */
+function journeySummaryDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "—";
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  }).format(date);
+}
+
+function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" }) {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" data-journey-icon>
+      {name === "calendar" ? (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></>) : null}
+      {name === "clock" ? (<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>) : null}
+      {name === "return" ? (<><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>) : null}
+    </svg>
+  );
+}
+
 function QuoteCard({
   restoredQuote,
   homepagePolish = false,
@@ -8688,6 +8709,33 @@ function QuoteCard({
                             ? "5+ suitcases"
                             : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
                         </p>
+                        {/* Desktop (1200px+) only: journey type, dates and times from the
+                            current quote, so the customer can check them before booking. */}
+                        <div className="hidden" data-journey-schedule>
+                          <span data-journey-type>{returnJourney ? "Return" : "One way"}</span>
+                          <span data-journey-when>
+                            <JourneySummaryIcon name="calendar" />
+                            <span data-journey-when-label>{returnJourney ? "Outbound" : "Pickup"}</span>
+                            <strong>{journeySummaryDate(tripDate)}</strong>
+                            <JourneySummaryIcon name="clock" />
+                            <span data-journey-when-label>
+                              {checkoutTimeLabel("outbound") === "Pickup time" ? "at" : "flight lands"}
+                            </span>
+                            <strong>{tripTime ? tripTime.slice(0, 5) : "—"}</strong>
+                          </span>
+                          {returnJourney ? (
+                            <span data-journey-when>
+                              <JourneySummaryIcon name="return" />
+                              <span data-journey-when-label>Return</span>
+                              <strong>{journeySummaryDate(returnDate)}</strong>
+                              <JourneySummaryIcon name="clock" />
+                              <span data-journey-when-label>
+                                {checkoutTimeLabel("return") === "Pickup time" ? "at" : "flight lands"}
+                              </span>
+                              <strong>{returnTime ? returnTime.slice(0, 5) : "—"}</strong>
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}

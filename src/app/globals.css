@@ -2707,3 +2707,48 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
   .homepage-hero-rail:hover .homepage-hero-rail-slide img { transform: none; }
 }
+
+/* Desktop quote results (1200px+), final refinement: dates and times in the journey
+   summary, slightly larger vehicle tiles, no dead space under the breakdown/links,
+   and a cleaner price panel. Phones and tablets never show [data-journey-schedule]. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) { grid-template-rows: auto auto auto auto auto; padding-bottom: 0.25rem; }
+
+  /* Journey type, outbound and return dates/times. */
+  .homepage-hero #quote-results-summary [data-homepage-journey-summary] > [data-journey-schedule] {
+    grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.5rem;
+    margin-top: 0.45rem; padding-top: 0.65rem; border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .homepage-hero [data-journey-schedule] [data-journey-type] {
+    display: inline-flex; align-items: center; height: 1.75rem; padding: 0 0.75rem; border-radius: 999px;
+    border: 1px solid rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.1);
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6ee7b7;
+  }
+  .homepage-hero [data-journey-schedule] [data-journey-when] {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.95rem; color: #fff;
+  }
+  .homepage-hero [data-journey-schedule] [data-journey-icon] { color: #34d399; flex: none; margin-left: 0.2rem; }
+  .homepage-hero [data-journey-schedule] [data-journey-icon]:first-child { margin-left: 0; }
+  .homepage-hero [data-journey-schedule] [data-journey-when-label] { font-size: 0.85rem; color: rgba(255, 255, 255, 0.65); }
+  .homepage-hero [data-journey-schedule] strong { font-weight: 600; }
+
+  /* Vehicle tiles: a little larger, clearer pictures and text. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] { height: 10.5rem !important; padding: 0.7rem 0.8rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 5.1rem; width: 10.25rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 1.12rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not(.font-bold) {
+    font-size: 0.9rem !important; color: rgba(255, 255, 255, 0.82) !important;
+  }
+
+  /* Breakdown and quote links share one row, centred on each other. */
+  .homepage-hero #quote-results-summary:has(> [data-quote-result-card]) > [data-quote-price-breakdown] { align-self: center; }
+
+  /* Price panel: price dominant, readable reassurance, big Book button, tidy reviews. */
+  .homepage-hero #quote-results-summary > [data-quote-result-card] { justify-content: center; padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 3.4rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
+    font-size: 0.9rem; line-height: 1.55;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { min-height: 3.85rem; font-size: 1.2rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { margin-top: 0.75rem; display: flex; justify-content: center; }
+}
