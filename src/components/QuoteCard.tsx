@@ -8415,7 +8415,7 @@ function QuoteCard({
 
   /**
    * Desktop (1200px+): when the owner has made the 7 Seater request-only, its row shows the
-   * on-device estimate for this journey (existing shared formulas) as "From £…", subject to
+   * on-device estimate for this journey (existing shared formulas) as an indicative starting price, subject to
    * availability, with Request a quote. Nothing is shown when no estimate is available.
    */
   function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
