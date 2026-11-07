@@ -246,6 +246,10 @@ export default function QuoteVehicleCategories({
                           From {desktopRequestPrices[option.vehicle]}
                           <small>Subject to availability</small>
                         </span>
+                      ) : option.vehicle === MINIBUS_VEHICLE ? (
+                        <span data-vehicle-desktop-from>
+                          <small>Subject to availability</small>
+                        </span>
                       ) : null}
                       <span data-vehicle-desktop-request-action>Request a quote</span>
                     </span>
