@@ -2794,6 +2794,7 @@ body:has(.cookie-consent-banner--modal) {
     height: var(--co-header); padding-top: 0; padding-bottom: 0; max-width: 80rem;
   }
   body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] .quote-header-logo { height: 3.1rem; width: auto; }
+  body:has(.homepage-hero [data-checkout-aside]) header[data-site-header] { background: #071c38 !important; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06); }
 
   /* Light canvas: the homepage hero and sections below step aside. */
   /* overflow: clip (not hidden) so the booking panel can stick. */
@@ -2840,7 +2841,7 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2 {
-    grid-column: 1 / 3; grid-row: 1;
+    grid-column: 1 / 3; grid-row: 1; white-space: nowrap;
     font-size: 2rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--co-navy);
     text-transform: lowercase;
   }
@@ -2864,6 +2865,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-progress-step="done"] > span[aria-hidden] { background: var(--co-green); border-color: var(--co-green); color: #fff; }
   .homepage-hero [data-checkout-progress-step="current"] { color: var(--co-ink); }
   .homepage-hero [data-checkout-progress-step="current"] > span[aria-hidden] { background: var(--co-navy); border-color: var(--co-navy); color: #fff; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] > p[data-checkout-secure] { display: flex !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] > p[data-checkout-desktop-subtitle] { display: block !important; }
   .homepage-hero [data-checkout-secure] {
     grid-column: 4; grid-row: 1; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
     font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
@@ -2927,7 +2930,7 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-emerald, [class*="text-emerald/"]) { color: var(--co-green-dark) !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(.text-red-300, .text-red-400, [role="alert"]) { color: #b91c1c !important; }
-  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(p, span).text-xs,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(p, span).text-xs:not([data-booking-nav-heading]),
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details .quote-helper-text,
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details #child-seat-availability,
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step3-customer-details p.mt-1\.5 {
