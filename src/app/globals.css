@@ -3687,3 +3687,21 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-card] { grid-row: 1 / -1 !important; }
   .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-journey-summary] { grid-row: auto !important; }
 }
+
+/* Short laptop screens (e.g. 1366 × 768): tighter spacing so the whole quote form and its
+   button fit on screen without scrolling. */
+@media (min-width: 1200px) and (max-height: 820px) {
+  .homepage-hero .homepage-hero-layout { padding-top: 1.6rem; row-gap: 1.15rem; }
+  .homepage-hero h1 { font-size: 2.75rem; }
+  .homepage-hero .homepage-hero-copy > p { margin-top: 0.4rem; font-size: 1.05rem; }
+  .homepage-hero .quote-flow.glass-card[data-quote-presentation]:not([data-quote-results]):not(:has(#step3-payment-actions)) { padding: 1.35rem 1.75rem 1.5rem !important; }
+  .homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child { margin-bottom: 0.75rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] { row-gap: 0.7rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > section[data-quote-schedule] { row-gap: 0.7rem; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] input.address-input { height: 3.15rem !important; min-height: 3.15rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] :is([data-schedule-control], select) { height: 3rem !important; min-height: 3rem !important; }
+  .homepage-hero .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary { min-height: 3.25rem; height: 3.25rem; }
+  .homepage-hero [data-desktop-quote-benefits] { padding: 1.3rem 1.4rem 1.1rem; }
+  .homepage-hero [data-desktop-benefits-list] { gap: 0.8rem; }
+  .homepage-hero [data-desktop-benefits-reviews], .homepage-hero [data-desktop-benefits-popular] { margin-top: 1rem; }
+}
