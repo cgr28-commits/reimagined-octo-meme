@@ -4307,3 +4307,40 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside]:has([data-checkout-breakdown-open="true"] [data-breakdown-extra-line]) [data-meet-greet-summary] { display: none; }
 }
+
+/* Secure card payment (/pay/card/), desktop only (1200px+): white payment card on deep navy,
+   matching the white quote tool and checkout panels. Styling only — Stripe's own fields take the
+   matching light theme from StripeCardPayClient. Mobile and tablet are unchanged. */
+@media (min-width: 1200px) {
+  main:has(> div > [data-stripe-pay]) { background: #071c38; }
+  main > div:has(> [data-stripe-pay]) { max-width: 31rem; }
+  [data-stripe-pay] {
+    background: #fff; color: #071c38; border: 0; border-radius: 20px;
+    padding: 1.75rem 2rem 1.5rem; box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55);
+  }
+  [data-stripe-pay] [data-pay-logo-dark] { display: none; }
+  [data-stripe-pay] [data-pay-logo-light] { display: inline-flex; }
+  [data-stripe-pay] .text-emerald { color: #15803d; }
+  [data-stripe-pay] :is(.text-white, .text-white\/90, .text-white\/85) { color: #071c38; }
+  [data-stripe-pay] :is(.text-white\/80, .text-white\/75, .text-white\/70, .text-white\/65) { color: #4a5a70; }
+  [data-stripe-pay] :is(.text-white\/55, .text-white\/50, .text-white\/40) { color: #5f6f84; }
+  [data-stripe-pay] .border-white\/10 { border-color: #e3e9f1; }
+  [data-stripe-pay] [data-pay-back-to-booking] { color: #15803d; text-decoration: none; }
+  [data-stripe-pay] [data-pay-back-to-booking]:hover { color: #116932; text-decoration: underline; }
+  [data-stripe-pay] [data-pay-back-to-booking]:focus-visible { outline: 3px solid #071c38; outline-offset: 3px; border-radius: 4px; }
+  [data-stripe-pay] p.text-xl { font-size: 1.75rem; line-height: 1.1; font-weight: 800; color: #071c38; }
+  [data-stripe-pay] .bg-emerald\/10 { background: #ecf8ef; border-color: #bfe5c9; color: #071c38; }
+  [data-stripe-pay] [data-pay-loading] { background: #fff; }
+  [data-stripe-pay] [data-pay-loading] .text-white\/75 { color: #4a5a70; }
+  [data-stripe-pay] [data-pay-loading] .border-white\/25 { border-color: #d5dde8; border-top-color: #15803d; }
+  [data-stripe-pay] [data-pay-loading] :is(.bg-white\/10, .bg-white\/\[0\.07\]) { background: #eef2f7; }
+  [data-stripe-pay] [role="alert"] {
+    color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.55rem 0.75rem;
+  }
+  [data-stripe-pay] .btn-primary {
+    background: #15803d; color: #fff; min-height: 3.375rem; font-weight: 700; font-size: 1.05rem; box-shadow: none;
+  }
+  [data-stripe-pay] .btn-primary:hover:not(:disabled) { background: #116932; }
+  [data-stripe-pay] .btn-primary:focus-visible { outline: 3px solid #071c38; outline-offset: 3px; }
+  [data-stripe-pay] .btn-primary:disabled { background: #15803d; opacity: 0.7; }
+}
