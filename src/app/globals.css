@@ -2839,6 +2839,7 @@ body:has(.cookie-consent-banner--modal) {
     padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
   .homepage-hero #quote-price-summary:has(> [data-checkout-breakdown]) > [data-checkout-access] { display: none; }
+  .homepage-hero #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { font-size: 0.9rem; line-height: 1.6; }
   .homepage-hero #quote-price-summary > [data-checkout-total] {
     grid-column: 3; grid-row: 2 / span 6; align-self: center; justify-self: end; text-align: right;
     font-size: 2.6rem !important; line-height: 1.1; letter-spacing: -0.02em;

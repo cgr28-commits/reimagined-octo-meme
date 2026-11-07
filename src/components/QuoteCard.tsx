@@ -1429,7 +1429,7 @@ function QuoteCard({
         const add = checkoutPayMissing.filter((item) => item !== "agree to the terms");
         const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
           checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
-        return parts.join(" and ");
+        return parts.join(", and ");
       })()}.`;
   const lastCheckoutBoxId = needsReturnCollectionFlightNumber
     ? "collectionFlightNumber"
