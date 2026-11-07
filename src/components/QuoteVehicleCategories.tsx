@@ -258,6 +258,21 @@ export default function QuoteVehicleCategories({
                       {desktopPrices[option.vehicle]}
                     </span>
                   ) : null}
+                  {fits ? (
+                    <span className="hidden" data-vehicle-desktop-select aria-hidden>
+                      {isSelected ? (
+                        <>
+                          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden focusable="false">
+                            <circle cx="8" cy="8" r="8" fill="currentColor" />
+                            <path d="M4.6 8.3l2.2 2.2 4.6-4.8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Selected
+                        </>
+                      ) : (
+                        "Select"
+                      )}
+                    </span>
+                  ) : null}
                   {isSelected ? (
                     <span
                       data-vehicle-selection-indicator

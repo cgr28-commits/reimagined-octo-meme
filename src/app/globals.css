@@ -3995,3 +3995,34 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-vehicle-desktop-from] > small { font-size: 0.72rem; font-weight: 600; color: var(--u-muted); }
   .homepage-hero [data-vehicle-desktop-request-action] { font-size: 0.9rem; font-weight: 800; color: #b45309; }
 }
+
+/* Desktop (1200px+) vehicle selection: "Select" / "✓ Selected" instead of radio circles.
+   Rows stay single buttons (aria-pressed); the label is visual only. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] {
+    grid-template-columns: 11rem minmax(0, 1fr) auto 7.25rem !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { display: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-select] {
+    grid-column: 4; justify-self: stretch; align-self: center;
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 0.4rem;
+    height: 2.25rem; padding: 0 0.85rem; margin-left: 0.25rem; border-radius: 999px;
+    border: 1px solid #d3dbe5; background: #fff; color: #33465e;
+    font-size: 0.85rem; font-weight: 700; white-space: nowrap;
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category]:hover [data-vehicle-desktop-select] { border-color: #9fb0c4; color: var(--u-navy); }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] [data-vehicle-desktop-select] {
+    border-color: transparent; background: transparent; color: var(--u-green-dark, #157a37);
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-select] svg { flex: none; color: var(--u-green, #22b14c); }
+  /* Price and selector read as two separate things. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] :is([data-vehicle-desktop-price], [data-vehicle-desktop-request]) {
+    padding-right: 1.1rem; border-right: 1px solid #e3e8ef;
+  }
+  /* Selected row: subtle green border and a very light green fill, no glow. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="true"] {
+    border: 1.5px solid var(--u-green, #22b14c) !important; background: #f4fbf6 !important; box-shadow: none !important;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="false"] { border-width: 1.5px !important; }
+}
