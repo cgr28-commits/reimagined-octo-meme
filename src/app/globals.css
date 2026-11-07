@@ -2838,7 +2838,11 @@ body:has(.cookie-consent-banner--modal) {
     display: block; grid-column: 2; grid-row: 2 / span 6; font-size: 0.9rem;
     padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .homepage-hero #quote-price-summary:has(> [data-checkout-breakdown]) > [data-checkout-access] { display: none; }
+  /* The access line names what was chosen (e.g. Meet & Greet); it heads the breakdown column. */
+  .homepage-hero #quote-price-summary > [data-checkout-access] { grid-row: 2; padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.85); }
+  .homepage-hero #quote-price-summary > [data-meet-greet-summary] { grid-row: 3; padding-left: 2rem; border-left: 1px solid rgba(255, 255, 255, 0.1); }
+  .homepage-hero #quote-price-summary:has(> [data-checkout-access]) > [data-checkout-breakdown] { grid-row: 3 / span 6; padding-top: 0.35rem; }
+  .homepage-hero #quote-price-summary:has(> [data-checkout-access]):has(> [data-meet-greet-summary]) > [data-checkout-breakdown] { grid-row: 4 / span 6; }
   .homepage-hero #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { font-size: 0.9rem; line-height: 1.6; }
   .homepage-hero #quote-price-summary > [data-checkout-total] {
     grid-column: 3; grid-row: 2 / span 6; align-self: center; justify-self: end; text-align: right;
