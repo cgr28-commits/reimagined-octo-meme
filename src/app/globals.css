@@ -4230,3 +4230,7 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) and (max-height: 720px) {
   .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { display: none !important; }
 }
+@media (min-width: 1200px) {
+  /* With the breakdown available, the itemised lines live in it; the summary keeps just the total. */
+  .homepage-hero [data-quote-result-card]:has([data-results-breakdown]) > [data-results-upgrade-lines] > p:not([data-results-upgrade-total]) { display: none !important; }
+}
