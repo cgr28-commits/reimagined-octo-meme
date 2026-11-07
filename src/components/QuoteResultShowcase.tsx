@@ -24,6 +24,8 @@ type QuoteResultShowcaseProps = {
   passengers: number;
   suitcases: number;
   priceLabel: string;
+  /** Desktop (1200px+) only: replaces priceLabel visually; below 1200px the original label shows. */
+  desktopPriceLabel?: string;
   formattedPrice: string;
   hasAirportCollection?: boolean;
   bookButton: ReactNode;
@@ -82,6 +84,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       passengers,
       suitcases,
       priceLabel,
+      desktopPriceLabel,
       formattedPrice,
       hasAirportCollection = false,
       bookButton,
@@ -215,7 +218,14 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           ) : (
           <>
           <p className="text-[0.72rem] font-bold uppercase tracking-[0.16em] text-navy">
-            {priceLabel}
+            {desktopPriceLabel ? (
+              <>
+                <span data-price-label-default>{priceLabel}</span>
+                <span className="hidden" data-price-label-desktop>{desktopPriceLabel}</span>
+              </>
+            ) : (
+              priceLabel
+            )}
           </p>
           {priceUnavailable ? (
             <div className="mt-1" data-quote-fare-status="unavailable">

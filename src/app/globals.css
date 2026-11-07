@@ -2616,7 +2616,7 @@ body:has(.cookie-consent-banner--modal) {
     font-size: 0.85rem !important; font-weight: 500; color: rgba(255, 255, 255, 0.75) !important;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.font-bold:not([data-vehicle-name]) {
-    white-space: nowrap; font-size: 0.75rem !important; color: #fcd34d !important;
+    white-space: nowrap; font-size: 0.75rem !important; color: #9cc3f0 !important;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-selection-indicator] {
     position: absolute; top: -0.15rem; right: -0.2rem; height: 1.5rem !important; width: 1.5rem !important; font-size: 0.8rem;
@@ -3018,7 +3018,7 @@ body:has(.cookie-consent-banner--modal) {
     display: inline-block; margin-bottom: 0.6rem !important; padding: 0.2rem 0.55rem; border-radius: 0.4rem;
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
   }
-  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > header > p:first-child { background: #fff4e5; color: #b45309 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-terminal-access] > header > p:first-child { background: #eaf1f9; color: #1f4f86 !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) section[aria-label="Airport services"]:has(> [data-terminal-access^="return"]) > [data-terminal-access^="outbound"] > header::before {
     content: "Outbound"; background: #e8eef7; color: var(--co-navy);
   }
@@ -3143,7 +3143,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] [data-checkout-legs] { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.5rem; margin: 0.45rem 0 0; }
   .homepage-hero [data-checkout-aside] [data-checkout-leg] { border-radius: 0.65rem; padding: 0.5rem 0.7rem; background: rgba(255, 255, 255, 0.06); }
   .homepage-hero [data-checkout-aside] [data-checkout-leg] dt { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--co-mint); }
-  .homepage-hero [data-checkout-aside] [data-checkout-leg="return"] dt { color: #fcd34d; }
+  .homepage-hero [data-checkout-aside] [data-checkout-leg="return"] dt { color: #9cc3f0; }
   .homepage-hero [data-checkout-aside] [data-checkout-leg] dd { margin: 0.1rem 0 0; font-size: 0.85rem; font-weight: 700; }
   .homepage-hero [data-checkout-aside] [data-checkout-vehicle] {
     display: flex; align-items: center; gap: 0.55rem; margin-top: 0.5rem; padding: 0.5rem 0.7rem; border-radius: 0.65rem;
@@ -3195,7 +3195,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #step3-payment-actions a { color: #9be8bd; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-pay-hint] {
     display: block; padding: 0.5rem 0.7rem; border-radius: 0.6rem; background: rgba(251, 191, 36, 0.12); border: 1px solid rgba(251, 191, 36, 0.35);
-    font-size: 0.78rem; line-height: 1.45; color: #fde68a;
+    font-size: 0.78rem; line-height: 1.45; color: #bcd6f3;
   }
   .homepage-hero [data-checkout-aside] #step3-payment-actions p.text-xs { font-size: 0.75rem; text-align: center; color: rgba(255, 255, 255, 0.62); }
   .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay {
@@ -3463,7 +3463,7 @@ body:has(.cookie-consent-banner--modal) {
     order: -1; display: inline-block !important; padding: 0.15rem 0.5rem; border-radius: 0.4rem; white-space: nowrap;
     font-size: 0.7rem !important; font-weight: 800 !important; letter-spacing: 0.06em; text-transform: uppercase;
   }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { background: #fff4e5; color: #b45309 !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { background: #eaf1f9; color: #1f4f86 !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-tag] { background: var(--u-green-tint); color: var(--u-green-dark) !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-price] {
     display: block; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; color: var(--u-navy); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums;
@@ -3526,7 +3526,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-quote-result-card] [data-results-chip] {
     padding: 0.35rem 0.7rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 0.8rem; font-weight: 600; color: rgba(255, 255, 255, 0.9);
   }
-  .homepage-hero [data-quote-result-card] [data-results-chip-return] { color: #fcd34d; }
+  .homepage-hero [data-quote-result-card] [data-results-chip-return] { color: #9cc3f0; }
   /* Chosen vehicle: one compact row. */
   .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] {
     display: grid !important; grid-template-columns: 4.75rem minmax(0, 1fr); grid-template-areas: "art name" "art cap"; column-gap: 0.85rem; align-items: center;
@@ -3565,7 +3565,7 @@ body:has(.cookie-consent-banner--modal) {
     -webkit-text-fill-color: #33465e;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { -webkit-text-fill-color: var(--u-navy); }
-  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { -webkit-text-fill-color: #b45309; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { -webkit-text-fill-color: #1f4f86; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-tag] { -webkit-text-fill-color: var(--u-green-dark); }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex svg { -webkit-text-fill-color: initial; color: var(--u-navy) !important; }
 
@@ -3828,7 +3828,7 @@ body:has(.cookie-consent-banner--modal) {
     content: "fixed price"; margin-top: 0.2rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0; color: var(--u-muted);
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-request] {
-    display: block; grid-column: 3; font-size: 0.95rem; font-weight: 800; color: #b45309; white-space: nowrap;
+    display: block; grid-column: 3; font-size: 0.95rem; font-weight: 800; color: #1f4f86; white-space: nowrap;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] { grid-template-columns: 11rem minmax(0, 1fr) auto 1.6rem !important; }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { width: 11rem !important; height: 6.4rem !important; }
@@ -3911,9 +3911,9 @@ body:has(.cookie-consent-banner--modal) {
     margin: 0.4rem 0 0 !important; font-size: 1rem !important; line-height: 1.4 !important; font-weight: 500 !important; color: rgba(255, 255, 255, 0.72) !important;
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-badge] {
-    padding: 0.15rem 0.5rem; border-radius: 0.4rem; background: #fff4e5; white-space: nowrap;
+    padding: 0.15rem 0.5rem; border-radius: 0.4rem; background: #eaf1f9; white-space: nowrap;
     font-size: 0.68rem !important; font-weight: 800 !important; letter-spacing: 0.08em; text-transform: uppercase;
-    color: #b45309 !important; -webkit-text-fill-color: #b45309;
+    color: #1f4f86 !important; -webkit-text-fill-color: #1f4f86;
   }
 }
 @media (min-width: 1200px) and (max-height: 820px) {
@@ -3993,7 +3993,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-request] { display: grid !important; justify-items: end; gap: 0.3rem; text-align: right; }
   .homepage-hero [data-vehicle-desktop-from] { display: grid; font-size: 1.2rem; font-weight: 800; color: var(--u-navy); line-height: 1.1; }
   .homepage-hero [data-vehicle-desktop-from] > small { font-size: 0.72rem; font-weight: 600; color: var(--u-muted); }
-  .homepage-hero [data-vehicle-desktop-request-action] { font-size: 0.9rem; font-weight: 800; color: #b45309; }
+  .homepage-hero [data-vehicle-desktop-request-action] { font-size: 0.9rem; font-weight: 800; color: #1f4f86; }
 }
 
 /* Desktop (1200px+) vehicle selection: "Select" / "✓ Selected" instead of radio circles.
@@ -4046,5 +4046,28 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-quote-result-card] [data-book-cta-desktop] { display: inline-flex !important; align-items: center; gap: 0.5rem; }
   .homepage-hero [data-quote-result-card] [data-book-cta-desktop] svg { flex: none; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action]::after { margin-top: 0.65rem; font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); }
+}
+
+/* Desktop (1200px+): no yellow, amber, orange or brown in the booking interface.
+   Shared notices keep their wording and roles; only their colours change.
+   White panels: pale blue-grey with muted-blue text. Navy panels: soft blue tint. Errors stay red. */
+@media (min-width: 1200px) {
+  .homepage-hero :is([class*="bg-amber-"], [class*="bg-yellow-"], [class*="bg-orange-"]) { background-color: #eef3f9 !important; }
+  .homepage-hero :is([class*="border-amber-"], [class*="border-yellow-"], [class*="border-orange-"]) { border-color: #c9d7e8 !important; }
+  .homepage-hero :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]) { color: #1f4f86 !important; -webkit-text-fill-color: #1f4f86; }
+  .homepage-hero :is([class*="bg-amber-"], [class*="bg-yellow-"], [class*="bg-orange-"]) :is([class*="text-white"], strong) { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  .homepage-hero :is([class*="bg-amber-"], [class*="bg-yellow-"], [class*="bg-orange-"])[class*="text-white"] { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+
+  .homepage-hero :is([data-quote-result-card], [data-checkout-aside], [data-desktop-quote-benefits]) :is([class*="bg-amber-"], [class*="bg-yellow-"], [class*="bg-orange-"]) { background-color: rgba(156, 195, 240, 0.1) !important; }
+  .homepage-hero :is([data-quote-result-card], [data-checkout-aside], [data-desktop-quote-benefits]) :is([class*="border-amber-"], [class*="border-yellow-"], [class*="border-orange-"]) { border-color: rgba(156, 195, 240, 0.3) !important; }
+  .homepage-hero :is([data-quote-result-card], [data-checkout-aside], [data-desktop-quote-benefits]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]) { color: #d6e4f5 !important; -webkit-text-fill-color: #d6e4f5; }
+  .homepage-hero :is([data-quote-result-card], [data-checkout-aside], [data-desktop-quote-benefits]) :is([class*="bg-amber-"], [class*="bg-yellow-"], [class*="bg-orange-"]) :is([class*="text-white"], strong) { color: #fff !important; -webkit-text-fill-color: #fff; }
+  /* Review stars: brand emerald rather than gold. */
+  .homepage-hero [data-desktop-quote-benefits] .text-amber-300 { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a; }
+}
+
+@media (min-width: 1200px) {
+  .homepage-hero [data-quote-result-card] [data-price-label-default] { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-price-label-desktop] { display: inline !important; }
 }
 

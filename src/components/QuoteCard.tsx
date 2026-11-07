@@ -8237,7 +8237,7 @@ function QuoteCard({
           </p>
         ))}
         <p data-results-upgrade-total>
-          <span>Total</span>
+          <span>Your current total</span>
           <strong>{formatQuote(total)}</strong>
         </p>
       </div>
@@ -8560,6 +8560,7 @@ function QuoteCard({
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
         priceLabel={effectiveAirportCode ? "Your fixed airport transfer price" : "Your fixed transfer price"}
+        desktopPriceLabel={presentation === "homepage" && quoteStep === 1 ? "Your current total" : undefined}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         surchargeNote={null}
