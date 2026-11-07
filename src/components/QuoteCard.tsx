@@ -8294,7 +8294,18 @@ function QuoteCard({
           data-results-breakdown-toggle
           aria-expanded={desktopBreakdownOpen}
           aria-controls="desktop-results-breakdown"
-          onClick={() => setDesktopBreakdownOpen((open) => !open)}
+          onClick={() => {
+            const opening = !desktopBreakdownOpen;
+            setDesktopBreakdownOpen(opening);
+            // Short windows: keep Continue to booking on screen when the lines open above it.
+            if (opening && typeof window !== "undefined") {
+              window.requestAnimationFrame(() => {
+                document
+                  .querySelector<HTMLElement>(".homepage-hero [data-quote-result-card] [data-quote-result-main-action] button")
+                  ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              });
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key === "Escape" && desktopBreakdownOpen) {
               event.preventDefault();
