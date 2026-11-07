@@ -2183,7 +2183,7 @@ function QuoteCard({
   }
 
   /** The on-device fare estimate (shared pricing formulas, unchanged) for one vehicle. */
-  function estimateFareFor(estimateVehicle: string) {
+  function estimateFareFor(estimateVehicle: typeof quoteVehicle) {
     // Do not invent or show live fares until pricing rules are owner-approved.
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       return null;
