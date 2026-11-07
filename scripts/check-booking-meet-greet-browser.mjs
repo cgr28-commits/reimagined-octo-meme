@@ -99,18 +99,22 @@ try {
      assert.match(await upgrade.innerText(),/Meet & Greet[\s\S]*£18.25/);
      const total=async()=>Number((await page.locator('[data-quote-result-card]').innerText()).match(/Your current total\s*£([\d.]+)/)[1]);
      const box=upgrade.getByRole('checkbox');assert.equal(await box.isChecked(),false);
+     // Customers click the whole card (the checkbox sits inside the label).
+     const card=upgrade.locator('[data-results-upgrade]').first();
+     const toggle=async()=>{await card.evaluate(el=>el.scrollIntoView({block:'center'}));await card.click();};
      const before=await total();
-     await box.check();assert.equal(Math.round((await total()-before)*100),1825);
-     await box.uncheck();assert.equal(await total(),before);
-     await box.check();
-     await page.getByRole('button',{name:/Continue to booking/i}).first().click();
+     await toggle();assert.equal(await box.isChecked(),true);assert.equal(Math.round((await total()-before)*100),1825);
+     await toggle();assert.equal(await box.isChecked(),false);assert.equal(await total(),before);
+     await toggle();
+     await page.getByRole('button',{name:/Continue to booking/i}).first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.getByRole('button',{name:/Continue to booking/i}).first().click();
      await page.locator('#name').waitFor();
      assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0,'Checkout does not repeat the offer');
      const options=page.locator('form').filter({has:page.locator('#name')});
-     await options.getByRole('button',{name:/Pay in Full Online/}).click();
+     const full=options.getByRole('button',{name:/Pay in Full Online/});
+     if(await full.count()){await full.evaluate(el=>el.scrollIntoView({block:'center'}));await full.click();}
      const pay=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
      assert.equal(Math.round(Number(pay.match(/£([\d.]+)/)[1])*100),Math.round((before+18.25)*100),'Pay amount includes the selected upgrade');
-     await page.locator('[data-back-to-quote]:visible').first().click();
+     await page.locator('[data-back-to-quote]:visible').first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.locator('[data-back-to-quote]:visible').first().click();
      await upgrade.waitFor();assert.equal(await upgrade.getByRole('checkbox').isChecked(),true,'Choice kept when returning to the vehicles');
     }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

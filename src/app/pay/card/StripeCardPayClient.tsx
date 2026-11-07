@@ -220,17 +220,21 @@ export default function StripeCardPayClient() {
             colorDanger: "#b91c1c",
             fontFamily: "Manrope, system-ui, sans-serif",
             borderRadius: "10px",
-            spacingUnit: "3px",
+            // Compact desktop form: tighter rows, inputs keep a 15px font and ~44px height.
+            spacingUnit: "2px",
+            gridRowSpacing: "10px",
+            gridColumnSpacing: "12px",
+            accordionItemSpacing: "8px",
             fontSizeBase: "15px",
           },
           rules: {
-            ".Input": { border: "1.5px solid #7d8ea4", boxShadow: "none" },
             ".Input:focus": { border: "1.5px solid #071c38", boxShadow: "0 0 0 3px rgba(47, 191, 74, 0.35)" },
             ".Input--invalid": { border: "1.5px solid #b91c1c", boxShadow: "none" },
-            ".AccordionItem": { border: "1px solid #d5dde8", backgroundColor: "#ffffff", boxShadow: "none" },
             ".AccordionItem--selected": { borderColor: "#15803d", boxShadow: "0 0 0 1px #15803d" },
-            ".Label": { color: "#071c38", fontWeight: "600" },
-            ".Error": { color: "#b91c1c" },
+            ".Input": { border: "1.5px solid #7d8ea4", boxShadow: "none", padding: "11px 12px" },
+            ".Label": { color: "#071c38", fontWeight: "600", marginBottom: "4px" },
+            ".Error": { color: "#b91c1c", marginTop: "4px" },
+            ".AccordionItem": { border: "1px solid #d5dde8", backgroundColor: "#ffffff", boxShadow: "none", padding: "12px 14px" },
           },
         };
         const checkout = stripe.initCheckoutElementsSdk({
@@ -428,9 +432,31 @@ export default function StripeCardPayClient() {
               ? "Payment links last 24 hours. Please get a new quote on our website, or contact us and we'll send you a fresh link."
               : message || "Please try again in a few minutes, or contact us and we'll help."}
           </p>
-          <Link href="/" className="btn-primary mt-4 inline-flex min-h-11 items-center px-6">
+          <Link href="/" className="btn-primary mt-4 inline-flex min-h-11 items-center px-6" data-pay-error-home>
             Back to home
           </Link>
+          {/* Desktop (1200px+) recovery actions; below 1200px the single button above shows as before.
+              "Try again" re-opens this same payment link (no new booking or payment attempt).
+              "Return to your booking" goes back to the saved booking, where Pay starts a fresh,
+              validated checkout only if the customer chooses to pay again. */}
+          <div className="hidden" data-pay-error-actions>
+            {view === "error" ? (
+              <button type="button" className="btn-primary" data-pay-retry onClick={() => window.location.reload()}>
+                Try again
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={view === "error" ? "btn-secondary" : "btn-primary"}
+              data-pay-return-to-booking
+              onClick={backToBooking}
+            >
+              Return to your booking
+            </button>
+            <Link href="/" data-pay-error-home-link>
+              Back to home
+            </Link>
+          </div>
           <p className="mt-4 text-sm text-white/70">
             Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
           </p>
