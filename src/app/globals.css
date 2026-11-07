@@ -3705,3 +3705,18 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-desktop-benefits-list] { gap: 0.8rem; }
   .homepage-hero [data-desktop-benefits-reviews], .homepage-hero [data-desktop-benefits-popular] { margin-top: 1rem; }
 }
+
+/* Short laptop screens: keep the price and Continue button on screen at the vehicle step. */
+@media (min-width: 1200px) and (max-height: 820px) {
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child { margin-bottom: 0.75rem !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-results-journey] { padding: 1.1rem 1.4rem 0.9rem; }
+  .homepage-hero [data-quote-result-card] [data-results-chips] { margin-top: 0.7rem; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center { margin-top: 0 !important; padding: 0.9rem 1.4rem 1.1rem; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] > :is(:first-child, :last-child) { display: none !important; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] { margin-bottom: 0.6rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-price] span { font-size: 2.5rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { display: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category] { padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 6.25rem; }
+}
