@@ -109,6 +109,7 @@ export default function QuoteVehicleCategories({
   hideUnsuitable = false,
   requestQuoteVehicles = [],
   desktopPrices = {},
+  desktopRequestPrices = {},
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -125,6 +126,8 @@ export default function QuoteVehicleCategories({
    * or a short status. Display only — never priced here. Hidden below 1200px.
    */
   desktopPrices?: Partial<Record<string, string>>;
+  /** Desktop only: indicative "From" price for a request-only vehicle (e.g. "£83"). */
+  desktopRequestPrices?: Partial<Record<string, string>>;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -237,7 +240,15 @@ export default function QuoteVehicleCategories({
                     </span>
                   </span>
                   {fits && requestQuoteVehicles.includes(option.vehicle) ? (
-                    <span className="hidden" data-vehicle-desktop-request>Request a quote</span>
+                    <span className="hidden" data-vehicle-desktop-request>
+                      {desktopRequestPrices[option.vehicle] ? (
+                        <span data-vehicle-desktop-from>
+                          From {desktopRequestPrices[option.vehicle]}
+                          <small>Subject to availability</small>
+                        </span>
+                      ) : null}
+                      <span data-vehicle-desktop-request-action>Request a quote</span>
+                    </span>
                   ) : fits && desktopPrices[option.vehicle] ? (
                     <span className="hidden" data-vehicle-desktop-price>
                       {desktopPrices[option.vehicle]}

@@ -116,7 +116,7 @@ import {
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/pricing-preview-store";
+import { isBrowserPricingPreview, previewMinibusQueryEnabled, previewMinibusRequestQuoteEnabled } from "@/lib/pricing-preview-store";
 import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
@@ -874,7 +874,11 @@ function QuoteCard({
     const controller = new AbortController();
     void fetchPublicPricingConfig({ strict: true, signal: controller.signal }).then((config) => {
       if (!controller.signal.aborted) {
-        setPublicPricing(config);
+        setPublicPricing(
+          previewMinibusRequestQuoteEnabled()
+            ? { ...config, minibus: { ...config.minibus, requestQuote: true } }
+            : config,
+        );
         setPublicPricingLoaded(true);
         setPublicPricingFailed(false);
       }
@@ -2178,7 +2182,8 @@ function QuoteCard({
     };
   }
 
-  const liveQuote = useMemo(() => {
+  /** The on-device fare estimate (shared pricing formulas, unchanged) for one vehicle. */
+  function estimateFareFor(estimateVehicle: string) {
     // Do not invent or show live fares until pricing rules are owner-approved.
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       return null;
@@ -2201,7 +2206,7 @@ function QuoteCard({
         return calculateQuote(
           pickupAddress,
           dropoffAirportCode,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2213,7 +2218,7 @@ function QuoteCard({
         return calculateQuote(
           dropoffAddress,
           pickupAirportCode,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2231,7 +2236,7 @@ function QuoteCard({
           dropoffAirportCode,
           pickupAddress,
           dropoffAddress,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2248,7 +2253,7 @@ function QuoteCard({
           : dropoffAddress;
         return calculateDublinCityBeyondAirportQuote(
           niAddress,
-          quoteVehicle,
+          estimateVehicle,
           routeMetrics,
           returnJourney,
           schedule,
@@ -2258,7 +2263,7 @@ function QuoteCard({
       return calculatePointToPointQuote(
         pickupAddress,
         dropoffAddress,
-        quoteVehicle,
+        estimateVehicle,
         returnJourney,
         schedule,
         routeMetrics,
@@ -2272,7 +2277,7 @@ function QuoteCard({
       return calculateQuote(
         quoteAddress,
         airportCode,
-        quoteVehicle,
+        estimateVehicle,
         returnJourney,
         schedule,
         routeMetrics,
@@ -2288,7 +2293,7 @@ function QuoteCard({
     return calculatePointToPointQuote(
       pickupAddress,
       dropoffAddress,
-      quoteVehicle,
+      estimateVehicle,
       returnJourney,
       schedule,
       routeMetrics,
@@ -2299,8 +2304,12 @@ function QuoteCard({
       },
       publicPricing,
     );
-  }, [
-    airportCode,
+  }
+
+  const liveQuote = useMemo(
+    () => estimateFareFor(quoteVehicle),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [    airportCode,
     canShowPrice,
     dropoffAddress,
     dropoffAirportCode,
@@ -8077,6 +8086,172 @@ function QuoteCard({
     );
   }
 
+  /**
+   * Desktop (1200px+) vehicle step: optional Meet & Greet, one per eligible airport pickup.
+   * Each card sets the very same choice the checkout uses (the per-leg airport choice at
+   * Belfast International / Belfast City, or the existing Dublin option), so checkout shows it
+   * already chosen and editable, and the existing pricing charges it once. Prices come from
+   * the owner's configured Meet & Greet fees. Not offered for request-only vehicles or Business
+   * Class (its pickups already include Meet & Greet).
+   */
+  function desktopMeetGreetUpgrades() {
+    type Upgrade = {
+      key: string;
+      airportName: string;
+      legLabel: string | null;
+      feeGbp: number;
+      selected: boolean;
+      toggle: () => void;
+    };
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return [] as Upgrade[];
+    if (testChargeAmount != null || appliedPersonalQuote) return [] as Upgrade[];
+    if (
+      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
+      isEnquiryOnly ||
+      isExecutiveVehicle(quoteVehicle) ||
+      paymentAmount == null ||
+      !Number.isFinite(paymentAmount) ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating
+    ) {
+      return [] as Upgrade[];
+    }
+    const airportNames: Record<string, string> = {
+      BFS: "Belfast International",
+      BHD: "Belfast City",
+      DUB: "Dublin Airport",
+    };
+    const upgrades: Upgrade[] = [];
+    for (const visit of listTerminalAccessVisits({
+      airportCode: effectiveAirportCode,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    })) {
+      if (visit.service !== "pick-up") continue;
+      const key = airportVisitKey(visit);
+      const current =
+        terminalAccessChoices[key] ?? (visit.leg === "return" ? returnAccessChoice : outboundAccessChoice);
+      upgrades.push({
+        key,
+        airportName: airportNames[visit.airportCode] ?? visit.airportCode,
+        legLabel: returnJourney ? (visit.leg === "return" ? "Return pickup" : "Outbound pickup") : null,
+        feeGbp: meetGreetFeeGbp(visit.airportCode, publicPricing.meetGreet),
+        selected: current === "meet-greet",
+        toggle: () =>
+          setTerminalAccessChoices((choices) => ({
+            ...choices,
+            [key]: current === "meet-greet" ? "free" : "meet-greet",
+          })),
+      });
+    }
+    if (bookingMeetGreetEligible && bookingMeetGreetAirport) {
+      upgrades.push({
+        key: "dub-meet-greet",
+        airportName: airportNames.DUB,
+        legLabel: returnJourney ? "Outbound pickup" : null,
+        feeGbp: bookingMeetGreetPrice,
+        selected: bookingMeetGreetSelected,
+        toggle: () => setBookingMeetGreetSelected((selected) => !selected),
+      });
+    }
+    return upgrades.filter((upgrade) => Number.isFinite(upgrade.feeGbp) && upgrade.feeGbp > 0);
+  }
+
+  function renderDesktopMeetGreetUpgrades() {
+    const upgrades = desktopMeetGreetUpgrades();
+    if (!upgrades.length) return null;
+    return (
+      <div className="hidden" data-results-upgrades>
+        <p data-results-upgrades-heading>Optional upgrade</p>
+        {upgrades.map((upgrade) => (
+          <label key={upgrade.key} data-results-upgrade data-selected={upgrade.selected ? "true" : "false"}>
+            <input
+              type="checkbox"
+              checked={upgrade.selected}
+              onChange={upgrade.toggle}
+              data-results-upgrade-input
+              aria-describedby={`upgrade-${upgrade.key}-detail`}
+            />
+            <span data-results-upgrade-icon aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="5" width="18" height="12" rx="2" />
+                <path d="M7 21h10M12 17v4M7 10h6M7 13h4" />
+              </svg>
+            </span>
+            <span data-results-upgrade-copy>
+              <strong>
+                Meet &amp; Greet at arrivals
+                <small>
+                  {upgrade.airportName}
+                  {upgrade.legLabel ? ` · ${upgrade.legLabel}` : ""}
+                </small>
+              </strong>
+              <span id={`upgrade-${upgrade.key}-detail`}>
+                Your driver meets you inside the terminal with a name board and helps with your luggage.
+              </span>
+            </span>
+            <span data-results-upgrade-price>+{formatQuote(upgrade.feeGbp)}</span>
+            <span data-results-upgrade-state aria-hidden="true">
+              {upgrade.selected ? "Added" : "Add Meet & Greet"}
+            </span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  /** Desktop (1200px+) price panel, when an upgrade is chosen: transfer + upgrades = total. */
+  function renderDesktopResultsTotal() {
+    const chosen = desktopMeetGreetUpgrades().filter((upgrade) => upgrade.selected);
+    if (!chosen.length || paymentAmount == null) return null;
+    const total = Math.round((paymentAmount + chosen.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100;
+    const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
+    return (
+      <div className="hidden" data-results-upgrade-lines aria-live="polite">
+        <p>
+          <span>{vehicleName} transfer</span>
+          <span>{formatQuote(paymentAmount)}</span>
+        </p>
+        {chosen.map((upgrade) => (
+          <p key={upgrade.key} data-results-upgrade-line>
+            <span>
+              Meet &amp; Greet · {upgrade.airportName}
+              {upgrade.legLabel ? ` (${upgrade.legLabel.toLowerCase()})` : ""}
+            </span>
+            <span>{formatQuote(upgrade.feeGbp)}</span>
+          </p>
+        ))}
+        <p data-results-upgrade-total>
+          <span>Total</span>
+          <strong>{formatQuote(total)}</strong>
+        </p>
+      </div>
+    );
+  }
+
+  /** Desktop (1200px+) price panel: flight monitoring reassurance for airport pickups. */
+  function renderDesktopResultsFlight() {
+    if (presentation !== "homepage") return null;
+    const pickups = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    });
+    if (!pickups.length) return null;
+    return (
+      <p className="hidden" data-results-flight>
+        <strong>Flight monitoring included</strong>
+        <span>Add your flight number at the next step so we can track your arrival.</span>
+      </p>
+    );
+  }
+
   /** Desktop (1200px+) price panel: what the fare includes (published policy wording). */
   function renderDesktopResultsIncluded() {
     if (presentation !== "homepage") return null;
@@ -8197,6 +8372,21 @@ function QuoteCard({
     return labels;
   }
 
+  /**
+   * Desktop (1200px+): when the owner has made the 7 Seater request-only, its row shows the
+   * on-device estimate for this journey (existing shared formulas) as "From £…", subject to
+   * availability, with Request a quote. Nothing is shown when no estimate is available.
+   */
+  function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
+    if (presentation !== "homepage" || quoteStep !== 1 || testChargeAmount != null) return {};
+    if (!publicVehicleRequiresPersonalQuote(MINIBUS_VEHICLE_TYPE, publicPricing)) return {};
+    const estimate = estimateFareFor(MINIBUS_VEHICLE_TYPE);
+    const amount = estimate && typeof estimate.amount === "number" ? estimate.amount : null;
+    return amount != null && Number.isFinite(amount) && amount > 0
+      ? { [MINIBUS_VEHICLE_TYPE]: formatQuote(amount) }
+      : {};
+  }
+
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) {
       return null;
@@ -8212,6 +8402,7 @@ function QuoteCard({
         requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
         desktopPrices={desktopVehiclePriceLabels()}
+        desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
     );
   }
@@ -8225,7 +8416,7 @@ function QuoteCard({
       return (
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
-          desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}</>}
+          desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
@@ -8305,7 +8496,7 @@ function QuoteCard({
       <>
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
-        desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}</>}
+        desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
@@ -9684,6 +9875,7 @@ function QuoteCard({
               aria-hidden="true"
             />
             {renderQuoteVehicleChoice()}
+            {renderDesktopMeetGreetUpgrades()}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>

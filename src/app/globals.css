@@ -3919,3 +3919,78 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) and (max-height: 820px) {
   .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child [data-results-desktop-bar] > [data-results-desktop-title] { font-size: 1.85rem !important; }
 }
+
+/* ==========================================================================
+   Vehicle step extras (1200px+): Meet & Greet upgrade card, panel total with upgrades,
+   flight monitoring note, and "From £… · Subject to availability" for a request-only 7 Seater.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  /* Rows in the white panel: form · vehicles · upgrades · notices · breakdown · links. */
+  .homepage-hero .quote-flow[data-quote-results="ready"] #step1-journey-details { grid-template-rows: repeat(8, auto) 1fr !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-results-upgrades] { grid-row: 3 !important; margin-top: 1.4rem !important; display: grid !important; gap: 0.6rem; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-business-class-upgrade] { grid-row: 4 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-return-breakdown-desktop] { grid-row: 5 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-price-breakdown] { grid-row: 6 !important; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-result-actions] { grid-row: 7 !important; }
+
+  .homepage-hero [data-results-upgrades-heading] {
+    margin: 0 0 0.1rem 0.25rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--u-muted);
+  }
+  .homepage-hero [data-results-upgrade] {
+    position: relative; display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto auto; column-gap: 1rem; align-items: center;
+    padding: 0.95rem 1.1rem; border-radius: 1rem; cursor: pointer; color: var(--u-ink);
+    border: 1.5px solid var(--u-rule); background: linear-gradient(135deg, #fbfcfe, #f3f6fa);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  .homepage-hero [data-results-upgrade]:hover { border-color: #b9c4d2; }
+  .homepage-hero [data-results-upgrade][data-selected="true"] {
+    border: 2px solid var(--u-green); background: linear-gradient(90deg, var(--u-green-tint), #fff 80%); box-shadow: 0 0 0 3px rgba(34, 177, 76, 0.14);
+  }
+  .homepage-hero [data-results-upgrade]:has(input:focus-visible) { outline: 3px solid rgba(11, 31, 58, 0.45); outline-offset: 2px; }
+  .homepage-hero [data-results-upgrade-input] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .homepage-hero [data-results-upgrade-icon] {
+    width: 2.75rem; height: 2.75rem; border-radius: 0.75rem; display: grid; place-items: center; background: var(--u-navy); color: var(--u-mint);
+  }
+  .homepage-hero [data-results-upgrade-icon] svg { width: 1.35rem; height: 1.35rem; }
+  .homepage-hero [data-results-upgrade-copy] { display: grid; gap: 0.2rem; min-width: 0; }
+  .homepage-hero [data-results-upgrade-copy] > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 800; color: var(--u-navy); }
+  .homepage-hero [data-results-upgrade-copy] > strong > small {
+    padding: 0.15rem 0.45rem; border-radius: 0.4rem; background: #eef2f7; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--u-muted);
+  }
+  .homepage-hero [data-results-upgrade-copy] > span { font-size: 0.82rem; line-height: 1.45; color: var(--u-muted); }
+  .homepage-hero [data-results-upgrade-price] { font-size: 1.15rem; font-weight: 800; color: var(--u-navy); white-space: nowrap; }
+  .homepage-hero [data-results-upgrade-state] {
+    display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0.8rem; border-radius: 0.65rem; white-space: nowrap;
+    border: 1.5px solid #cdd5df; background: #fff; font-size: 0.85rem; font-weight: 700; color: var(--u-navy);
+  }
+  .homepage-hero [data-results-upgrade-state]::before {
+    content: ""; width: 1.1rem; height: 1.1rem; border-radius: 0.3rem; border: 2px solid #9aa8b8; box-sizing: border-box;
+  }
+  .homepage-hero [data-results-upgrade][data-selected="true"] [data-results-upgrade-state] { border-color: var(--u-green); }
+  .homepage-hero [data-results-upgrade][data-selected="true"] [data-results-upgrade-state]::before {
+    border-color: var(--u-green); background: var(--u-green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center no-repeat;
+  }
+
+  /* Panel: flight note, upgrade lines and total (replacing the single price line). */
+  .homepage-hero [data-quote-result-card] > [data-results-flight] {
+    order: 3; display: grid !important; gap: 0.15rem; margin: 0.85rem 1.5rem 0; padding: 0.65rem 0.8rem; border-radius: 0.7rem;
+    background: rgba(110, 231, 183, 0.08); border: 1px solid rgba(110, 231, 183, 0.22); font-size: 0.78rem; line-height: 1.4; color: rgba(255, 255, 255, 0.78);
+  }
+  .homepage-hero [data-quote-result-card] > [data-results-flight] > strong { font-size: 0.85rem; color: var(--u-mint); }
+  .homepage-hero [data-quote-result-card] > [data-results-upgrade-lines] {
+    order: 4; display: grid !important; gap: 0.35rem; margin: 1rem 0 0; padding: 1rem 1.5rem 0; border-top: 1px solid var(--u-line); font-size: 0.85rem;
+  }
+  .homepage-hero [data-results-upgrade-lines] > p { display: flex; justify-content: space-between; gap: 1rem; margin: 0; color: rgba(255, 255, 255, 0.82); }
+  .homepage-hero [data-results-upgrade-lines] > [data-results-upgrade-total] { align-items: center; margin-top: 0.35rem; color: #fff; font-size: 0.95rem; font-weight: 700; }
+  .homepage-hero [data-results-upgrade-lines] > [data-results-upgrade-total] > strong { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .homepage-hero [data-quote-result-card]:has(> [data-results-upgrade-lines]) [data-quote-result-price] { display: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card]:has(> [data-results-upgrade-lines]) > div.mt-1.min-w-0.text-center {
+    margin-top: 0 !important; border-top: 0; padding-top: 0.4rem !important;
+  }
+
+  /* Request-only 7 Seater: indicative "From" price, then Request a quote. */
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-desktop-request] { display: grid !important; justify-items: end; gap: 0.3rem; text-align: right; }
+  .homepage-hero [data-vehicle-desktop-from] { display: grid; font-size: 1.2rem; font-weight: 800; color: var(--u-navy); line-height: 1.1; }
+  .homepage-hero [data-vehicle-desktop-from] > small { font-size: 0.72rem; font-weight: 600; color: var(--u-muted); }
+  .homepage-hero [data-vehicle-desktop-request-action] { font-size: 0.9rem; font-weight: 800; color: #b45309; }
+}
