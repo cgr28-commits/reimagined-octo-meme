@@ -2832,16 +2832,16 @@ body:has(.cookie-consent-banner--modal) {
      so the step scroll (which brings the title under the header) shows the whole heading. */
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child {
     grid-column: 1; grid-row: 1; display: grid !important;
-    grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 1.5rem; align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.5rem; align-items: center;
     margin: 0 0 1.5rem !important; padding: 0;
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > * { margin: 0 !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote] {
-    grid-column: 3 / -1; grid-row: 2; justify-self: end; align-self: end; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
+    grid-column: 2; grid-row: 2; justify-self: end; align-self: end; white-space: nowrap; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2 {
-    grid-column: 1 / 3; grid-row: 1; white-space: nowrap;
+    grid-column: 1 / -1; grid-row: 1;
     font-size: 2rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--co-navy);
     text-transform: lowercase;
   }
@@ -2853,30 +2853,32 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) :is(p, .text-white, .text-emerald) { color: var(--co-ink); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] { display: contents; }
   .homepage-hero [data-checkout-progress] {
-    grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0; padding: 0;
-    font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
+    position: fixed; z-index: 61; top: 0; left: 50%; transform: translateX(-50%); height: var(--co-header);
+    display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0 !important; padding: 0;
+    font-size: 0.8125rem; font-weight: 600; color: rgba(255, 255, 255, 0.62);
   }
   .homepage-hero [data-checkout-progress] li { display: flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
-  .homepage-hero [data-checkout-progress] li + li::before { content: ""; width: 1.75rem; height: 1.5px; background: #c9d2de; margin-right: 0.3rem; }
+  .homepage-hero [data-checkout-progress] li + li::before { content: ""; width: 1.75rem; height: 1.5px; background: rgba(255, 255, 255, 0.25); margin-right: 0.3rem; }
   .homepage-hero [data-checkout-progress] li > span[aria-hidden] {
     width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center;
-    font-size: 0.75rem; font-weight: 800; border: 1.5px solid #c9d2de; background: #fff; color: var(--co-muted);
+    font-size: 0.75rem; font-weight: 800; border: 1.5px solid rgba(255, 255, 255, 0.35); background: transparent; color: rgba(255, 255, 255, 0.75);
   }
   .homepage-hero [data-checkout-progress-step="done"] > span[aria-hidden] { background: var(--co-green); border-color: var(--co-green); color: #fff; }
-  .homepage-hero [data-checkout-progress-step="current"] { color: var(--co-ink); }
-  .homepage-hero [data-checkout-progress-step="current"] > span[aria-hidden] { background: var(--co-navy); border-color: var(--co-navy); color: #fff; }
+  .homepage-hero [data-checkout-progress-step="current"] { color: #fff; }
+  .homepage-hero [data-checkout-progress-step="current"] > span[aria-hidden] { background: #fff; border-color: #fff; color: var(--co-navy); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] > p[data-checkout-secure] { display: flex !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] > p[data-checkout-desktop-subtitle] { display: block !important; }
   .homepage-hero [data-checkout-secure] {
-    grid-column: 4; grid-row: 1; display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
-    font-size: 0.8125rem !important; line-height: 1.3 !important; font-weight: 600; color: var(--co-muted);
+    position: fixed; z-index: 61; top: 0; right: max(2.5rem, calc((100vw - 80rem) / 2 + 2.5rem)); height: var(--co-header);
+    display: flex; align-items: center; gap: 0.4rem; white-space: nowrap;
+    font-size: 0.8125rem !important; line-height: 1.3 !important; font-weight: 600; color: rgba(255, 255, 255, 0.72);
   }
   .homepage-hero [data-checkout-secure]::before {
     content: ""; width: 0.95rem; height: 0.95rem; background: currentColor;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
   }
-  .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1 / 3; grid-row: 2; margin-top: 0.35rem !important; font-size: 0.95rem !important; line-height: 1.4 !important; color: var(--co-muted); }
+  .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1; grid-row: 2; margin-top: 0.35rem !important; font-size: 0.95rem !important; line-height: 1.4 !important; color: var(--co-muted); }
 
   /* ---------- Left column: white cards ---------- */
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details {
@@ -3077,6 +3079,7 @@ body:has(.cookie-consent-banner--modal) {
   /* Header row: YOUR BOOKING · Edit journey · Change airport access. */
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] {
     order: -1; display: flex; flex-wrap: wrap; align-items: center; column-gap: 1rem; row-gap: 0.15rem; padding: 1.25rem 1.4rem 0.7rem;
+    position: sticky; top: 0; z-index: 1; background: var(--co-navy);
     font-size: 0.8rem !important;
   }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls]::before {
@@ -3088,7 +3091,7 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button:hover { color: #fff; }
   /* Journey details: scroll inside the panel, with soft shadows when there is more. */
   .homepage-hero [data-checkout-aside] [data-checkout-summary-details] {
-    flex: 1 1 auto !important; min-height: 3rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 1.4rem 0.4rem;
+    flex: 1 1 auto !important; min-height: 2.75rem; overflow-y: auto; overscroll-behavior: contain; padding: 0 1.4rem 0.4rem;
     background:
       linear-gradient(var(--co-navy) 30%, rgba(11, 31, 58, 0)) top / 100% 1.5rem no-repeat local,
       linear-gradient(rgba(11, 31, 58, 0), var(--co-navy) 70%) bottom / 100% 1.5rem no-repeat local,
@@ -3141,7 +3144,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { font-size: 0.82rem; line-height: 1.55; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] {
     order: 10; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-    margin: 0.55rem 1.4rem 0 !important; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.18);
+    position: sticky; bottom: 0; z-index: 1; background: var(--co-navy);
+    margin: 0.55rem 0 0 !important; padding: 0.6rem 1.4rem 0.15rem; border-top: 1px solid rgba(255, 255, 255, 0.18);
   }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-label] { font-size: 0.9rem; font-weight: 700; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-label]::after { content: " to pay"; }
@@ -3181,7 +3185,15 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions :is(.btn-primary, .btn-secondary) { min-height: 3rem; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions #payment-loading-status:empty { display: none; }
-  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] { margin-top: 0.4rem !important; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] {
+    flex-direction: row-reverse; justify-content: space-between; margin-top: 0.35rem !important; gap: 0.5rem;
+  }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] ul { gap: 0.25rem; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] li { width: 2.25rem; height: 1.45rem; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] li :is(img, svg) { max-height: 1rem; width: auto; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] > p { font-size: 0.72rem; color: rgba(255, 255, 255, 0.6); }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] { padding: 0.55rem 0.75rem !important; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] label { margin-top: 0.25rem; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-booking-payment-options] > div.grid { grid-template-columns: 1fr !important; }
   .homepage-hero [data-checkout-aside] > #step3-payment-actions > :is(button.w-full.text-xs, [data-start-new-quote-controls]) {
     flex: 0 0 auto; width: auto; margin-top: 0.15rem !important; font-size: 0.78rem;
