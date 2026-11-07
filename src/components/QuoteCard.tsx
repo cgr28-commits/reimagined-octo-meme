@@ -9374,6 +9374,7 @@ function QuoteCard({
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}
+                    {renderDesktopMeetGreetUpgrades()}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown
@@ -9875,7 +9876,6 @@ function QuoteCard({
               aria-hidden="true"
             />
             {renderQuoteVehicleChoice()}
-            {renderDesktopMeetGreetUpgrades()}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>
