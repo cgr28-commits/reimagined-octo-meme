@@ -79,7 +79,7 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
- await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).waitFor();
+ await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
  await page.evaluate(()=>document.fonts.ready);
  const card=page.locator('[data-quote-result-card]');
@@ -91,7 +91,7 @@ try {
   for(const collection of [false,true]) {
    const q=await quote(base,width,68,true,collection),{page}=q;
    assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0);
-   await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).click();
+   await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
    await page.locator('#name').waitFor();
    const section=page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})});
    assert.equal(await section.count(),collection?1:0);

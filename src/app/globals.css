@@ -4026,3 +4026,23 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed="false"] { border-width: 1.5px !important; }
 }
+
+/* Desktop (1200px+) Continue button in the navy panel: solid emerald, no glow.
+   #15803d keeps white text above 4.5:1; hover goes one step darker. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button {
+    min-height: 3.375rem !important; height: 3.375rem; padding: 0 1.25rem !important; border-radius: 0.85rem !important;
+    background: #15803d !important; background-image: none !important; border: 0 !important; box-shadow: none !important; filter: none !important;
+    color: #fff !important; -webkit-text-fill-color: #fff; font-size: 1.05rem !important; font-weight: 600 !important; letter-spacing: 0 !important; text-transform: none !important;
+    transition: background-color 150ms ease;
+  }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button:hover:not(:disabled) { background: #116932 !important; transform: none !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button:active:not(:disabled) { background: #0e5a2b !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button:focus-visible {
+    outline: 3px solid #fff !important; outline-offset: 3px !important; box-shadow: none !important;
+  }
+  .homepage-hero [data-quote-result-card] [data-book-cta-desktop] { display: inline-flex !important; align-items: center; gap: 0.5rem; }
+  .homepage-hero [data-quote-result-card] [data-book-cta-desktop] svg { flex: none; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action]::after { margin-top: 0.65rem; font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); }
+}
+

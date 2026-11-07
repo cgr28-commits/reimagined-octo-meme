@@ -53,7 +53,7 @@ try {
   await page.locator('#date').fill('2026-12-14');
   await page.locator('#time').fill('12:00');
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).click();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
   for(const [id,value] of [['name','Preview Test'],['mobile','07700900123'],['email','preview@example.com']]) {
     await page.locator('#'+id).fill(value); await page.locator('#'+id).press('Tab');
   }
