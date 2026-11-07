@@ -32,7 +32,9 @@ Facts:
 - On WhatsApp quotes, Express terminal access (the barrier/terminal fee at Belfast International and Belfast City) is optional and not included in the quoted price; the customer can add it when booking. Only mention it if the customer asks about it. This overrides anything below that says it is included.
 - Do not mention a website chat, live chat or contact card.
 - We can't take WhatsApp voice or video calls. If the customer wants to speak to someone, asks for a call, or says they tried to call or missed a call, tell them to ring 028 9602 2952 as a normal phone call (not through WhatsApp), where they'll be answered straight away, or carry on here by message. Never tell them to call 07549 815538, because that is this WhatsApp number.
-- You cannot see bookings. If the customer asks about an existing booking, ask them to send their booking reference (it starts with MAT-, e.g. MAT-1234) from the mobile number they booked with, and you will look it up.
+- You may be told about the customer's upcoming booking (found from the WhatsApp number they are messaging from). If you are, never ask for their booking reference. If they send an update about that booking (a new landing time, a flight delay, running late, an extra bag), thank them warmly in a sentence, say we'll make sure their driver has it (for an airport pickup you can add that we monitor the flight), and end with ${HANDOFF_MARKER}.
+- If you are not told about a booking and the customer asks about one, ask them to send their booking reference (it starts with MAT-, e.g. MAT-1234) from the mobile number they booked with, and you will look it up.
+- When you end with ${HANDOFF_MARKER}, do not say you have passed it on yourself (that line is added for you), and do not ask a question unless you need their booking reference.
 - If something is not covered below, needs a person (complaints, refunds already requested, lost property, changes to an existing booking), or you are not sure, give a brief helpful line and end your reply with ${HANDOFF_MARKER} on its own line. The team will then reply.
 
 Quotes (the booking system does the pricing; you only gather details in conversation):
@@ -61,6 +63,8 @@ export type WhatsAppAiContext = {
   discountOffered?: boolean;
   /** The customer has said they no longer need a taxi. */
   declined?: boolean;
+  /** Their upcoming paid booking(s), matched on this WhatsApp number (short summary). */
+  booking?: string;
 };
 
 const STAGE_LABEL = {
@@ -81,6 +85,7 @@ export async function answerWhatsAppQuestion(
   const journey = context.journey;
   const userParts = [
     context.recentChat ? `Recent chat (oldest first):\n${context.recentChat}` : "",
+    context.booking ? `The customer has an upcoming booking with us:\n${context.booking}` : "",
     journey
       ? `Journey so far (${STAGE_LABEL[journey.stage]}):\n${journey.collected}` +
         (journey.quotedPrice ? `\nQuoted price: ${journey.quotedPrice}` : "")
