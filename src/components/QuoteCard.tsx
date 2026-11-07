@@ -785,6 +785,27 @@ function websiteAirportAccessLeadLabel(selection: { eligible: boolean; legs: rea
   return selection.eligible ? "Free Airport Access — Long Stay; optional terminal services selected in booking details" : undefined;
 }
 
+/** Journey summary date, e.g. "Mon, 9 Nov 2026"; keeps the chosen calendar day in every time zone. */
+function journeySummaryDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "—";
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  }).format(date);
+}
+
+function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" }) {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" data-journey-icon>
+      {name === "calendar" ? (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></>) : null}
+      {name === "clock" ? (<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>) : null}
+      {name === "return" ? (<><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>) : null}
+    </svg>
+  );
+}
+
 function QuoteCard({
   restoredQuote,
   homepagePolish = false,
@@ -4568,6 +4589,24 @@ function QuoteCard({
     paymentAmount != null &&
     Number.isFinite(paymentAmount) &&
     Math.abs((transferPaymentAmount ?? paymentAmount) - homepageQuotedBaseline) >= 0.01;
+  /** Desktop pay button styling only (validation on Pay is unchanged): what is still missing. */
+  const checkoutPayMissing = [
+    customerName.trim() ? null : "your full name",
+    isValidMobileNumber(customerMobile) ? null : "a valid mobile number",
+    isValidEmailAddress(customerEmail) ? null : "a valid email address",
+    homepageFareChanged && !homepageFareChangeAck ? "confirm the updated price" : null,
+    termsAccepted ? null : "agree to the terms",
+  ].filter((item): item is string => Boolean(item));
+  const checkoutPayReady = quoteStep >= 2 && checkoutPayMissing.length === 0;
+  const checkoutPayHint = checkoutPayMissing.length === 0
+    ? ""
+    : `To pay, please ${(() => {
+        const add = checkoutPayMissing.filter((item) => item !== "agree to the terms" && item !== "confirm the updated price");
+        const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
+          checkoutPayMissing.includes("confirm the updated price") ? "tick to confirm the updated price" : null,
+          checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
+        return parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}` : parts[0];
+      })()}.`;
   const depositCashOffer =
     depositCashSettings?.enabled === true &&
     !appliedPersonalQuote &&
@@ -7139,6 +7178,20 @@ function QuoteCard({
             }
           >
             {bookingMeetGreetActive ? <p className="mt-1 text-sm font-semibold" data-meet-greet-summary>Meet &amp; Greet: {formatMeetGreetGbp(bookingMeetGreetCharge)}</p> : null}
+            {/* Desktop (1200px+) only: the fare breakdown beside the summary (vehicle fare,
+                airport access, return discount, total) — same breakdown as the quote. */}
+            {openWebsiteFareBreakdown ? (
+              <div className="hidden" data-checkout-breakdown>
+                <PromotionalPriceBreakdown
+                  alwaysShow
+                  breakdown={openWebsiteFareBreakdown}
+                  service={expressSelection.service ?? "drop-off"}
+                  freeAirportAccessSelected={
+                    expressSelection.eligible && airportAccessQuote.airportAccessChargeGbp === 0
+                  }
+                />
+              </div>
+            ) : null}
             {showChangeDropOff && expressEditingLeg != null
               ? renderExpressChoiceInPriceCard("full")
               : null}
@@ -7195,6 +7248,7 @@ function QuoteCard({
           id="step3-payment-actions"
           ref={step3PaymentActionsRef}
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
+          data-pay-ready={checkoutPayReady ? "true" : "false"}
         >
           <div id="quote-step2-next" className="sr-only" />
 
@@ -7487,6 +7541,9 @@ function QuoteCard({
                 ) : null}
                 {isAvailabilityRequest && !openCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
+                ) : null}
+                {checkoutPayHint ? (
+                  <p className="hidden" data-pay-hint>{checkoutPayHint}</p>
                 ) : null}
                 <button
                   type="button"
@@ -8667,7 +8724,9 @@ function QuoteCard({
                         data-homepage-journey-summary
                       >
                         <p className="font-semibold leading-snug">
-                          {pickupLabel || "Pickup"} → {dropoffLabel || "Drop-off"}
+                          <span data-journey-from>{pickupLabel || "Pickup"}</span>{" "}
+                          <span data-journey-arrow aria-hidden="true">→</span>{" "}
+                          <span data-journey-to>{dropoffLabel || "Drop-off"}</span>
                         </p>
                         {returnJourney ? (
                           <p className="mt-1 text-xs font-medium text-emerald">
@@ -8686,6 +8745,33 @@ function QuoteCard({
                             ? "5+ suitcases"
                             : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
                         </p>
+                        {/* Desktop (1200px+) only: journey type, dates and times from the
+                            current quote, so the customer can check them before booking. */}
+                        <div className="hidden" data-journey-schedule>
+                          <span data-journey-type>{returnJourney ? "Return" : "One way"}</span>
+                          <span data-journey-when>
+                            <JourneySummaryIcon name="calendar" />
+                            <span data-journey-when-label>{returnJourney ? "Outbound" : "Pickup"}</span>
+                            <strong>{journeySummaryDate(tripDate)}</strong>
+                            <JourneySummaryIcon name="clock" />
+                            <span data-journey-when-label>
+                              {checkoutTimeLabel("outbound") === "Pickup time" ? "at" : "flight lands"}
+                            </span>
+                            <strong>{tripTime ? tripTime.slice(0, 5) : "—"}</strong>
+                          </span>
+                          {returnJourney ? (
+                            <span data-journey-when>
+                              <JourneySummaryIcon name="return" />
+                              <span data-journey-when-label>Return</span>
+                              <strong>{journeySummaryDate(returnDate)}</strong>
+                              <JourneySummaryIcon name="clock" />
+                              <span data-journey-when-label>
+                                {checkoutTimeLabel("return") === "Pickup time" ? "at" : "flight lands"}
+                              </span>
+                              <strong>{returnTime ? returnTime.slice(0, 5) : "—"}</strong>
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}

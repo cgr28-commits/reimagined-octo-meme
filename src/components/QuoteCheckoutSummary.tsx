@@ -42,8 +42,8 @@ export default function QuoteCheckoutSummary({
       tabIndex={-1}
       className="scroll-mt-44 rounded-xl quote-panel px-3.5 py-3 outline-none md:scroll-mt-28"
     >
-      <p className="text-sm font-semibold leading-snug break-words text-white">{routeLine}</p>
-      <p className="mt-1 text-sm quote-secondary">{detailLine}</p>
+      <p className="text-sm font-semibold leading-snug break-words text-white" data-checkout-route>{routeLine}</p>
+      <p className="mt-1 text-sm quote-secondary" data-checkout-party>{detailLine}</p>
       {whenLine ? (
         <p className="mt-1 text-sm font-semibold text-white" data-checkout-pickup-time>
           Pickup time: {whenLine}
@@ -54,8 +54,8 @@ export default function QuoteCheckoutSummary({
           Return pickup: {returnWhenLine}
         </p>
       ) : null}
-      {accessLine ? <p className="mt-1 text-xs text-white/75">{accessLine}</p> : null}
-      <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl">{totalLabel}</p>
+      {accessLine ? <p className="mt-1 text-xs text-white/75" data-checkout-access>{accessLine}</p> : null}
+      <p className="mt-1 text-lg font-bold tracking-tight text-white sm:text-xl" data-checkout-total>{totalLabel}</p>
       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs font-semibold" data-checkout-summary-controls>
         {pickupAddress && destinationAddress ? (
           <details className="min-w-0 text-white/75 open:basis-full">

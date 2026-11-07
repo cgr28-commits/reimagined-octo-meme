@@ -509,9 +509,14 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const mobile = window.matchMedia("(max-width: 767px)").matches;
+  // Desktop homepage (1200px+): "Your journey" heads the results, above the vehicles,
+  // so the reveal stops there.
   const heading = document.querySelector<HTMLElement>(mobile
     ? "[data-quote-selected-vehicle-card]"
-    : "[data-quote-vehicle-options-heading]");
+    : window.matchMedia("(min-width: 1200px)").matches &&
+        document.querySelector(".homepage-hero #quote-results-summary [data-homepage-journey-summary]")
+      ? ".homepage-hero #quote-results-summary [data-homepage-journey-summary]"
+      : "[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
