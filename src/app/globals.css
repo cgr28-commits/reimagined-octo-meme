@@ -3086,7 +3086,9 @@ body:has(.cookie-consent-banner--modal) {
     content: "Your booking"; margin-right: auto;
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6);
   }
-  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] > details { display: none; }
+  /* Addresses are always shown in the panel, and the airport choices are on the page, so
+     "Full journey addresses" and "Change airport access" are not repeated here. */
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] > :is(details, button + button) { display: none; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button { min-height: 0 !important; padding: 0.1rem 0 !important; color: var(--co-mint); }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] button:hover { color: #fff; }
   /* Journey details: scroll inside the panel, with soft shadows when there is more. */
@@ -3186,9 +3188,10 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] #step3-payment-actions :is(.btn-primary, .btn-secondary) { min-height: 3rem; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions #payment-loading-status:empty { display: none; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] {
-    flex-direction: row-reverse; justify-content: space-between; margin-top: 0.35rem !important; gap: 0.5rem;
+    flex-direction: row-reverse; flex-wrap: nowrap; justify-content: space-between; align-items: center; margin-top: 0.35rem !important; gap: 0.5rem;
   }
-  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] ul { gap: 0.25rem; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] ul { flex-wrap: nowrap; gap: 0.25rem; }
+  .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] > p { white-space: nowrap; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] li { width: 2.25rem; height: 1.45rem; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] li :is(img, svg) { max-height: 1rem; width: auto; }
   .homepage-hero [data-checkout-aside] #step3-payment-actions [data-payment-method-logos] > p { font-size: 0.72rem; color: rgba(255, 255, 255, 0.6); }
@@ -3199,4 +3202,17 @@ body:has(.cookie-consent-banner--modal) {
     flex: 0 0 auto; width: auto; margin-top: 0.15rem !important; font-size: 0.78rem;
   }
   .homepage-hero [data-checkout-aside] > #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; padding: 0; font-size: 0.78rem; }
+
+  /* Short laptop screens (e.g. 1366 × 768 with browser bars): tighter panel spacing so the
+     journey keeps as much room as possible above the fare, terms and Pay button. */
+  @media (max-height: 760px) {
+    .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-summary-controls] { padding-top: 0.9rem; padding-bottom: 0.5rem; }
+    .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] :is(p, span, dt, dd, li, div) { line-height: 1.4; }
+    .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-amount] { font-size: 1.75rem; }
+    .homepage-hero [data-checkout-aside] > #step3-payment-actions { row-gap: 0.4rem; padding-top: 0.65rem; padding-bottom: 0.85rem; }
+    .homepage-hero [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.35rem !important; }
+    .homepage-hero [data-checkout-aside] #step3-payment-actions .btn-pay { min-height: 3rem !important; }
+    .homepage-hero [data-checkout-aside] #step3-payment-actions label { font-size: 0.76rem !important; line-height: 1.35; }
+    .homepage-hero [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] p.text-xs { display: none; }
+  }
 }
