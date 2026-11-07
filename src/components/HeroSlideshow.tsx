@@ -1,4 +1,5 @@
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
+import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
 import HeroBenefitsRow from "./HeroBenefitsRow";
 import HomepageHeroSideRails from "./HomepageHeroSideRails";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
@@ -53,6 +54,7 @@ export default function HeroSlideshow() {
           <div className="mt-4 flex justify-center" data-hero-reviews-badge>
             <GoogleReviewsBadge />
           </div>
+          <DesktopQuoteBenefits />
         </div>
       </div>
     </section>

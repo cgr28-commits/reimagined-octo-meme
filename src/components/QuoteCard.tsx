@@ -1087,6 +1087,10 @@ function QuoteCard({
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
+  /** Desktop vehicle list only: re-render when another vehicle's fare arrives in the cache above. */
+  const [, setFareCacheVersion] = useState(0);
+  /** Desktop (1200px+) quote results: the journey form is folded away until "Edit journey". */
+  const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
   const quoteFareInflightRef = useRef(
     new Map<
       string,
@@ -2433,6 +2437,7 @@ function QuoteCard({
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
+      setFareCacheVersion((version) => version + 1);
     };
     const quoteBodyFor = (vehicle: string) => ({
       pickupAddress: pickup,
@@ -3322,6 +3327,29 @@ function QuoteCard({
       exceedsOnlineCapacity ||
       isEnquiryOnly);
   const quoteResultsReady = resultsCanRender;
+  useEffect(() => {
+    if (!quoteResultsReady || quoteStep !== 1) setDesktopJourneyEditing(false);
+  }, [quoteResultsReady, quoteStep]);
+  /**
+   * Desktop checkout (1200px+): the navy panel is sticky with no inner scrollbar. When it is
+   * taller than the screen (e.g. a return with extra options), CSS uses this height to let it
+   * scroll with the page until its foot (total, terms, Pay) is in view, then hold it there.
+   * Sets one CSS variable on the panel; no layout or booking logic.
+   */
+  useEffect(() => {
+    if (presentation !== "homepage" || quoteStep < 2 || typeof window === "undefined") return;
+    if (typeof ResizeObserver === "undefined") return;
+    const aside = document.querySelector<HTMLElement>(".homepage-hero [data-checkout-aside]");
+    if (!aside) return;
+    const update = () => aside.style.setProperty("--co-aside-h", `${Math.ceil(aside.offsetHeight)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(aside);
+    return () => {
+      observer.disconnect();
+      aside.style.removeProperty("--co-aside-h");
+    };
+  }, [presentation, quoteStep]);
 
   /** Customer-facing stages: 1 journey details, 2 your quote, 3 complete your booking. */
   const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
@@ -7933,6 +7961,172 @@ function QuoteCard({
     setVehicle(chosen);
   }
 
+  /**
+   * Desktop (1200px+) only, inside the navy price panel: the journey being priced, with
+   * Edit journey to unfold the (otherwise folded) quote form. Hidden below 1200px, where
+   * the existing journey summary and form are unchanged.
+   */
+  function renderDesktopResultsJourney() {
+    if (presentation !== "homepage") return null;
+    const party = effectivePassengers ?? passengers;
+    return (
+      <div className="hidden" data-results-journey>
+        <div data-results-journey-head>
+          <span>Your journey</span>
+          <button
+            type="button"
+            data-results-journey-edit
+            aria-expanded={desktopJourneyEditing}
+            aria-controls="step1-journey-details"
+            onClick={() => {
+              const next = !desktopJourneyEditing;
+              setDesktopJourneyEditing(next);
+              if (next && typeof window !== "undefined") {
+                window.requestAnimationFrame(() => {
+                  const field = document.getElementById("pickup");
+                  field?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  field?.focus({ preventScroll: true });
+                });
+              }
+            }}
+          >
+            {desktopJourneyEditing ? "Done" : "Edit journey"}
+          </button>
+        </div>
+        <ol data-results-route>
+          <li data-results-stop="from">{pickupLabel || "Pickup"}</li>
+          <li data-results-stop="to">{dropoffLabel || "Drop-off"}</li>
+        </ol>
+        <p data-results-chips>
+          <span data-results-chip>
+            {journeySummaryDate(tripDate)}
+            {" · "}
+            {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
+            {tripTime ? tripTime.slice(0, 5) : "—"}
+          </span>
+          <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
+          <span data-results-chip>
+            {party} passenger{party === 1 ? "" : "s"}
+            {" · "}
+            {suitcases != null && suitcases >= 5
+              ? "5+ suitcases"
+              : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
+          </span>
+          {returnJourney ? (
+            <span data-results-chip data-results-chip-return>
+              Return {journeySummaryDate(returnDate)}
+              {" · "}
+              {checkoutTimeLabel("return") === "Pickup time" ? "" : "flight lands "}
+              {returnTime ? returnTime.slice(0, 5) : "—"}
+            </span>
+          ) : null}
+        </p>
+      </div>
+    );
+  }
+
+  /**
+   * Desktop (1200px+) vehicle list: the fare beside each vehicle. Display only.
+   * - Selected vehicle: exactly the amount in the price panel.
+   * - Other vehicles: the Worker fare already fetched for them (the existing parallel
+   *   request), run through the same fare breakdown as the price panel. No extra requests.
+   * Safety check: the selected vehicle is re-derived the same way; if that does not match
+   * the panel to the penny, other vehicles show no price (the customer selects to see it).
+   * Request-only vehicles never get a price here.
+   */
+  function desktopVehiclePriceLabels(): Partial<Record<string, string>> {
+    if (presentation !== "homepage" || quoteStep !== 1 || passengers == null || suitcases == null) return {};
+    const labels: Partial<Record<string, string>> = {};
+    const requestOnly = (vehicleType: string) => publicVehicleRequiresPersonalQuote(vehicleType, publicPricing);
+    if (
+      requestOnly(quoteVehicle) ||
+      isEnquiryOnly ||
+      paymentAmount == null ||
+      !Number.isFinite(paymentAmount) ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating ||
+      authoritativeQuoteFailed
+    ) {
+      return labels;
+    }
+    labels[quoteVehicle] = formatQuote(paymentAmount);
+    if (
+      !openWebsiteFareBreakdown ||
+      testChargeAmount != null ||
+      bookingMeetGreetCharge !== 0 ||
+      isExecutiveVehicle(quoteVehicle) ||
+      transferPaymentAmount == null
+    ) {
+      return labels;
+    }
+    const requestedPassengers: number = effectivePassengers ?? passengers;
+    const suitcaseCount: number = suitcases;
+    const transferTotal: number = transferPaymentAmount;
+    const keyFor = (vehicleType: string) =>
+      quoteFareRequestKey({
+        pickup: pickupAddress.trim(),
+        dropoff: dropoffAddress.trim(),
+        passengers: requestedPassengers,
+        suitcases: suitcaseCount,
+        vehicle: vehicleType,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnJourney,
+        returnDate,
+        returnTime,
+      });
+    const applyReturnOffer =
+      Boolean(returnOfferToken) && !returnJourney && isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
+    const totalFor = (vehicleType: string): number | null => {
+      const parts = authoritativeFareCacheRef.current.get(keyFor(vehicleType));
+      if (!parts || parts.vehicleType !== vehicleType) return null;
+      const breakdown = buildOpenWebsiteFareBreakdown({
+        preserveFixedFarePence:
+          Boolean(parts.preserveBfsMinimumPence) ||
+          postcodeFareHasPence({
+            enabled: publicPricing.postcodePricingEnabled,
+            rules: publicPricing.postcodeRules,
+            context: {
+              address: isFromAirport ? dropoffAddress : pickupAddress,
+              airportCode: effectiveAirportCode,
+              fromAirport: isFromAirport,
+            },
+            vehicle: vehicleType,
+            estateSupplement: publicPricing.estate.upliftGbp,
+            returnJourney,
+          }),
+        journeyFareBeforeAirportAccessGbp: parts.journeyFareGbp,
+        airportFixedCostsGbp:
+          airportFeeResolution.lines.length > 0 ? airportFeeResolution.totalAppliedGbp : parts.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: parts.nightWeekendSurchargeGbp ?? 0,
+        nightWeekendSurchargeLabel: configuredSurchargeLabel,
+        nightWeekendSurchargeExplanation: configuredSurchargeExplanation,
+        airportAccessChargeGbp: airportAccessQuote.airportAccessChargeGbp,
+        outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
+        returnJourney,
+        ...(applyReturnOffer ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate } : {}),
+      });
+      const total = breakdown?.finalAmountPayableGbp;
+      return typeof total === "number" && Number.isFinite(total) ? total : null;
+    };
+    const selectedCheck = totalFor(quoteVehicle);
+    if (selectedCheck == null || Math.abs(selectedCheck - transferTotal) >= 0.005) {
+      return labels;
+    }
+    const paxNow = effectivePartyPassengers(passengers, passengerLimit) ?? (passengers >= 1 ? passengers : null);
+    if (paxNow == null) return labels;
+    for (const vehicleType of suitableVehicleTypesForParty(paxNow, suitcases, {
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    })) {
+      if (vehicleType === quoteVehicle || requestOnly(vehicleType) || isExecutiveVehicle(vehicleType)) continue;
+      const total = totalFor(vehicleType);
+      if (total != null) labels[vehicleType] = formatQuote(total);
+    }
+    return labels;
+  }
+
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) {
       return null;
@@ -7947,6 +8141,7 @@ function QuoteCard({
         publicExecutiveEnabled={publicExecutiveEnabled}
         requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
+        desktopPrices={desktopVehiclePriceLabels()}
       />
     );
   }
@@ -7960,6 +8155,7 @@ function QuoteCard({
       return (
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
+          desktopJourney={renderDesktopResultsJourney()}
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
@@ -8039,6 +8235,7 @@ function QuoteCard({
       <>
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
+        desktopJourney={renderDesktopResultsJourney()}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
@@ -8370,6 +8567,7 @@ function QuoteCard({
       ref={cardRef}
       data-quote-presentation={presentation}
       data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
+      data-desktop-journey-editing={desktopJourneyEditing && quoteResultsReady && quoteStep === 1 ? "true" : undefined}
       className={
         presentation === "homepage"
           ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"

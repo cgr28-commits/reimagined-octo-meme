@@ -44,6 +44,8 @@ type QuoteResultShowcaseProps = {
   priceUnavailable?: boolean;
   onRetryPrice?: () => void;
   requestQuote?: { heading: string; description: string };
+  /** Desktop (1200px+) only: the journey summary at the top of the price panel. */
+  desktopJourney?: ReactNode;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -93,6 +95,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       priceUnavailable = false,
       onRetryPrice,
       requestQuote,
+      desktopJourney = null,
     },
     ref,
   ) {
@@ -143,6 +146,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       className="quote-result-card overflow-hidden rounded-2xl border border-navy/10 bg-white px-3 py-2 text-navy shadow-[0_8px_22px_rgba(2,10,24,0.16)] sm:px-3.5 sm:py-2.5"
       style={{ overflowAnchor: "none" }}
     >
+      {desktopJourney}
       <div className="min-w-0 text-center" data-quote-vehicle-summary>
         <p
           key={vehicleType}
