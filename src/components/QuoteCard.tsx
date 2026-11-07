@@ -1091,6 +1091,8 @@ function QuoteCard({
   const [, setFareCacheVersion] = useState(0);
   /** Desktop (1200px+) quote results: the journey form is folded away until "Edit journey". */
   const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
+  /** Desktop checkout fare breakdown: null follows the default (open when anything is added or discounted). */
+  const [checkoutBreakdownOpen, setCheckoutBreakdownOpen] = useState<boolean | null>(null);
   const quoteFareInflightRef = useRef(
     new Map<
       string,
@@ -4619,6 +4621,14 @@ function QuoteCard({
         ? (liveQuote?.amount ?? null)
         : null);
   const paymentAmount = transferPaymentAmount == null ? null : Math.round((transferPaymentAmount + bookingMeetGreetCharge) * 100) / 100;
+  /** Desktop (1200px+) checkout only: whether the fare breakdown lines are unfolded. */
+  const checkoutBreakdownShown =
+    checkoutBreakdownOpen ??
+    (returnJourney ||
+      bookingMeetGreetCharge > 0 ||
+      airportAccessQuote.airportAccessChargeGbp > 0 ||
+      (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
+      (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
@@ -7309,7 +7319,24 @@ function QuoteCard({
             {/* Desktop (1200px+) only: the fare breakdown beside the summary (vehicle fare,
                 airport access, return discount, total) — same breakdown as the quote. */}
             {openWebsiteFareBreakdown ? (
-              <div className="hidden" data-checkout-breakdown>
+              <button
+                type="button"
+                className="hidden"
+                data-checkout-breakdown-toggle
+                aria-expanded={checkoutBreakdownShown}
+                aria-controls="checkout-fare-breakdown"
+                onClick={() => setCheckoutBreakdownOpen(!checkoutBreakdownShown)}
+              >
+                {checkoutBreakdownShown ? "Hide price breakdown" : "View price breakdown"}
+              </button>
+            ) : null}
+            {openWebsiteFareBreakdown ? (
+              <div
+                className="hidden"
+                id="checkout-fare-breakdown"
+                data-checkout-breakdown
+                data-checkout-breakdown-open={checkoutBreakdownShown ? "true" : "false"}
+              >
                 <PromotionalPriceBreakdown
                   alwaysShow
                   breakdown={openWebsiteFareBreakdown}
@@ -7815,6 +7842,16 @@ function QuoteCard({
             ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
+            : showTransferCta && presentation === "homepage"
+            ? (
+                <>
+                  {/* Desktop (1200px+) shows the second label; everything below 1200px is unchanged. */}
+                  <span data-book-cta-default>{`BOOK THIS TRANSFER — ${amountLabel}`}</span>
+                  <span className="hidden" data-book-cta-desktop>
+                    {`Continue with ${quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle)} →`}
+                  </span>
+                </>
+              )
             : showTransferCta
             ? `BOOK THIS TRANSFER — ${amountLabel}`
             : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow

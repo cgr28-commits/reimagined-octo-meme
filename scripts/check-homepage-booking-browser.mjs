@@ -75,7 +75,7 @@ async function requestFixedPrice(page, { returning = false, date = futureDate() 
   await page.locator('[data-quote-results="ready"]').waitFor({ state: 'attached' });
 }
 async function book(page) {
-  await page.getByRole('button', {name: /BOOK THIS TRANSFER/i}).click();
+  await page.getByRole('button', {name: /BOOK THIS TRANSFER|Continue with/i}).click();
   // Checkout mounts customer details; homepage quote #date can stay opacity:0 under the prompt.
   await page.getByRole('heading', { name: 'COMPLETE YOUR BOOKING', exact: true }).waitFor();
   await page.locator('#name').waitFor({ state: 'visible' });
@@ -171,7 +171,7 @@ try {
     await page.locator('#date').fill('');
     await page.locator('#time').fill('');
     await requestFixedPrice(page);
-    await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+    await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);
     pass(`${width}px: missing either selection prevents quote; None accepted as numeric 0`);
     // Desktop (≥1024) hides the minibus when a car fits (data-vehicle-not-needed).
@@ -196,7 +196,7 @@ try {
     }
     assert.ok(vehicles.includes('saloon') && vehicles.includes('estate'), 'core car options must stay selectable');
     await page.locator('[data-vehicle-category="saloon"]').click();
-    await page.getByRole('button', { name: /BOOK THIS TRANSFER/i }).waitFor();
+    await page.getByRole('button', { name: /BOOK THIS TRANSFER|Continue with/i }).waitFor();
     pass(`${width}px: visible vehicle options retain images, selected summary artwork is visible and no horizontal overflow`);
     await book(page);
     await page.screenshot({path:`${output}/${width}-booking.png`});

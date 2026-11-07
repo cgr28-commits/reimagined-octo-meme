@@ -3632,3 +3632,37 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   .homepage-hero:has([data-checkout-aside]) .homepage-hero-quote { display: block !important; }
 }
+
+/* Unified desktop journey, final pieces (1200px+):
+   - vehicle choice: larger, brighter photos on a light tile so Saloon and Estate read apart;
+   - one clear Continue button in the price panel (mobile and tablet keep their label);
+   - promotional cards step aside while the customer is choosing a vehicle;
+   - checkout fare lines fold behind "View price breakdown" when nothing is added. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout] { grid-template-columns: 12.5rem minmax(0, 1fr) auto 1.6rem; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+    width: 12.5rem; height: 7rem; background: radial-gradient(120% 90% at 50% 30%, #ffffff 0, #eef2f6 70%, #e3e9f0 100%);
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"] img {
+    padding: 0.3rem 0.45rem 0.15rem; filter: brightness(1.12) contrast(1.04) drop-shadow(0 6px 6px rgba(15, 27, 45, 0.18));
+  }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-quote-result-art] img { filter: brightness(1.12) contrast(1.04); }
+
+  .homepage-hero [data-quote-result-card] [data-book-cta-default] { display: none; }
+  .homepage-hero [data-quote-result-card] [data-book-cta-desktop] { display: inline; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { min-height: 3.6rem !important; font-size: 1.15rem !important; font-weight: 800 !important; text-transform: none; letter-spacing: 0; }
+
+  .homepage-hero:has(.quote-flow[data-quote-results="ready"]) .homepage-hero-layout > .homepage-hero-rails { display: none !important; }
+
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown-toggle] {
+    display: flex; align-items: center; gap: 0.35rem; align-self: flex-start; order: 9;
+    margin: 0.55rem 1.4rem 0 !important; padding: 0.1rem 0; min-height: 0; background: none; border: 0; cursor: pointer;
+    font-size: 0.82rem; font-weight: 700; color: var(--co-mint);
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown-toggle]::after { content: "▾"; font-size: 0.75rem; transition: transform 150ms ease; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown-toggle][aria-expanded="true"]::after { transform: rotate(180deg); }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown-toggle]:hover { color: #fff; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown-toggle]:focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown][data-checkout-breakdown-open="false"] { display: none !important; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-breakdown] { order: 9; }
+}

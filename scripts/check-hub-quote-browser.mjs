@@ -84,7 +84,7 @@ try {
         await page.locator('[data-quote-fare-status="ready"]').waitFor();
         const customerPrice=(await page.locator('[data-quote-fare-status="ready"]').innerText()).trim();
         assert.match(customerPrice,/^£\d+(?:\.\d{2})?$/,'confirmed total includes the existing airport fees');
-        await page.getByRole('button',{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
+        await page.getByRole('button',width>=1200?{name:/^Continue with .+ →$/}:{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.ok(quotes.slice(quoteStart).some(q=>q.outboundDate===date && q.outboundTime==='12:00'),'authoritative quote receives collection schedule: '+JSON.stringify(quotes.slice(quoteStart).map(q=>({date:q.outboundDate,time:q.outboundTime}))));
         assert.equal(await page.locator('#date').inputValue(),date);
@@ -106,7 +106,7 @@ try {
         assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
-        await page.getByRole('button',{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
+        await page.getByRole('button',width>=1200?{name:/^Continue with .+ →$/}:{name:`BOOK THIS TRANSFER — ${customerPrice}`,exact:true}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.equal(await page.locator('#name').inputValue(),'Preview Test');
         assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');

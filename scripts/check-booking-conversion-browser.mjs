@@ -71,7 +71,7 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  if(returnTrip) { await page.locator('#returnDate').fill(new Date(Date.now()+9*86400000).toISOString().slice(0,10));await page.locator('#returnTime').fill('12:00'); }
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
- await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+ await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
  // WebKit can expose the ready text before its final font/layout paint.
  // Use the same resource + rendering-frame barrier as the vehicle stability test.
@@ -100,7 +100,7 @@ try {
   assert.ok(positions.reassurance<=positions.fare);
   if(beforeDimensions) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
   await card.screenshot({path:`${output}/${width}-quote.png`});
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).click();
   await page.locator('#name').waitFor();
   const options=page.locator('[data-booking-payment-options]');await options.waitFor();
   assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash on the day/);
@@ -171,7 +171,7 @@ try {
   assert.match(await card.innerText(),new RegExp(`£${total}`));
   const eligible=publicDepositCashOffer(total,{enabled,percent:20,minimumGbp:15}).eligible;
   assert.match(await card.locator('[data-quote-changing-info]').innerText(), /Book with Confidence/);
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();await page.locator('#name').waitFor();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue with/i}).click();await page.locator('#name').waitFor();
   if(eligible)assert.match(await page.locator('[data-booking-payment-options]').innerText(),/£20.00 today[\s\S]*£80.00 cash/);
   else {assert.equal(await page.locator('[data-booking-payment-options]').count(),0);assert.equal(await page.getByRole('button',{name:`Pay £${total} & Confirm Booking`,exact:true}).count(),1);}
   await q.context.close();console.log('PASS eligibility',total,enabled);
