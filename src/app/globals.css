@@ -3627,3 +3627,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-checkout-aside] [data-checkout-stop="to"]::before { background: var(--co-mint); border-radius: 3px; }
   .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-amount] { font-size: 2.4rem; }
 }
+
+/* Checkout lays out its own two columns inside the quote panel, so the homepage grid steps aside. */
+@media (min-width: 1200px) {
+  .homepage-hero:has([data-checkout-aside]) .homepage-hero-quote { display: block !important; }
+}
