@@ -2797,7 +2797,7 @@ body:has(.cookie-consent-banner--modal) {
 
   /* Light canvas: the homepage hero and sections below step aside. */
   /* overflow: clip (not hidden) so the booking panel can stick. */
-  .homepage-hero:has([data-checkout-aside]) { background: #f4f6f9; overflow: clip !important; }
+  .homepage-hero:has([data-checkout-aside]) { background: #f4f6f9; overflow: clip !important; padding-top: 0 !important; }
   /* Step scrolls land with the title and progress in view, not under the header. */
   .homepage-hero .quote-flow:has(#step3-payment-actions) :is(#step2-travel-details, #step3-customer-details, #step2-journey-summary, #quote-price-summary, #step3-payment-actions) {
     scroll-margin-top: calc(var(--co-header) + 8.75rem) !important;
@@ -2827,7 +2827,8 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero .quote-flow:has(#step3-payment-actions) > #quoteForm { display: contents !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > #quoteForm > :not(#step2-travel-details):not([data-checkout-aside]) { grid-column: 1; }
 
-  /* Heading row: back link · progress · secure, then the title and the journey line. */
+  /* Title · progress · secure, then the journey line and the back link. The title leads,
+     so the step scroll (which brings the title under the header) shows the whole heading. */
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child {
     grid-column: 1; grid-row: 1; display: grid !important;
     grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: 1.5rem; align-items: center;
@@ -2835,23 +2836,23 @@ body:has(.cookie-consent-banner--modal) {
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > * { margin: 0 !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote] {
-    grid-column: 1; grid-row: 1; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
+    grid-column: 3 / -1; grid-row: 2; justify-self: end; align-self: end; color: var(--co-navy); font-size: 0.875rem; font-weight: 700; padding: 0.25rem 0;
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote]:hover { color: var(--co-green-dark); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2 {
-    grid-column: 1 / -1; grid-row: 2; margin-top: 1.1rem !important;
+    grid-column: 1 / 3; grid-row: 1;
     font-size: 2rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--co-navy);
     text-transform: lowercase;
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2::first-letter { text-transform: uppercase; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div.quote-secondary { display: none !important; }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) {
-    grid-column: 1 / -1; grid-row: 4; margin-top: 1rem !important; background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25);
+    grid-column: 1 / -1; grid-row: 3; margin-top: 1rem !important; background: var(--co-green-tint); border-color: rgba(21, 128, 61, 0.25);
   }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > div:not(.quote-secondary):not([data-checkout-desktop-bar]) :is(p, .text-white, .text-emerald) { color: var(--co-ink); }
   .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-checkout-desktop-bar] { display: contents; }
   .homepage-hero [data-checkout-progress] {
-    grid-column: 3; grid-row: 1; display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0; padding: 0;
+    grid-column: 3; grid-row: 1; justify-self: end; display: flex; align-items: center; gap: 0.75rem; list-style: none; margin: 0; padding: 0;
     font-size: 0.8125rem; font-weight: 600; color: var(--co-muted);
   }
   .homepage-hero [data-checkout-progress] li { display: flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
@@ -2872,7 +2873,7 @@ body:has(.cookie-consent-banner--modal) {
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
   }
-  .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1 / -1; grid-row: 3; margin-top: 0.35rem !important; font-size: 0.95rem; color: var(--co-muted); }
+  .homepage-hero [data-checkout-desktop-subtitle] { grid-column: 1 / 3; grid-row: 2; margin-top: 0.35rem !important; font-size: 0.95rem; color: var(--co-muted); }
 
   /* ---------- Left column: white cards ---------- */
   .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details {
