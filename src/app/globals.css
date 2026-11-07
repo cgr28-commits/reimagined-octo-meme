@@ -4141,23 +4141,27 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero [data-desktop-benefits-list] { gap: 0.65rem; }
 }
 
-/* Vehicle step in short laptop windows (≤720px tall, e.g. a 1366 × 768 screen under the
-   browser toolbar and taskbar): the navy summary must fit so Continue to booking is on screen.
-   The vehicle cards are untouched; only the summary is condensed. The "included" list is left
-   out at this height (the same points are on the homepage and at checkout); the flight note,
-   journey, chosen vehicle, total and button all stay. */
-@media (min-width: 1200px) and (max-height: 720px) {
+/* Vehicle step on shorter laptop screens: condense the navy summary so Continue to booking is
+   on screen. The vehicle cards are untouched.
+   ≤820px tall (e.g. 1366 × 768 full screen): tighter spacing only; nothing is hidden. */
+@media (min-width: 1200px) and (max-height: 820px) {
   .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child { margin-bottom: 0.5rem !important; }
   .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child [data-results-desktop-bar] > [data-results-desktop-title] { font-size: 1.6rem !important; }
-  .homepage-hero [data-quote-result-card] > [data-results-included] { display: none !important; }
-  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { display: grid !important; padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
-  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-vehicle-art] { height: 2.1rem !important; }
   .homepage-hero [data-quote-result-card] [data-results-journey] { padding-top: 0.8rem !important; padding-bottom: 0.6rem !important; }
   .homepage-hero [data-quote-result-card] [data-results-chips] { margin-top: 0.55rem !important; }
   .homepage-hero [data-quote-result-card] [data-results-chip] { padding-top: 0.2rem !important; padding-bottom: 0.2rem !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] { padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+  .homepage-hero [data-quote-result-card] > [data-quote-vehicle-summary] [data-vehicle-art] { height: 2.1rem !important; }
+  .homepage-hero [data-quote-result-card] > [data-results-included] { margin-top: 0.6rem !important; gap: 0.2rem !important; }
   .homepage-hero [data-quote-result-card] > [data-results-flight] { display: block !important; margin-top: 0.6rem !important; padding: 0.45rem 0.7rem !important; }
   .homepage-hero [data-quote-result-card] > [data-results-flight] > strong { display: inline; margin-right: 0.3rem; }
   .homepage-hero #quote-results-summary [data-quote-result-card] > div.mt-1.min-w-0.text-center { margin-top: 0.5rem !important; padding-top: 0.6rem !important; padding-bottom: 0.7rem !important; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.6rem !important; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action]::after { margin-top: 0.4rem !important; }
+}
+/* ≤720px tall (e.g. a 1366 × 768 screen under the browser toolbar and taskbar): also leave out
+   the "included" list (the same points are on the homepage and at checkout). The flight note,
+   journey, chosen vehicle, total and button all stay. */
+@media (min-width: 1200px) and (max-height: 720px) {
+  .homepage-hero [data-quote-result-card] > [data-results-included] { display: none !important; }
 }
