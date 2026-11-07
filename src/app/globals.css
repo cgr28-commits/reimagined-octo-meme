@@ -3556,3 +3556,74 @@ body:has(.cookie-consent-banner--modal) {
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] button { width: 100%; }
   .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-price-retry] { border-color: rgba(255, 255, 255, 0.3) !important; color: #fff !important; }
 }
+
+/* Stage 2 refinements: readable capacity lines and badges (older tile rules set light
+   colours with higher specificity), numbered progress, a more compact price panel. */
+@media (min-width: 1200px) {
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span:not([data-vehicle-name]),
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span:not([data-vehicle-name]) * {
+    -webkit-text-fill-color: #33465e;
+  }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-name] { -webkit-text-fill-color: var(--u-navy); }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-on-request] { -webkit-text-fill-color: #b45309; }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > [data-vehicle-desktop-tag] { -webkit-text-fill-color: var(--u-green-dark); }
+  .homepage-hero #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex svg { -webkit-text-fill-color: initial; color: var(--u-navy) !important; }
+
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol { counter-reset: u-step; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li { counter-increment: u-step; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li > span:first-child > span:not(.sr-only) { display: none; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li:not(.quote-step-done) > span:first-child::after { content: counter(u-step); font-size: 0.75rem; font-weight: 800; }
+  .homepage-hero .quote-flow[data-quote-results="ready"] > div:first-child > ol > li > span:first-child svg { width: 0.85rem; height: 0.85rem; }
+
+  /* Results: the subtitle gives way so the price and Book button sit higher. */
+  .homepage-hero:has(.quote-flow[data-quote-results="ready"]) .homepage-hero-copy > p { display: none; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] {
+    margin: 0 0 0.9rem !important; text-align: left !important; font-size: 0.8rem !important; line-height: 1.5; color: rgba(255, 255, 255, 0.86) !important;
+  }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] * { justify-content: flex-start !important; text-align: left !important; }
+  .homepage-hero [data-quote-result-card] [data-quote-reassurance] > * { margin-top: 0.1rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.9rem !important; }
+  .homepage-hero #quote-results-summary [data-quote-result-card] [data-quote-trust] { margin-top: 0.7rem !important; }
+}
+
+/* ---------- Stage 3 (1200px+): booking details | booking summary and payment ----------
+   Same navy page, panel widths and corners as the first two stages. The navy panel has no
+   inner scrollbar: when it is taller than the screen it moves with the page until its foot
+   (total, terms, Pay) is in view, then holds (see --co-aside-h, set by QuoteCard). */
+@media (min-width: 1200px) {
+  .homepage-hero .quote-flow:has(#step3-payment-actions) {
+    grid-template-columns: minmax(0, 1fr) var(--u-right) !important; column-gap: var(--u-gap) !important; color: #fff;
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > h2 { color: #fff !important; font-size: 2.1rem !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-desktop-subtitle] { color: rgba(255, 255, 255, 0.72) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote] { color: var(--u-mint) !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote]:hover { color: #fff !important; }
+
+  /* Left: one white panel; the numbered sections are separated by rules. */
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details {
+    gap: 0 !important; background: #fff; border-radius: var(--u-radius); padding: 0.4rem 2rem 1.6rem;
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.55); color: var(--u-ink);
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details :is(#step3-customer-details, #step2-flight-details, section[aria-label="Airport services"], section[data-quote-schedule]) {
+    background: transparent !important; border: 0 !important; border-top: 1px solid var(--u-rule) !important; border-radius: 0 !important;
+    padding: 1.6rem 0 0.4rem !important; box-shadow: none !important;
+  }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > :first-child,
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > :first-child :is(#step3-customer-details, #step2-flight-details) { border-top: 0 !important; }
+  .homepage-hero .quote-flow:has(#step3-payment-actions) #step2-travel-details > * + * { margin-top: 1.1rem !important; }
+
+  /* Right: the shared navy panel, no inner scrolling. */
+  .homepage-hero .quote-flow:has(#step3-payment-actions) [data-checkout-aside] {
+    max-height: none !important; overflow: visible !important;
+    top: min(calc(var(--co-header) + 1.25rem), calc(100dvh - var(--co-aside-h, 0px) - 1.25rem));
+    background: var(--u-panel) !important; border: 1px solid var(--u-line); border-radius: var(--u-radius) !important;
+    box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.7) !important;
+  }
+  .homepage-hero [data-checkout-aside] > #step2-journey-summary {
+    flex: none !important; min-height: 0 !important; overflow: visible !important; background: none !important;
+  }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] { position: static !important; background: none !important; }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop]::before { background: var(--u-panel); }
+  .homepage-hero [data-checkout-aside] [data-checkout-stop="to"]::before { background: var(--co-mint); border-radius: 3px; }
+  .homepage-hero [data-checkout-aside] #quote-price-summary > [data-checkout-total] [data-checkout-total-amount] { font-size: 2.4rem; }
+}
