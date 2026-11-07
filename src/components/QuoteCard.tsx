@@ -1415,22 +1415,6 @@ function QuoteCard({
     Boolean(customerName.trim()) &&
     isValidMobileNumber(customerMobile) &&
     isValidEmailAddress(customerEmail);
-  /** Desktop pay button styling only (validation on Pay is unchanged): what is still missing. */
-  const checkoutPayMissing = [
-    customerName.trim() ? null : "your full name",
-    isValidMobileNumber(customerMobile) ? null : "a valid mobile number",
-    isValidEmailAddress(customerEmail) ? null : "a valid email address",
-    termsAccepted ? null : "agree to the terms",
-  ].filter((item): item is string => Boolean(item));
-  const checkoutPayReady = quoteStep >= 2 && checkoutPayMissing.length === 0;
-  const checkoutPayHint = checkoutPayMissing.length === 0
-    ? ""
-    : `To pay, please ${(() => {
-        const add = checkoutPayMissing.filter((item) => item !== "agree to the terms");
-        const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
-          checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
-        return parts.join(", and ");
-      })()}.`;
   const lastCheckoutBoxId = needsReturnCollectionFlightNumber
     ? "collectionFlightNumber"
     : needsOutboundFlightNumber
@@ -4605,6 +4589,24 @@ function QuoteCard({
     paymentAmount != null &&
     Number.isFinite(paymentAmount) &&
     Math.abs((transferPaymentAmount ?? paymentAmount) - homepageQuotedBaseline) >= 0.01;
+  /** Desktop pay button styling only (validation on Pay is unchanged): what is still missing. */
+  const checkoutPayMissing = [
+    customerName.trim() ? null : "your full name",
+    isValidMobileNumber(customerMobile) ? null : "a valid mobile number",
+    isValidEmailAddress(customerEmail) ? null : "a valid email address",
+    homepageFareChanged && !homepageFareChangeAck ? "confirm the updated price" : null,
+    termsAccepted ? null : "agree to the terms",
+  ].filter((item): item is string => Boolean(item));
+  const checkoutPayReady = quoteStep >= 2 && checkoutPayMissing.length === 0;
+  const checkoutPayHint = checkoutPayMissing.length === 0
+    ? ""
+    : `To pay, please ${(() => {
+        const add = checkoutPayMissing.filter((item) => item !== "agree to the terms" && item !== "confirm the updated price");
+        const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
+          checkoutPayMissing.includes("confirm the updated price") ? "tick to confirm the updated price" : null,
+          checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
+        return parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}` : parts[0];
+      })()}.`;
   const depositCashOffer =
     depositCashSettings?.enabled === true &&
     !appliedPersonalQuote &&
