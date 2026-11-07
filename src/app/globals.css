@@ -4235,3 +4235,16 @@ body:has(.cookie-consent-banner--modal) {
   /* With the breakdown available, the itemised lines live in it; the summary keeps just the total. */
   .homepage-hero [data-quote-result-card]:has([data-results-breakdown]) > [data-results-upgrade-lines] > p:not([data-results-upgrade-total]) { display: none !important; }
 }
+
+/* Vehicle step and checkout (1200px+): keep the floating WhatsApp button clear of the navy
+   summary (totals, consent and Pay). It sits 12px from the window edge, and the two-column
+   layout always leaves at least 74px on the right for it (50px button + 12px either side).
+   On wide screens the existing margins already allow this, so nothing moves. The homepage
+   stage and mobile are unchanged. */
+@media (min-width: 1200px) {
+  body:has(.homepage-hero .quote-flow[data-quote-results="ready"], .homepage-hero [data-checkout-aside]) [data-matni-whatsapp-qr-launcher] { right: 12px !important; }
+  body:has(.homepage-hero .quote-flow[data-quote-results="ready"], .homepage-hero [data-checkout-aside]) [data-matni-whatsapp-qr-panel] { right: 12px !important; }
+  .homepage-hero:has(.quote-flow[data-quote-results="ready"], [data-checkout-aside]) .homepage-hero-layout {
+    padding-right: max(2.5rem, calc((80rem - 100vw) / 2 + 74px)) !important;
+  }
+}
