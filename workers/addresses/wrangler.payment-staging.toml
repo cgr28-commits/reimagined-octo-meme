@@ -62,7 +62,11 @@ binding = "BOOKING_COUNTER"
 id = "55d5e6a826a1494e8be9e6236b37cef2"
 
 [vars]
-PAYMENT_PROVIDER = "stripe"
+# Stripe TEST mode: the payment code only accepts LIVE keys under PAYMENT_PROVIDER = "stripe",
+# so staging uses "stripe-test", which sends the emails listed in STRIPE_TEST_EMAILS to Stripe.
+# STRIPE_TEST_EMAILS is set by the deploy workflow from the GitHub "staging" environment variable
+# STAGING_STRIPE_TEST_EMAILS (kept out of this public file).
+PAYMENT_PROVIDER = "stripe-test"
 REVIEW_REQUEST_DELAY_MINUTES = "120"
 # Keep every customer-messaging feature off in staging.
 WHATSAPP_TEMPLATES_ENABLED = "false"
