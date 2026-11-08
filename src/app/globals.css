@@ -4662,3 +4662,11 @@ body:has(.cookie-consent-banner--modal) {
   :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is([class*="text-emerald/"], a.text-emerald, a[class*="text-emerald"], button.text-emerald):not([class*="bg-"]) { color: #1a7f2e !important; }
   :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is(.text-white, [class*="text-white/"]):not(.btn-primary, .btn-primary *, [class*="bg-emerald"], [class*="bg-emerald"] *, [class*="bg-navy"], [class*="bg-navy"] *, svg, svg *) { color: #33445a !important; }
 }
+
+/* LIGHT DESIGN SYSTEM: small green text on light backgrounds uses a deeper emerald
+   (#1A7F2E, about 5:1) so links and eyebrow labels pass WCAG AA; large headings keep #1F9A36. */
+@media (min-width: 1200px) {
+  body:has([data-landing-quote]) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
+  body:has([data-landing-quote]) main [class*="bg-emerald/"]:not([data-landing-hero] *) { color: #17692a !important; }
+  body:has([data-landing-quote]) main .text-amber-300:not([data-landing-hero] *) { color: #c98a00 !important; }
+}
