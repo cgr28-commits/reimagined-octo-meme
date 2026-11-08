@@ -220,21 +220,19 @@ export default function StripeCardPayClient() {
             colorDanger: "#b91c1c",
             fontFamily: "Manrope, system-ui, sans-serif",
             borderRadius: "10px",
-            // Compact desktop form: tighter rows, inputs keep a 15px font and ~44px height.
+            // Compact desktop form (measured: ~28px shorter than spacingUnit 3px); the explicit
+            // input padding below keeps fields ~44px tall with a 15px font.
             spacingUnit: "2px",
-            gridRowSpacing: "10px",
-            gridColumnSpacing: "12px",
-            accordionItemSpacing: "8px",
             fontSizeBase: "15px",
           },
           rules: {
             ".Input:focus": { border: "1.5px solid #071c38", boxShadow: "0 0 0 3px rgba(47, 191, 74, 0.35)" },
             ".Input--invalid": { border: "1.5px solid #b91c1c", boxShadow: "none" },
             ".AccordionItem--selected": { borderColor: "#15803d", boxShadow: "0 0 0 1px #15803d" },
-            ".Input": { border: "1.5px solid #7d8ea4", boxShadow: "none", padding: "11px 12px" },
-            ".Label": { color: "#071c38", fontWeight: "600", marginBottom: "4px" },
-            ".Error": { color: "#b91c1c", marginTop: "4px" },
-            ".AccordionItem": { border: "1px solid #d5dde8", backgroundColor: "#ffffff", boxShadow: "none", padding: "12px 14px" },
+            ".Input": { border: "1.5px solid #7d8ea4", boxShadow: "none", padding: "10px 12px" },
+            ".Label": { color: "#071c38", fontWeight: "600" },
+            ".Error": { color: "#b91c1c" },
+            ".AccordionItem": { border: "1px solid #d5dde8", backgroundColor: "#ffffff", boxShadow: "none" },
           },
         };
         const checkout = stripe.initCheckoutElementsSdk({
