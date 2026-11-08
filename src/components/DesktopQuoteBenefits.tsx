@@ -1,4 +1,3 @@
-import Link from "next/link";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
 
 /**
@@ -8,8 +7,8 @@ import GoogleReviewsBadge from "./GoogleReviewsBadge";
  */
 const BENEFITS = [
   {
-    title: "Fixed price",
-    text: "The price you see is the price you pay, confirmed before you pay.",
+    title: "Fixed prices",
+    text: "The price you see is the price you pay.",
     // Pound sign (prices are in GBP).
     icon: (
       <>
@@ -20,12 +19,12 @@ const BENEFITS = [
   },
   {
     title: "Flight monitoring",
-    text: "Up to 60 minutes’ complimentary waiting on airport pickups, from your flight’s actual landing time.",
+    text: "Up to 60 minutes’ free waiting from your flight’s actual landing time.",
     icon: <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />,
   },
   {
     title: "Free cancellation",
-    text: "Cancel up to 24 hours before pickup for a full refund.",
+    text: "Full refund if you cancel at least 24 hours before pickup.",
     icon: (
       <>
         <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -34,16 +33,10 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Pre-booked driver",
+    title: "Professional pre-booked drivers",
     text: "Licensed and insured, with booking updates by email.",
     icon: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
   },
-] as const;
-
-const POPULAR = [
-  { href: "/transfers/belfast-to-dublin-airport/", label: "Belfast ↔ Dublin Airport" },
-  { href: "/airports/belfast-international/", label: "Belfast International Airport" },
-  { href: "/airports/belfast-city/", label: "Belfast City Airport" },
 ] as const;
 
 export default function DesktopQuoteBenefits() {
@@ -68,15 +61,6 @@ export default function DesktopQuoteBenefits() {
       <div data-desktop-benefits-reviews>
         <GoogleReviewsBadge variant="panel" />
       </div>
-      <nav data-desktop-benefits-popular aria-label="Popular journeys">
-        <p data-desktop-benefits-heading>Popular journeys</p>
-        {POPULAR.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <span>{item.label}</span>
-            <span aria-hidden="true">→</span>
-          </Link>
-        ))}
-      </nav>
     </aside>
   );
 }
