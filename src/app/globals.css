@@ -4508,7 +4508,7 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) { background: #f4f7fa !important; }
-  body:has(section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
+  body:has(section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
 
   /* Heading and supporting text */
   section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 > span:first-child { color: #071c38 !important; }
