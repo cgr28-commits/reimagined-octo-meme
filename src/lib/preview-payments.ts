@@ -7,7 +7,14 @@ export const PREVIEW_PAYMENTS_DISABLED_MESSAGE =
   "Live payments are switched off on this preview site. Nothing has been booked or charged. To book, please use www.myairporttaxini.co.uk.";
 
 export function previewPaymentsDisabled(hostname?: string | null): boolean {
-  const host = String(hostname ?? (typeof window !== "undefined" ? window.location.hostname : ""))
+  let current = "";
+  try {
+    // Defensive: some test harnesses provide a partial window without location.
+    current = typeof window !== "undefined" ? window.location?.hostname ?? "" : "";
+  } catch {
+    current = "";
+  }
+  const host = String(hostname ?? current)
     .toLowerCase()
     .split(":")[0]
     .trim();
