@@ -1,0 +1,112 @@
+# Payment-fix staging (PR #881). Runs ONLY when the branch "payment-staging" is pushed,
+# which happens only after the owner approves a staging deployment.
+#
+# Deploys to the separate "My Airport Taxi NI Staging" Cloudflare account:
+#   - Worker "matni-payment-staging" (own KV, no crons, no email/WhatsApp credentials)
+#   - static test site to Cloudflare Pages project "matni-payment-staging" in the same account
+# Production Worker, KV, GitHub Pages site, Stripe live account and Google Ads are untouched.
+#
+# Required GitHub Actions secrets (all test/staging only):
+#   STAGING_CLOUDFLARE_API_TOKEN  token scoped to the staging account: Workers Scripts Edit,
+#                                 Workers KV Storage Edit, Cloudflare Pages Edit
+#   STAGING_STRIPE_SECRET_KEY     sk_test_… from the Stripe sandbox
+#   STAGING_STRIPE_PUBLISHABLE_KEY pk_test_… from the same sandbox
+#   STAGING_STRIPE_WEBHOOK_SECRET whsec_… (optional on the first run; added after the webhook exists)
+# Reused (read-only lookups): GOOGLE_PLACES_API_KEY for addresses and fares.
+
+name: Payment staging
+
+"on":
+  push:
+    branches:
+      - payment-staging
+
+concurrency:
+  group: payment-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  STAGING_ACCOUNT_ID: ecad568dc411e28a3e435ef40b36c2b5
+  PAGES_PROJECT: matni-payment-staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Refuse anything that is not a Stripe test key
+        env:
+          SK: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          PK: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          WH: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          CF: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          [ -n "$CF" ] || { echo "::error::STAGING_CLOUDFLARE_API_TOKEN is missing"; exit 1; }
+          case "$SK" in sk_test_*|rk_test_*) ;; *) echo "::error::STAGING_STRIPE_SECRET_KEY must be a TEST key (sk_test_/rk_test_)"; exit 1;; esac
+          case "$PK" in pk_test_*) ;; *) echo "::error::STAGING_STRIPE_PUBLISHABLE_KEY must be pk_test_"; exit 1;; esac
+          if [ -n "$WH" ]; then case "$WH" in whsec_*) ;; *) echo "::error::STAGING_STRIPE_WEBHOOK_SECRET must start whsec_"; exit 1;; esac; fi
+          grep -q 'account_id = "ecad568dc411e28a3e435ef40b36c2b5"' workers/addresses/wrangler.payment-staging.toml
+          if grep -Eq '53fa3cc2bd46436f90ae19200e599ea1|869e2c2e02004d4a88c9cfbf563f1d6a|^\[triggers\]|^\[\[send_email\]\]' workers/addresses/wrangler.payment-staging.toml; then
+            echo "::error::Staging config must not contain production KV, cron triggers or email bindings"; exit 1
+          fi
+
+      - name: Deploy staging Worker
+        id: worker
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+          npm ci
+          CFG=wrangler.payment-staging.toml
+          npx wrangler deploy -c "$CFG" | tee /tmp/deploy.log
+          put() { if [ -n "$2" ]; then printf '%s' "$2" | npx wrangler secret put "$1" -c "$CFG"; fi; }
+          put STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"
+          put STRIPE_PUBLISHABLE_KEY "$STRIPE_PUBLISHABLE_KEY"
+          put STRIPE_WEBHOOK_SECRET "${STRIPE_WEBHOOK_SECRET:-}"
+          put GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+          openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET -c "$CFG"
+          URL="$(grep -Eo 'https://matni-payment-staging\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)"
+          [ -n "$URL" ] || { echo "::error::Could not read the staging Worker URL"; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Staging Worker: $URL  (Stripe webhook endpoint: $URL/payments/stripe-webhook)"
+
+      - name: Build test site against the staging Worker
+        env:
+          WORKER: ${{ steps.worker.outputs.url }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          set -euo pipefail
+          npm ci
+          # Placeholder Ads ID: the test site must never send tags or conversions to the live account.
+          GITHUB_PAGES=true \
+          NEXT_PUBLIC_BOOKINGS_API_URL="$WORKER/bookings" \
+          NEXT_PUBLIC_ADDRESSES_API_URL="$WORKER/addresses" \
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="${GOOGLE_PLACES_API_KEY:-}" \
+          NEXT_PUBLIC_GOOGLE_ADS_ID="AW-STAGING-OFF" \
+          npm run build
+
+      - name: Deploy test site to the staging account
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler pages project create "$PAGES_PROJECT" --production-branch=payment-staging 2>/dev/null || true
+          npx wrangler pages deploy out --project-name="$PAGES_PROJECT" --branch=payment-staging --commit-dirty=true | tee /tmp/pages.log
+          echo "::notice::Staging site: https://$PAGES_PROJECT.pages.dev"
