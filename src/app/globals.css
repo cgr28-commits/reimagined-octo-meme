@@ -4763,9 +4763,9 @@ body:has(.cookie-consent-banner--modal) {
    header on laptop screens. Now:
    - The navy panel is an ordinary column that stretches to the height of the details form,
      so the journey details scroll naturally with the page (no inner scrollbar).
-   - The payment block (Total to pay, refund line, Terms, Pay, Stripe logos) is sticky inside
-     that column: never higher than just below the checkout header, never lower than the
-     bottom of the screen. Its containing block is the column, so it stops at the end of the
+   - The payment block (Total to pay, refund line, Terms, Pay, Stripe logos) sits under the
+     journey details and, once the customer scrolls to it, stays pinned just below the checkout
+     header (top-only sticky, so it never covers the journey details). Its containing block is the column, so it stops at the end of the
      checkout section and cannot reach the footer or the form.
    - The total shown at the head of the block is the same amount as the summary; the summary's
      own total line is hidden at this width so the price is shown once.
@@ -4777,7 +4777,7 @@ body:has(.cookie-consent-banner--modal) {
   }
   :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions {
     position: sticky !important; z-index: 2;
-    top: calc(var(--co-header) + 1rem) !important; bottom: 1rem !important;
+    top: calc(var(--co-header) + 1rem) !important; bottom: auto !important;
     margin-top: 0.4rem !important;
     background: var(--u-panel, #0f2c52) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
