@@ -46,6 +46,12 @@ command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
 [observability]
 enabled = true
 
+# The test website is served by this same Worker (same address), so no Pages project
+# and no cross-site permission are needed. Files that exist are served directly;
+# every other path (/bookings, /payments, …) runs the Worker as normal.
+[assets]
+directory = "../../staging-site"
+
 # Staging account namespaces (already exist in ecad568d…; never the production ids).
 [[kv_namespaces]]
 binding = "TRACKING_STORE"
