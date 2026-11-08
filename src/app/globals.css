@@ -5006,24 +5006,24 @@ body:has(.cookie-consent-banner--modal) {
    Desktop 1200px+ only.
    ========================================================================== */
 @media (min-width: 1200px) {
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"], :has(> [class*="bg-[radial-gradient"])) {
     display: none !important;
   }
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main :is(.section-heading, h1, h2, h3):not(section.homepage-hero *):not([data-landing-hero] *) {
     font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.025em !important;
   }
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; font-size: clamp(2rem, 2.4vw, 2.6rem) !important; line-height: 1.12 !important; }
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { font-weight: 700 !important; letter-spacing: -0.01em !important; color: #071c38 !important; }
   /* Cards sitting on a white section get a soft shadow so they still read as cards. */
-  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
     main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) {
     box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important;
   }
@@ -5135,7 +5135,7 @@ body:has(.cookie-consent-banner--modal) {
   [class*="station_page"] [class*="station_section"] summary { color: #071c38 !important; }
   [class*="station_page"] [class*="station_section"] [class*="station_eyebrow"] { color: #1a7f2e !important; }
   [class*="station_page"] [class*="station_section"] [class*="station_routeLabel"] { color: #5b6b80 !important; }
-  [class*="station_page"] [class*="station_section"] :is([class*="station_route_"], [class*="station_route "], [class*="station_travelCard"]) {
+  [class*="station_page"] [class*="station_section"] :is([class*="station_route_"], [class*="station_travelCard"]) {
     background: #ffffff !important; border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 14px 30px -24px rgba(7, 28, 56, 0.4);
   }
   [class*="station_page"] [class*="station_section"] [class*="station_route_"]:nth-child(-n+3) { border-top: 3px solid #2fbf4a !important; }
