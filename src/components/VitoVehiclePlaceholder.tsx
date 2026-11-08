@@ -17,15 +17,18 @@ export default function VitoVehiclePlaceholder({ compact = false }: Props) {
       <DesktopVehicleSources vehicle="minibus" sizes={compact ? "40vw" : "768px"} />
       <img
         src={withBasePath("/images/vehicles/quote-minibus.webp")}
-        alt="Representative black 7-seater people carrier"
+        alt="Representative 7-seater people carrier (illustrative image; the vehicle sent can vary)"
         width={1400}
         height={700}
         className={`w-full bg-white object-contain ${compact ? "max-h-40" : "h-auto max-h-72"}`}
       />
       </picture>
-      <figcaption className="border-t border-white/10 bg-[#071c38] px-4 py-3 text-sm leading-snug text-white/80">
-        Representative 7-seater. The people carrier sent for a group
-        transfer can vary.
+      <figcaption
+        data-vito-caption
+        className="border-t border-white/10 bg-[#071c38] px-4 py-3 text-sm leading-snug text-white/80"
+      >
+        Representative image only. The 7-seater is available on request, subject to
+        confirmation, and the people carrier sent can vary.
       </figcaption>
     </figure>
   );

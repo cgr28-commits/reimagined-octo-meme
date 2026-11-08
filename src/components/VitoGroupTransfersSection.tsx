@@ -29,6 +29,13 @@ export default function VitoGroupTransfersSection() {
               align="left"
               navId="vito-group-transfers"
             />
+            <p
+              data-vito-availability
+              className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald/30 bg-emerald/10 px-3.5 py-1.5 text-sm font-semibold text-white"
+            >
+              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald" />
+              Available on request, subject to confirmation.
+            </p>
             <ul className="mt-8 grid gap-3 sm:grid-cols-2">
               {HOME_LINKS.map((page) => (
                 <li key={page.path}>

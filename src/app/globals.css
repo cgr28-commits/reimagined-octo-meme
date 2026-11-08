@@ -4996,8 +4996,8 @@ body:has(.cookie-consent-banner--modal) {
 }
 
 /* ==========================================================================
-   STAGE B (review): light design system for page sections — homepage below the hero and the
-   Belfast International airport page only, for approval before rolling out to every template.
+   STAGE B / STAGE 1 (approved 8 Nov): light design system for page sections — homepage below the
+   hero and every hub template (airports, locations/towns, transfers/routes).
    Tokens: navy #071C38 · emerald #2FBF4A · page #F4F7FA · cards #FFFFFF · body #33445A.
    - Decorative full-section navy gradient / dark layers are removed (they made headings and
      body text unreadable on the light theme). Layers over photos are kept.
@@ -5006,25 +5006,115 @@ body:has(.cookie-consent-banner--modal) {
    Desktop 1200px+ only.
    ========================================================================== */
 @media (min-width: 1200px) {
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
-    main > section:not(.homepage-hero):not(:has([data-landing-hero])) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"]) {
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"]) {
     display: none !important;
   }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main :is(.section-heading, h1, h2, h3):not(section.homepage-hero *):not([data-landing-hero] *) {
     font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.025em !important;
   }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; font-size: clamp(2rem, 2.4vw, 2.6rem) !important; line-height: 1.12 !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { font-weight: 700 !important; letter-spacing: -0.01em !important; color: #071c38 !important; }
   /* Cards sitting on a white section get a soft shadow so they still read as cards. */
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
     main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) {
     box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important;
+  }
+}
+
+/* ==========================================================================
+   STAGE 1 (desktop 1200px+): hub quote width, 7-seater section, link grids.
+   ========================================================================== */
+/* Hub pages: the first-screen quote card uses the homepage card width (820px). Same QuoteCard
+   component and presentation, so fields, buttons, validation and booking behaviour are shared.
+   The vehicle step and checkout keep their existing wider layout (more specific rule above). */
+@media (min-width: 1200px) {
+  [data-landing-quote] > div.relative { max-width: calc(820px + 4rem); }
+}
+
+/* 7-seater section: light card, whole vehicle visible (2:1 frame, contained, no crop), clear
+   "available on request" wording. */
+@media (min-width: 1200px) {
+  #vito-group-transfers .desktop-vito-figure.desktop-vito-figure {
+    background: #ffffff !important; border: 1px solid #dde4ec !important; border-radius: 1.25rem !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 24px 48px -32px rgba(7, 28, 56, 0.45) !important;
+    max-width: 40rem;
+  }
+  #vito-group-transfers .desktop-vito-figure img {
+    display: block; width: 100% !important; height: auto !important; max-height: none !important;
+    aspect-ratio: 2 / 1; object-fit: contain !important; padding: 1.25rem 1.5rem 0.75rem;
+    background: radial-gradient(120% 90% at 50% 100%, #e9eef4 0%, #f6f8fb 55%, #ffffff 100%) !important;
+  }
+  #vito-group-transfers [data-vito-caption][data-vito-caption] {
+    background: #f7f9fc !important; border-top: 1px solid #e3e9f0 !important; color: #4a5a70 !important;
+    padding: 0.85rem 1.25rem !important; font-size: 0.85rem !important; line-height: 1.45 !important;
+  }
+  #vito-group-transfers [data-vito-availability][data-vito-availability] {
+    background: #eaf7ed !important; border-color: #bfe5c7 !important; color: #17692a !important; box-shadow: none !important;
+  }
+}
+
+/* Link grids (airport, town and route links on the homepage and hub pages). Every link and its
+   destination is unchanged; only the presentation is polished. @layer base so these !important
+   rules outrank the general light remap (an !important rule in an earlier layer wins). */
+@layer base {
+  @media (min-width: 1200px) {
+    /* Tile links: white, subtle border, navy text, emerald hover border and a small lift. */
+    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *) {
+      background: #ffffff !important; border: 1px solid #dde4ec !important; border-radius: 0.85rem !important;
+      color: #071c38 !important; font-weight: 600 !important;
+      box-shadow: 0 1px 2px rgba(7, 28, 56, 0.04) !important;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
+    }
+    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):hover {
+      border-color: #2fbf4a !important; box-shadow: 0 12px 26px -18px rgba(7, 28, 56, 0.45) !important; transform: translateY(-1px);
+    }
+    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:focus-visible { outline: 2px solid #2fbf4a !important; outline-offset: 2px; }
+    /* Text-only tiles get a small emerald arrow, like the homepage route tiles. */
+    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
+      display: flex !important; align-items: center; justify-content: space-between; gap: 0.75rem;
+      min-height: 3.1rem; padding: 0.75rem 1rem !important; font-size: 0.92rem !important; line-height: 1.3;
+    }
+    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *)::after {
+      content: "→"; flex: none; color: #1f9a36; font-weight: 700; transition: transform 0.15s ease;
+    }
+    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:hover::after { transform: translateX(2px); }
+    /* Tile rows: consistent spacing. */
+    body:has(footer.bg-navy-dark) main ul:has(> li > a[class*="hover:border-emerald/40"]:not(.rounded-full)) { gap: 0.7rem !important; }
+    body:has(footer.bg-navy-dark) main ul:has(> li > a[class*="hover:border-emerald/40"]:not(.rounded-full)):not(.flex) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    /* Area pills (town pages): light pills; linked towns are navy with an emerald hover. */
+    body:has(footer.bg-navy-dark) main :is(a, span).rounded-full[class*="bg-white/5"][class*="text-xs"] {
+      display: inline-flex; align-items: center; background: #f4f7fa !important; border: 1px solid #dde4ec !important;
+      color: #33445a !important; font-size: 0.8rem !important; font-weight: 600; padding: 0.42rem 0.85rem !important; box-shadow: none !important;
+    }
+    body:has(footer.bg-navy-dark) main a.rounded-full[class*="bg-white/5"][class*="text-xs"] { color: #071c38 !important; background: #ffffff !important; }
+    body:has(footer.bg-navy-dark) main a.rounded-full[class*="bg-white/5"][class*="text-xs"]:hover { border-color: #2fbf4a !important; color: #17692a !important; }
+
+    /* Homepage "Areas We Cover": each town is a bordered tile with the emerald pin. */
+    #areas a[class*="hover:bg-emerald/10"], #areas div[class*="hover:bg-emerald/10"] {
+      background: #f7f9fc !important; border: 1px solid #e3e9f0 !important; border-radius: 0.7rem !important;
+      color: #071c38 !important; font-weight: 600 !important; padding: 0.7rem 0.85rem !important;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease !important;
+    }
+    #areas a[class*="hover:bg-emerald/10"]:hover { background: #ffffff !important; border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4) !important; }
+    #areas a[class*="hover:bg-emerald/10"]:focus-visible { outline: 2px solid #2fbf4a !important; outline-offset: 2px; }
+    #areas div:has(> a[class*="hover:bg-emerald/10"]) { gap: 0.6rem !important; }
+    #areas a[class*="hover:bg-emerald/10"] svg { color: #2fbf4a !important; }
+
+    /* Airport cards: same hover treatment as the tiles. */
+    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
+    }
+    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *):hover {
+      border-color: #2fbf4a !important; box-shadow: 0 18px 36px -24px rgba(7, 28, 56, 0.45) !important; transform: translateY(-2px);
+    }
   }
 }
