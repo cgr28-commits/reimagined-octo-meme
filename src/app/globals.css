@@ -4818,3 +4818,31 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions { top: calc(var(--co-header) + 0.6rem) !important; }
 }
+
+/* ==========================================================================
+   Checkout (desktop 1200px+): two coordinated navy cards, no empty navy below.
+   The right-hand column still stretches to the height of the details form, because the
+   sticky payment card needs that track to travel along, but the column itself is now
+   transparent. The navy styling moves onto two content-sized cards:
+   - the journey summary card (scrolls naturally), and
+   - the payment card (total, Terms, Pay, Stripe), sticky just below the header.
+   They sit 0.6rem apart, so neither card ever shows empty navy beneath its content.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside][data-checkout-aside] {
+    background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
+    padding: 0 !important; overflow: visible !important;
+  }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step2-journey-summary {
+    background: var(--u-panel, #0f2c52) !important; border: 1px solid var(--u-line, rgba(255, 255, 255, 0.1));
+    border-radius: var(--u-radius, 1.1rem); box-shadow: 0 24px 48px -30px rgba(7, 28, 56, 0.6);
+    padding-bottom: 0.35rem;
+  }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions {
+    margin-top: 0.6rem !important;
+    border: 1px solid var(--u-line, rgba(255, 255, 255, 0.1)) !important;
+    border-radius: var(--u-radius, 1.1rem) !important;
+    box-shadow: 0 24px 48px -30px rgba(7, 28, 56, 0.6), 0 8px 18px -12px rgba(7, 28, 56, 0.35) !important;
+    padding-top: 0.85rem !important; padding-bottom: 1.3rem !important;
+  }
+}
