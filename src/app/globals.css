@@ -5327,3 +5327,22 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   /* Confirmation, My Bookings, balance and tracking pages: clear space below the fixed header. */
   body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main[class*="md:pt-28"][class*="pt-36"] { padding-top: 9rem !important; }
 }
+/* One header on every public page (1200px+): the same slim navy bar as the homepage and hubs —
+   solid navy, compact trust strip, 4rem logo — on information, legal, tour, confirmation,
+   My Bookings and tracking pages too. */
+@media (min-width: 1200px) {
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div {
+    padding-top: 0.3rem; padding-bottom: 0.3rem; font-size: 0.74rem; letter-spacing: 0.01em;
+  }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden]) { color: rgba(255, 255, 255, 0.72); }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
+    content: ""; display: inline-block; width: 0.38rem; height: 0.38rem; margin-right: 0.45rem; border-radius: 999px; background: #2fbf4a; vertical-align: 0.08em;
+  }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span[aria-hidden] { display: none; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:nth-child(2) { padding-top: 0.3rem; padding-bottom: 0.3rem; max-width: 80rem; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] .quote-header-logo { height: 4rem !important; width: auto; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary) {
+    font-size: 0.875rem; font-weight: 500; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.82);
+  }
+}
