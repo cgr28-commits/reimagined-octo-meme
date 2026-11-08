@@ -4668,7 +4668,7 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
   body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #17692a !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #c98a00 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #b07800 !important; }
 }
 
 /* Field labels carry a Tailwind !important utility (layered). An !important rule in an
@@ -4708,4 +4708,7 @@ body:has(.cookie-consent-banner--modal) {
   body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-eyebrow:not(section.homepage-hero *) { color: #1a7f2e !important; }
   body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-description:not(section.homepage-hero *) { color: #4a5a70 !important; }
   body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not(section.homepage-hero *) { color: #b07800 !important; }
+}
+@media (min-width: 1200px) {
+  body:has(footer.bg-navy-dark) main [class*="bg-[#071c38]"][class*="bg-[#071c38]"][class*="bg-[#071c38]"]:is([class*="text-white"], [class*="text-mist"]) { color: rgba(255, 255, 255, 0.8) !important; }
 }
