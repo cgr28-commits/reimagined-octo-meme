@@ -4678,3 +4678,12 @@ body:has(.cookie-consent-banner--modal) {
     :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow label.form-label { color: #33445a !important; }
   }
 }
+
+/* LIGHT DESIGN SYSTEM: vehicle choice and checkout headings sit on the light page,
+   so they move from white to navy/slate. The navy summary panels are unchanged. */
+@media (min-width: 1200px) {
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-title], h2[data-site-nav-heading]) { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-subtitle], [data-results-desktop-phone], [data-checkout-desktop-bar] *) { color: #4a5a70 !important; -webkit-text-fill-color: #4a5a70; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote] { color: #1a7f2e !important; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote]:hover { color: #071c38 !important; }
+}
