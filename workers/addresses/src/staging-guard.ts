@@ -121,6 +121,11 @@ var f=window.fetch;window.fetch=function(u,o){try{var s=String(u&&u.url||u);if(b
 if(navigator.sendBeacon){var sb=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return bad.test(String(u))?true:sb(u,d);};}
 document.addEventListener("submit",function(e){var a=e.target&&e.target.action||"";if(bad.test(a))e.preventDefault();},true);
 var fs=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){if(bad.test(this.action||""))return;return fs.call(this);};
+var label="TEST MODE · staging site · Stripe sandbox only · no real bookings, payments or messages";
+function ensure(){try{if(document.body&&!document.getElementById("matni-test-mode")){var b=document.createElement("div");b.id="matni-test-mode";b.setAttribute("role","note");b.textContent=label;document.body.prepend(b);}
+if(document.title&&document.title.indexOf("[TEST]")!==0)document.title="[TEST] "+document.title;
+var ms=document.querySelectorAll('meta[name="robots"]');for(var i=0;i<ms.length;i++){if(ms[i].getAttribute("content")!=="${ROBOTS}")ms[i].setAttribute("content","${ROBOTS}");}}catch(e){}}
+document.addEventListener("DOMContentLoaded",ensure);window.addEventListener("load",ensure);setInterval(ensure,800);
 var ce=Document.prototype.createElement;Document.prototype.createElement=function(t){var el=ce.apply(this,arguments);if(String(t).toLowerCase()==="script"){var d=Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype,"src");Object.defineProperty(el,"src",{get:function(){return d.get.call(el);},set:function(v){if(bad.test(String(v)))return;d.set.call(el,v);}});}return el;};
 })();</script>`;
 const BANNER_HTML = `<div id="matni-test-mode" role="note" aria-label="Test mode">TEST MODE · staging site · Stripe sandbox only · no real bookings, payments or messages</div>`;
@@ -135,6 +140,11 @@ function decorate(response: Response): Response {
       element(el) {
         el.prepend(BROWSER_BLOCK, { html: true });
         el.append(`<meta name="robots" content="${ROBOTS}">${BANNER_CSS}`, { html: true });
+      },
+    })
+    .on('meta[name="robots"]', {
+      element(el) {
+        el.setAttribute("content", ROBOTS);
       },
     })
     .on("title", {
