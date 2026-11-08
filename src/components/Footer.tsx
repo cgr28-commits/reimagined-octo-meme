@@ -25,7 +25,7 @@ export default function Footer() {
               href="/manage-booking/"
               prefetch={false}
               data-footer-manage-booking
-              className="mt-6 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-5 text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10"
+              className="mt-6 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-5 lg:hidden text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10"
             >
               <svg className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
@@ -192,6 +192,17 @@ export default function Footer() {
             &copy; {year} {SITE.name}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/70">
+            <Link
+              href="/manage-booking/"
+              prefetch={false}
+              data-footer-manage-booking="desktop"
+              className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-4 text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10 lg:inline-flex"
+            >
+              <svg className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+              </svg>
+              Manage Your Booking
+            </Link>
             <Link
               href="/contact/"
               className="rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
