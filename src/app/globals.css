@@ -4382,3 +4382,43 @@ body:has(.cookie-consent-banner--modal) {
   }
   :is(.homepage-hero, [data-hub-quote]) [data-results-stop-hint-edit]:focus-visible { outline: 2px solid #9cc3f0; outline-offset: 2px; border-radius: 3px; }
 }
+
+/* ==========================================================================
+   Checkout summary (desktop 1200px+): containment and sticky behaviour.
+   1. Containment. #step3-payment-actions is a wrapping flex row; its children kept the
+      default min-width:auto, so the pay block took the single-line width of the Stripe
+      logo row (a column flex box sizes to its widest line) and pushed the Pay button,
+      the hint and the logos ~48px past the panel edge. Let every child shrink to the
+      panel's content width and let the logo row wrap. Nothing is clipped or hidden.
+   2. Sticky. The panel pins just below the checkout header when it fits the screen.
+      When it is taller than the screen, the existing --co-aside-h rule anchors its foot
+      (total, terms, Pay) to the bottom of the screen instead, so every control stays
+      reachable with no inner scrollbar. It stays inside its own grid area, so it stops
+      at the end of the checkout section and never overlaps the footer.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] { box-sizing: border-box; min-width: 0; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions { box-sizing: border-box; min-width: 0; max-width: 100%; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > div > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions .btn-pay { width: 100%; max-width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-payment-method-logos] { align-self: stretch; min-width: 0; max-width: 100%; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-payment-method-logos] > ul { flex-wrap: wrap; max-width: 100%; min-width: 0; }
+
+  /* Sticky: a little closer to the header, and a tighter panel so it fits more screens. */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] {
+    position: sticky !important; align-self: start !important;
+    top: min(calc(var(--co-header) + 1rem), calc(100dvh - var(--co-aside-h, 0px) - 1rem)) !important;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-summary-controls] { padding-top: 0.9rem !important; padding-bottom: 0.5rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-route-stops] > li { padding-bottom: 0.35rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-legs] { margin-top: 0.35rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-leg] { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-vehicle] { margin-top: 0.4rem !important; padding-top: 0.35rem !important; padding-bottom: 0.35rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-included] { margin-top: 0.45rem !important; padding-top: 0.45rem !important; padding-bottom: 0.45rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-access] { margin-top: 0.45rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #quote-price-summary > [data-checkout-total] { margin-top: 0.3rem !important; padding-top: 0.45rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions { padding-top: 0.6rem !important; padding-bottom: 0.9rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.4rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions .btn-pay { min-height: 3rem !important; }
+}
