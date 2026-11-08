@@ -5292,3 +5292,17 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     main[data-customer-standalone].max-w-xl { max-width: 36rem !important; margin-inline: auto !important; }
   }
 }
+@layer base {
+  @media (min-width: 1200px) {
+    /* Translucent navy panels (bg-navy-dark/70 etc.) and dark custom fills become white cards too. */
+    main[data-customer-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-navy-dark/"], [class*="bg-[#0"]):not([data-stripe-pay]) {
+      background-color: #ffffff !important; border-color: #dde4ec !important;
+      box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 40px -30px rgba(7, 28, 56, 0.4);
+    }
+    main[data-customer-standalone] :is([class*="bg-white/"], .glass-card, [class*="bg-navy"], [class*="bg-[#0"]) :is(section, div, li, details, p, span):is([class*="bg-navy"], [class*="bg-[#0"]):not(button *, a *) {
+      background-color: #f7f9fc !important; box-shadow: none !important;
+    }
+    /* With the logo moved into the brand bar, the remaining top-row action sits on the right. */
+    body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > div.justify-between:has(> a img[src*="logo"]) { justify-content: flex-end !important; }
+  }
+}
