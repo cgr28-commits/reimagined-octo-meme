@@ -4795,3 +4795,8 @@ body:has(.cookie-consent-banner--modal) {
   /* Show the price once at this width. */
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #quote-price-summary > [data-checkout-total][data-checkout-total] { display: none !important; }
 }
+@media (min-width: 1200px) {
+  /* Preview sites only: the Pay button already reads "Payments are switched off on this preview",
+     so the duplicate explanatory note is not repeated inside the sticky payment block. */
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-preview-payments-off] { display: none !important; }
+}
