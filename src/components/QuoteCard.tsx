@@ -8054,41 +8054,8 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null;
 
-  // "Not ready to book yet?" (email this quote / WhatsApp) — once per visit, when someone has a price
-  // but hasn't pressed Book: leaving the page on desktop, or lingering on the price on mobile.
-  const helpNudgeArmed =
-    showInstantQuoteResultCard && Boolean(liveQuote) && !submitted && !isVehiclePersonalQuote;
-  const helpNudgeBlocked = quoteActionOpen !== null || saveQuoteOpen;
-  useEffect(() => {
-    if (!helpNudgeArmed || helpNudgeBlocked) return;
-    const key = "matni-quote-help-nudge";
-    try {
-      if (window.sessionStorage.getItem(key)) return;
-    } catch {
-      // Storage blocked: still show it at most once for this page.
-    }
-    let shown = false;
-    const show = () => {
-      if (shown) return;
-      shown = true;
-      try {
-        window.sessionStorage.setItem(key, "1");
-      } catch {
-        // ignore
-      }
-      setQuoteActionOpen("help");
-    };
-    const onMouseOut = (event: MouseEvent) => {
-      if (!event.relatedTarget && event.clientY <= 0) show();
-    };
-    const desktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    document.addEventListener("mouseout", onMouseOut);
-    const timer = desktop ? null : window.setTimeout(show, 45_000);
-    return () => {
-      document.removeEventListener("mouseout", onMouseOut);
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [helpNudgeArmed, helpNudgeBlocked]);
+  // No automatic popups: the "Not ready to book yet?" dialog used to open by itself (exit-intent
+  // on desktop, a 45-second timer on mobile). Removed (Nov 2026); dialogs open only on a click.
 
   function handleQuoteVehicleChoice(next: string) {
     const pax =
