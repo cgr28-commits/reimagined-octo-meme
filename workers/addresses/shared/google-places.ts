@@ -1661,9 +1661,6 @@ export const ALLOWED_ORIGINS = [
  */
 export const PREVIEW_PAGES_PROJECT_HOST = "my-airport-taxi-ni-preview.pages.dev";
 
-/** Payment-fix staging test site (separate staging Cloudflare account; Stripe test mode only). */
-export const PAYMENT_STAGING_PAGES_HOST = "matni-payment-staging.pages.dev";
-
 /** Vercel project slug — production + git/PR preview hosts share this prefix. */
 export const VERCEL_PROJECT_HOST_PREFIX = "my-airport-taxi-ni-quote";
 
@@ -1688,9 +1685,7 @@ export function isAllowedBrowserOrigin(origin: string | null | undefined): boole
     const host = url.hostname.toLowerCase();
     if (
       host === PREVIEW_PAGES_PROJECT_HOST ||
-      host.endsWith(`.${PREVIEW_PAGES_PROJECT_HOST}`) ||
-      host === PAYMENT_STAGING_PAGES_HOST ||
-      host.endsWith(`.${PAYMENT_STAGING_PAGES_HOST}`)
+      host.endsWith(`.${PREVIEW_PAGES_PROJECT_HOST}`)
     ) {
       return true;
     }
