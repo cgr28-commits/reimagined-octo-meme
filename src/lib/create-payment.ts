@@ -1,4 +1,5 @@
 import { hasUncertainPayment, markPaymentPending, clearPaymentPending, PaymentOutcomeUncertainError } from "./payment-attempt-guard";
+import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import {
@@ -287,6 +288,10 @@ export function buildPaymentRedirectUrl(returnToken?: string): string {
 export async function createPaymentCheckout(
   request: PaymentCheckoutRequest,
 ): Promise<PaymentCheckoutResult> {
+  // Vercel preview sites must never start a live payment or booking (see preview-payments.ts).
+  if (previewPaymentsDisabled()) {
+    throw new Error(PREVIEW_PAYMENTS_DISABLED_MESSAGE);
+  }
   if (!PAYMENTS_API_URL) {
     throw new Error("Online payment is not configured");
   }

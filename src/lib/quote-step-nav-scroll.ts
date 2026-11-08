@@ -509,9 +509,19 @@ function readVisualViewport(): { height: number; offsetTop: number } {
  */
 function measureQuoteReveal(): QuoteRevealMetrics | null {
   const mobile = window.matchMedia("(max-width: 767px)").matches;
-  const heading = document.querySelector<HTMLElement>(mobile
+  // Desktop homepage (1200px+): "Your journey" heads the results, above the vehicles,
+  // so the reveal stops there.
+  // Desktop hub pages: the quote sits mid-page and the navy summary is sticky, so the reveal
+  // aligns the top of the vehicle step ("Choose your vehicle") under the header instead.
+  const hubTitle = !mobile && window.matchMedia("(min-width: 1200px)").matches
+    ? document.querySelector<HTMLElement>("[data-hub-quote] [data-results-desktop-title]")
+    : null;
+  const heading = hubTitle && hubTitle.getClientRects().length > 0 ? hubTitle : document.querySelector<HTMLElement>(mobile
     ? "[data-quote-selected-vehicle-card]"
-    : "[data-quote-vehicle-options-heading]");
+    : window.matchMedia("(min-width: 1200px)").matches &&
+        document.querySelector(":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]")
+      ? ":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]"
+      : "[data-quote-vehicle-options-heading]");
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();

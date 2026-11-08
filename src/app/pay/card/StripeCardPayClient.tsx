@@ -26,8 +26,10 @@ function formatGbp(amount: number | null): string {
  * browser, so going back restores it; clearing the open-checkout marker shows
  * the editable form instead of the "payment ready" panel.
  */
-function backToBooking(): void {
-  clearOpenCheckoutSession();
+function backToBooking(options?: { keepOpenCheckout?: boolean }): void {
+  // keepOpenCheckout: the payment link may still be valid (temporary error), so the booking page
+  // offers to continue this same payment instead of starting a new one (no duplicate session).
+  if (!options?.keepOpenCheckout) clearOpenCheckoutSession();
   let sameSite = false;
   try {
     sameSite = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
@@ -182,35 +184,65 @@ export default function StripeCardPayClient() {
 
         const Stripe = await loadStripeJs();
         const stripe = Stripe(session.publishableKey);
+        // Desktop (1200px+): white payment card, so Stripe's fields use a light theme to match.
+        // Mobile and tablet keep the original dark theme. Appearance only — same session and methods.
+        const desktopCard = window.matchMedia("(min-width: 1200px)").matches;
+        const darkAppearance = {
+          theme: "night",
+          variables: {
+            colorPrimary: "#2fbf4a",
+            colorBackground: "#0c2a52",
+            colorText: "#e8edf5",
+            colorTextSecondary: "#b5c0cd",
+            colorTextPlaceholder: "rgba(232, 237, 245, 0.5)",
+            colorDanger: "#fca5a5",
+            fontFamily: "Manrope, system-ui, sans-serif",
+            borderRadius: "10px",
+            spacingUnit: "3px",
+            fontSizeBase: "15px",
+          },
+          rules: {
+            ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
+            ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
+            // Payment options list: our colours for the frame only. Revolut Pay,
+            // Revolut Pay, card brands etc. keep their own logo colours.
+            ".AccordionItem": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#0c2a52", boxShadow: "none" },
+            ".AccordionItem--selected": { borderColor: "#2fbf4a" },
+            ".Label": { color: "#b5c0cd", fontWeight: "600" },
+          },
+        };
+        const lightAppearance = {
+          theme: "stripe",
+          variables: {
+            colorPrimary: "#15803d",
+            colorBackground: "#ffffff",
+            colorText: "#071c38",
+            colorTextSecondary: "#4a5a70",
+            colorTextPlaceholder: "#6b7a8f",
+            colorDanger: "#b91c1c",
+            fontFamily: "Manrope, system-ui, sans-serif",
+            borderRadius: "10px",
+            // Compact desktop form (measured: ~28px shorter than spacingUnit 3px); the explicit
+            // input padding below keeps fields ~44px tall with a 15px font.
+            spacingUnit: "2px",
+            fontSizeBase: "15px",
+          },
+          rules: {
+            ".Input:focus": { border: "1.5px solid #071c38", boxShadow: "0 0 0 3px rgba(47, 191, 74, 0.35)" },
+            ".Input--invalid": { border: "1.5px solid #b91c1c", boxShadow: "none" },
+            ".AccordionItem--selected": { borderColor: "#15803d", boxShadow: "0 0 0 1px #15803d" },
+            ".Input": { border: "1.5px solid #7d8ea4", boxShadow: "none", padding: "10px 12px" },
+            ".Label": { color: "#071c38", fontWeight: "600" },
+            ".Error": { color: "#b91c1c" },
+            ".AccordionItem": { border: "1px solid #d5dde8", backgroundColor: "#ffffff", boxShadow: "none" },
+          },
+        };
         const checkout = stripe.initCheckoutElementsSdk({
           clientSecret: session.clientSecret,
           elementsOptions: {
             // Site branding (src/app/globals.css): navy + emerald, Manrope.
             fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" }],
-            appearance: {
-              theme: "night",
-              variables: {
-                colorPrimary: "#2fbf4a",
-                colorBackground: "#0c2a52",
-                colorText: "#e8edf5",
-                colorTextSecondary: "#b5c0cd",
-                colorTextPlaceholder: "rgba(232, 237, 245, 0.5)",
-                colorDanger: "#fca5a5",
-                fontFamily: "Manrope, system-ui, sans-serif",
-                borderRadius: "10px",
-                spacingUnit: "3px",
-                fontSizeBase: "15px",
-              },
-              rules: {
-                ".Input": { border: "1px solid rgba(255, 255, 255, 0.15)", boxShadow: "none" },
-                ".Input:focus": { border: "1px solid #2fbf4a", boxShadow: "0 0 0 1px #2fbf4a" },
-                // Payment options list: our colours for the frame only. Revolut Pay,
-                // Revolut Pay, card brands etc. keep their own logo colours.
-                ".AccordionItem": { border: "1px solid rgba(255, 255, 255, 0.15)", backgroundColor: "#0c2a52", boxShadow: "none" },
-                ".AccordionItem--selected": { borderColor: "#2fbf4a" },
-                ".Label": { color: "#b5c0cd", fontWeight: "600" },
-              },
-            },
+            appearance: desktopCard ? lightAppearance : darkAppearance,
           },
         });
         checkoutRef.current = checkout;
@@ -221,7 +253,7 @@ export default function StripeCardPayClient() {
           // "always" shows the button even before the customer has a saved card,
           // and Apple Pay on non-Safari browsers uses Apple's QR-code flow.
           paymentMethods: { applePay: "always", googlePay: "always" },
-          buttonTheme: { applePay: "white-outline", googlePay: "white" },
+          buttonTheme: desktopCard ? { applePay: "black", googlePay: "black" } : { applePay: "white-outline", googlePay: "white" },
           layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
         });
         express.on("ready", (event) => {
@@ -265,7 +297,13 @@ export default function StripeCardPayClient() {
     >
       {/* Compact by design: the whole payment fits on one screen (phone and laptop). */}
       <div className="flex items-center justify-between gap-3">
-        <Logo className="h-9 sm:h-10" />
+        <span data-pay-logo-dark className="contents">
+          <Logo className="h-9 sm:h-10" />
+        </span>
+        {/* Desktop (1200px+) white card: the light logo variant (hidden below 1200px). */}
+        <span data-pay-logo-light className="hidden">
+          <Logo theme="light" className="h-10" />
+        </span>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald">
           Secure card payment
         </span>
@@ -273,7 +311,7 @@ export default function StripeCardPayClient() {
       {view !== "paying" ? (
         <button
           type="button"
-          onClick={backToBooking}
+          onClick={() => backToBooking()}
           className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline"
           data-pay-back-to-booking
         >
@@ -394,9 +432,32 @@ export default function StripeCardPayClient() {
               ? "Payment links last 24 hours. Please get a new quote on our website, or contact us and we'll send you a fresh link."
               : message || "Please try again in a few minutes, or contact us and we'll help."}
           </p>
-          <Link href="/" className="btn-primary mt-4 inline-flex min-h-11 items-center px-6">
+          <Link href="/" className="btn-primary mt-4 inline-flex min-h-11 items-center px-6" data-pay-error-home>
             Back to home
           </Link>
+          {/* Desktop (1200px+) recovery actions; below 1200px the single button above shows as before.
+              "Try again" re-opens this same payment link (no new booking or payment attempt).
+              "Return to your booking" goes back to the saved booking. After a temporary error the
+              open payment is kept, so the booking page continues this same payment; after an
+              expired/invalid link a new, validated checkout starts only if the customer pays again. */}
+          <div className="hidden" data-pay-error-actions>
+            {view === "error" ? (
+              <button type="button" className="btn-primary" data-pay-retry onClick={() => window.location.reload()}>
+                Try again
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={view === "error" ? "btn-secondary" : "btn-primary"}
+              data-pay-return-to-booking
+              onClick={() => backToBooking({ keepOpenCheckout: view === "error" })}
+            >
+              Return to your booking
+            </button>
+            <Link href="/" data-pay-error-home-link>
+              Back to home
+            </Link>
+          </div>
           <p className="mt-4 text-sm text-white/70">
             Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
           </p>

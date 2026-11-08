@@ -1,3 +1,4 @@
+import { previewNotificationsDisabled } from "@/lib/preview-notifications";
 import {
   MARKETING_CONSENT_VERSION,
   type MarketingOptInFields,
@@ -44,7 +45,7 @@ export async function recordMarketingOptIn(input: {
   source: MarketingOptInSource;
   fields: MarketingOptInFields;
 }): Promise<void> {
-  if (!input.fields.marketingOptIn || !input.email.trim()) {
+  if (!input.fields.marketingOptIn || !input.email.trim() || previewNotificationsDisabled()) {
     return;
   }
 

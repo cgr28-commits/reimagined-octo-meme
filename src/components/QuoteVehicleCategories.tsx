@@ -34,6 +34,14 @@ const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
 const BUSINESS_CLASS_IMAGE = withBasePath("/images/vehicles/quote-business-class.webp");
 const MINIBUS_IMAGE = withBasePath("/images/vehicles/quote-minibus.webp");
 
+/** Desktop (1200px+) only: one plain line under each vehicle. Hidden below 1200px. */
+const DESKTOP_DESCRIPTIONS: Record<string, string> = {
+  saloon: "Comfortable for most airport trips",
+  estate: "More boot space for extra luggage, golf bags or buggies",
+  executive: "Send a request and we’ll confirm a price by email",
+  minibus: "For families and groups travelling together",
+};
+
 const CATEGORIES = [
   {
     id: "saloon" as const,
@@ -100,6 +108,8 @@ export default function QuoteVehicleCategories({
   publicExecutiveEnabled = true,
   hideUnsuitable = false,
   requestQuoteVehicles = [],
+  desktopPrices = {},
+  desktopRequestPrices = {},
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -111,6 +121,13 @@ export default function QuoteVehicleCategories({
   /** Homepage quote results list only vehicles that fit this party. */
   hideUnsuitable?: boolean;
   requestQuoteVehicles?: readonly string[];
+  /**
+   * Desktop (1200px+) only: the fare already calculated for each vehicle (e.g. "£48"),
+   * or a short status. Display only — never priced here. Hidden below 1200px.
+   */
+  desktopPrices?: Partial<Record<string, string>>;
+  /** Desktop only: indicative "From" price for a request-only vehicle (e.g. "£83"). */
+  desktopRequestPrices?: Partial<Record<string, string>>;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -157,6 +174,7 @@ export default function QuoteVehicleCategories({
               role="listitem"
               className="min-w-0"
               data-vehicle-not-needed={notNeeded ? "true" : undefined}
+              data-vehicle-request-row={fits && requestQuoteVehicles.includes(option.vehicle) ? "true" : undefined}
             >
               <button
                 type="button"
@@ -187,7 +205,10 @@ export default function QuoteVehicleCategories({
                       {option.title}
                     </span>
                     {fits && requestQuoteVehicles.includes(option.vehicle) ? (
-                      <span className="mt-0.5 block text-[0.78rem] font-bold text-navy">On request · Request quote</span>
+                      <span className="mt-0.5 block text-[0.78rem] font-bold text-navy" data-vehicle-on-request>On request · Request quote</span>
+                    ) : null}
+                    {fits && requestQuoteVehicles.includes(option.vehicle) ? (
+                      <span className="hidden" data-vehicle-desktop-badge>On request</span>
                     ) : null}
                     {option.capacity ? (
                       <span className="mt-0.5 block text-[0.84rem] font-semibold leading-tight text-navy">
@@ -214,7 +235,44 @@ export default function QuoteVehicleCategories({
                         {"\u00a0"}
                       </span>
                     )}
+                    <span className="hidden" data-vehicle-desktop-desc>
+                      {DESKTOP_DESCRIPTIONS[option.id]}
+                    </span>
                   </span>
+                  {fits && requestQuoteVehicles.includes(option.vehicle) ? (
+                    <span className="hidden" data-vehicle-desktop-request>
+                      {desktopRequestPrices[option.vehicle] ? (
+                        <span data-vehicle-desktop-from>
+                          From {desktopRequestPrices[option.vehicle]}
+                          <small>Subject to availability</small>
+                        </span>
+                      ) : option.vehicle === MINIBUS_VEHICLE ? (
+                        <span data-vehicle-desktop-from>
+                          <small>Subject to availability</small>
+                        </span>
+                      ) : null}
+                      <span data-vehicle-desktop-request-action>Request a quote</span>
+                    </span>
+                  ) : fits && desktopPrices[option.vehicle] ? (
+                    <span className="hidden" data-vehicle-desktop-price>
+                      {desktopPrices[option.vehicle]}
+                    </span>
+                  ) : null}
+                  {fits ? (
+                    <span className="hidden" data-vehicle-desktop-select aria-hidden>
+                      {isSelected ? (
+                        <>
+                          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden focusable="false">
+                            <circle cx="8" cy="8" r="8" fill="currentColor" />
+                            <path d="M4.6 8.3l2.2 2.2 4.6-4.8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Selected
+                        </>
+                      ) : (
+                        "Select"
+                      )}
+                    </span>
+                  ) : null}
                   {isSelected ? (
                     <span
                       data-vehicle-selection-indicator

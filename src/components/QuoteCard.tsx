@@ -116,7 +116,7 @@ import {
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { isBrowserPricingPreview, previewMinibusQueryEnabled } from "@/lib/pricing-preview-store";
+import { isBrowserPricingPreview, previewMinibusQueryEnabled, previewMinibusRequestQuoteEnabled } from "@/lib/pricing-preview-store";
 import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
@@ -262,6 +262,9 @@ import {
   buildOpenWebsiteFareBreakdown,
 } from "@/components/QuoteFareTrust";
 import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived";
+import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown";
+import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
+import { PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE, previewNotificationsDisabled } from "@/lib/preview-notifications";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -785,6 +788,27 @@ function websiteAirportAccessLeadLabel(selection: { eligible: boolean; legs: rea
   return selection.eligible ? "Free Airport Access — Long Stay; optional terminal services selected in booking details" : undefined;
 }
 
+/** Journey summary date, e.g. "Mon, 9 Nov 2026"; keeps the chosen calendar day in every time zone. */
+function journeySummaryDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "—";
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  }).format(date);
+}
+
+function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" }) {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" data-journey-icon>
+      {name === "calendar" ? (<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></>) : null}
+      {name === "clock" ? (<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>) : null}
+      {name === "return" ? (<><path d="M9 14 4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10h-3" /></>) : null}
+    </svg>
+  );
+}
+
 function QuoteCard({
   restoredQuote,
   homepagePolish = false,
@@ -853,7 +877,11 @@ function QuoteCard({
     const controller = new AbortController();
     void fetchPublicPricingConfig({ strict: true, signal: controller.signal }).then((config) => {
       if (!controller.signal.aborted) {
-        setPublicPricing(config);
+        setPublicPricing(
+          previewMinibusRequestQuoteEnabled()
+            ? { ...config, minibus: { ...config.minibus, requestQuote: true } }
+            : config,
+        );
         setPublicPricingLoaded(true);
         setPublicPricingFailed(false);
       }
@@ -1023,6 +1051,8 @@ function QuoteCard({
   const [exactPassengers, setExactPassengers] = useState<number | null>(null);
   const [childSeats, setChildSeats] = useState(0);
   const [childSeatNotes, setChildSeatNotes] = useState("");
+  /** Desktop (1200px+) only: the child seat row starts collapsed. Below 1200px the options always show. */
+  const [childSeatsPanelOpen, setChildSeatsPanelOpen] = useState(false);
   const [childSeatNotesError, setChildSeatNotesError] = useState("");
   const [saveQuoteSettings, setSaveQuoteSettings] = useState({ ...DEFAULT_SAVE_QUOTE_SETTINGS, enabled: false });
   useEffect(() => {
@@ -1064,6 +1094,19 @@ function QuoteCard({
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
   const authoritativeFareCacheRef = useRef(new Map<string, ServerFarePartyParts>());
+  /** Desktop vehicle list only: re-render when another vehicle's fare arrives in the cache above. */
+  const [, setFareCacheVersion] = useState(0);
+  /** Desktop (1200px+) quote results: the journey form is folded away until "Edit journey". */
+  const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
+  /** Desktop (1200px+) vehicle step: price breakdown in the navy summary, collapsed by default. */
+  const [desktopBreakdownOpen, setDesktopBreakdownOpen] = useState(false);
+  /** Vercel preview sites: the final Pay / request action is switched off (set after mount). */
+  const [previewPaymentsOff, setPreviewPaymentsOff] = useState(false);
+  useEffect(() => {
+    setPreviewPaymentsOff(previewPaymentsDisabled());
+  }, []);
+  /** Desktop checkout fare breakdown: null follows the default (open when anything is added or discounted). */
+  const [checkoutBreakdownOpen, setCheckoutBreakdownOpen] = useState<boolean | null>(null);
   const quoteFareInflightRef = useRef(
     new Map<
       string,
@@ -1316,6 +1359,16 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isPlaceSelected(dropoffPlace) &&
     isDublinCityCorridorJourney(pickupPlace, dropoffPlace);
+  /** Business Class journeys do not offer child seats: none are shown, validated or sent. */
+  const childSeatsOffered = !isExecutiveVehicle(quoteVehicle);
+  const bookingChildSeats = childSeatsOffered ? childSeats : 0;
+  useEffect(() => {
+    if (childSeatsOffered) return;
+    setChildSeats(0);
+    setChildSeatNotes("");
+    setChildSeatNotesError("");
+    setChildSeatsPanelOpen(false);
+  }, [childSeatsOffered]);
   const isVehiclePersonalQuote =
     publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
   /**
@@ -2139,7 +2192,8 @@ function QuoteCard({
     };
   }
 
-  const liveQuote = useMemo(() => {
+  /** The on-device fare estimate (shared pricing formulas, unchanged) for one vehicle. */
+  function estimateFareFor(estimateVehicle: typeof quoteVehicle) {
     // Do not invent or show live fares until pricing rules are owner-approved.
     if (!canShowPrice || isManualQuoteJourney || pricingConfirmationRequired) {
       return null;
@@ -2162,7 +2216,7 @@ function QuoteCard({
         return calculateQuote(
           pickupAddress,
           dropoffAirportCode,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2174,7 +2228,7 @@ function QuoteCard({
         return calculateQuote(
           dropoffAddress,
           pickupAirportCode,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2192,7 +2246,7 @@ function QuoteCard({
           dropoffAirportCode,
           pickupAddress,
           dropoffAddress,
-          quoteVehicle,
+          estimateVehicle,
           returnJourney,
           schedule,
           routeMetrics,
@@ -2209,7 +2263,7 @@ function QuoteCard({
           : dropoffAddress;
         return calculateDublinCityBeyondAirportQuote(
           niAddress,
-          quoteVehicle,
+          estimateVehicle,
           routeMetrics,
           returnJourney,
           schedule,
@@ -2219,7 +2273,7 @@ function QuoteCard({
       return calculatePointToPointQuote(
         pickupAddress,
         dropoffAddress,
-        quoteVehicle,
+        estimateVehicle,
         returnJourney,
         schedule,
         routeMetrics,
@@ -2233,7 +2287,7 @@ function QuoteCard({
       return calculateQuote(
         quoteAddress,
         airportCode,
-        quoteVehicle,
+        estimateVehicle,
         returnJourney,
         schedule,
         routeMetrics,
@@ -2249,7 +2303,7 @@ function QuoteCard({
     return calculatePointToPointQuote(
       pickupAddress,
       dropoffAddress,
-      quoteVehicle,
+      estimateVehicle,
       returnJourney,
       schedule,
       routeMetrics,
@@ -2260,8 +2314,12 @@ function QuoteCard({
       },
       publicPricing,
     );
-  }, [
-    airportCode,
+  }
+
+  const liveQuote = useMemo(
+    () => estimateFareFor(quoteVehicle),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [    airportCode,
     canShowPrice,
     dropoffAddress,
     dropoffAirportCode,
@@ -2400,6 +2458,7 @@ function QuoteCard({
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
+      setFareCacheVersion((version) => version + 1);
     };
     const quoteBodyFor = (vehicle: string) => ({
       pickupAddress: pickup,
@@ -3289,6 +3348,56 @@ function QuoteCard({
       exceedsOnlineCapacity ||
       isEnquiryOnly);
   const quoteResultsReady = resultsCanRender;
+  useEffect(() => {
+    if (!quoteResultsReady || quoteStep !== 1) setDesktopJourneyEditing(false);
+  }, [quoteResultsReady, quoteStep]);
+  /**
+   * Desktop checkout (1200px+): the navy panel is sticky with no inner scrollbar. When it is
+   * taller than the screen (e.g. a return with extra options), CSS uses this height to let it
+   * scroll with the page until its foot (total, terms, Pay) is in view, then hold it there.
+   * Sets one CSS variable on the panel; no layout or booking logic.
+   */
+  useEffect(() => {
+    if (presentation !== "homepage" || quoteStep < 2 || typeof window === "undefined") return;
+    if (typeof ResizeObserver === "undefined") return;
+    const aside = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-checkout-aside]");
+    if (!aside) return;
+    const update = () => aside.style.setProperty("--co-aside-h", `${Math.ceil(aside.offsetHeight)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(aside);
+    return () => {
+      observer.disconnect();
+      aside.style.removeProperty("--co-aside-h");
+    };
+  }, [presentation, quoteStep]);
+
+  // Desktop vehicle step: remember which Meet & Greet upgrades were offered under the vehicles,
+  // so checkout does not offer the same upgrade a second time (hidden by desktop CSS only).
+  const [vehicleStepMeetGreetKeys, setVehicleStepMeetGreetKeys] = useState("");
+  useEffect(() => {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return;
+    const keys = desktopMeetGreetUpgrades().map((upgrade) => upgrade.key).join(",");
+    setVehicleStepMeetGreetKeys((current) => (current === keys ? current : keys));
+  });
+  const offeredAtVehicleStep = (key: string) => vehicleStepMeetGreetKeys.split(",").includes(key);
+
+  // Desktop vehicle step: publish the navy summary's height so its sticky offset can keep the
+  // bottom (Continue to booking) reachable when it is taller than the window (CSS: --rc-h).
+  useEffect(() => {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady || typeof window === "undefined") return;
+    if (typeof ResizeObserver === "undefined") return;
+    const card = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-quote-result-card]");
+    if (!card) return;
+    const update = () => card.style.setProperty("--rc-h", `${Math.ceil(card.offsetHeight)}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(card);
+    return () => {
+      observer.disconnect();
+      card.style.removeProperty("--rc-h");
+    };
+  }, [presentation, quoteStep, quoteResultsReady]);
 
   /** Customer-facing stages: 1 journey details, 2 your quote, 3 complete your booking. */
   const quoteProgressStep = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
@@ -4262,7 +4371,7 @@ function QuoteCard({
       setEmailAddressError("");
     }
 
-    if (childSeats > 0 && !childSeatNotes.trim()) {
+    if (bookingChildSeats > 0 && !childSeatNotes.trim()) {
       setChildSeatNotesError(QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes);
       ok = false;
     } else {
@@ -4323,8 +4432,8 @@ function QuoteCard({
       passengers: effectivePassengers as number,
       suitcases: suitcases as number,
       suitcasesExact: isFivePlusLuggage(suitcases as number) ? false : true,
-      childSeats,
-      childSeatNotes: childSeats > 0 ? childSeatNotes.trim() : undefined,
+      childSeats: bookingChildSeats,
+      childSeatNotes: bookingChildSeats > 0 ? childSeatNotes.trim() : undefined,
       vehicle: quoteVehicle,
       estimatedPrice: bookingMeetGreetActive && liveQuote ? formatQuote((pricedFare?.totalGbp ?? liveQuote.amount) + bookingMeetGreetCharge) : estimatedPrice,
       journeyDistance: journeyDistanceLabel || undefined,
@@ -4558,6 +4667,14 @@ function QuoteCard({
         ? (liveQuote?.amount ?? null)
         : null);
   const paymentAmount = transferPaymentAmount == null ? null : Math.round((transferPaymentAmount + bookingMeetGreetCharge) * 100) / 100;
+  /** Desktop (1200px+) checkout only: whether the fare breakdown lines are unfolded. */
+  const checkoutBreakdownShown =
+    checkoutBreakdownOpen ??
+    (returnJourney ||
+      bookingMeetGreetCharge > 0 ||
+      airportAccessQuote.airportAccessChargeGbp > 0 ||
+      (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
+      (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
@@ -4568,6 +4685,24 @@ function QuoteCard({
     paymentAmount != null &&
     Number.isFinite(paymentAmount) &&
     Math.abs((transferPaymentAmount ?? paymentAmount) - homepageQuotedBaseline) >= 0.01;
+  /** Desktop pay button styling only (validation on Pay is unchanged): what is still missing. */
+  const checkoutPayMissing = [
+    customerName.trim() ? null : "your full name",
+    isValidMobileNumber(customerMobile) ? null : "a valid mobile number",
+    isValidEmailAddress(customerEmail) ? null : "a valid email address",
+    homepageFareChanged && !homepageFareChangeAck ? "confirm the updated price" : null,
+    termsAccepted ? null : "agree to the terms",
+  ].filter((item): item is string => Boolean(item));
+  const checkoutPayReady = quoteStep >= 2 && checkoutPayMissing.length === 0;
+  const checkoutPayHint = checkoutPayMissing.length === 0
+    ? ""
+    : `To pay, please ${(() => {
+        const add = checkoutPayMissing.filter((item) => item !== "agree to the terms" && item !== "confirm the updated price");
+        const parts = [add.length ? `add ${add.length > 1 ? `${add.slice(0, -1).join(", ")} and ${add[add.length - 1]}` : add[0]}` : null,
+          checkoutPayMissing.includes("confirm the updated price") ? "tick to confirm the updated price" : null,
+          checkoutPayMissing.includes("agree to the terms") ? "tick to agree to the terms" : null].filter(Boolean);
+        return parts.length > 1 ? `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}` : parts[0];
+      })()}.`;
   const depositCashOffer =
     depositCashSettings?.enabled === true &&
     !appliedPersonalQuote &&
@@ -4602,6 +4737,10 @@ function QuoteCard({
       : PAYMENT_METHOD_FULL_ONLINE;
 
   async function handlePayNow() {
+    if (previewPaymentsDisabled()) {
+      setPaymentError(PREVIEW_PAYMENTS_DISABLED_MESSAGE);
+      return;
+    }
     if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
     if (!validateCheckoutRequiredFields()) return;
     paymentSubmitLock.current = true;
@@ -5413,6 +5552,10 @@ function QuoteCard({
     if (!validateCheckoutRequiredFields()) {
       return;
     }
+    if (previewNotificationsDisabled()) {
+      setSubmitError(PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE);
+      return;
+    }
     notifyOwnerQuoteContactIfReady();
 
     void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
@@ -5710,9 +5853,14 @@ function QuoteCard({
           setAirportCode(classified.airport);
           setTripMode("address");
         }
+        // Meet & Greet chosen at the vehicle step is part of the price the customer agreed,
+        // so it must not show as a "fare changed" at checkout.
+        const vehicleStepUpgradeGbp = desktopMeetGreetUpgrades()
+          .filter((upgrade) => upgrade.selected && upgrade.inTransferFare)
+          .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0);
         provisionalQuotedAmountRef.current =
           paymentAmount != null && Number.isFinite(paymentAmount)
-            ? paymentAmount
+            ? paymentAmount + vehicleStepUpgradeGbp
             : liveQuote?.amount ?? null;
         setHomepageFareChangeAck(false);
       }
@@ -6470,6 +6618,7 @@ function QuoteCard({
           freeAvailable={true} meetGreetIncluded={included}
           terminalFee={leg.airportCode === "BFS" ? publicPricing.terminalAccess.bfsGbp : publicPricing.terminalAccess.bhdGbp}
           meetGreetFee={leg.airportCode === "BFS" ? publicPricing.meetGreet.bfsGbp : publicPricing.meetGreet.bhdGbp}
+          meetGreetOfferedEarlier={leg.service === "pick-up" && offeredAtVehicleStep(airportVisitKey(leg))}
           />;
       })}
     </section>;
@@ -6845,8 +6994,8 @@ function QuoteCard({
         ? `${vehicleShortLabel(quoteVehicle)} · ${formatPassengerChoice(effectivePassengers)} passenger${
             effectivePassengers === 1 ? "" : "s"
           } · ${formatSuitcaseChoice(suitcases)} suitcase${suitcases === 1 ? "" : "s"}${
-            childSeats > 0
-              ? ` · ${childSeats} child / booster seat${childSeats === 1 ? "" : "s"}`
+            bookingChildSeats > 0
+              ? ` · ${bookingChildSeats} child / booster seat${bookingChildSeats === 1 ? "" : "s"}`
               : ""
           }`
         : vehicleShortLabel(quoteVehicle);
@@ -6860,6 +7009,64 @@ function QuoteCard({
       (smartAvailabilityBlocked || isCustomerSmartAvailabilityBlockMessage(paymentError));
     const isTooSoonCheckout = Boolean(
       payNow && liveQuote && isTooSoonPickup && !ownerClosed && !checkoutBlocked,
+    );
+    // Desktop (1200px+) side panel only — hidden below 1200px. Display text from existing
+    // state; no pricing or booking logic. Waiting wording follows the published Terms
+    // (AIRPORT_WAITING_FROM_LANDING: 60 minutes from actual landing, with a valid flight
+    // number; other pickups 10 minutes) and only names the pickups this booking has.
+    const checkoutWhenLine =
+      tripDate && tripTime ? `${formatBookingDate(tripDate)} · ${formatCustomerClock(tripTime) || tripTime}` : null;
+    const checkoutReturnWhenLine =
+      returnJourney && returnDate && returnTime
+        ? `${formatBookingDate(returnDate)} · ${formatCustomerClock(returnTime) || returnTime}`
+        : null;
+    const outboundPickupAtAirport = checkoutTimeLabel("outbound") !== "Pickup time";
+    const returnPickupAtAirport = returnJourney && checkoutTimeLabel("return") !== "Pickup time";
+    const waitingLine = (leg: string, atAirport: boolean) =>
+      atAirport
+        ? `${leg} airport pickup: up to 60 minutes complimentary waiting from your flight’s actual landing time, with a valid flight number`
+        : `${leg} pickup: up to 10 minutes complimentary waiting`;
+    const checkoutIncludedLines = [
+      ...(payNow ? ["Fixed price, confirmed before you pay"] : []),
+      waitingLine(returnJourney ? "Outbound" : "Your", outboundPickupAtAirport),
+      ...(returnJourney ? [waitingLine("Return", returnPickupAtAirport)] : []),
+    ];
+    const checkoutDesktopDetails = (
+      <>
+        <ol data-checkout-route-stops aria-label="Journey">
+          <li data-checkout-stop="from">
+            <p data-checkout-stop-name>{(pickupLabel || "Pickup").split(",")[0]}</p>
+            {pickupAddress ? <p data-checkout-stop-address>{pickupAddress}</p> : null}
+          </li>
+          <li data-checkout-stop="to">
+            <p data-checkout-stop-name>{(dropoffLabel || "Destination").split(",")[0]}</p>
+            {dropoffAddress ? <p data-checkout-stop-address>{dropoffAddress}</p> : null}
+          </li>
+        </ol>
+        {checkoutWhenLine ? (
+          <dl data-checkout-legs>
+            <div data-checkout-leg="outbound">
+              <dt>
+                {returnJourney ? "Outbound" : "Pickup"}
+                {outboundPickupAtAirport ? " · flight lands" : ""}
+              </dt>
+              <dd>{checkoutWhenLine}</dd>
+            </div>
+            {checkoutReturnWhenLine ? (
+              <div data-checkout-leg="return">
+                <dt>Return{returnPickupAtAirport ? " · flight lands" : ""}</dt>
+                <dd>{checkoutReturnWhenLine}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+        <p data-checkout-vehicle>{partyLine}</p>
+        <ul data-checkout-included aria-label="What’s included">
+          {checkoutIncludedLines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </>
     );
 
     return (
@@ -7011,7 +7218,7 @@ function QuoteCard({
                 ) : null}
               </div>
               {bookingMeetGreetEligible ? (
-                <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet>
+                <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet data-offered-at-vehicle-step={offeredAtVehicleStep("dub-meet-greet") ? "true" : undefined}>
                   <h3 className="text-sm font-bold">Enhance Your Airport Pickup</h3>
                   <p className="mt-1 text-sm font-semibold">Meet &amp; Greet Service — {formatMeetGreetGbp(bookingMeetGreetPrice)}</p>
                   <p id="booking-meet-greet-description" className="mt-1 text-xs leading-snug">Your driver will meet you inside the airport arrivals hall with a personalised name board and assist you to your vehicle.</p>
@@ -7023,7 +7230,29 @@ function QuoteCard({
                   </label>
                 </section>
               ) : null}
-              <div>
+              {childSeatsOffered ? (
+              <div
+                data-child-seats
+                data-child-seats-open={childSeatsPanelOpen || Boolean(childSeatNotesError) ? "true" : "false"}
+              >
+                {/* Desktop (1200px+) only: one short row that opens the options. Hidden below 1200px,
+                    where the options below always show exactly as before. */}
+                <button
+                  type="button"
+                  className="hidden"
+                  data-child-seats-toggle
+                  aria-expanded={childSeatsPanelOpen || Boolean(childSeatNotesError)}
+                  aria-controls="child-seat-panel"
+                  onClick={() => setChildSeatsPanelOpen((open) => !(open || Boolean(childSeatNotesError)))}
+                >
+                  <span data-child-seats-toggle-label>Travelling with children? Request a child seat</span>
+                  {bookingChildSeats > 0 ? (
+                    <span data-child-seats-summary>
+                      {bookingChildSeats} child / booster seat{bookingChildSeats === 1 ? "" : "s"} requested
+                    </span>
+                  ) : null}
+                </button>
+                <div id="child-seat-panel" data-child-seats-panel>
                 <p className="form-label mb-1.5">Child / booster seats</p>
                 <div
                   className="grid w-52 max-w-full grid-cols-3 gap-2 md:w-full"
@@ -7097,13 +7326,20 @@ function QuoteCard({
                 <p id="child-seat-availability" className="mt-2 text-xs leading-relaxed text-white/65">
                   Child seats are requested subject to availability. We’ll confirm your request.
                 </p>
+                </div>
               </div>
+              ) : null}
             </div>
           </section>
 
           {renderFlightDetailsSection(2)}
           {renderExpressChoiceInPriceCard("full")}
+        </div>
 
+        {/* Summary, payment and their notices. Below 1024px a plain stack with the same
+            spacing as before; 1024–1199px display: contents (unchanged layout); 1200px+
+            on the homepage, the sticky booking panel beside the details. */}
+        <div data-checkout-aside className="max-lg:space-y-3 lg:contents">
           <div id="step2-journey-summary" ref={step2JourneySummaryRef}>
           <QuoteCheckoutSummary
             routeLine={`${(pickupLabel || "Pickup").split(",")[0]} → ${(dropoffLabel || "Destination").split(",")[0]}`}
@@ -7122,6 +7358,7 @@ function QuoteCard({
                 : null
             }
             accessLine={checkoutAccessLine()}
+            desktopDetails={presentation === "homepage" ? checkoutDesktopDetails : undefined}
             onEditJourney={() => navigateQuoteStep(1)}
             changeAccessLabel={undefined}
             onChangeDropOff={
@@ -7139,6 +7376,38 @@ function QuoteCard({
             }
           >
             {bookingMeetGreetActive ? <p className="mt-1 text-sm font-semibold" data-meet-greet-summary>Meet &amp; Greet: {formatMeetGreetGbp(bookingMeetGreetCharge)}</p> : null}
+            {/* Desktop (1200px+) only: the fare breakdown beside the summary (vehicle fare,
+                airport access, return discount, total) — same breakdown as the quote. */}
+            {openWebsiteFareBreakdown ? (
+              <button
+                type="button"
+                className="hidden"
+                data-checkout-breakdown-toggle
+                aria-expanded={checkoutBreakdownShown}
+                aria-controls="checkout-fare-breakdown"
+                onClick={() => setCheckoutBreakdownOpen(!checkoutBreakdownShown)}
+              >
+                {checkoutBreakdownShown ? "Hide price breakdown" : "View price breakdown"}
+              </button>
+            ) : null}
+            {openWebsiteFareBreakdown ? (
+              <div
+                className="hidden"
+                id="checkout-fare-breakdown"
+                data-checkout-breakdown
+                data-checkout-breakdown-open={checkoutBreakdownShown ? "true" : "false"}
+              >
+                <PromotionalPriceBreakdown
+                  alwaysShow
+                  extraLines={bookingMeetGreetActive ? [{ label: "Meet & Greet · Dublin Airport", gbp: bookingMeetGreetCharge }] : []}
+                  breakdown={openWebsiteFareBreakdown}
+                  service={expressSelection.service ?? "drop-off"}
+                  freeAirportAccessSelected={
+                    expressSelection.eligible && airportAccessQuote.airportAccessChargeGbp === 0
+                  }
+                />
+              </div>
+            ) : null}
             {showChangeDropOff && expressEditingLeg != null
               ? renderExpressChoiceInPriceCard("full")
               : null}
@@ -7165,7 +7434,6 @@ function QuoteCard({
               />
             </div>
           ) : null}
-        </div>
 
         {paymentError && !(payNow && liveQuote) && !checkoutBlocked && !ownerClosed ? (
           <div className="space-y-3">
@@ -7195,6 +7463,7 @@ function QuoteCard({
           id="step3-payment-actions"
           ref={step3PaymentActionsRef}
           className="scroll-mt-44 space-y-2 md:scroll-mt-28 sm:space-y-3"
+          data-pay-ready={checkoutPayReady ? "true" : "false"}
         >
           <div id="quote-step2-next" className="sr-only" />
 
@@ -7488,16 +7757,21 @@ function QuoteCard({
                 {isAvailabilityRequest && !openCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
                 ) : null}
+                {checkoutPayHint ? (
+                  <p className="hidden" data-pay-hint>{checkoutPayHint}</p>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void handlePayNow()}
-                  disabled={paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
+                  disabled={previewPaymentsOff || paymentLoading || paymentUncertain || submitted || (selectedDepositCash && !cashAgreementAccepted)}
                   aria-busy={paymentLoading}
                   aria-describedby={paymentLoading ? "payment-loading-status" : undefined}
                   className="btn-pay w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {paymentLoading ? <span aria-hidden="true" className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none" /> : null}
-                  {paymentLoading
+                  {previewPaymentsOff
+                    ? "Payments are switched off on this preview"
+                    : paymentLoading
                     ? isAvailabilityRequest
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
@@ -7517,6 +7791,11 @@ function QuoteCard({
                                 ? fullPayButtonLabel(cardBalanceOffer.totalFare)
                                 : `Pay ${amountLabel ?? formatQuote(liveQuote.amount)} & Confirm Booking`}
                 </button>
+                {previewPaymentsOff ? (
+                  <p data-preview-payments-off className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-center text-sm leading-snug text-white">
+                    {PREVIEW_PAYMENTS_DISABLED_MESSAGE}
+                  </p>
+                ) : null}
                 <p id="payment-loading-status" role="status" aria-live="polite" aria-atomic="true" className="text-center text-sm text-white/85">
                   {paymentLoading && !isAvailabilityRequest
                     ? paymentSlow
@@ -7580,6 +7859,7 @@ function QuoteCard({
             </p>
           ) : null}
         </div>
+        </div>
       </>
     );
   }
@@ -7630,6 +7910,19 @@ function QuoteCard({
             ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
+            : showTransferCta && presentation === "homepage"
+            ? (
+                <>
+                  {/* Desktop (1200px+) shows the second label; everything below 1200px is unchanged. */}
+                  <span data-book-cta-default>{`BOOK THIS TRANSFER — ${amountLabel}`}</span>
+                  <span className="hidden" data-book-cta-desktop>
+                    Continue to booking
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden focusable="false">
+                      <path d="M3 8h9.5M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </>
+              )
             : showTransferCta
             ? `BOOK THIS TRANSFER — ${amountLabel}`
             : liveQuote && canPayNowOnline && !isEnquiryOnly && !showsRequestQuoteFlow
@@ -7776,6 +8069,592 @@ function QuoteCard({
     setVehicle(chosen);
   }
 
+  /**
+   * Desktop (1200px+) only, inside the navy price panel: the journey being priced, with
+   * Edit journey to unfold the (otherwise folded) quote form. Hidden below 1200px, where
+   * the existing journey summary and form are unchanged.
+   */
+  function renderDesktopResultsJourney() {
+    if (presentation !== "homepage") return null;
+    const party = effectivePassengers ?? passengers;
+    return (
+      <div className="hidden" data-results-journey>
+        <div data-results-journey-head>
+          <span>Your journey</span>
+          <button
+            type="button"
+            data-results-journey-edit
+            aria-expanded={desktopJourneyEditing}
+            aria-controls="step1-journey-details"
+            onClick={() => {
+              const next = !desktopJourneyEditing;
+              setDesktopJourneyEditing(next);
+              if (next && typeof window !== "undefined") {
+                window.requestAnimationFrame(() => {
+                  const field = document.getElementById("pickup");
+                  field?.scrollIntoView({ block: "center", behavior: "smooth" });
+                  field?.focus({ preventScroll: true });
+                });
+              }
+            }}
+          >
+            {desktopJourneyEditing ? "Done" : "Edit journey"}
+          </button>
+        </div>
+        <ol data-results-route>
+          {(
+            [
+              ["from", "Pickup", pickupLabel || "Pickup"],
+              ["to", "Drop-off", dropoffLabel || "Drop-off"],
+            ] as const
+          ).map(([key, role, label]) => {
+            const [name, ...rest] = label.split(", ");
+            return (
+              <li key={key} data-results-stop={key}>
+                <strong>{name}</strong>
+                <span>
+                  {role}
+                  {rest.length ? ` · ${rest.filter((part) => part !== "UK").join(", ")}` : ""}
+                </span>
+                {(key === "from" && isIncompletePickupAddress) || (key === "to" && isIncompleteDropoffAddress) ? (
+                  <span data-results-stop-hint role="status">
+                    Add a house number or building name.{" "}
+                    <button
+                      type="button"
+                      data-results-stop-hint-edit
+                      onClick={() => {
+                        setDesktopJourneyEditing(true);
+                        if (typeof window !== "undefined") {
+                          window.requestAnimationFrame(() => {
+                            const field = document.getElementById(key === "from" ? "pickup" : "dropoff");
+                            field?.scrollIntoView({ block: "center", behavior: "smooth" });
+                            field?.focus({ preventScroll: true });
+                          });
+                        }
+                      }}
+                    >
+                      Edit {key === "from" ? "pickup" : "drop-off"}
+                    </button>
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+        <p data-results-chips>
+          <span data-results-chip>
+            {journeySummaryDate(tripDate)}
+            {" · "}
+            {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
+            {tripTime ? tripTime.slice(0, 5) : "—"}
+          </span>
+          <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
+          <span data-results-chip>
+            {party} passenger{party === 1 ? "" : "s"}
+            {" · "}
+            {suitcases != null && suitcases >= 5
+              ? "5+ suitcases"
+              : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
+          </span>
+          {returnJourney ? (
+            <span data-results-chip data-results-chip-return>
+              Return {journeySummaryDate(returnDate)}
+              {" · "}
+              {checkoutTimeLabel("return") === "Pickup time" ? "" : "flight lands "}
+              {returnTime ? returnTime.slice(0, 5) : "—"}
+            </span>
+          ) : null}
+          {quoteDirectionsHref() ? (
+            <button
+              type="button"
+              data-results-view-route
+              aria-haspopup="dialog"
+              onClick={() => setQuoteActionOpen("route")}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />
+                <path d="M9 4v14M15 6v14" />
+              </svg>
+              View route
+            </button>
+          ) : null}
+        </p>
+      </div>
+    );
+  }
+
+  /**
+   * Desktop (1200px+) vehicle step: optional Meet & Greet, one per eligible airport pickup.
+   * Each card sets the very same choice the checkout uses (the per-leg airport choice at
+   * Belfast International / Belfast City, or the existing Dublin option), so checkout shows it
+   * already chosen and editable, and the existing pricing charges it once. Prices come from
+   * the owner's configured Meet & Greet fees. Not offered for request-only vehicles or Business
+   * Class (its pickups already include Meet & Greet).
+   */
+  function desktopMeetGreetUpgrades() {
+    type Upgrade = {
+      key: string;
+      airportName: string;
+      legLabel: string | null;
+      feeGbp: number;
+      selected: boolean;
+      /** True when checkout folds this fee into the transfer fare (Belfast airports); Dublin is added separately. */
+      inTransferFare: boolean;
+      toggle: () => void;
+    };
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return [] as Upgrade[];
+    if (testChargeAmount != null || appliedPersonalQuote) return [] as Upgrade[];
+    if (
+      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
+      isEnquiryOnly ||
+      isExecutiveVehicle(quoteVehicle) ||
+      paymentAmount == null ||
+      !Number.isFinite(paymentAmount) ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating
+    ) {
+      return [] as Upgrade[];
+    }
+    const airportNames: Record<string, string> = {
+      BFS: "Belfast International",
+      BHD: "Belfast City",
+      DUB: "Dublin Airport",
+    };
+    const upgrades: Upgrade[] = [];
+    for (const visit of listTerminalAccessVisits({
+      airportCode: effectiveAirportCode,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    })) {
+      if (visit.service !== "pick-up") continue;
+      const key = airportVisitKey(visit);
+      const current =
+        terminalAccessChoices[key] ?? (visit.leg === "return" ? returnAccessChoice : outboundAccessChoice);
+      upgrades.push({
+        key,
+        airportName: airportNames[visit.airportCode] ?? visit.airportCode,
+        legLabel: returnJourney ? (visit.leg === "return" ? "Return pickup" : "Outbound pickup") : null,
+        feeGbp: meetGreetFeeGbp(visit.airportCode, publicPricing.meetGreet),
+        selected: current === "meet-greet",
+        inTransferFare: true,
+        toggle: () =>
+          setTerminalAccessChoices((choices) => ({
+            ...choices,
+            [key]: current === "meet-greet" ? "free" : "meet-greet",
+          })),
+      });
+    }
+    if (bookingMeetGreetEligible && bookingMeetGreetAirport) {
+      upgrades.push({
+        key: "dub-meet-greet",
+        airportName: airportNames.DUB,
+        legLabel: returnJourney ? "Outbound pickup" : null,
+        feeGbp: bookingMeetGreetPrice,
+        selected: bookingMeetGreetSelected,
+        inTransferFare: false,
+        toggle: () => setBookingMeetGreetSelected((selected) => !selected),
+      });
+    }
+    return upgrades.filter((upgrade) => Number.isFinite(upgrade.feeGbp) && upgrade.feeGbp > 0);
+  }
+
+  function renderDesktopMeetGreetUpgrades() {
+    const upgrades = desktopMeetGreetUpgrades();
+    if (!upgrades.length) return null;
+    return (
+      <div className="hidden" data-results-upgrades>
+        <p data-results-upgrades-heading>Optional upgrade</p>
+        {upgrades.map((upgrade) => (
+          <label key={upgrade.key} data-results-upgrade data-selected={upgrade.selected ? "true" : "false"}>
+            <input
+              type="checkbox"
+              checked={upgrade.selected}
+              onChange={upgrade.toggle}
+              data-results-upgrade-input
+              aria-describedby={`upgrade-${upgrade.key}-detail`}
+            />
+            <span data-results-upgrade-icon aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="5" width="18" height="12" rx="2" />
+                <path d="M7 21h10M12 17v4M7 10h6M7 13h4" />
+              </svg>
+            </span>
+            <span data-results-upgrade-copy>
+              <strong>
+                Meet &amp; Greet at arrivals
+                <small>
+                  {upgrade.airportName}
+                  {upgrade.legLabel ? ` · ${upgrade.legLabel}` : ""}
+                </small>
+              </strong>
+              <span id={`upgrade-${upgrade.key}-detail`}>
+                Your driver meets you inside the terminal with a name board and helps with your luggage.
+              </span>
+            </span>
+            <span data-results-upgrade-price>+{formatQuote(upgrade.feeGbp)}</span>
+            <span data-results-upgrade-state aria-hidden="true">
+              {upgrade.selected ? "Added" : "Add Meet & Greet"}
+            </span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  /**
+   * Desktop (1200px+) vehicle step: "View price breakdown" under the total in the navy summary.
+   * Lines come from the same fare breakdown as the quoted price (night/weekend adjustments stay
+   * inside the vehicle fare, as customerFacingFareBreakdown presents them). The vehicle fare is the
+   * remainder after the other lines, so the lines always add up to the total shown. Shown only
+   * when that breakdown is exactly the price on screen.
+   */
+  function renderDesktopResultsBreakdown() {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+    if (!openWebsiteFareBreakdown || testChargeAmount != null || appliedPersonalQuote) return null;
+    if (publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly) return null;
+    if (paymentAmount == null || !Number.isFinite(paymentAmount) || !mayPaintNumericFare || vehicleFareUpdating) return null;
+    const fare = customerFacingFareBreakdown(openWebsiteFareBreakdown);
+    if (Math.abs(fare.finalAmountPayableGbp - paymentAmount) >= 0.005) return null;
+    const pence = (value: number) => Math.round(value * 100) / 100;
+    const upgrades = desktopMeetGreetUpgrades().filter((upgrade) => upgrade.selected);
+    const access = pence(fare.airportAccessChargeGbp);
+    const fixed = pence(fare.airportFixedCostsGbp);
+    const returnSaving = pence(fare.returnJourneySavingGbp);
+    const offerSaving = pence(fare.returnOfferSavingGbp);
+    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving);
+    if (!(vehicleFare > 0)) return null;
+    const total = pence(paymentAmount + upgrades.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0));
+    const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
+    const rows: Array<[string, string]> = [
+      [fare.returnJourney ? `${vehicleName} fare, both journeys` : `${vehicleName} fare`, formatQuote(vehicleFare)],
+      ...(returnSaving > 0 ? [["5% return discount", `−${formatQuote(returnSaving)}`] as [string, string]] : []),
+      ...(offerSaving > 0 ? [[`Return saving (${fare.returnOfferDiscountPercentLabel})`, `−${formatQuote(offerSaving)}`] as [string, string]] : []),
+      ...(fixed > 0 ? [["Airport charges", `+${formatQuote(fixed)}`] as [string, string]] : []),
+      ...(access > 0 ? [["Airport access", `+${formatQuote(access)}`] as [string, string]] : []),
+      ...upgrades.map(
+        (upgrade) =>
+          [
+            `Meet & Greet · ${upgrade.airportName}${upgrade.legLabel ? ` (${upgrade.legLabel.toLowerCase()})` : ""}`,
+            `+${formatQuote(upgrade.feeGbp)}`,
+          ] as [string, string],
+      ),
+    ];
+    return (
+      <div className="hidden" data-results-breakdown data-open={desktopBreakdownOpen ? "true" : "false"}>
+        <button
+          type="button"
+          data-results-breakdown-toggle
+          aria-expanded={desktopBreakdownOpen}
+          aria-controls="desktop-results-breakdown"
+          onClick={() => {
+            const opening = !desktopBreakdownOpen;
+            setDesktopBreakdownOpen(opening);
+            // Short windows: keep Continue to booking on screen when the lines open above it.
+            if (opening && typeof window !== "undefined") {
+              // (scrollIntoView does nothing inside a sticky panel, so scroll the page by the overflow.)
+              window.setTimeout(() => {
+                const button = document.querySelector<HTMLElement>(":is(.homepage-hero, [data-hub-quote]) [data-quote-result-card] [data-quote-result-main-action] button");
+                if (!button) return;
+                const overflow = button.getBoundingClientRect().bottom - window.innerHeight + 16;
+                if (overflow > 0) window.scrollBy({ top: overflow, behavior: "smooth" });
+              }, 60);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && desktopBreakdownOpen) {
+              event.preventDefault();
+              setDesktopBreakdownOpen(false);
+            }
+          }}
+        >
+          {desktopBreakdownOpen ? "Hide price breakdown" : "View price breakdown"}
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" aria-hidden="true" focusable="false">
+            <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <div id="desktop-results-breakdown" role="region" aria-label="Price breakdown" hidden={!desktopBreakdownOpen} data-results-breakdown-panel>
+          <dl>
+            {rows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+            <div data-results-breakdown-total>
+              <dt>Total</dt>
+              <dd>{formatQuote(total)}</dd>
+            </div>
+          </dl>
+          <p>Night, weekend and bank holiday rates are included in the vehicle fare.</p>
+        </div>
+      </div>
+    );
+  }
+
+  /** Desktop (1200px+) vehicle step: quote actions under Continue in the navy summary. */
+  function renderDesktopResultsActions() {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+    const saveAvailable = saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled);
+    return (
+      <div className="hidden" data-results-secondary-actions>
+        <div data-results-secondary-row>
+          {saveAvailable ? (
+            <button
+              type="button"
+              data-results-email-quote
+              aria-haspopup="dialog"
+              onClick={() => handleSaveQuoteClick()}
+              disabled={isVehiclePersonalQuote}
+              title={isVehiclePersonalQuote ? "Available once your personalised price is confirmed." : undefined}
+            >
+              Email quote
+            </button>
+          ) : null}
+          <DesktopQuoteEnquiry className="desktop-results-link" journey={desktopEnquiryJourney()} />
+        </div>
+        {startNewQuotePlacement === "results" ? (
+          <button type="button" data-results-start-new aria-haspopup="dialog" onClick={() => setQuoteActionOpen("restart")}>
+            Start a new quote
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  /** Desktop (1200px+) price panel, when an upgrade is chosen: transfer + upgrades = total. */
+  function renderDesktopResultsTotal() {
+    const chosen = desktopMeetGreetUpgrades().filter((upgrade) => upgrade.selected);
+    if (!chosen.length || paymentAmount == null) return null;
+    const total = Math.round((paymentAmount + chosen.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100;
+    const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
+    return (
+      <div className="hidden" data-results-upgrade-lines aria-live="polite">
+        <p>
+          <span>{vehicleName} transfer</span>
+          <span>{formatQuote(paymentAmount)}</span>
+        </p>
+        {chosen.map((upgrade) => (
+          <p key={upgrade.key} data-results-upgrade-line>
+            <span>
+              Meet &amp; Greet · {upgrade.airportName}
+              {upgrade.legLabel ? ` (${upgrade.legLabel.toLowerCase()})` : ""}
+            </span>
+            <span>{formatQuote(upgrade.feeGbp)}</span>
+          </p>
+        ))}
+        <p data-results-upgrade-total>
+          <span>Your current total</span>
+          <strong>{formatQuote(total)}</strong>
+        </p>
+      </div>
+    );
+  }
+
+  /** Desktop (1200px+) price panel: flight monitoring reassurance for airport pickups. */
+  function renderDesktopResultsFlight() {
+    if (presentation !== "homepage") return null;
+    const pickups = listAirportPickupLegs({
+      airportCode: effectiveAirportCode || null,
+      fromAirport: isFromAirport,
+      returnJourney,
+      isAirportToAirport: isAirportToAirportJourney,
+      pickupAirportCode,
+      dropoffAirportCode,
+    });
+    if (!pickups.length) return null;
+    return (
+      <p className="hidden" data-results-flight>
+        <strong>Flight monitoring included</strong>
+        <span>Add your flight number at the next step so we can track your arrival.</span>
+      </p>
+    );
+  }
+
+  /** Desktop (1200px+) price panel: what the fare includes (published policy wording). */
+  function renderDesktopResultsIncluded() {
+    if (presentation !== "homepage") return null;
+    const requestOnly = publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly;
+    const airportPickup = checkoutTimeLabel("outbound") !== "Pickup time";
+    return (
+      <ul className="hidden" data-results-included>
+        {requestOnly ? null : <li>Fixed price, confirmed before you pay</li>}
+        <li>
+          {airportPickup
+            ? "Up to 60 minutes’ complimentary waiting from your flight’s actual landing time"
+            : "Up to 10 minutes’ complimentary waiting at pickup"}
+        </li>
+        <li>Free cancellation up to 24 hours before pickup</li>
+      </ul>
+    );
+  }
+
+  /**
+   * Desktop (1200px+) vehicle list: the fare beside each vehicle. Display only.
+   * - Selected vehicle: exactly the amount in the price panel.
+   * - Other vehicles: the Worker fare already fetched for them (the existing parallel
+   *   request), run through the same fare breakdown as the price panel. No extra requests.
+   * Safety check: the selected vehicle is re-derived the same way; if that does not match
+   * the panel to the penny, other vehicles show no price (the customer selects to see it).
+   * Request-only vehicles never get a price here.
+   */
+  function desktopVehiclePriceLabels(): Partial<Record<string, string>> {
+    if (presentation !== "homepage" || quoteStep !== 1 || passengers == null || suitcases == null) return {};
+    const labels: Partial<Record<string, string>> = {};
+    const requestOnly = (vehicleType: string) => publicVehicleRequiresPersonalQuote(vehicleType, publicPricing);
+    if (
+      requestOnly(quoteVehicle) ||
+      isEnquiryOnly ||
+      paymentAmount == null ||
+      !Number.isFinite(paymentAmount) ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating ||
+      authoritativeQuoteFailed
+    ) {
+      return labels;
+    }
+    labels[quoteVehicle] = formatQuote(paymentAmount);
+    if (
+      !openWebsiteFareBreakdown ||
+      testChargeAmount != null ||
+      bookingMeetGreetCharge !== 0 ||
+      isExecutiveVehicle(quoteVehicle) ||
+      transferPaymentAmount == null
+    ) {
+      return labels;
+    }
+    const requestedPassengers: number = effectivePassengers ?? passengers;
+    const suitcaseCount: number = suitcases;
+    const transferTotal: number = transferPaymentAmount;
+    const keyFor = (vehicleType: string) =>
+      quoteFareRequestKey({
+        pickup: pickupAddress.trim(),
+        dropoff: dropoffAddress.trim(),
+        passengers: requestedPassengers,
+        suitcases: suitcaseCount,
+        vehicle: vehicleType,
+        outboundDate: tripDate.trim(),
+        outboundTime: tripTime.trim(),
+        returnJourney,
+        returnDate,
+        returnTime,
+      });
+    const totalFor = (vehicleType: string): number | null => {
+      const parts = authoritativeFareCacheRef.current.get(keyFor(vehicleType));
+      if (!parts || parts.vehicleType !== vehicleType) return null;
+      return desktopWebsiteTotalFromParts(vehicleType, parts);
+    };
+    const selectedCheck = totalFor(quoteVehicle);
+    if (selectedCheck == null || Math.abs(selectedCheck - transferTotal) >= 0.005) {
+      return labels;
+    }
+    const paxNow = effectivePartyPassengers(passengers, passengerLimit) ?? (passengers >= 1 ? passengers : null);
+    if (paxNow == null) return labels;
+    for (const vehicleType of suitableVehicleTypesForParty(paxNow, suitcases, {
+      publicMinibusEnabled,
+      publicExecutiveEnabled,
+    })) {
+      if (vehicleType === quoteVehicle || requestOnly(vehicleType) || isExecutiveVehicle(vehicleType)) continue;
+      const total = totalFor(vehicleType);
+      if (total != null) labels[vehicleType] = formatQuote(total);
+    }
+    return labels;
+  }
+
+  /** Same website fare composition the selected vehicle's price uses, from journey/fixed/surcharge parts. */
+  function desktopWebsiteTotalFromParts(
+    vehicleType: string,
+    parts: { journeyFareGbp: number; airportFixedCostsGbp: number; nightWeekendSurchargeGbp?: number | null; preserveBfsMinimumPence?: boolean | null },
+  ): number | null {
+    const applyReturnOffer =
+      Boolean(returnOfferToken) && !returnJourney && isReturnOfferAirportJourney(pickupAddress, dropoffAddress);
+    const breakdown = buildOpenWebsiteFareBreakdown({
+        preserveFixedFarePence:
+          Boolean(parts.preserveBfsMinimumPence) ||
+          postcodeFareHasPence({
+            enabled: publicPricing.postcodePricingEnabled,
+            rules: publicPricing.postcodeRules,
+            context: {
+              address: isFromAirport ? dropoffAddress : pickupAddress,
+              airportCode: effectiveAirportCode,
+              fromAirport: isFromAirport,
+            },
+            vehicle: vehicleType,
+            estateSupplement: publicPricing.estate.upliftGbp,
+            returnJourney,
+          }),
+        journeyFareBeforeAirportAccessGbp: parts.journeyFareGbp,
+        airportFixedCostsGbp:
+          airportFeeResolution.lines.length > 0 ? airportFeeResolution.totalAppliedGbp : parts.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: parts.nightWeekendSurchargeGbp ?? 0,
+        nightWeekendSurchargeLabel: configuredSurchargeLabel,
+        nightWeekendSurchargeExplanation: configuredSurchargeExplanation,
+        airportAccessChargeGbp: airportAccessQuote.airportAccessChargeGbp,
+        outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
+        returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
+        returnJourney,
+        ...(applyReturnOffer ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate } : {}),
+      });
+    const total = breakdown?.finalAmountPayableGbp;
+    return typeof total === "number" && Number.isFinite(total) ? total : null;
+  }
+
+  /** On-device estimate parts for a vehicle (existing shared calculators), shaped like the Worker parts. */
+  function desktopEstimateParts(vehicleType: typeof quoteVehicle) {
+    const estimate = estimateFareFor(vehicleType);
+    if (!estimate || typeof estimate.amount !== "number" || !Number.isFinite(estimate.amount)) return null;
+    const fixed =
+      typeof estimate.airportFixedCostsGbp === "number" && Number.isFinite(estimate.airportFixedCostsGbp)
+        ? Math.max(0, Math.round(estimate.airportFixedCostsGbp * 100) / 100)
+        : 0;
+    const journey =
+      typeof estimate.journeyFareGbp === "number" && Number.isFinite(estimate.journeyFareGbp)
+        ? Math.max(0, Math.round(estimate.journeyFareGbp * 100) / 100)
+        : Math.max(0, Math.round((estimate.amount - fixed) * 100) / 100);
+    const surcharge =
+      typeof estimate.nightWeekendSurchargeGbp === "number" && Number.isFinite(estimate.nightWeekendSurchargeGbp)
+        ? Math.max(0, Math.round(estimate.nightWeekendSurchargeGbp * 100) / 100)
+        : 0;
+    return {
+      journeyFareGbp: journey,
+      airportFixedCostsGbp: fixed,
+      nightWeekendSurchargeGbp: surcharge,
+      preserveBfsMinimumPence: Boolean(estimate.preserveBfsMinimumPence),
+    };
+  }
+
+  /**
+   * Desktop (1200px+): when the owner has made the 7 Seater request-only, its row shows the
+   * on-device estimate for this journey (existing shared formulas) as an indicative starting price, subject to
+   * availability, with Request a quote. Nothing is shown when no estimate is available.
+   */
+  function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
+    if (presentation !== "homepage" || quoteStep !== 1 || testChargeAmount != null) return {};
+    if (!publicVehicleRequiresPersonalQuote(MINIBUS_VEHICLE_TYPE, publicPricing)) return {};
+    if (
+      !openWebsiteFareBreakdown ||
+      !mayPaintNumericFare ||
+      vehicleFareUpdating ||
+      transferPaymentAmount == null ||
+      !Number.isFinite(transferPaymentAmount) ||
+      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
+      isExecutiveVehicle(quoteVehicle)
+    ) {
+      return {};
+    }
+    // Self-check: the same estimate method must reproduce the selected vehicle's real quoted price.
+    const selectedParts = desktopEstimateParts(quoteVehicle);
+    const selectedTotal = selectedParts ? desktopWebsiteTotalFromParts(quoteVehicle, selectedParts) : null;
+    if (selectedTotal == null || Math.abs(selectedTotal - transferPaymentAmount) >= 0.005) return {};
+    const minibusParts = desktopEstimateParts(MINIBUS_VEHICLE_TYPE);
+    const amount = minibusParts ? desktopWebsiteTotalFromParts(MINIBUS_VEHICLE_TYPE, minibusParts) : null;
+    return amount != null && Number.isFinite(amount) && amount > 0
+      ? { [MINIBUS_VEHICLE_TYPE]: formatQuote(amount) }
+      : {};
+  }
+
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) {
       return null;
@@ -7790,6 +8669,8 @@ function QuoteCard({
         publicExecutiveEnabled={publicExecutiveEnabled}
         requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
+        desktopPrices={desktopVehiclePriceLabels()}
+        desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
     );
   }
@@ -7803,6 +8684,9 @@ function QuoteCard({
       return (
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
+          desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
+            desktopBreakdown={renderDesktopResultsBreakdown()}
+            desktopActions={renderDesktopResultsActions()}
           vehicleType={quoteVehicle}
           passengers={effectivePassengers as number}
           suitcases={suitcases as number}
@@ -7882,10 +8766,14 @@ function QuoteCard({
       <>
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
+        desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
+            desktopBreakdown={renderDesktopResultsBreakdown()}
+            desktopActions={renderDesktopResultsActions()}
         vehicleType={quoteVehicle}
         passengers={effectivePassengers as number}
         suitcases={suitcases as number}
         priceLabel={effectiveAirportCode ? "Your fixed airport transfer price" : "Your fixed transfer price"}
+        desktopPriceLabel={presentation === "homepage" && quoteStep === 1 ? "Your current total" : undefined}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
         surchargeNote={null}
@@ -8024,6 +8912,19 @@ function QuoteCard({
     );
   }
 
+  /** Quote details included in an email enquiry (same text wherever the enquiry is opened). */
+  function desktopEnquiryJourney() {
+    return [
+      `Journey: ${pickupAddress.trim()} → ${dropoffAddress.trim()}`,
+      `Vehicle: ${vehicleShortLabel(quoteVehicle)}`,
+      `Party: ${effectivePassengers ?? "Not selected"} passengers · ${suitcases ?? "Not selected"} suitcases`,
+      `Journey type: ${returnJourney ? "Return (5% journey-fare discount where applicable)" : "One way"}`,
+      `Quoted fare: ${isVehiclePersonalQuote ? "On request" : authoritativeFareReady && pricedFare ? formatQuote(pricedFare.totalGbp) : "Awaiting confirmed quote"}`,
+      tripDate || tripTime ? `Pickup date/time: ${tripDate || "Not set"} ${tripTime || "Not set"}` : "Pickup date/time: added at booking stage; not yet booked.",
+      ...(returnJourney ? [`Return date/time: ${returnDate || "Not set"} ${returnTime || "Not set"}`] : []),
+    ].join("\n");
+  }
+
   function renderQuoteResultFollowOn(routeMap: ReactNode) {
     const mapsHref = quoteDirectionsHref();
     return (
@@ -8077,15 +8978,7 @@ function QuoteCard({
               <QuoteResultActionIcon name="whatsapp" className="h-[1.15rem] w-[1.15rem] text-[#25D366]" />
               <span>WhatsApp</span>
             </button>
-            <DesktopQuoteEnquiry className={QUOTE_RESULT_ACTION_CLASS} journey={[
-              `Journey: ${pickupAddress.trim()} → ${dropoffAddress.trim()}`,
-              `Vehicle: ${vehicleShortLabel(quoteVehicle)}`,
-              `Party: ${effectivePassengers ?? "Not selected"} passengers · ${suitcases ?? "Not selected"} suitcases`,
-              `Journey type: ${returnJourney ? "Return (5% journey-fare discount where applicable)" : "One way"}`,
-              `Quoted fare: ${isVehiclePersonalQuote ? "On request" : authoritativeFareReady && pricedFare ? formatQuote(pricedFare.totalGbp) : "Awaiting confirmed quote"}`,
-              tripDate || tripTime ? `Pickup date/time: ${tripDate || "Not set"} ${tripTime || "Not set"}` : "Pickup date/time: added at booking stage; not yet booked.",
-              ...(returnJourney ? [`Return date/time: ${returnDate || "Not set"} ${returnTime || "Not set"}`] : []),
-            ].join("\n")} />
+            <DesktopQuoteEnquiry className={QUOTE_RESULT_ACTION_CLASS} journey={desktopEnquiryJourney()} />
           </div>
           {renderBookingErrorHelp("step1-actions")}
           {saveQuotePrompt ? (
@@ -8213,6 +9106,7 @@ function QuoteCard({
       ref={cardRef}
       data-quote-presentation={presentation}
       data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
+      data-desktop-journey-editing={desktopJourneyEditing && quoteResultsReady && quoteStep === 1 ? "true" : undefined}
       className={
         presentation === "homepage"
           ? "quote-flow glass-card min-w-0 rounded-[1.1rem] px-3 py-2.5 sm:rounded-[1.35rem] sm:p-7 lg:p-6 xl:p-7"
@@ -8335,6 +9229,46 @@ function QuoteCard({
         </ol>
         ) : null}
         {quoteStep >= 2 ? renderBackToQuoteButton("top") : null}
+        {quoteStep === 1 && presentation === "homepage" && quoteResultsReady ? (
+          /* Desktop (1200px+) vehicle step header only — hidden below 1200px. */
+          <div className="hidden" data-results-desktop-bar>
+            <ol data-checkout-progress aria-label="Booking progress">
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="current" aria-current="step">
+                <span aria-hidden="true">2</span> Vehicle
+              </li>
+              <li data-checkout-progress-step="next">
+                <span aria-hidden="true">3</span> Details &amp; payment
+              </li>
+            </ol>
+            <p data-results-desktop-phone>028 9602 2952</p>
+            <p data-results-desktop-title>Choose your vehicle</p>
+            <p data-results-desktop-subtitle>Fixed prices, confirmed before you pay.</p>
+          </div>
+        ) : null}
+        {quoteStep >= 2 && presentation === "homepage" ? (
+          /* Desktop (1200px+) checkout header only — hidden below 1200px. */
+          <div className="hidden" data-checkout-desktop-bar>
+            <ol data-checkout-progress aria-label="Booking progress">
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="done">
+                <span aria-hidden="true">✓</span> Vehicle<span className="sr-only"> (completed)</span>
+              </li>
+              <li data-checkout-progress-step="current" aria-current="step">
+                <span aria-hidden="true">3</span> Details &amp; payment
+              </li>
+            </ol>
+            <p data-checkout-secure>Secure booking</p>
+            <p data-checkout-desktop-subtitle>
+              {returnJourney ? "Return transfer" : "One-way transfer"} ·{" "}
+              {(pickupLabel || "Pickup").split(",")[0]} {returnJourney ? "⇄" : "→"} {(dropoffLabel || "Destination").split(",")[0]}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <form
@@ -8454,6 +9388,7 @@ function QuoteCard({
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
+                pickupNeedsHouseNumber={isIncompletePickupAddress}
                 scheduleFields={renderQuoteScheduleFields("quote", true)}
                 scheduleComplete={isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
@@ -8578,6 +9513,11 @@ function QuoteCard({
             {presentation === "homepage" &&
             !(isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
+              data-incomplete-address-banner={
+                (isIncompletePickupAddress || isIncompleteDropoffAddress) && !isOutOfAreaPickupJourney && !isRoiJourney
+                  ? "true"
+                  : undefined
+              }
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
                 isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney
                   ? "grid-rows-[1fr]"
@@ -8667,7 +9607,9 @@ function QuoteCard({
                         data-homepage-journey-summary
                       >
                         <p className="font-semibold leading-snug">
-                          {pickupLabel || "Pickup"} → {dropoffLabel || "Drop-off"}
+                          <span data-journey-from>{pickupLabel || "Pickup"}</span>{" "}
+                          <span data-journey-arrow aria-hidden="true">→</span>{" "}
+                          <span data-journey-to>{dropoffLabel || "Drop-off"}</span>
                         </p>
                         {returnJourney ? (
                           <p className="mt-1 text-xs font-medium text-emerald">
@@ -8686,9 +9628,37 @@ function QuoteCard({
                             ? "5+ suitcases"
                             : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
                         </p>
+                        {/* Desktop (1200px+) only: journey type, dates and times from the
+                            current quote, so the customer can check them before booking. */}
+                        <div className="hidden" data-journey-schedule>
+                          <span data-journey-type>{returnJourney ? "Return" : "One way"}</span>
+                          <span data-journey-when>
+                            <JourneySummaryIcon name="calendar" />
+                            <span data-journey-when-label>{returnJourney ? "Outbound" : "Pickup"}</span>
+                            <strong>{journeySummaryDate(tripDate)}</strong>
+                            <JourneySummaryIcon name="clock" />
+                            <span data-journey-when-label>
+                              {checkoutTimeLabel("outbound") === "Pickup time" ? "at" : "flight lands"}
+                            </span>
+                            <strong>{tripTime ? tripTime.slice(0, 5) : "—"}</strong>
+                          </span>
+                          {returnJourney ? (
+                            <span data-journey-when>
+                              <JourneySummaryIcon name="return" />
+                              <span data-journey-when-label>Return</span>
+                              <strong>{journeySummaryDate(returnDate)}</strong>
+                              <JourneySummaryIcon name="clock" />
+                              <span data-journey-when-label>
+                                {checkoutTimeLabel("return") === "Pickup time" ? "at" : "flight lands"}
+                              </span>
+                              <strong>{returnTime ? returnTime.slice(0, 5) : "—"}</strong>
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}
+                    {renderDesktopMeetGreetUpgrades()}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown
