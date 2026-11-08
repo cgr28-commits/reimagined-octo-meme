@@ -4691,3 +4691,14 @@ body:has(.cookie-consent-banner--modal) {
   :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote] { color: #1a7f2e !important; }
   :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote]:hover { color: #071c38 !important; }
 }
+
+/* LIGHT DESIGN SYSTEM: desktop navigation spacing. Same links and destinations;
+   a little more air between the logo and the first link, slightly brighter link text. */
+@media (min-width: 1200px) {
+  header[data-site-header] nav[class*="lg:gap-5"] { gap: 1.5rem !important; margin-inline: 2rem 1.25rem; }
+  header[data-site-header] nav[class*="lg:gap-5"] > a[class*="text-white/70"] { color: rgba(255, 255, 255, 0.84) !important; letter-spacing: 0.005em; }
+  header[data-site-header] nav[class*="lg:gap-5"] > a[class*="text-white/70"]:hover { color: #2fbf4a !important; }
+}
+@media (min-width: 1400px) {
+  header[data-site-header] nav[class*="lg:gap-5"] { gap: 1.85rem !important; }
+}
