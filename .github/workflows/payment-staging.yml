@@ -131,4 +131,14 @@ jobs:
         run: |
           set -euo pipefail
           npx wrangler deploy -c wrangler.payment-staging.toml
+          # Mirror the live public tariff into staging storage (read-only on live) so test quotes
+          # match the real website. Staging never writes to the live Worker.
+          if curl -fsS https://reimagined-octo-meme.cgr28.workers.dev/pricing/public -o /tmp/live-pricing.json \
+             && node -e 'const j=require("/tmp/live-pricing.json"); if(!j.ok||!j.config||!j.config.saloon) process.exit(1); require("fs").writeFileSync("/tmp/pricing-settings.json", JSON.stringify(j.config));'; then
+            KV_ID=$(grep -A2 'binding = "TRACKING_STORE"' wrangler.payment-staging.toml | grep -o '[0-9a-f]\{32\}' | head -1)
+            npx wrangler kv key put --namespace-id "$KV_ID" --remote "owner:pricing-settings" --path /tmp/pricing-settings.json
+            echo "::notice::Staging pricing mirrored from the live public tariff"
+          else
+            echo "::warning::Could not mirror live pricing; staging keeps default prices"
+          fi
           echo "::notice::Staging test site: $WORKER   Stripe webhook endpoint: $WORKER/payments/stripe-webhook"
