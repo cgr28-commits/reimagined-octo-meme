@@ -4630,12 +4630,12 @@ body:has(.cookie-consent-banner--modal) {
   body:has([data-landing-quote]) main :is(h1, h2, h3, h4):not([data-landing-hero] *):not([data-hub-quote] *) { color: #071c38 !important; }
   body:has([data-landing-quote]) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #071c38 !important; }
   body:has([data-landing-quote]) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *):not([data-hub-quote] *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
-  body:has([data-landing-quote]) main .text-emerald:not([data-landing-hero] *):not([data-hub-quote] *) { color: #1f9a36 !important; }
+  body:has([data-landing-quote]) main .text-emerald:not([data-landing-hero] *):not([data-hub-quote] *) { color: #1a7f2e !important; }
   body:has([data-landing-quote]) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *):not([data-hub-quote] *) {
     background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 12px 28px -22px rgba(7, 28, 56, 0.3);
   }
   body:has([data-landing-quote]) main [class*="border-white/"]:not([data-landing-hero] *):not([data-hub-quote] *) { border-color: #dde4ec !important; }
-  body:has([data-landing-quote]) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #1f9a36 !important; }
+  body:has([data-landing-quote]) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #1a7f2e !important; }
   body:has([data-landing-quote]) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #2fbf4a !important; }
   /* The airport photo banner stays a navy/photo band with white text. */
 
@@ -4667,6 +4667,14 @@ body:has(.cookie-consent-banner--modal) {
    (#1A7F2E, about 5:1) so links and eyebrow labels pass WCAG AA; large headings keep #1F9A36. */
 @media (min-width: 1200px) {
   body:has([data-landing-quote]) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
-  body:has([data-landing-quote]) main [class*="bg-emerald/"]:not([data-landing-hero] *) { color: #17692a !important; }
+  body:has([data-landing-quote]) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *):not([data-hub-quote] *) { color: #17692a !important; }
   body:has([data-landing-quote]) main .text-amber-300:not([data-landing-hero] *) { color: #c98a00 !important; }
+}
+
+/* Field labels carry a Tailwind !important utility (layered). An !important rule in an
+   earlier layer wins over a later one, so the light-card label colour lives in @layer base. */
+@layer base {
+  @media (min-width: 1200px) {
+    :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow label.form-label { color: #33445a !important; }
+  }
 }
