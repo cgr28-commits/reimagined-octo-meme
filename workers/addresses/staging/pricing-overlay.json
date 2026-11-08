@@ -1,0 +1,18 @@
+{
+  "_note": "Staging only. Owner-only pricing settings that the live public tariff does not expose, copied read-only from the live Owner Dashboard on 8 Nov 2026. Update this file if these settings change on live.",
+  "profitability": {
+    "targetHourlyEarningsGbp": 40,
+    "minimumSaloonOneWayGbp": 35,
+    "dieselPricePerLitreGbp": 2,
+    "vehicleMpg": null,
+    "wearAllowancePerMileGbp": 0.1,
+    "positioningChargeEnabled": true,
+    "positioningFreeMiles": 4,
+    "positioningRatePerMileGbp": 0.8,
+    "positioningA2aEnabled": true,
+    "positioningA2aFreeMiles": 30,
+    "positioningA2aRatePerMileGbp": 0.25
+  },
+  "bankHoliday": { "sharesWeekendSurcharge": true, "daytimeExtraSurcharge": false },
+  "meetGreetEmail": { "enabled": { "BFS": false, "BHD": false, "DUB": false } }
+}
