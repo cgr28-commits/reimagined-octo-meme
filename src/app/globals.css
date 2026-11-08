@@ -5205,3 +5205,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @media (min-width: 1280px) {
   header[data-site-header] nav[class*="lg:gap-5"] { gap: 1.1rem !important; }
 }
+@media (min-width: 1200px) {
+  /* Station page section headings use Manrope, like every other light page. */
+  [class*="station_page"] :is([class*="station_section"], [data-landing-quote-header]) :is(h2, h3) { font-family: var(--font-sans), system-ui, sans-serif !important; letter-spacing: -0.025em !important; }
+}
