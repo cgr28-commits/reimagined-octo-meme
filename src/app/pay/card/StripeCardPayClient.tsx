@@ -187,6 +187,9 @@ export default function StripeCardPayClient() {
         // Desktop (1200px+): white payment card, so Stripe's fields use a light theme to match.
         // Mobile and tablet keep the original dark theme. Appearance only — same session and methods.
         const desktopCard = window.matchMedia("(min-width: 1200px)").matches;
+        // Light mobile design preview (?mobile=light on staging): light Stripe theme, 16px text
+        // so iPhone Safari does not zoom into the card fields.
+        const lightMobileCard = !desktopCard && document.documentElement.hasAttribute("data-mobile-light");
         const darkAppearance = {
           theme: "night",
           variables: {
@@ -242,7 +245,11 @@ export default function StripeCardPayClient() {
           elementsOptions: {
             // Site branding (src/app/globals.css): navy + emerald, Manrope.
             fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" }],
-            appearance: desktopCard ? lightAppearance : darkAppearance,
+            appearance: desktopCard
+              ? lightAppearance
+              : lightMobileCard
+                ? { ...lightAppearance, variables: { ...lightAppearance.variables, fontSizeBase: "16px", spacingUnit: "3px" } }
+                : darkAppearance,
           },
         });
         checkoutRef.current = checkout;
@@ -253,7 +260,7 @@ export default function StripeCardPayClient() {
           // "always" shows the button even before the customer has a saved card,
           // and Apple Pay on non-Safari browsers uses Apple's QR-code flow.
           paymentMethods: { applePay: "always", googlePay: "always" },
-          buttonTheme: desktopCard ? { applePay: "black", googlePay: "black" } : { applePay: "white-outline", googlePay: "white" },
+          buttonTheme: desktopCard || lightMobileCard ? { applePay: "black", googlePay: "black" } : { applePay: "white-outline", googlePay: "white" },
           layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
         });
         express.on("ready", (event) => {

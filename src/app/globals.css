@@ -5555,3 +5555,77 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] main :is(button, summary, label, a).text-emerald:not(.bg-emerald):not(.btn-primary) { color: #1a7f2e !important; }
 }
 }
+
+/* Light mobile design (preview): the standalone customer screens reuse the desktop colour rules
+   below 1200px when ?mobile=light is on. The page keeps its own logo, swapped to the light version. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-light] {
+    body:has(main[data-customer-standalone]) { background: #f4f7fa !important; }
+    main[data-customer-standalone] { background: #f4f7fa !important; color: #33445a !important; }
+    /* The brand bar carries the logo, so the page's own top logo steps aside (in-card logos swap to
+       the official light-background logo instead). */
+    main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
+    main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
+    /* Decorative glows and dark gradient layers. */
+    main[data-customer-standalone] > div.absolute.inset-0,
+    main[data-customer-standalone] > div.pointer-events-none.absolute { display: none !important; }
+
+    /* Text. */
+    main[data-customer-standalone] :is(h1, h2, h3, h4) { color: #071c38 !important; font-family: var(--font-sans), system-ui, sans-serif !important; letter-spacing: -0.02em; }
+    main[data-customer-standalone] :is(.text-white, [class*="text-white/"], [class*="text-mist"], .text-slate-200, .text-slate-300):not(h1, h2, h3, h4):not(:is(button, a)[class*="bg-emerald"], :is(button, a)[class*="bg-emerald"] *, .btn-primary, .btn-primary *, [class*="bg-[#25D366]"], [class*="bg-[#25D366]"] *, [data-stripe-pay] *) { color: #33445a !important; }
+    main[data-customer-standalone] :is(strong, b, dt, label, summary) { color: #071c38 !important; }
+    main[data-customer-standalone] :is(.text-emerald, [class*="text-emerald/"], .text-emerald-light, .text-emerald-dark):not([class*="bg-emerald"]):not(h1, h2) { color: #1a7f2e !important; }
+    main[data-customer-standalone] :is(.text-amber-200, .text-amber-300, .text-yellow-200, .text-yellow-300) { color: #8a5a00 !important; }
+    main[data-customer-standalone] :is(.text-red-200, .text-red-300, .text-red-400) { color: #c62828 !important; }
+
+    /* Cards and panels: white, subtle border, soft shadow. */
+    main[data-customer-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-light/"], [class*="bg-[#0b"], [class*="bg-[#071c38]"]):not([data-stripe-pay]) {
+      background-color: #ffffff !important; border-color: #dde4ec !important;
+      box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 40px -30px rgba(7, 28, 56, 0.4);
+    }
+    /* Cards inside cards stay flat and pale, so the hierarchy reads. */
+    main[data-customer-standalone] :is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, [class*="bg-navy/"]) :is(section, div, li, details, p, span):is([class*="bg-white/"], .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-light/"]) {
+      background-color: #f7f9fc !important; box-shadow: none !important;
+    }
+    main[data-customer-standalone] [class*="border-white/"] { border-color: #dde4ec !important; }
+    main[data-customer-standalone] :is(hr, [class*="divide-white/"] > *) { border-color: #e3e9f0 !important; }
+    main[data-customer-standalone] [class*="bg-emerald/"]:not(button):not(a) { background-color: #eaf7ed !important; border-color: #bfe5c7 !important; }
+    main[data-customer-standalone] [class*="bg-amber-"]:not(button):not(a) { background-color: #fff7e6 !important; border-color: #f3d9a4 !important; }
+    main[data-customer-standalone] [class*="bg-red-"]:not(button):not(a) { background-color: #fef2f2 !important; border-color: #fecaca !important; }
+
+    /* Form fields: light grey, navy text, emerald focus. */
+    main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+      background-color: #f4f6fa !important; border: 1px solid #cfd8e3 !important; color: #071c38 !important; -webkit-text-fill-color: #071c38;
+    }
+    main[data-customer-standalone] :is(input, select, textarea)::placeholder { color: #7a8799 !important; -webkit-text-fill-color: #7a8799; }
+    main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+      border-color: #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.22) !important; outline: none !important; background-color: #fff !important;
+    }
+    main[data-customer-standalone] :is(input[type="checkbox"], input[type="radio"]) { accent-color: #2fbf4a; }
+
+    /* Buttons: emerald with navy text; secondary white with a navy outline. */
+    main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) {
+      background-color: #2fbf4a !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; box-shadow: none !important;
+    }
+    main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) * { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+    main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) { background-color: #29ab42 !important; }
+    main[data-customer-standalone] :is(.btn-secondary, :is(a, button)[class*="border-white/"]:not([class*="bg-emerald"])) {
+      background-color: #ffffff !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; border: 1.5px solid rgba(7, 28, 56, 0.3) !important;
+    }
+    main[data-customer-standalone] :is(.btn-secondary, :is(a, button)[class*="border-white/"]:not([class*="bg-emerald"])):hover { border-color: #071c38 !important; background-color: #f4f7fa !important; }
+    main[data-customer-standalone] :is(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid #2fbf4a !important; outline-offset: 2px; }
+    main[data-customer-standalone] a:not([class*="bg-"]):not([class*="border"]):is(.underline, [class*="text-emerald"], [class*="hover:text-emerald"]) { color: #1a7f2e !important; }
+
+    /* Secure card payment: page off-white; the existing white card and Stripe's light fields stay;
+       the Pay button follows the site's emerald with navy text. */
+    main[data-customer-standalone][data-focused-payment] { background: #f4f7fa !important; }
+    main[data-focused-payment] [data-stripe-pay] { border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 30px 60px -36px rgba(7, 28, 56, 0.45) !important; }
+    main[data-focused-payment] [data-stripe-pay] .btn-primary { background-color: #2fbf4a !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+    main[data-focused-payment] [data-stripe-pay] .btn-primary:hover:not(:disabled) { background-color: #29ab42 !important; }
+    main[data-focused-payment] [data-stripe-pay] .btn-primary:disabled { background-color: #2fbf4a !important; opacity: 0.65; }
+
+      main[data-customer-standalone] img[src*="logo-header"], main[data-customer-standalone] img[src*="logo.png"] { filter: none; }
+    }
+  }
+}
