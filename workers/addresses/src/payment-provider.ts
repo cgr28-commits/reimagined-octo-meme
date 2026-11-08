@@ -52,6 +52,8 @@ export function stripeActiveFor(env: PaymentProviderEnv, customerEmail?: string 
       .split(",")
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
+    // "*" (staging only, where the keys are sandbox keys): every test booking pays through Stripe.
+    if (allowed.includes("*")) return true;
     return Boolean(email) && allowed.includes(email);
   }
   return false;
