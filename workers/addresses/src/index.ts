@@ -1,3 +1,4 @@
+import { isStagingInnerRequest, stagingGuardActive, stagingGuardFetch } from "./staging-guard";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -685,6 +686,10 @@ type Env = {
   SITE_ORIGIN?: string;
   /** Payment staging Worker only: the test site's own address. Never set on the live Worker. */
   STAGING_SITE_ORIGIN?: string;
+  /** Payment staging Worker only: SHA-256 of the private access key (see staging-guard.ts). */
+  STAGING_ACCESS_KEY_SHA256?: string;
+  /** Payment staging Worker only: the test website files. */
+  ASSETS?: { fetch(request: Request): Promise<Response> };
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
@@ -4701,6 +4706,10 @@ async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
 
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    // Payment staging Worker only: private access, noindex and TEST MODE labelling.
+    if (stagingGuardActive(env) && !isStagingInnerRequest(request)) {
+      return stagingGuardFetch(request, env, (inner) => this.fetch(inner, env, ctx));
+    }
     configureStripe(env);
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);

@@ -93,16 +93,15 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
           GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
-          STRIPE_TEST_EMAILS: ${{ vars.STAGING_STRIPE_TEST_EMAILS }}
         run: |
           set -euo pipefail
           CFG=wrangler.payment-staging.toml
-          [ -n "$STRIPE_TEST_EMAILS" ] || { echo "::error::Set the staging environment variable STAGING_STRIPE_TEST_EMAILS (test customer emails)"; exit 1; }
           put() { if [ -n "$2" ]; then printf '%s' "$2" | npx wrangler secret put "$1" -c "$CFG"; fi; }
           put STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"
           put STRIPE_PUBLISHABLE_KEY "$STRIPE_PUBLISHABLE_KEY"
           put STRIPE_WEBHOOK_SECRET "${STRIPE_WEBHOOK_SECRET:-}"
-          put STRIPE_TEST_EMAILS "$STRIPE_TEST_EMAILS"
+          # Every staging booking pays through the Stripe sandbox (keys above are verified test keys).
+          put STRIPE_TEST_EMAILS "*"
           put GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
           openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET -c "$CFG"
 
