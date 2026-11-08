@@ -67,7 +67,7 @@ export default function Footer() {
                   My Bookings
                 </Link>
               </li>
-              <li><Link href="/belfast-grand-central-station-taxi/" className="inline-flex min-h-11 items-center text-sm text-white/70 hover:text-emerald">Grand Central Station taxis</Link></li>
+              <li><Link href="/belfast-grand-central-station-taxi/" className="text-sm text-white/50 transition-colors hover:text-emerald">Grand Central Station taxis</Link></li>
               <li>
                 <Link
                   href="/belfast-cruise-terminal-transfers/"

@@ -80,8 +80,8 @@ export default function VehiclesSection() {
           navId="vehicles"
           description={
             minibusOn
-              ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or 7 Seater Minibus when it suits your passengers and luggage."
-              : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class and a 7 Seater Minibus when available. Enter your passengers and luggage to see the vehicles offered for your journey."
+              ? "Professional private airport transfer. Choose a Saloon, Estate or similar larger vehicle, Business Class, or a 7-seater when it suits your passengers and luggage."
+              : "Saloon and Estate airport transfers for up to 4 passengers, plus Business Class and a 7-seater when available. Enter your passengers and luggage to see the vehicles offered for your journey."
           }
         />
 
@@ -175,19 +175,20 @@ export default function VehiclesSection() {
                 <p className="mt-1 text-xl font-bold text-white">Saloon, Estate &amp; Business Class</p>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
                   Instant quote where eligible. You choose among the vehicles that suit your
-                  passengers and luggage. Business Class is a premium executive vehicle you can
-                  select and pay for online when it is available. Airport pickups in Business Class
+                  passengers and luggage. Business Class is a premium executive vehicle, available on
+                  request and subject to confirmation. Airport pickups in Business Class
                   include Meet &amp; Greet, a name board, luggage assistance, barrier and parking,
                   bottled water and phone charging.
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-white/70">
+                  Travelling to or from Dublin Airport? Read about{" "}
                   <Link
                     href="/transfers/business-class-dublin-airport/"
                     className="font-semibold text-emerald hover:text-emerald-light"
                   >
                     Business Class Dublin Airport transfers
-                  </Link>{" "}
-                  explains the upgrade for journeys between Northern Ireland and Dublin Airport.
+                  </Link>
+                  .
                 </p>
               </div>
 
