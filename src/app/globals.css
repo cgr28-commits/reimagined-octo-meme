@@ -5286,3 +5286,9 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     main[data-focused-payment] [data-stripe-pay] .btn-primary:disabled { background-color: #2fbf4a !important; opacity: 0.65; }
   }
 }
+@layer base {
+  @media (min-width: 1200px) {
+    /* Meet & Greet upgrade page: keep its narrow, centred card. */
+    main[data-customer-standalone].max-w-xl { max-width: 36rem !important; margin-inline: auto !important; }
+  }
+}
