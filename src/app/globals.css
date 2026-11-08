@@ -5317,3 +5317,9 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     html:has(main[data-customer-standalone]) { background: #f4f7fa !important; }
   }
 }
+@layer base {
+  @media (min-width: 1200px) {
+    /* Inline primary buttons with no padding class get comfortable side padding. */
+    main[data-customer-standalone] .btn-primary:not([class*="px-"]):not(.w-full) { padding-inline: 1.5rem !important; }
+  }
+}
