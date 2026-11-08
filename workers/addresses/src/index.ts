@@ -685,6 +685,8 @@ type Env = {
   /** HMAC secret for open-website quote receipts. Worker-only. Never sent to the browser. */
   QUOTE_RECEIPT_SECRET?: string;
   SITE_ORIGIN?: string;
+  /** Payment staging Worker only: the test site's own address. Never set on the live Worker. */
+  STAGING_SITE_ORIGIN?: string;
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
@@ -2158,9 +2160,9 @@ async function handlePaymentRequest(
   /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
   const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
   const description = String(body.description ?? "").trim();
-  const redirectUrl = canonicalizeBookingConfirmedRedirectUrl(
+  const redirectUrl = stagingSiteRedirect(env, canonicalizeBookingConfirmedRedirectUrl(
     String(body.redirectUrl ?? "").trim(),
-  );
+  ));
   if (body.meetGreetSelected != null && typeof body.meetGreetSelected !== "boolean") {
     return json({ error: "Invalid Meet & Greet selection" }, 400, origin);
   }
@@ -4453,6 +4455,26 @@ async function handleFlightLookupRequest(
  */
 function stripePaymentsActive(env: Env, booking?: { customerEmail?: string } | null): boolean {
   return stripeActiveFor(env, booking === undefined ? undefined : (booking?.customerEmail ?? null));
+}
+
+/**
+ * Payment staging only: return customers to the staging test site instead of the live domain
+ * (the live address cannot open a sandbox payment). Without STAGING_SITE_ORIGIN (the live
+ * Worker) the address is returned unchanged.
+ */
+function stagingSiteRedirect(env: Env, redirectUrl: string): string {
+  const staging = env.STAGING_SITE_ORIGIN?.trim().replace(/\/+$/, "");
+  if (!staging || !redirectUrl) return redirectUrl;
+  try {
+    const parsed = new URL(redirectUrl);
+    const target = new URL(staging);
+    if (target.protocol !== "https:" || !target.hostname.endsWith(".workers.dev")) return redirectUrl;
+    parsed.protocol = target.protocol;
+    parsed.host = target.host;
+    return parsed.toString();
+  } catch {
+    return redirectUrl;
+  }
 }
 
 /** On-site payment page: swap a Checkout Session id for its client secret. */

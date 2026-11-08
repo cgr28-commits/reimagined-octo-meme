@@ -67,6 +67,8 @@ id = "55d5e6a826a1494e8be9e6236b37cef2"
 # STRIPE_TEST_EMAILS is set by the deploy workflow from the GitHub "staging" environment variable
 # STAGING_STRIPE_TEST_EMAILS (kept out of this public file).
 PAYMENT_PROVIDER = "stripe-test"
+# Return customers (and the /pay/card/ page) to this staging test site, not the live domain.
+STAGING_SITE_ORIGIN = "https://matni-payment-staging.my-airport-taxi-ni-staging.workers.dev"
 REVIEW_REQUEST_DELAY_MINUTES = "120"
 # Keep every customer-messaging feature off in staging.
 WHATSAPP_TEMPLATES_ENABLED = "false"
