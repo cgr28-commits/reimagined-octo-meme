@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import QuickQuoteOwnerClient from "./QuickQuoteOwnerClient";
-import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
   title: "Quick Quote | My Airport Taxi NI",
@@ -16,9 +15,7 @@ export const metadata: Metadata = {
 /** Mobile-first owner tool — add to iPhone Home Screen. Auth via OWNER_ACCESS_KEY. */
 export default function QuickQuotePage() {
   return (
-    <>
-    <StandaloneBrandBar />
-    <main data-customer-standalone className="min-h-screen min-w-0 max-w-[100%] overflow-x-clip bg-navy px-3 py-4 text-white sm:px-5 sm:py-6">
+    <main className="min-h-screen min-w-0 max-w-[100%] overflow-x-clip bg-navy px-3 py-4 text-white sm:px-5 sm:py-6">
       <div className="mx-auto w-full min-w-0 max-w-lg">
         <header className="mb-5 min-w-0 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald">
@@ -34,6 +31,5 @@ export default function QuickQuotePage() {
         <QuickQuoteOwnerClient />
       </div>
     </main>
-    </>
   );
 }
