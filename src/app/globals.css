@@ -4623,20 +4623,20 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   /* ---------- Airport, location and route pages ---------- */
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) { background: #f4f7fa !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main { background: #f4f7fa; color: #33445a; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) header[data-site-header] { background: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) { background: #f4f7fa !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main { background: #f4f7fa; color: #33445a; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) header[data-site-header] { background: #071c38 !important; }
   body:has([data-landing-quote]) [data-landing-quote] > div.absolute.inset-0 { display: none; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main :is(h1, h2, h3, h4):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #071c38 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #071c38 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main .text-emerald:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) {
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(h1, h2, h3, h4):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-emerald:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) {
     background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 12px 28px -22px rgba(7, 28, 56, 0.3);
   }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main [class*="border-white/"]:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { border-color: #dde4ec !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #2fbf4a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="border-white/"]:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { border-color: #dde4ec !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #2fbf4a !important; }
   /* The airport photo banner stays a navy/photo band with white text. */
 
   /* ---------- Vehicle selection and checkout: light page, navy summary panel kept ---------- */
@@ -4666,9 +4666,9 @@ body:has(.cookie-consent-banner--modal) {
 /* LIGHT DESIGN SYSTEM: small green text on light backgrounds uses a deeper emerald
    (#1A7F2E, about 5:1) so links and eyebrow labels pass WCAG AA; large headings keep #1F9A36. */
 @media (min-width: 1200px) {
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #17692a !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #c98a00 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #17692a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #c98a00 !important; }
 }
 
 /* Field labels carry a Tailwind !important utility (layered). An !important rule in an
@@ -4701,4 +4701,11 @@ body:has(.cookie-consent-banner--modal) {
 }
 @media (min-width: 1400px) {
   header[data-site-header] nav[class*="lg:gap-5"] { gap: 1.85rem !important; }
+}
+
+/* LIGHT DESIGN SYSTEM: shared section headings (eyebrow + description) on light pages. */
+@media (min-width: 1200px) {
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-eyebrow:not(section.homepage-hero *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-description:not(section.homepage-hero *) { color: #4a5a70 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not(section.homepage-hero *) { color: #b07800 !important; }
 }
