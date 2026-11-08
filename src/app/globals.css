@@ -4365,3 +4365,20 @@ body:has(.cookie-consent-banner--modal) {
   [data-stripe-pay] [data-pay-error-actions] [data-pay-error-home-link]:hover { text-decoration: underline; }
   [data-stripe-pay] [data-pay-error-actions] :is(button, a):focus-visible { outline: 3px solid #071c38; outline-offset: 3px; }
 }
+
+/* Desktop (1200px+) homepage and hub pages: address clarification sits beside its field (and under
+   the stop in the vehicle-step summary), instead of a separate banner below the panels. Mobile and
+   tablet keep the existing banner. Airports and named places (hotels, landmarks) are never flagged. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) [data-incomplete-address-banner="true"] { display: none !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-desktop-address-hint] {
+    display: block; margin: -0.15rem 0 0.25rem; font-size: 0.8rem; line-height: 1.35; font-weight: 600; color: #b91c1c;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-results-stop-hint] {
+    display: block; margin-top: 0.2rem; font-size: 0.75rem; line-height: 1.3; font-weight: 600; color: #fca5a5;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-results-stop-hint-edit] {
+    color: #9cc3f0; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; padding: 0; cursor: pointer;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-results-stop-hint-edit]:focus-visible { outline: 2px solid #9cc3f0; outline-offset: 2px; border-radius: 3px; }
+}

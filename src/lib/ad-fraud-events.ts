@@ -1,3 +1,4 @@
+import { previewTrackingDisabled } from "@/lib/preview-tracking";
 /**
  * Passive Ad Fraud / advertising-abuse monitoring beacons.
  * Internal Worker events only — never fires Google Ads conversions.
@@ -51,7 +52,7 @@ function postEvent(
     landingPath?: string;
   },
 ): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || previewTrackingDisabled()) return;
   const payload = {
     eventType,
     sessionId: getOrCreateSecuritySessionId(),

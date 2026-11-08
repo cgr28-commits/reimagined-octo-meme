@@ -8,6 +8,7 @@ import {
   type CookieConsentChoice,
 } from "@/lib/cookie-consent";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
+import { previewTrackingDisabled } from "@/lib/preview-tracking";
 import {
   applyConsentDefault,
   contactClickKind,
@@ -25,7 +26,8 @@ export default function GoogleAdsTag() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!config.tagEnabled) return;
+    // Vercel previews: never load the Google tag (no conversions or remarketing).
+    if (!config.tagEnabled || previewTrackingDisabled()) return;
 
     applyConsentDefault();
     const choice = readCookieConsent();
@@ -47,7 +49,7 @@ export default function GoogleAdsTag() {
   // Sitewide WhatsApp / phone tap tracking. Capture phase so it runs before
   // navigation to wa.me or the dialler, whichever component renders the link.
   useEffect(() => {
-    if (!config.tagEnabled) return;
+    if (!config.tagEnabled || previewTrackingDisabled()) return;
     const onClick = (event: MouseEvent) => {
       const target = event.target as Element | null;
       const anchor = target?.closest?.("a[href]") as HTMLAnchorElement | null;

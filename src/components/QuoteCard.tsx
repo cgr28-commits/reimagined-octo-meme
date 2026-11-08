@@ -8116,6 +8116,27 @@ function QuoteCard({
                   {role}
                   {rest.length ? ` · ${rest.filter((part) => part !== "UK").join(", ")}` : ""}
                 </span>
+                {(key === "from" && isIncompletePickupAddress) || (key === "to" && isIncompleteDropoffAddress) ? (
+                  <span data-results-stop-hint role="status">
+                    Add a house number or building name.{" "}
+                    <button
+                      type="button"
+                      data-results-stop-hint-edit
+                      onClick={() => {
+                        setDesktopJourneyEditing(true);
+                        if (typeof window !== "undefined") {
+                          window.requestAnimationFrame(() => {
+                            const field = document.getElementById(key === "from" ? "pickup" : "dropoff");
+                            field?.scrollIntoView({ block: "center", behavior: "smooth" });
+                            field?.focus({ preventScroll: true });
+                          });
+                        }
+                      }}
+                    >
+                      Edit {key === "from" ? "pickup" : "drop-off"}
+                    </button>
+                  </span>
+                ) : null}
               </li>
             );
           })}
@@ -9367,6 +9388,7 @@ function QuoteCard({
                 onRequestPrice={requestHomepagePrice}
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
+                pickupNeedsHouseNumber={isIncompletePickupAddress}
                 scheduleFields={renderQuoteScheduleFields("quote", true)}
                 scheduleComplete={isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
@@ -9491,6 +9513,11 @@ function QuoteCard({
             {presentation === "homepage" &&
             !(isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
+              data-incomplete-address-banner={
+                (isIncompletePickupAddress || isIncompleteDropoffAddress) && !isOutOfAreaPickupJourney && !isRoiJourney
+                  ? "true"
+                  : undefined
+              }
               className={`grid transition-[grid-template-rows] duration-200 ease-out ${
                 isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney
                   ? "grid-rows-[1fr]"

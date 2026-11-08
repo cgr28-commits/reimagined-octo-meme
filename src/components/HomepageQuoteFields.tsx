@@ -11,6 +11,7 @@ import {
 } from "@/lib/google-maps";
 import {
   INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
+  INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isIncompleteAddressPlace,
   isQuoteReadyPlace,
   venueNameForPlace,
@@ -53,6 +54,8 @@ type HomepageQuoteFieldsProps = {
   quoteReady: boolean;
   /** Drop-off chosen as a street/area with no house number or building name. */
   dropoffNeedsHouseNumber?: boolean;
+  /** Desktop (1200px+): show the house-number prompt directly under the pickup field. */
+  pickupNeedsHouseNumber?: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
   actionLabel?: string;
@@ -219,6 +222,7 @@ export default function HomepageQuoteFields({
   onRequestPrice,
   quoteReady,
   dropoffNeedsHouseNumber = false,
+  pickupNeedsHouseNumber = false,
   scheduleFields = null,
   scheduleComplete = false,
   actionLabel = "Get My Fixed Price →",
@@ -350,6 +354,13 @@ export default function HomepageQuoteFields({
           </button>
         }
       />
+      {/* Desktop (1200px+) only: address clarification beside its field (hidden below 1200px,
+          where the existing message under the form is unchanged). */}
+      {pickupNeedsHouseNumber ? (
+        <p className="hidden" role="status" data-desktop-address-hint="pickup">
+          {INCOMPLETE_PICKUP_ADDRESS_MESSAGE}
+        </p>
+      ) : null}
       {gpsMessage ? (
         <p className="-mt-1 text-xs leading-snug text-emerald" role="status" data-gps-message>
           {gpsMessage}
@@ -375,6 +386,11 @@ export default function HomepageQuoteFields({
         compactHomepage
         airportCode={addressLookupCode}
       />
+      {dropoffNeedsHouseNumber ? (
+        <p className="hidden" role="status" data-desktop-address-hint="dropoff">
+          {INCOMPLETE_DROPOFF_ADDRESS_MESSAGE}
+        </p>
+      ) : null}
 
       {scheduleFields}
 
