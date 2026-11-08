@@ -112,7 +112,8 @@ b{display:inline-block;background:#b45309;color:#fff;border-radius:999px;padding
 
 const BANNER_CSS = `<style id="matni-test-mode-css">
 #matni-test-mode{position:fixed;top:0;left:0;right:0;z-index:2147483647;height:26px;display:flex;align-items:center;justify-content:center;gap:8px;
-background:#b45309;color:#fff;font:700 12px/1 system-ui,sans-serif;letter-spacing:.06em;pointer-events:none;text-transform:uppercase}
+background:#b45309;color:#fff;font:700 12px/1 system-ui,sans-serif;letter-spacing:.06em;pointer-events:none;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
+@media (max-width:640px){#matni-test-mode{font-size:10px;letter-spacing:.03em}}
 html body{padding-top:26px!important}
 header[data-site-header]{top:26px!important}
 </style>`;
@@ -120,6 +121,7 @@ const BROWSER_BLOCK = `<script id="matni-test-mode-block">(function(){var bad=/f
 var f=window.fetch;window.fetch=function(u,o){try{var s=String(u&&u.url||u);if(bad.test(s))return Promise.resolve(new Response('{"success":false,"blocked":"staging"}',{status:503,headers:{"content-type":"application/json"}}));}catch(e){}return f.apply(this,arguments);};
 if(navigator.sendBeacon){var sb=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return bad.test(String(u))?true:sb(u,d);};}
 document.addEventListener("submit",function(e){var a=e.target&&e.target.action||"";if(bad.test(a))e.preventDefault();},true);
+try{var live=/https:\\/\\/(?:www\\.)?myairporttaxini\\.co\\.uk\\/(pay|booking-confirmed|manage-booking)\\//g;[window.localStorage,window.sessionStorage].forEach(function(st){for(var i=0;i<st.length;i++){var k=st.key(i),v=st.getItem(k);if(v&&live.test(v)){live.lastIndex=0;st.setItem(k,v.replace(live,location.origin+"/$1/"));}live.lastIndex=0;}});}catch(e){}
 var fs=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){if(bad.test(this.action||""))return;return fs.call(this);};
 var label="TEST MODE · staging site · Stripe sandbox only · no real bookings, payments or messages";
 function ensure(){try{if(document.body&&!document.getElementById("matni-test-mode")){var b=document.createElement("div");b.id="matni-test-mode";b.setAttribute("role","note");b.textContent=label;document.body.prepend(b);}
@@ -130,10 +132,21 @@ var ce=Document.prototype.createElement;Document.prototype.createElement=functio
 })();</script>`;
 const BANNER_HTML = `<div id="matni-test-mode" role="note" aria-label="Test mode">TEST MODE · staging site · Stripe sandbox only · no real bookings, payments or messages</div>`;
 
-function decorate(response: Response): Response {
+const LIVE_LINK = /https:\/\/(?:www\.)?myairporttaxini\.co\.uk\/(pay|booking-confirmed|manage-booking)\//g;
+
+async function decorate(response: Response, origin: string): Promise<Response> {
+  const type = response.headers.get("content-type") ?? "";
+  if (type.includes("application/json")) {
+    // Payment links stored or built with the live address would open the live site, which
+    // cannot load a sandbox session. Point them back at this staging site.
+    const text = await response.text();
+    const out = new Response(text.replace(LIVE_LINK, `${origin}/$1/`), response);
+    out.headers.delete("content-length");
+    out.headers.set("x-robots-tag", ROBOTS);
+    return out;
+  }
   const out = new Response(response.body, response);
   out.headers.set("x-robots-tag", ROBOTS);
-  const type = out.headers.get("content-type") ?? "";
   if (!type.includes("text/html")) return out;
   return new HTMLRewriter()
     .on("head", {
@@ -199,8 +212,8 @@ export async function stagingGuardFetch(
 
   if (env.ASSETS && (request.method === "GET" || request.method === "HEAD")) {
     const asset = await env.ASSETS.fetch(request);
-    if (asset.status !== 404) return decorate(asset);
+    if (asset.status !== 404) return decorate(asset, new URL(request.url).origin);
   }
   innerRequests.add(request);
-  return decorate(await next(request));
+  return decorate(await next(request), new URL(request.url).origin);
 }
