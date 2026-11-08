@@ -4651,3 +4651,14 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow [data-homepage-quote-fields][data-homepage-quote-fields] :is(svg, svg *) { color: #2fbf4a !important; }
 }
+
+/* LIGHT CONCEPT: readable text inside the light quote card (homepage + hub quote on
+   airport/location/route pages). Colour only; no layout, validation or behaviour change. */
+@media (min-width: 1200px) {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is(.form-label, label.form-label) { color: #33445a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow .quote-secondary { color: #5b6b80 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow .homepage-schedule-prompt { color: #4a5a70 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is(.text-red-400, .text-red-300, .text-red-500) { color: #c62828 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is([class*="text-emerald/"], a.text-emerald, a[class*="text-emerald"], button.text-emerald):not([class*="bg-"]) { color: #1a7f2e !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.quote-flow :is(.text-white, [class*="text-white/"]):not(.btn-primary, .btn-primary *, [class*="bg-emerald"], [class*="bg-emerald"] *, [class*="bg-navy"], [class*="bg-navy"] *, svg, svg *) { color: #33445a !important; }
+}
