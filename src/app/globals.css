@@ -5440,7 +5440,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   /* Dark islands keep the original palette. */
   html[data-mobile-light] :is(
       header, footer, #matni-test-mode,
-      [class*="bg-emerald"], .btn-primary, [class*="bg-[#25D366]"], [class*="bg-[#25d366]"],
+      .bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, [class*="bg-[#25D366]"], [class*="bg-[#25d366]"],
       :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)
     ) {
     --color-navy: #071c38;
@@ -5452,7 +5452,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --color-ink-secondary: #b5c0cd;
   }
   /* Text on green buttons stays navy; white surfaces stay white. */
-  html[data-mobile-light] :is([class*="bg-emerald"], .btn-primary) :is(.text-navy, .text-navy *) { color: #071c38; }
+  html[data-mobile-light] :is(.bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary) :is(.text-navy, .text-navy *) { color: #071c38; }
   html[data-mobile-light] main .bg-white { background-color: #ffffff; }
 
   /* Cards: white with a hairline and a soft shadow instead of faint glass. */
@@ -5462,7 +5462,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
   }
   /* Muted greys meant for navy pages. */
-  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header, footer, [class*="bg-emerald"]) *) { color: #4a5a70; }
+  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header, footer, .bg-emerald, .btn-primary) *) { color: #4a5a70; }
   /* Headings: navy, Manrope, tight. */
   html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     color: #071c38;
@@ -5471,7 +5471,61 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   }
   html[data-mobile-light] main :is(h1, h2) .text-emerald { color: #1f9a36; }
   /* Body copy emerald on light needs the darker green for contrast. */
-  html[data-mobile-light] main :is(p, li, span, a).text-emerald:not(:is([class*="bg-emerald"], .btn-primary, header, footer) *):not([class*="bg-"]) { color: #1a7f2e; }
+  html[data-mobile-light] main :is(p, li, span, a).text-emerald:not(:is(.bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, header, footer) *):not([class*="bg-"]) { color: #1a7f2e; }
   /* Sections alternate white / off-white for rhythm. */
   html[data-mobile-light] main > section:nth-of-type(even):not(.homepage-hero) { background-color: #ffffff; }
+}
+
+/* Light mobile design: overrides for colours hard-coded in the quote flow and sections.
+   In @layer base so they outrank important utility classes (layered !important wins). */
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] header { background: #071c38 !important; box-shadow: 0 6px 18px rgba(7,28,56,0.18) !important; }
+  html[data-mobile-light] section.homepage-hero { background: #f4f7fa !important; }
+  html[data-mobile-light] section.homepage-hero h1 { color: #071c38 !important; }
+  html[data-mobile-light] section.homepage-hero h1 .text-emerald, html[data-mobile-light] section.homepage-hero h1 [class*="text-emerald"] { color: #1f9a36 !important; }
+  html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { color: #4a5a70 !important; }
+  html[data-mobile-light] :is(.hero-benefit-label, .hero-benefit-label *) { color: #071c38 !important; }
+  html[data-mobile-light] .hero-benefits-row > li + li { border-color: #e3e9f0 !important; }
+
+  html[data-mobile-light] .glass-card {
+    background: #ffffff !important; border: 1px solid #e3e9f0 !important;
+    box-shadow: 0 2px 4px rgba(7,28,56,0.04), 0 14px 34px rgba(7,28,56,0.09) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  }
+  html[data-mobile-light] .quote-flow :is([class*="bg-white/[0.14]"], [class*="bg-white/10"], [class*="bg-white/[0.1"], [class*="bg-white/5"], [class*="bg-white/[0.0"], [class*="bg-white/[0.2"]):not(.btn-primary):not(.bg-emerald) {
+    background-color: #ffffff !important; border-color: #cfd8e3 !important;
+  }
+  html[data-mobile-light] .quote-flow .grid.grid-cols-2.rounded-xl[class*="bg-white/10"] { background-color: #eef2f6 !important; border: 0 !important; }
+  html[data-mobile-light] .quote-flow :is(input, select, textarea):not([type=checkbox]):not([type=radio]) { color: #071c38 !important; -webkit-text-fill-color: #071c38 !important; caret-color: #1f9a36; }
+  html[data-mobile-light] .quote-flow :is(input, textarea)::placeholder { color: #7a889a !important; -webkit-text-fill-color: #7a889a !important; opacity: 1; }
+  html[data-mobile-light] .quote-flow input.opacity-0, html[data-mobile-light] .quote-flow .quote-datetime-input { -webkit-text-fill-color: transparent !important; }
+  html[data-mobile-light] :is(.homepage-schedule-prompt, .homepage-schedule-prompt *) { color: #071c38 !important; }
+  html[data-mobile-light] .quote-flow select {
+    background-color: #ffffff !important; border-color: #cfd8e3 !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23071c38' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  }
+  html[data-mobile-light] .quote-flow :is(.form-label, label) { color: #33445a !important; }
+  html[data-mobile-light] .quote-flow :is(p, span, small, div, dt, dd, li, summary):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary):not(:is(.btn-primary, .bg-emerald) *):not(.btn-primary):not(.bg-emerald) { color: #4a5a70 !important; }
+  html[data-mobile-light] .quote-flow :is(h1, h2, h3, h4, legend, strong) { color: #071c38 !important; }
+  html[data-mobile-light] .btn-primary:disabled, html[data-mobile-light] .btn-primary[aria-disabled="true"] { background: #d6eadb !important; color: #4a6a55 !important; box-shadow: none !important; }
+
+  /* Section furniture */
+  html[data-mobile-light] main .section-eyebrow { color: #1a7f2e !important; }
+  html[data-mobile-light] main .section-description { color: #4a5a70 !important; }
+  html[data-mobile-light] main .text-amber-300, html[data-mobile-light] main .text-amber-400 { color: #e8a317 !important; }
+  html[data-mobile-light] main [class*="bg-emerald/15"]:is(.text-emerald, [class*="text-emerald"]),
+  html[data-mobile-light] main [class*="bg-emerald/10"]:is(.text-emerald, [class*="text-emerald"]) { color: #1a7f2e !important; background-color: #e7f6ea !important; }
+  html[data-mobile-light] main [class*="border-emerald"][class*="rounded-full"]:not(.bg-emerald) { color: #1a7f2e !important; background: #e7f6ea !important; }
+  html[data-mobile-light] main [class*="rounded-full"][class*="bg-white/"][class*="border"] { background: #fff !important; border-color: #e3e9f0 !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Very faint helper text meant for navy: lift to a readable slate on light. */
+  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header, footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #5f6f84 !important; }
+  /* Tinted green pills (e.g. "Available on request") read as dark green on pale green. */
+  html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) { background-color: #e7f6ea !important; color: #1a7f2e !important; }
+  html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) :is(span, svg) { color: #1a7f2e; }
+}
 }

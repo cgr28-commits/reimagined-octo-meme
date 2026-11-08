@@ -138,7 +138,7 @@ export default function RootLayout({
         {/* Light mobile design preview: opt-in with ?mobile=light (?mobile=classic to leave).
             Never switches on for the live domain until the new mobile design is approved. */}
         <Script id="matni-mobile-design" strategy="beforeInteractive">
-          {`try{if(!/myairporttaxini\.co\.uk$/i.test(location.hostname)){var k="matni-mobile-design",q=new URLSearchParams(location.search).get("mobile");if(q==="light"||q==="classic")localStorage.setItem(k,q);if(localStorage.getItem(k)==="light")document.documentElement.setAttribute("data-mobile-light","")}}catch(e){}`}
+          {`try{if(!/myairporttaxini\.co\.uk$/i.test(location.hostname)){var k="matni-mobile-design",q=new URLSearchParams(location.search).get("mobile");if(q==="light"||q==="classic")localStorage.setItem(k,q);if(localStorage.getItem(k)==="light"){var d=document.documentElement,on=function(){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","")};on();new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light"]})}}}catch(e){}`}
         </Script>
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
