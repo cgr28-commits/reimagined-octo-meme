@@ -7466,6 +7466,12 @@ function QuoteCard({
           data-pay-ready={checkoutPayReady ? "true" : "false"}
         >
           <div id="quote-step2-next" className="sr-only" />
+          {/* Desktop checkout (1200px+): the total heads the sticky payment block, so price, terms
+              and Pay stay on screen together. Hidden below 1200px; same amount as the summary. */}
+          <p className="hidden" data-checkout-sticky-total>
+            <span data-checkout-total-label>Total to pay</span>{" "}
+            <span data-checkout-total-amount>{amountLabel ?? "TBC"}</span>
+          </p>
 
           {payNow &&
           liveQuote &&

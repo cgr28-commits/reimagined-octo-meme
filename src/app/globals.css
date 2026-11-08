@@ -4756,3 +4756,42 @@ body:has(.cookie-consent-banner--modal) {
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.4rem !important; }
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions .btn-pay { min-height: 3rem !important; }
 }
+
+/* ==========================================================================
+   Checkout (desktop 1200px+): compact sticky price-and-payment block.
+   Replaces "the whole tall panel is sticky", which slid the panel's top under the fixed
+   header on laptop screens. Now:
+   - The navy panel is an ordinary column that stretches to the height of the details form,
+     so the journey details scroll naturally with the page (no inner scrollbar).
+   - The payment block (Total to pay, refund line, Terms, Pay, Stripe logos) is sticky inside
+     that column: never higher than just below the checkout header, never lower than the
+     bottom of the screen. Its containing block is the column, so it stops at the end of the
+     checkout section and cannot reach the footer or the form.
+   - The total shown at the head of the block is the same amount as the summary; the summary's
+     own total line is hidden at this width so the price is shown once.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] {
+    position: relative !important; top: auto !important; align-self: stretch !important;
+    display: flex !important; flex-direction: column !important;
+  }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions {
+    position: sticky !important; z-index: 2;
+    top: calc(var(--co-header) + 1rem) !important; bottom: 1rem !important;
+    margin-top: 0.4rem !important;
+    background: var(--u-panel, #0f2c52) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 0 0 var(--u-radius, 1.1rem) var(--u-radius, 1.1rem);
+    box-shadow: 0 -14px 24px -18px rgba(0, 0, 0, 0.55);
+  }
+  /* The block's own total line (same amount as the summary). */
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > [data-checkout-sticky-total] {
+    display: flex !important; flex: 1 1 100% !important; align-items: baseline; justify-content: space-between; gap: 1rem;
+    margin: 0 0 0.15rem !important; padding: 0.2rem 0 0.35rem; color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > [data-checkout-sticky-total] [data-checkout-total-label] { font-size: 0.95rem; font-weight: 700; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > [data-checkout-sticky-total] [data-checkout-total-amount] { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  /* Show the price once at this width. */
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #quote-price-summary > [data-checkout-total][data-checkout-total] { display: none !important; }
+}
