@@ -5151,3 +5151,32 @@ body:has(.cookie-consent-banner--modal) {
   [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] img { background: #ffffff !important; border-color: #dde4ec !important; }
   [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] figcaption { color: #5b6b80 !important; }
 }
+
+/* ==========================================================================
+   Call Us button (CallUsButton): one look everywhere — main site header, booking steps 2-3
+   (vehicle choice and checkout, where it keeps its existing position rules) and the mobile header.
+   Outlined pill, emerald phone icon, white number; tel:+442896022952.
+   ========================================================================== */
+a[data-call-us-pill] {
+  display: inline-flex; align-items: center; gap: 0.5rem; flex: none;
+  height: 2.4rem; padding: 0 0.95rem 0 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 999px; background: rgba(255, 255, 255, 0.04);
+  color: #fff; -webkit-text-fill-color: #fff; text-decoration: none; white-space: nowrap;
+  font-size: 0.875rem; font-weight: 600; line-height: 1;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+a[data-call-us-pill] [data-phone-icon] { color: #2fbf4a; flex: none; }
+a[data-call-us-pill] [data-phone-label] { color: rgba(255, 255, 255, 0.72); -webkit-text-fill-color: rgba(255, 255, 255, 0.72); font-weight: 600; }
+a[data-call-us-pill] [data-phone-number] { color: #fff; -webkit-text-fill-color: #fff; font-weight: 700; letter-spacing: 0.01em; }
+a[data-call-us-pill]:hover { border-color: #2fbf4a; background: rgba(47, 191, 74, 0.1); }
+a[data-call-us-pill]:focus-visible { outline: 2px solid #2fbf4a; outline-offset: 3px; }
+/* Mobile and tablet header: same pill, 44px tall for touch. Icon + "Call Us" on phones,
+   the number joins from 640px; icon only on very narrow phones so nothing crowds. */
+a[data-call-us-pill="compact"] { height: 2.75rem; padding: 0 0.8rem; gap: 0.4rem; border-radius: 0.6rem; }
+a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
+@media (min-width: 640px) { a[data-call-us-pill="compact"] { border-radius: 999px; } a[data-call-us-pill="compact"] [data-phone-number] { display: inline; } }
+@media (max-width: 359px) { a[data-call-us-pill="compact"] { width: 2.75rem; padding: 0; justify-content: center; } a[data-call-us-pill="compact"] [data-phone-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
+/* Smaller laptops (1024-1279px): the label steps aside so the bar never crowds; the number stays. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  a[data-call-us-pill="header"] [data-phone-label] { display: none; }
+}

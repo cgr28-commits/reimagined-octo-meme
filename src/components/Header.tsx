@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
+import CallUsButton from "./CallUsButton";
 import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
 
@@ -279,22 +280,7 @@ export default function Header() {
 
           {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
           <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-header-call
-              aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg min-[75rem]:hidden"
-            >
-              <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
-              <span className="hidden xl:inline">{SITE.officeLandlineDisplay}</span>
-            </a>
-            <SiteNavLink
-              href="/manage-booking/"
-              prefetch={false}
-              className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
-            >
-              Manage Your Booking
-            </SiteNavLink>
+            <CallUsButton variant="header" />
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>
@@ -302,14 +288,7 @@ export default function Header() {
 
           {/* Mobile only (< md): logo + Call + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
           <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 lg:hidden">
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-mobile-header-call
-              aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/18 bg-white/[0.07] text-white transition-colors hover:bg-white/[0.12]"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
-            </a>
+            <CallUsButton variant="compact" />
             <a
               href={assistantWhatsAppHref}
               target="_blank"
