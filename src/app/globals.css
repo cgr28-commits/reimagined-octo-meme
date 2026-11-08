@@ -4996,8 +4996,8 @@ body:has(.cookie-consent-banner--modal) {
 }
 
 /* ==========================================================================
-   STAGE B / STAGE 1 (approved 8 Nov): light design system for page sections — homepage below the
-   hero and every hub template (airports, locations/towns, transfers/routes).
+   STAGE B / STAGES 1-2 (approved 8 Nov): light design system for page sections — every public
+   page with the site footer (homepage, hubs, services, destinations, tours, information, legal).
    Tokens: navy #071C38 · emerald #2FBF4A · page #F4F7FA · cards #FFFFFF · body #33445A.
    - Decorative full-section navy gradient / dark layers are removed (they made headings and
      body text unreadable on the light theme). Layers over photos are kept.
@@ -5006,24 +5006,24 @@ body:has(.cookie-consent-banner--modal) {
    Desktop 1200px+ only.
    ========================================================================== */
 @media (min-width: 1200px) {
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"], :has(> [class*="bg-[radial-gradient"])) {
     display: none !important;
   }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main :is(.section-heading, h1, h2, h3):not(section.homepage-hero *):not([data-landing-hero] *) {
     font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.025em !important;
   }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; font-size: clamp(2rem, 2.4vw, 2.6rem) !important; line-height: 1.12 !important; }
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { font-weight: 700 !important; letter-spacing: -0.01em !important; color: #071c38 !important; }
   /* Cards sitting on a white section get a soft shadow so they still read as cards. */
-  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
+  html:has(> body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])))
     main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) {
     box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important;
   }
@@ -5118,4 +5118,36 @@ body:has(.cookie-consent-banner--modal) {
       border-color: #2fbf4a !important; box-shadow: 0 18px 36px -24px rgba(7, 28, 56, 0.45) !important; transform: translateY(-2px);
     }
   }
+}
+
+/* ==========================================================================
+   STAGE 2 (desktop 1200px+): Belfast Grand Central Station page (its own CSS module).
+   The navy hero (with the quote) and the closing navy band stay; every content section
+   below the hero moves to the light design. Module class names are matched by prefix.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  [class*="station_page"] { background: #f4f7fa !important; color: #33445a !important; }
+  [class*="station_page"] [class*="station_section"] { background: #ffffff; border-bottom: 1px solid #e3e9f0 !important; }
+  [class*="station_page"] [class*="station_section"]:nth-of-type(even) { background: #f4f7fa; }
+  [class*="station_page"] [class*="station_section"] :is(h2, h3) { color: #071c38 !important; font-weight: 800 !important; letter-spacing: -0.025em; }
+  [class*="station_page"] [class*="station_section"] h3 { font-weight: 700 !important; letter-spacing: -0.01em; }
+  [class*="station_page"] [class*="station_section"] :is(p, li, summary, dd, dt) { color: #33445a !important; }
+  [class*="station_page"] [class*="station_section"] summary { color: #071c38 !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_eyebrow"] { color: #1a7f2e !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_routeLabel"] { color: #5b6b80 !important; }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_route_"], [class*="station_route "], [class*="station_travelCard"]) {
+    background: #ffffff !important; border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 14px 30px -24px rgba(7, 28, 56, 0.4);
+  }
+  [class*="station_page"] [class*="station_section"] [class*="station_route_"]:nth-child(-n+3) { border-top: 3px solid #2fbf4a !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_route_"]:hover { border-color: #2fbf4a !important; background: #ffffff !important; }
+  [class*="station_page"] [class*="station_section"] a:not([class*="bg-emerald"]):not([class*="btn"]) { color: #1a7f2e !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_why"] span { color: #1f9a36 !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_faqs"] details { border-bottom-color: #e3e9f0 !important; }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a {
+    background: #ffffff; border: 1px solid #dde4ec !important; border-radius: 0.75rem !important; color: #071c38 !important;
+    text-decoration: none !important; font-weight: 600; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
+  [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] img { background: #ffffff !important; border-color: #dde4ec !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] figcaption { color: #5b6b80 !important; }
 }
