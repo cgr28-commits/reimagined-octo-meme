@@ -300,7 +300,7 @@ export function PromotionalPriceBreakdown({
             <dd className="shrink-0 tabular-nums text-white/80">+{formatGbpFare(line.gbp)}</dd>
           </div>
         ))}
-        <div className="flex justify-between gap-3 border-t border-white/10 pt-1 font-semibold text-white">
+        <div data-breakdown-amount-payable className="flex justify-between gap-3 border-t border-white/10 pt-1 font-semibold text-white">
           <dt>Amount payable</dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(finalPayableGbp)}
@@ -422,7 +422,7 @@ export function FinalPayableBreakdown({
             </dd>
           </div>
         ) : null}
-        <div className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-base font-semibold text-white">
+        <div data-breakdown-amount-payable className="flex justify-between gap-3 border-t border-white/10 pt-1.5 text-base font-semibold text-white">
           <dt>Amount payable</dt>
           <dd className="shrink-0 tabular-nums">
             {formatGbpFare(breakdown.finalAmountPayableGbp)}

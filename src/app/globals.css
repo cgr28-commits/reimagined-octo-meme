@@ -4890,3 +4890,42 @@ body:has(.cookie-consent-banner--modal) {
   :is(.homepage-hero, [data-hub-quote]) a[data-results-desktop-phone]:hover { border-color: #2fbf4a; background: rgba(47, 191, 74, 0.1); }
   :is(.homepage-hero, [data-hub-quote]) a[data-results-desktop-phone]:focus-visible { outline: 2px solid #2fbf4a; outline-offset: 3px; }
 }
+
+/* ==========================================================================
+   Checkout (desktop 1200px+): ONE continuous navy panel at the top of checkout.
+   Summary and payment section share the same navy. The payment section overlaps the summary
+   by one corner radius, so at rest the summary's rounded foot sits hidden under it and the two
+   read as one panel with a thin divider above the total. When the customer scrolls, the payment
+   section (total, Terms, Pay) pins below the header and shows its own rounded corners, so no
+   seam is ever visible. No inner scrollbar; the column stays within the checkout section.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step2-journey-summary {
+    border-radius: var(--u-radius, 1.1rem) !important;
+    padding-bottom: calc(0.35rem + var(--u-radius, 1.1rem)) !important;
+    box-shadow: none !important;
+  }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions {
+    position: sticky !important; z-index: 2;
+    margin-top: calc(-1 * var(--u-radius, 1.1rem)) !important;
+    border: 1px solid var(--u-line, rgba(255, 255, 255, 0.1)) !important;
+    border-top-color: rgba(255, 255, 255, 0.14) !important;
+    border-radius: var(--u-radius, 1.1rem) !important;
+    box-shadow: 0 24px 48px -30px rgba(7, 28, 56, 0.6) !important;
+  }
+  /* The final total is shown large once (in the payment section). The breakdown keeps its
+     itemised lines; its own "Amount payable" sum line is not repeated just above it. */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] [data-breakdown-amount-payable] { display: none !important; }
+  /* Secure booking reassurance moves from the header into the payment section. */
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-sticky-total] [data-checkout-total-heading] { display: flex; flex-direction: column; gap: 0.15rem; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-sticky-total] [data-checkout-total-secure] {
+    display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 600; color: rgba(255, 255, 255, 0.72);
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] [data-checkout-sticky-total] [data-checkout-total-secure]::before {
+    content: ""; width: 0.75rem; height: 0.75rem; flex: none; background-color: #2fbf4a;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  /* Call Us link sits in the same place on the checkout step as on vehicle choice. */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-desktop-bar] > a[data-results-desktop-phone] { display: inline-flex !important; }
+}
