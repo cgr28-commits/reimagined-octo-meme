@@ -4601,3 +4601,15 @@ body:has(.cookie-consent-banner--modal) {
   section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { font-size: 1.12rem !important; }
   section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #33445a !important; }
 }
+
+/* LIGHT CONCEPT: one icon colour (brand emerald #2FBF4A) on the homepage first screen. */
+@media (min-width: 1200px) {
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is([data-gps-location], [data-gps-location] svg) { color: #2fbf4a !important; stroke: currentColor; }
+  /* Drop-off gets the same location pin as pickup (decorative, CSS only). */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] input#dropoff.address-input {
+    padding-left: 3rem !important;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232fbf4a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z'/%3E%3Ccircle cx='12' cy='9.5' r='2.5'/%3E%3C/svg%3E") no-repeat 1.05rem 50% / 1.15rem !important;
+  }
+  /* Trust icons: green line icons on a neutral tile, no green fill behind them. */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: #f6f8fb !important; border: 1px solid #dfe6ee !important; color: #2fbf4a !important; }
+}
