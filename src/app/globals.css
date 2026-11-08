@@ -4800,3 +4800,21 @@ body:has(.cookie-consent-banner--modal) {
      so the duplicate explanatory note is not repeated inside the sticky payment block. */
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-preview-payments-off] { display: none !important; }
 }
+@media (min-width: 1200px) {
+  /* Compact payment block so total, fare-change confirmation, Terms and Pay fit together on
+     1366×768 / 1280×800 laptops even in the tallest case (fare change + pay hint). */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions { padding-top: 0.5rem !important; padding-bottom: 0.65rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > [data-checkout-sticky-total] { padding: 0.1rem 0 0.25rem; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions > [data-checkout-sticky-total] [data-checkout-total-amount] { font-size: 1.9rem; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] { padding: 0.45rem 0.7rem !important; font-size: 0.75rem !important; line-height: 1.35 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] > * + * { margin-top: 0.2rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] p { font-size: 0.75rem !important; line-height: 1.35 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-pay-hint] { padding: 0.3rem 0.6rem !important; font-size: 0.74rem !important; line-height: 1.35 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions .btn-pay { min-height: 2.75rem !important; padding-top: 0.45rem !important; padding-bottom: 0.45rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions > * { margin-top: 0.3rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions > :is(.sr-only, [data-checkout-sticky-total]) { margin-top: 0 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] > #step3-payment-actions > div > * + * { margin-top: 0.3rem !important; }
+}
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions { top: calc(var(--co-header) + 0.6rem) !important; }
+}
