@@ -4846,3 +4846,11 @@ body:has(.cookie-consent-banner--modal) {
     padding-top: 0.85rem !important; padding-bottom: 1.3rem !important;
   }
 }
+@media (min-width: 1200px) {
+  /* Payment card: keep the requested ~20px foot, trim the inside so the tallest state still fits. */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-aside] > #step3-payment-actions { padding-top: 0.6rem !important; padding-bottom: 1.25rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions label :is(span, .quote-secondary) { line-height: 1.35 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions p.text-xs { font-size: 0.72rem !important; line-height: 1.3 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] { line-height: 1.3 !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions [data-homepage-fare-change] p { line-height: 1.3 !important; }
+}
