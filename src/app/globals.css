@@ -4500,3 +4500,55 @@ body:has(.cookie-consent-banner--modal) {
   section.homepage-hero .homepage-hero-rail [data-rail-dots] { padding: 0 1.15rem 1rem; margin-top: 0.6rem !important; }
   section.homepage-hero .homepage-hero-rail [data-rail-dots] button[aria-current="true"], section.homepage-hero .homepage-hero-rail [data-rail-dots] .bg-emerald { background: #2fbf4a !important; }
 }
+
+/* ==========================================================================
+   LIGHT CONCEPT (experiment, desktop 1200px+, homepage first screen only).
+   Soft #F4F7FA background, navy header kept so the official logo stays visible.
+   Once a price is shown, vehicle choice and checkout keep the approved navy design.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) { background: #f4f7fa !important; }
+  body:has(section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
+
+  /* Heading and supporting text */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 > span:first-child { color: #071c38 !important; }
+  /* Brand emerald-dark for the large green words: #2FBF4A on #F4F7FA is below the 3:1 large-text minimum. */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 > span:last-child { color: #1f9a36 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-copy > p { color: #44546a !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::after { opacity: 0.75; }
+
+  /* White quote form on the light page */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.glass-card[data-quote-presentation] {
+    border: 1px solid #e1e7ee !important; box-shadow: 0 18px 40px -24px rgba(7, 28, 56, 0.28), 0 2px 6px rgba(7, 28, 56, 0.04) !important;
+  }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact { color: #44546a !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact a { color: #071c38 !important; }
+
+  /* Trust panel: white card, navy text */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-quote-benefits] {
+    background: #ffffff !important; border: 1px solid #e1e7ee !important; color: #071c38 !important;
+    box-shadow: 0 18px 40px -26px rgba(7, 28, 56, 0.22) !important;
+  }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { color: #5b6b80 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] strong { color: #071c38 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] li > span:last-child > span { color: #44546a !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: rgba(47, 191, 74, 0.1) !important; border-color: rgba(31, 154, 54, 0.3) !important; color: #1f9a36 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] { border-top-color: #e8edf3 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel] { background: #f7f9fb !important; border-color: #e1e7ee !important; color: #071c38 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel]:hover { background: #eef6f0 !important; border-color: rgba(31, 154, 54, 0.45) !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] > strong { color: #071c38 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-stars] { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-meta] { color: #071c38 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source] { color: #1a7f31 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source]::before { color: #9aa6b5 !important; }
+
+  /* Promo cards: white cards, same photos and positions */
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail { background: #ffffff !important; border: 1px solid #e1e7ee !important; box-shadow: 0 14px 32px -24px rgba(7, 28, 56, 0.3); }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:hover, section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:focus-within { border-color: rgba(31, 154, 54, 0.5) !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide > p:first-child { color: #1a7f31 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { color: #071c38 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #44546a !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-cta] { color: #1a7f31 !important; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button { background: #cfd8e3; }
+  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button[aria-current="true"] { background: #1f9a36 !important; }
+}
