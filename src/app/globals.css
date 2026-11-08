@@ -4645,3 +4645,9 @@ body:has(.cookie-consent-banner--modal) {
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li { color: #5b6b80 !important; }
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li + li::before { background: #cfd8e3 !important; }
 }
+
+/* Field icons: the shapes inside each icon follow the brand green too
+   (an older rule forced every child of the date/time boxes to navy). */
+@media (min-width: 1200px) {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(svg, svg *) { color: #2fbf4a !important; }
+}
