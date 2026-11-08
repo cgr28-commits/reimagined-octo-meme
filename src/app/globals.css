@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-@theme inline {
+/* Brand colours are real CSS variables (same values) so the opt-in light mobile design can
+   re-map them in one place. Fonts stay inline: they depend on next/font variables. */
+@theme {
   --color-navy: #071c38;
   --color-navy-light: #0c2a52;
   --color-navy-dark: #041020;
@@ -11,6 +13,9 @@
   --color-ink-muted: rgba(232, 237, 245, 0.68);
   /* Readable secondary copy on navy (~#AEB9C8–#BCC6D2) */
   --color-ink-secondary: #b5c0cd;
+}
+
+@theme inline {
   --font-sans: var(--font-manrope);
   --font-display: var(--font-cormorant);
   --radius-control: 0.75rem;
@@ -5393,4 +5398,80 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     margin-left: auto;
     margin-right: auto;
   }
+}
+
+/* ==========================================================================
+   LIGHT MOBILE DESIGN (preview, opt-in) — below 1200px only, and only when
+   <html data-mobile-light> is set by ?mobile=light on staging/preview hosts.
+   The current mobile design is untouched without that attribute.
+   Approach: re-map the brand colour variables to the light palette, then put
+   the original values back on "dark islands" (header, footer, photo overlays,
+   green buttons) so they keep their look.
+   ========================================================================== */
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] {
+    --color-navy: #f4f7fa;
+    --color-navy-light: #ffffff;
+    --color-navy-dark: #ffffff;
+    --color-white: #071c38;
+    --color-mist: #33445a;
+    --color-ink-muted: rgba(51, 68, 90, 0.78);
+    --color-ink-secondary: #4a5a70;
+    --quote-page: #f4f7fa;
+    --quote-card-bg: #ffffff;
+    --quote-card-border: #e3e9f0;
+    --quote-panel-bg: #f7f9fb;
+    --quote-panel-border: #e3e9f0;
+    --quote-input-bg: #ffffff;
+    --quote-input-border: #cfd8e3;
+    --quote-choice-bg: #ffffff;
+    --quote-choice-border: #dbe3ec;
+    --quote-selected-border: #2fbf4a;
+    --quote-selected-bg: rgba(47, 191, 74, 0.1);
+    --quote-selected-glow: 0 0 0 3px rgba(47, 191, 74, 0.18);
+    --quote-selected-icon: #1f9a36;
+    --quote-placeholder: #7a889a;
+    --quote-price-ink: #071c38;
+    --quote-secondary-ink: #4a5a70;
+    color-scheme: light;
+  }
+  html[data-mobile-light] body { color: #33445a; }
+
+  /* Dark islands keep the original palette. */
+  html[data-mobile-light] :is(
+      header, footer, #matni-test-mode,
+      [class*="bg-emerald"], .btn-primary, [class*="bg-[#25D366]"], [class*="bg-[#25d366]"],
+      :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)
+    ) {
+    --color-navy: #071c38;
+    --color-navy-light: #0c2a52;
+    --color-navy-dark: #041020;
+    --color-white: #ffffff;
+    --color-mist: #e8edf5;
+    --color-ink-muted: rgba(232, 237, 245, 0.68);
+    --color-ink-secondary: #b5c0cd;
+  }
+  /* Text on green buttons stays navy; white surfaces stay white. */
+  html[data-mobile-light] :is([class*="bg-emerald"], .btn-primary) :is(.text-navy, .text-navy *) { color: #071c38; }
+  html[data-mobile-light] main .bg-white { background-color: #ffffff; }
+
+  /* Cards: white with a hairline and a soft shadow instead of faint glass. */
+  html[data-mobile-light] main :is([class*="bg-white/[0.0"], [class*="bg-white/5"], [class*="bg-navy-light/"]):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
+    background-color: #ffffff;
+    border-color: #e3e9f0;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
+  }
+  /* Muted greys meant for navy pages. */
+  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header, footer, [class*="bg-emerald"]) *) { color: #4a5a70; }
+  /* Headings: navy, Manrope, tight. */
+  html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
+    color: #071c38;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+  html[data-mobile-light] main :is(h1, h2) .text-emerald { color: #1f9a36; }
+  /* Body copy emerald on light needs the darker green for contrast. */
+  html[data-mobile-light] main :is(p, li, span, a).text-emerald:not(:is([class*="bg-emerald"], .btn-primary, header, footer) *):not([class*="bg-"]) { color: #1a7f2e; }
+  /* Sections alternate white / off-white for rhythm. */
+  html[data-mobile-light] main > section:nth-of-type(even):not(.homepage-hero) { background-color: #ffffff; }
 }
