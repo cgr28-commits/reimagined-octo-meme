@@ -9,7 +9,7 @@ export default function QuoteReassurance({ hasAirportCollection = false }: { has
       {hasAirportCollection ? (
         <p className="flex items-start gap-1.5">
           <span className="shrink-0 text-emerald" aria-hidden>✓</span>
-          <span>60 Minutes Complimentary Waiting Time</span>
+          <span>60 Minutes Complimentary Waiting Time at the Airport</span>
         </p>
       ) : null}
       <p className="flex items-start gap-1.5">
