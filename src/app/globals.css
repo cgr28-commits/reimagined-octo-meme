@@ -4455,6 +4455,10 @@ body:has(.cookie-consent-banner--modal) {
   }
   section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary:hover:not(:disabled) { background: #3ebf55 !important; }
   section.homepage-hero .quote-flow:not([data-quote-results]) #homepage-quote-requirements { font-size: 0.76rem !important; margin: 0 !important; }
+  /* Pickup | drop-off side by side; then date | time and passengers | suitcases. */
+  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(2) { grid-column: 1 !important; }
+  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(3) { grid-column: 2 !important; }
+  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-bottom: 0 !important; }
   /* One Way / Return sits on the title line of the slimmer header. */
   section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:first-child { top: -3.45rem !important; width: 15.5rem !important; }
   section.homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] button { min-height: 2.35rem; padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.85rem; }
