@@ -4391,10 +4391,12 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   /* Brand colours: emerald #2FBF4A replaces the mint/teal accents on the homepage. */
-  section.homepage-hero {
+  section.homepage-hero, [data-hub-quote] {
     --u-mint: #2fbf4a; --u-green: #2fbf4a; --u-green-dark: #1a7f31; --u-green-tint: #eaf8ed;
     --co-mint: #2fbf4a; --co-green: #2fbf4a;
     --u-right: 22rem; --u-gap: 1.5rem; --u-radius: 1.1rem;
+  }
+  section.homepage-hero {
     padding-top: 5.75rem !important;
     background:
       radial-gradient(60rem 26rem at 12% -10%, rgba(18, 58, 107, 0.85) 0, rgba(18, 58, 107, 0) 65%),
@@ -4402,103 +4404,103 @@ body:has(.cookie-consent-banner--modal) {
   }
 
   /* ---------- Header: slimmer, calmer, logo still leads ---------- */
-  body:has(section.homepage-hero) header[data-site-header] > div:first-child > div {
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div {
     padding-top: 0.3rem; padding-bottom: 0.3rem; font-size: 0.74rem; letter-spacing: 0.01em;
   }
-  body:has(section.homepage-hero) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden]) { color: rgba(255, 255, 255, 0.72); }
-  body:has(section.homepage-hero) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden]) { color: rgba(255, 255, 255, 0.72); }
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
     content: ""; display: inline-block; width: 0.38rem; height: 0.38rem; margin-right: 0.45rem; border-radius: 999px; background: #2fbf4a; vertical-align: 0.08em;
   }
-  body:has(section.homepage-hero) header[data-site-header] > div:nth-child(2) { padding-top: 0.3rem; padding-bottom: 0.3rem; column-gap: 2.25rem; max-width: 80rem; }
-  body:has(section.homepage-hero) header[data-site-header] .quote-header-logo { height: 4rem !important; width: auto; }
-  body:has(section.homepage-hero) header[data-site-header] nav[aria-label="Main navigation"] { column-gap: 1.75rem; }
-  body:has(section.homepage-hero) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary) {
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:nth-child(2) { padding-top: 0.3rem; padding-bottom: 0.3rem; column-gap: 2.25rem; max-width: 80rem; }
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] .quote-header-logo { height: 4rem !important; width: auto; }
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] nav[aria-label="Main navigation"] { column-gap: 1.75rem; }
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary) {
     font-size: 0.875rem; font-weight: 500; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.82);
   }
-  body:has(section.homepage-hero) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary):hover { color: #fff; }
+  body:has(:is(section.homepage-hero, [data-hub-quote])) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary):hover { color: #fff; }
 
   /* ---------- Hero heading ---------- */
-  section.homepage-hero .homepage-hero-layout { padding: 1.35rem 2.5rem 2.5rem !important; row-gap: 1.25rem !important; }
-  section.homepage-hero #homepage-booking-intro { position: relative; }
-  section.homepage-hero h1 { font-size: 2.9rem !important; line-height: 1.04 !important; font-weight: 800; letter-spacing: -0.032em; }
-  section.homepage-hero .homepage-hero-copy > p { margin-top: 0.5rem !important; font-size: 1.05rem !important; line-height: 1.5 !important; color: rgba(255, 255, 255, 0.72) !important; white-space: nowrap; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-layout { padding: 1.35rem 2.5rem 2.5rem !important; row-gap: 1.25rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) #homepage-booking-intro { position: relative; }
+  :is(section.homepage-hero, [data-hub-quote]) h1 { font-size: 2.9rem !important; line-height: 1.04 !important; font-weight: 800; letter-spacing: -0.032em; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-copy > p { margin-top: 0.5rem !important; font-size: 1.05rem !important; line-height: 1.5 !important; color: rgba(255, 255, 255, 0.72) !important; white-space: nowrap; }
   /* Subtle flight path behind the heading (decorative, emerald, very faint). */
-  section.homepage-hero #homepage-booking-intro::after {
+  :is(section.homepage-hero, [data-hub-quote]) #homepage-booking-intro::after {
     content: ""; position: absolute; right: 0; top: -0.4rem; width: 24rem; height: 5.25rem; pointer-events: none; opacity: 0.9;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 416 88' fill='none'%3E%3Cpath d='M2 84C110 70 232 40 382 12' stroke='%232fbf4a' stroke-opacity='.5' stroke-width='1.6' stroke-dasharray='1 8' stroke-linecap='round'/%3E%3Cpath transform='translate(382 4) rotate(-12) scale(.9)' fill='%232fbf4a' fill-opacity='.7' d='M21 13.5v-2l-8-5V2a1.5 1.5 0 0 0-3 0v4.5l-8 5v2l8-2.5V16l-2 1.5V19l3.5-1 3.5 1v-1.5L13 16v-5z'/%3E%3C/svg%3E") no-repeat right top / contain;
   }
 
   /* ---------- Quote row: form and a lighter trust panel, each its natural height ---------- */
-  section.homepage-hero .homepage-hero-quote { align-items: start !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-quote { align-items: start !important; }
 
-  section.homepage-hero .quote-flow.glass-card[data-quote-presentation]:not([data-quote-results]):not(:has(#step3-payment-actions)) {
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow.glass-card[data-quote-presentation]:not([data-quote-results]):not(:has(#step3-payment-actions)) {
     padding: 1.3rem 1.6rem 1.4rem !important; border-radius: var(--u-radius) !important;
     box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) !important;
   }
-  section.homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child { min-height: 2.6rem !important; margin-bottom: 0.75rem !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child h2 { font-size: 1.22rem !important; letter-spacing: -0.015em; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] { column-gap: 0.85rem !important; row-gap: 0.7rem !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > section[data-quote-schedule] { row-gap: 0.7rem !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .form-label { margin-bottom: 0.3rem !important; font-size: 0.76rem !important; color: #33445a !important; -webkit-text-fill-color: #33445a; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input.address-input { height: 3.05rem !important; min-height: 3.05rem !important; font-size: 0.98rem !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is([data-schedule-control], select) { height: 2.8rem !important; min-height: 2.8rem !important; font-size: 0.95rem; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select) {
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child { min-height: 2.6rem !important; margin-bottom: 0.75rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]):not(:has(#step3-payment-actions)) > div:first-child h2 { font-size: 1.22rem !important; letter-spacing: -0.015em; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] { column-gap: 0.85rem !important; row-gap: 0.7rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > section[data-quote-schedule] { row-gap: 0.7rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] .form-label { margin-bottom: 0.3rem !important; font-size: 0.76rem !important; color: #33445a !important; -webkit-text-fill-color: #33445a; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] input.address-input { height: 3.05rem !important; min-height: 3.05rem !important; font-size: 0.98rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is([data-schedule-control], select) { height: 2.8rem !important; min-height: 2.8rem !important; font-size: 0.95rem; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select) {
     border: 1px solid #dfe5ec !important; background: #f7f9fb !important; border-radius: 0.7rem !important;
   }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus) {
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus) {
     border-color: #071c38 !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(7, 28, 56, 0.1) !important;
   }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-top: 0.2rem !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary {
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-top: 0.2rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary {
     min-height: 3.1rem !important; height: 3.1rem !important; border-radius: 0.75rem !important; font-size: 1.02rem !important; letter-spacing: -0.01em;
     background: #2fbf4a !important; box-shadow: 0 12px 24px -14px rgba(47, 191, 74, 0.9) !important;
   }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary:hover:not(:disabled) { background: #3ebf55 !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) #homepage-quote-requirements { font-size: 0.76rem !important; margin: 0 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] .btn-primary:hover:not(:disabled) { background: #3ebf55 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) #homepage-quote-requirements { font-size: 0.76rem !important; margin: 0 !important; }
   /* Pickup | drop-off side by side; then date | time and passengers | suitcases. */
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(2) { grid-column: 1 !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(3) { grid-column: 2 !important; }
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-bottom: 0 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(2) { grid-column: 1 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:nth-child(3) { grid-column: 2 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-fields] > [data-quote-price-action] { padding-bottom: 0 !important; }
   /* One Way / Return sits on the title line of the slimmer header. */
-  section.homepage-hero .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:first-child { top: -3.45rem !important; width: 15.5rem !important; }
-  section.homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] button { min-height: 2.35rem; padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.85rem; }
-  section.homepage-hero [data-homepage-quote-scroll] > div:first-child [role="group"] [data-return-discount-note] { color: #1a7f31 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:not([data-quote-results]) [data-homepage-quote-scroll] > div:first-child { top: -3.45rem !important; width: 15.5rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-homepage-quote-scroll] > div:first-child [role="group"] button { min-height: 2.35rem; padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.85rem; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-homepage-quote-scroll] > div:first-child [role="group"] [data-return-discount-note] { color: #1a7f31 !important; }
 
   /* ---------- Trust panel: lighter, five essentials ---------- */
-  section.homepage-hero [data-desktop-quote-benefits] {
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-quote-benefits] {
     background: rgba(255, 255, 255, 0.025) !important; border: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: none !important;
     padding: 1.35rem 1.45rem 1.3rem !important; border-radius: var(--u-radius) !important;
   }
-  section.homepage-hero [data-desktop-benefits-heading] { margin-bottom: 0.95rem !important; font-size: 0.72rem !important; letter-spacing: 0.14em !important; color: rgba(255, 255, 255, 0.66) !important; }
-  section.homepage-hero [data-desktop-benefits-list] { gap: 0.95rem !important; }
-  section.homepage-hero [data-desktop-benefits-list] > li { grid-template-columns: 2.1rem minmax(0, 1fr) !important; column-gap: 0.8rem !important; }
-  section.homepage-hero [data-desktop-benefit-icon] {
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-heading] { margin-bottom: 0.95rem !important; font-size: 0.72rem !important; letter-spacing: 0.14em !important; color: rgba(255, 255, 255, 0.66) !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-list] { gap: 0.95rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-list] > li { grid-template-columns: 2.1rem minmax(0, 1fr) !important; column-gap: 0.8rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefit-icon] {
     width: 2.1rem !important; height: 2.1rem !important; border-radius: 0.6rem !important;
     background: rgba(47, 191, 74, 0.1) !important; border: 1px solid rgba(47, 191, 74, 0.3); color: #2fbf4a !important;
   }
-  section.homepage-hero [data-desktop-benefit-icon] svg { width: 1.05rem !important; height: 1.05rem !important; }
-  section.homepage-hero [data-desktop-benefits-list] strong { font-size: 0.97rem !important; }
-  section.homepage-hero [data-desktop-benefits-list] li > span:last-child > span { font-size: 0.86rem !important; line-height: 1.45 !important; color: rgba(255, 255, 255, 0.8) !important; }
-  section.homepage-hero [data-desktop-benefits-reviews] { margin-top: 1.1rem !important; padding-top: 1.05rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefit-icon] svg { width: 1.05rem !important; height: 1.05rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-list] strong { font-size: 0.97rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-list] li > span:last-child > span { font-size: 0.86rem !important; line-height: 1.45 !important; color: rgba(255, 255, 255, 0.8) !important; }
+  :is(section.homepage-hero, [data-hub-quote]) [data-desktop-benefits-reviews] { margin-top: 1.1rem !important; padding-top: 1.05rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 
   /* ---------- Promo cards: photo first, consistent cards, start above the fold ---------- */
-  section.homepage-hero .homepage-hero-layout > .homepage-hero-rails { margin-top: 0.25rem !important; gap: 1.5rem !important; }
-  section.homepage-hero .homepage-hero-rail {
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-layout > .homepage-hero-rails { margin-top: 0.25rem !important; gap: 1.5rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail {
     background: rgba(255, 255, 255, 0.03) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; border-radius: var(--u-radius) !important;
     overflow: hidden; padding: 0 !important;
   }
-  section.homepage-hero .homepage-hero-rail:hover, section.homepage-hero .homepage-hero-rail:focus-within { border-color: rgba(47, 191, 74, 0.45) !important; }
-  section.homepage-hero .homepage-hero-rail-slide { padding: 0 1.15rem 0.2rem; }
-  section.homepage-hero .homepage-hero-rail-slide img {
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail:hover, :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail:focus-within { border-color: rgba(47, 191, 74, 0.45) !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide { padding: 0 1.15rem 0.2rem; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide img {
     order: -1; margin: 0 -1.15rem 0.95rem !important; width: calc(100% + 2.3rem) !important; max-width: none; height: 10.5rem !important;
     border-radius: 0 !important; box-shadow: none !important; transform: none !important;
   }
-  section.homepage-hero .homepage-hero-rail-slide > p:first-child { font-size: 0.68rem !important; letter-spacing: 0.14em !important; color: #2fbf4a !important; }
-  section.homepage-hero .homepage-hero-rail-slide [data-rail-title] { margin-top: 0.45rem !important; font-size: 1.08rem !important; line-height: 1.32 !important; }
-  section.homepage-hero .homepage-hero-rail-slide [data-rail-text] { font-size: 0.86rem !important; line-height: 1.55 !important; color: rgba(255, 255, 255, 0.68) !important; }
-  section.homepage-hero .homepage-hero-rail-slide [data-rail-cta] { color: #2fbf4a !important; font-size: 0.9rem !important; }
-  section.homepage-hero .homepage-hero-rail [data-rail-dots] { padding: 0 1.15rem 1rem; margin-top: 0.6rem !important; }
-  section.homepage-hero .homepage-hero-rail [data-rail-dots] button[aria-current="true"], section.homepage-hero .homepage-hero-rail [data-rail-dots] .bg-emerald { background: #2fbf4a !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide > p:first-child { font-size: 0.68rem !important; letter-spacing: 0.14em !important; color: #2fbf4a !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide [data-rail-title] { margin-top: 0.45rem !important; font-size: 1.08rem !important; line-height: 1.32 !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide [data-rail-text] { font-size: 0.86rem !important; line-height: 1.55 !important; color: rgba(255, 255, 255, 0.68) !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail-slide [data-rail-cta] { color: #2fbf4a !important; font-size: 0.9rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail [data-rail-dots] { padding: 0 1.15rem 1rem; margin-top: 0.6rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail [data-rail-dots] button[aria-current="true"], :is(section.homepage-hero, [data-hub-quote]) .homepage-hero-rail [data-rail-dots] .bg-emerald { background: #2fbf4a !important; }
 }
 
 /* ==========================================================================
@@ -4507,50 +4509,50 @@ body:has(.cookie-consent-banner--modal) {
    Once a price is shown, vehicle choice and checkout keep the approved navy design.
    ========================================================================== */
 @media (min-width: 1200px) {
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) { background: #f4f7fa !important; }
-  body:has(section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) { background: #f4f7fa !important; }
+  body:has(:is(section.homepage-hero, [data-hub-quote])):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] { background: #071c38 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.06); backdrop-filter: none; }
 
   /* Heading and supporting text */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 > span:first-child { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) h1 > span:first-child { color: #071c38 !important; }
   /* Brand emerald-dark for the large green words: #2FBF4A on #F4F7FA is below the 3:1 large-text minimum. */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 > span:last-child { color: #1f9a36 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-copy > p { color: #44546a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::after { opacity: 0.75; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) h1 > span:last-child { color: #1f9a36 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-copy > p { color: #44546a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::after { opacity: 0.75; }
 
   /* White quote form on the light page */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.glass-card[data-quote-presentation] {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.glass-card[data-quote-presentation] {
     border: 1px solid #e1e7ee !important; box-shadow: 0 18px 40px -24px rgba(7, 28, 56, 0.28), 0 2px 6px rgba(7, 28, 56, 0.04) !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact { color: #44546a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact a { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact { color: #44546a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote > .quote-help-contact a { color: #071c38 !important; }
 
   /* Trust panel: white card, navy text */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-quote-benefits] {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-quote-benefits] {
     background: #ffffff !important; border: 1px solid #e1e7ee !important; color: #071c38 !important;
     box-shadow: 0 18px 40px -26px rgba(7, 28, 56, 0.22) !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { color: #5b6b80 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] strong { color: #071c38 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] li > span:last-child > span { color: #44546a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: rgba(47, 191, 74, 0.1) !important; border-color: rgba(31, 154, 54, 0.3) !important; color: #1f9a36 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] { border-top-color: #e8edf3 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel] { background: #f7f9fb !important; border-color: #e1e7ee !important; color: #071c38 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel]:hover { background: #eef6f0 !important; border-color: rgba(31, 154, 54, 0.45) !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] > strong { color: #071c38 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-stars] { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-meta] { color: #071c38 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source] { color: #1a7f31 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source]::before { color: #9aa6b5 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { color: #5b6b80 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] strong { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] li > span:last-child > span { color: #44546a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: rgba(47, 191, 74, 0.1) !important; border-color: rgba(31, 154, 54, 0.3) !important; color: #1f9a36 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] { border-top-color: #e8edf3 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel] { background: #f7f9fb !important; border-color: #e1e7ee !important; color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] [data-reviews-panel]:hover { background: #eef6f0 !important; border-color: rgba(31, 154, 54, 0.45) !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] > strong { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-stars] { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-meta] { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source] { color: #1a7f31 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-source]::before { color: #9aa6b5 !important; }
 
   /* Promo cards: white cards, same photos and positions */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail { background: #ffffff !important; border: 1px solid #e1e7ee !important; box-shadow: 0 14px 32px -24px rgba(7, 28, 56, 0.3); }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:hover, section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:focus-within { border-color: rgba(31, 154, 54, 0.5) !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide > p:first-child { color: #1a7f31 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { color: #071c38 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #44546a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-cta] { color: #1a7f31 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button { background: #cfd8e3; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button[aria-current="true"] { background: #1f9a36 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail { background: #ffffff !important; border: 1px solid #e1e7ee !important; box-shadow: 0 14px 32px -24px rgba(7, 28, 56, 0.3); }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:hover, :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail:focus-within { border-color: rgba(31, 154, 54, 0.5) !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide > p:first-child { color: #1a7f31 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { color: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #44546a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-cta] { color: #1a7f31 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button { background: #cfd8e3; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail [data-rail-dots] button[aria-current="true"] { background: #1f9a36 !important; }
 }
 
 /* ==========================================================================
@@ -4559,57 +4561,87 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   /* Comfortable, not compressed */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout { padding: 2rem 2.5rem 3.5rem !important; row-gap: 1.6rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) h1 { font-size: 3rem !important; line-height: 1.05 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-copy > p { margin-top: 0.65rem !important; font-size: 1.08rem !important; color: #3d4d63 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote { column-gap: 1.75rem !important; align-items: stretch !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout { padding: 2rem 2.5rem 3.5rem !important; row-gap: 1.6rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) h1 { font-size: 3rem !important; line-height: 1.05 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-copy > p { margin-top: 0.65rem !important; font-size: 1.08rem !important; color: #3d4d63 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-quote { column-gap: 1.75rem !important; align-items: stretch !important; }
 
   /* ---------- Quote form: firmer fields, emerald icons, defined panel ---------- */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.glass-card[data-quote-presentation] {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow.glass-card[data-quote-presentation] {
     border: 1px solid #d9e1ea !important;
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.06), 0 22px 44px -26px rgba(7, 28, 56, 0.38) !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] { row-gap: 0.85rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] .form-label { color: #1d2b3d !important; -webkit-text-fill-color: #1d2b3d; font-weight: 700; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select) {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] { row-gap: 0.85rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] .form-label { color: #1d2b3d !important; -webkit-text-fill-color: #1d2b3d; font-weight: 700; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select) {
     background: #f3f6fa !important; border: 1px solid #c9d3df !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select):hover { border-color: #a9b6c6 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus) {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input), [data-schedule-control], select):hover { border-color: #a9b6c6 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(div:has(> div > input.address-input):focus-within, [data-schedule-control]:focus-within, select:focus) {
     background: #fff !important; border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(7, 28, 56, 0.12) !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] input.address-input::placeholder { color: #66768a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] .homepage-schedule-prompt { color: #66768a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(.homepage-field-icon, [data-gps-location], [data-schedule-control] svg, label svg, span > svg) { color: #2fbf4a !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow #homepage-quote-requirements { color: #4a5a70 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] input.address-input::placeholder { color: #66768a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] .homepage-schedule-prompt { color: #66768a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is(.homepage-field-icon, [data-gps-location], [data-schedule-control] svg, label svg, span > svg) { color: #2fbf4a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow #homepage-quote-requirements { color: #4a5a70 !important; }
 
   /* ---------- Trust panel: same card language as the form ---------- */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-quote-benefits] {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-quote-benefits] {
     padding: 1.5rem 1.5rem 1.4rem !important; border: 1px solid #d9e1ea !important;
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.06), 0 22px 44px -26px rgba(7, 28, 56, 0.3) !important;
   }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { color: #4a5a70 !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] { gap: 1.05rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { color: #2fbf4a !important; background: rgba(47, 191, 74, 0.1) !important; border-color: rgba(47, 191, 74, 0.35) !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] strong { font-size: 0.98rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] li > span:last-child > span { color: #33445a !important; font-size: 0.86rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { color: #4a5a70 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] { gap: 1.05rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { color: #2fbf4a !important; background: rgba(47, 191, 74, 0.1) !important; border-color: rgba(47, 191, 74, 0.35) !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] strong { font-size: 0.98rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] li > span:last-child > span { color: #33445a !important; font-size: 0.86rem !important; }
 
   /* ---------- Photo cards below the hero: larger photography ---------- */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout > .homepage-hero-rails { margin-top: 0.75rem !important; gap: 1.75rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail { border: 1px solid #d9e1ea !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 38px -26px rgba(7, 28, 56, 0.35) !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide img { height: 13rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { font-size: 1.12rem !important; }
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #33445a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout > .homepage-hero-rails { margin-top: 0.75rem !important; gap: 1.75rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail { border: 1px solid #d9e1ea !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 38px -26px rgba(7, 28, 56, 0.35) !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide img { height: 13rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-title] { font-size: 1.12rem !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide [data-rail-text] { color: #33445a !important; }
 }
 
 /* LIGHT CONCEPT: one icon colour (brand emerald #2FBF4A) on the homepage first screen. */
 @media (min-width: 1200px) {
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is([data-gps-location], [data-gps-location] svg) { color: #2fbf4a !important; stroke: currentColor; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] :is([data-gps-location], [data-gps-location] svg) { color: #2fbf4a !important; stroke: currentColor; }
   /* Drop-off gets the same location pin as pickup (decorative, CSS only). */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] input#dropoff.address-input {
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow [data-homepage-quote-fields] input#dropoff.address-input {
     padding-left: 3rem !important;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232fbf4a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z'/%3E%3Ccircle cx='12' cy='9.5' r='2.5'/%3E%3C/svg%3E") no-repeat 1.05rem 50% / 1.15rem !important;
   }
   /* Trust icons: green line icons on a neutral tile, no green fill behind them. */
-  section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: #f6f8fb !important; border: 1px solid #dfe6ee !important; color: #2fbf4a !important; }
+  :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] { background: #f6f8fb !important; border: 1px solid #dfe6ee !important; color: #2fbf4a !important; }
+}
+
+/* ==========================================================================
+   LIGHT DESIGN SYSTEM — representative previews (desktop 1200px+, preview branch).
+   Page #F4F7FA · cards #FFF · header/footer #071C38 · emerald #2FBF4A
+   (#1F9A36 for green text on pale backgrounds). Navy kept where it adds contrast.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  /* ---------- Airport, location and route pages ---------- */
+  body:has([data-landing-quote]) { background: #f4f7fa !important; }
+  body:has([data-landing-quote]) main { background: #f4f7fa; color: #33445a; }
+  body:has([data-landing-quote]) header[data-site-header] { background: #071c38 !important; }
+  body:has([data-landing-quote]) [data-landing-quote] > div.absolute.inset-0 { display: none; }
+  body:has([data-landing-quote]) main :is(h1, h2, h3, h4):not([data-landing-hero] *):not([data-hub-quote] *) { color: #071c38 !important; }
+  body:has([data-landing-quote]) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #071c38 !important; }
+  body:has([data-landing-quote]) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *):not([data-hub-quote] *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
+  body:has([data-landing-quote]) main .text-emerald:not([data-landing-hero] *):not([data-hub-quote] *) { color: #1f9a36 !important; }
+  body:has([data-landing-quote]) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *):not([data-hub-quote] *) {
+    background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 12px 28px -22px rgba(7, 28, 56, 0.3);
+  }
+  body:has([data-landing-quote]) main [class*="border-white/"]:not([data-landing-hero] *):not([data-hub-quote] *) { border-color: #dde4ec !important; }
+  body:has([data-landing-quote]) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #1f9a36 !important; }
+  body:has([data-landing-quote]) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *):not([data-hub-quote] *) { color: #2fbf4a !important; }
+  /* The airport photo banner stays a navy/photo band with white text. */
+
+  /* ---------- Vehicle selection and checkout: light page, navy summary panel kept ---------- */
+  section.homepage-hero:has([data-quote-results], [data-checkout-aside]) { background: #f4f7fa !important; }
+  body:has([data-quote-results]) header[data-site-header], body:has([data-checkout-aside]) header[data-site-header] { background: #071c38 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li { color: #5b6b80 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li + li::before { background: #cfd8e3 !important; }
 }
