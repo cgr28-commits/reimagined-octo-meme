@@ -4983,3 +4983,14 @@ body:has(.cookie-consent-banner--modal) {
   [data-quote-action-dialog][data-quote-action-dialog] :is(.btn-secondary, button[class*="border-white/25"]):hover:not(:disabled) { background: #f4f7fa !important; border-color: #071c38 !important; }
   [data-quote-action-dialog][data-quote-action-dialog] a[class*="border-[#25D366]"] { color: #071c38 !important; background: #fff; }
 }
+@media (min-width: 1200px) {
+  /* Email Enquiry: slightly wider, name and email side by side, so the whole form fits a laptop
+     screen (1366×768 and up) without scrolling inside the popup. */
+  [data-quote-action-dialog][data-quote-action-dialog] > div:has([data-desktop-enquiry-form]) { max-width: 36rem !important; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.9rem; row-gap: 0.8rem; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] > * { grid-column: 1 / -1; margin: 0 !important; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] > label:nth-of-type(1) { grid-column: 1; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] > label:nth-of-type(2) { grid-column: 2; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] > p:first-child { font-size: 0.84rem !important; line-height: 1.5 !important; padding: 0.75rem 0.9rem !important; }
+  [data-quote-action-dialog] [data-desktop-enquiry-form] textarea { min-height: 5.5rem; }
+}
