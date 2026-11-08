@@ -5088,8 +5088,8 @@ body:has(.cookie-consent-banner--modal) {
     body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:hover::after { transform: translateX(2px); }
     /* Tile rows: consistent spacing. */
     body:has(footer.bg-navy-dark) main ul:has(> li > a[class*="hover:border-emerald/40"]:not(.rounded-full)) { gap: 0.7rem !important; }
-    body:has(footer.bg-navy-dark) main ul:has(> li > a[class*="hover:border-emerald/40"]:not(.rounded-full)):not(.flex) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    body:has(footer.bg-navy-dark) main ul:has(> li > a.block[class*="hover:border-emerald/40"][class*="py-3"]):not(.flex) { grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr)); }
+    body:has(footer.bg-navy-dark) main ul:has(> li > a[class*="hover:border-emerald/40"]:not(.rounded-full)):not(.flex) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    body:has(footer.bg-navy-dark) main ul:has(> li > a.block[class*="hover:border-emerald/40"][class*="py-3"]):not(.flex) { grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr)) !important; }
 
     /* Area pills (town pages): light pills; linked towns are navy with an emerald hover. */
     body:has(footer.bg-navy-dark) main :is(a, span).rounded-full[class*="bg-white/5"][class*="text-xs"] {
