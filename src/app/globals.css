@@ -5325,5 +5325,5 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 }
 @media (min-width: 1200px) {
   /* Confirmation, My Bookings, balance and tracking pages: clear space below the fixed header. */
-  body:has(footer.bg-navy-dark) main[class*="md:pt-28"][class*="pt-36"] { padding-top: 9rem !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page])) main[class*="md:pt-28"][class*="pt-36"] { padding-top: 9rem !important; }
 }
