@@ -28,7 +28,7 @@ type RailCard = {
 const BUSINESS_CLASS_CARDS: readonly RailCard[] = [
   {
     key: "business-class",
-    label: "Business Class",
+    label: "Business Class · On request",
     image: withBasePath("/images/hero/optimized/business-class-executive-dublin-960.jpg"),
     title: "Travel to Dublin Airport in a Mercedes, BMW, Lexus or similar",
     text: "Meet & Greet with a name board on airport pickups. On request: we confirm the price and availability by email.",
@@ -49,7 +49,7 @@ const VEHICLE_CARDS: readonly RailCard[] = [
   },
   {
     key: "seven-seater",
-    label: "7-seater",
+    label: "7-seater · On request",
     image: withBasePath("/images/hero/optimized/seven-seater-dublin-960.webp"),
     title: "Travelling as a group? Up to 7 in one vehicle",
     text: "Families and groups stay together, with room for the luggage. On request: we confirm availability and the price by email.",
