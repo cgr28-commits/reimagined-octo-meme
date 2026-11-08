@@ -4677,6 +4677,25 @@ function QuoteCard({
       airportAccessQuote.airportAccessChargeGbp > 0 ||
       (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
       (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
+
+  /**
+   * A saved "secure payment ready" link is only offered for the journey and price it was
+   * created for. A different quote in the same tab (new route, date, vehicle or price)
+   * hides it, so the customer can never resume a payment for another journey.
+   */
+  const openCheckoutJourneyKey = JSON.stringify([
+    pickupAddress.trim(),
+    dropoffAddress.trim(),
+    tripDate,
+    tripTime,
+    journeyMode,
+    returnDate,
+    returnTime,
+    quoteVehicle,
+    formatQuote(paymentAmount ?? liveQuote?.amount ?? 0),
+  ]);
+  const activeOpenCheckout =
+    openCheckout && openCheckout.journeyKey === openCheckoutJourneyKey ? openCheckout : null;
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
@@ -5045,6 +5064,7 @@ function QuoteCard({
         amountLabel,
         returnToken,
         openedAt: new Date().toISOString(),
+        journeyKey: openCheckoutJourneyKey,
       };
       saveOpenCheckoutSession(session);
 
@@ -5181,14 +5201,14 @@ function QuoteCard({
   }
 
   function handleOpenPaymentAgain() {
-    if (!openCheckout?.paymentUrl) {
+    if (!activeOpenCheckout?.paymentUrl) {
       void handlePayNow();
       return;
     }
     setPaymentPopupBlocked(false);
     setPaymentError("");
     setPaymentLoading(true);
-    openSumUpPayment(openCheckout.paymentUrl);
+    openSumUpPayment(activeOpenCheckout.paymentUrl);
   }
 
   function handleReturnToEditBooking() {
@@ -7509,7 +7529,7 @@ function QuoteCard({
           {payNow &&
           liveQuote &&
           isMinibusNoticeRequest &&
-          !openCheckout &&
+          !activeOpenCheckout &&
           !ownerClosed &&
           !checkoutBlocked ? (
             <MinibusNoticeCheckoutNotice />
@@ -7518,7 +7538,7 @@ function QuoteCard({
           {payNow &&
           liveQuote &&
           isMinimumNoticeRequest &&
-          !openCheckout &&
+          !activeOpenCheckout &&
           !ownerClosed &&
           !checkoutBlocked ? (
             <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
@@ -7603,7 +7623,7 @@ function QuoteCard({
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
-              {!isAvailabilityRequest && !openCheckout ? (
+              {!isAvailabilityRequest && !activeOpenCheckout ? (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
                 </p>
@@ -7625,11 +7645,11 @@ function QuoteCard({
                   {renderBookingErrorHelp("payment-actions")}
                 </div>
               ) : null}
-              {openCheckout ? (
+              {activeOpenCheckout ? (
                 <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
                   <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                   <p className="text-xs leading-relaxed text-white/75">
-                    Your booking details are saved for {openCheckout.amountLabel}. Continue to
+                    Your booking details are saved for {activeOpenCheckout.amountLabel}. Continue to
                     secure payment to finish paying, or cancel payment and return to your quote.
                   </p>
                   {isMobileDevice === false ? (
@@ -7793,7 +7813,7 @@ function QuoteCard({
                     ) : null}
                   </div>
                 ) : null}
-                {isAvailabilityRequest && !openCheckout ? (
+                {isAvailabilityRequest && !activeOpenCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
                 ) : null}
                 {checkoutPayHint ? (
@@ -7879,7 +7899,7 @@ function QuoteCard({
           payNow &&
           !appliedPersonalQuote &&
           !submitted &&
-          !openCheckout ? (
+          !activeOpenCheckout ? (
             <button
               type="button"
               onClick={() => handleSaveQuoteClick()}
