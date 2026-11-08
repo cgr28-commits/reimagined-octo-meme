@@ -69,7 +69,7 @@ export default function RefundPageClient() {
   return (
     <>
       <OwnerPortalHeader variant="admin" title="Owner tools" />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
+      <main data-staff-page className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-amber-300">
