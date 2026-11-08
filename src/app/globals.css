@@ -5196,3 +5196,12 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     [class*="station_page"] [class*="station_jumpLinks"] a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
   }
 }
+/* Header bar with the Call Us button: links keep comfortable spacing, and at least ~24px clear
+   space always separates the last link from the Call Us button (measured 1200-1920px). */
+@media (min-width: 1200px) {
+  header[data-site-header] > div:nth-child(2) { column-gap: 1.5rem !important; }
+  header[data-site-header] nav[class*="lg:gap-5"] { gap: 0.9rem !important; margin-inline: 0 !important; }
+}
+@media (min-width: 1280px) {
+  header[data-site-header] nav[class*="lg:gap-5"] { gap: 1.1rem !important; }
+}
