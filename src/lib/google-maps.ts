@@ -8,6 +8,7 @@ import {
   geocodeAddress,
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
+  collapseDuplicateAirportSuggestions,
   rankAddressSuggestions,
   searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
@@ -95,7 +96,7 @@ function mergePredictions(
   const servedFirst = merged.filter((item) => servedIds.has(item.placeId));
   const remainder = merged.filter((item) => !servedIds.has(item.placeId));
   const ranked = rankAddressSuggestions(remainder, query, airportCode);
-  return [...servedFirst, ...ranked].slice(0, limit);
+  return collapseDuplicateAirportSuggestions([...servedFirst, ...ranked]).slice(0, limit);
 }
 
 function toPrediction(suggestion: {
