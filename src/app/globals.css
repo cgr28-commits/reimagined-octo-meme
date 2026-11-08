@@ -4994,3 +4994,37 @@ body:has(.cookie-consent-banner--modal) {
   [data-quote-action-dialog] [data-desktop-enquiry-form] > p:first-child { font-size: 0.84rem !important; line-height: 1.5 !important; padding: 0.75rem 0.9rem !important; }
   [data-quote-action-dialog] [data-desktop-enquiry-form] textarea { min-height: 5.5rem; }
 }
+
+/* ==========================================================================
+   STAGE B (review): light design system for page sections — homepage below the hero and the
+   Belfast International airport page only, for approval before rolling out to every template.
+   Tokens: navy #071C38 · emerald #2FBF4A · page #F4F7FA · cards #FFFFFF · body #33445A.
+   - Decorative full-section navy gradient / dark layers are removed (they made headings and
+     body text unreadable on the light theme). Layers over photos are kept.
+   - Sections alternate off-white / white for rhythm; cards keep their white + border.
+   - Section and content headings use Manrope (the hero's typeface) in navy, not the serif.
+   Desktop 1200px+ only.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"]) {
+    display: none !important;
+  }
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main :is(.section-heading, h1, h2, h3):not(section.homepage-hero *):not([data-landing-hero] *) {
+    font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.025em !important;
+  }
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; font-size: clamp(2rem, 2.4vw, 2.6rem) !important; line-height: 1.12 !important; }
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { font-weight: 700 !important; letter-spacing: -0.01em !important; color: #071c38 !important; }
+  /* Cards sitting on a white section get a soft shadow so they still read as cards. */
+  html:is(:has(body section.homepage-hero), :has(link[rel="canonical"][href*="/airports/belfast-international"]))
+    main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) {
+    box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important;
+  }
+}
