@@ -5897,6 +5897,28 @@ function QuoteCard({
     navigateQuoteStep(1);
   }
 
+  /**
+   * Desktop booking progress (1200px+): completed stages are buttons that reuse the existing
+   * back-navigation. "Journey" opens the saved journey form for editing (same as Edit journey);
+   * "Vehicle" is the existing Back to your quote. No state is cleared, no quote, payment session
+   * or notification is created; changing the journey re-prices through the normal quote flow.
+   */
+  function goToJourneyFromProgress() {
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setDesktopJourneyEditing(true);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        const field = document.getElementById("pickup");
+        field?.scrollIntoView({ block: "center", behavior: "smooth" });
+        field?.focus({ preventScroll: true });
+      }, 80);
+    }
+  }
+
+  function goToVehicleFromProgress() {
+    handleBackToQuote();
+  }
+
   function renderBackToQuoteButton(placement: "top" | "bottom") {
     return (
       <button
@@ -9240,16 +9262,24 @@ function QuoteCard({
           <div className="hidden" data-results-desktop-bar>
             <ol data-checkout-progress aria-label="Booking progress">
               <li data-checkout-progress-step="done">
-                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+                <button type="button" data-checkout-progress-link onClick={goToJourneyFromProgress}>
+                  <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed): change your journey</span>
+                </button>
               </li>
               <li data-checkout-progress-step="current" aria-current="step">
                 <span aria-hidden="true">2</span> Vehicle
               </li>
-              <li data-checkout-progress-step="next">
+              <li data-checkout-progress-step="next" aria-disabled="true">
                 <span aria-hidden="true">3</span> Details &amp; payment
               </li>
             </ol>
-            <p data-results-desktop-phone>028 9602 2952</p>
+            <a href="tel:02896022952" data-results-desktop-phone aria-label="Call us on 028 9602 2952">
+              <svg data-phone-icon viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z" />
+              </svg>
+              <span data-phone-label>Call Us</span>
+              <span data-phone-number>028 9602 2952</span>
+            </a>
             <p data-results-desktop-title>Choose your vehicle</p>
             <p data-results-desktop-subtitle>Fixed prices, confirmed before you pay.</p>
           </div>
@@ -9259,10 +9289,14 @@ function QuoteCard({
           <div className="hidden" data-checkout-desktop-bar>
             <ol data-checkout-progress aria-label="Booking progress">
               <li data-checkout-progress-step="done">
-                <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed)</span>
+                <button type="button" data-checkout-progress-link onClick={goToJourneyFromProgress}>
+                  <span aria-hidden="true">✓</span> Journey<span className="sr-only"> (completed): change your journey</span>
+                </button>
               </li>
               <li data-checkout-progress-step="done">
-                <span aria-hidden="true">✓</span> Vehicle<span className="sr-only"> (completed)</span>
+                <button type="button" data-checkout-progress-link onClick={goToVehicleFromProgress}>
+                  <span aria-hidden="true">✓</span> Vehicle<span className="sr-only"> (completed): change your vehicle</span>
+                </button>
               </li>
               <li data-checkout-progress-step="current" aria-current="step">
                 <span aria-hidden="true">3</span> Details &amp; payment
