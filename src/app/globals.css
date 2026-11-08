@@ -4929,3 +4929,57 @@ body:has(.cookie-consent-banner--modal) {
   /* Call Us link sits in the same place on the checkout step as on vehicle choice. */
   :is(.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) [data-checkout-desktop-bar] > a[data-results-desktop-phone] { display: inline-flex !important; }
 }
+
+/* ==========================================================================
+   Customer dialogs (desktop 1200px+): one shared light modal design.
+   Every customer quote dialog renders through QuoteActionDialog ([data-quote-action-dialog]):
+   Email Enquiry, Save My Quote / Email My Quote / Save via WhatsApp, "Not ready to book yet?",
+   Start a new quote, View route and the WhatsApp help card. Styling only; their logic,
+   validation, consent and attribution are unchanged. Below 1200px they keep their current look.
+   ========================================================================== */
+@media (min-width: 1200px) {
+  [data-quote-action-dialog][data-quote-action-dialog] { background: rgba(7, 28, 56, 0.55) !important; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  [data-quote-action-dialog][data-quote-action-dialog] > div {
+    background: #ffffff !important; border: 1px solid #e3e8ef !important; border-radius: 1.25rem !important;
+    box-shadow: 0 30px 70px -24px rgba(7, 28, 56, 0.5), 0 8px 20px -12px rgba(7, 28, 56, 0.25) !important; color: #33445a;
+  }
+  [data-quote-action-dialog][data-quote-action-dialog] > div > div:first-child { border-bottom: 1px solid #e8edf3 !important; padding: 1.1rem 1.4rem 1rem !important; align-items: center; }
+  [data-quote-action-dialog][data-quote-action-dialog] > div > div:last-child { padding: 1.25rem 1.4rem 1.45rem !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] h2 { color: #071c38 !important; font-size: 1.25rem !important; font-weight: 800 !important; letter-spacing: -0.01em; }
+  [data-quote-action-dialog][data-quote-action-dialog] .text-emerald { color: #1a7f2e !important; }
+  /* Close button: clean, round, accessible focus ring. */
+  [data-quote-action-dialog][data-quote-action-dialog] button[aria-label="Close"] {
+    width: 2.25rem; height: 2.25rem; padding: 0 !important; display: grid; place-items: center; border-radius: 999px !important;
+    color: #4a5a70 !important; background: #f4f6fa !important; font-size: 0.95rem;
+  }
+  [data-quote-action-dialog][data-quote-action-dialog] button[aria-label="Close"]:hover { background: #e8edf3 !important; color: #071c38 !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] :is(button, a, input, textarea, select):focus-visible { outline: 2px solid #2fbf4a !important; outline-offset: 2px !important; }
+  /* Readable text. */
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.text-white, [class*="text-white/"]):not(.btn-primary):not([class*="bg-emerald"]) { color: #33445a !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] .quote-secondary { color: #5b6b80 !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] label { color: #071c38 !important; font-weight: 600; }
+  [data-quote-action-dialog][data-quote-action-dialog] label :is(input, textarea) { font-weight: 400; }
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.text-red-300, .text-red-400, [role="alert"]) { color: #c62828 !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] a.underline, [data-quote-action-dialog][data-quote-action-dialog] a[href^="/privacy"] { color: #1a7f2e !important; }
+  /* Light grey fields, emerald focus. */
+  [data-quote-action-dialog][data-quote-action-dialog] :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    background: #f4f6fa !important; border: 1px solid #cfd8e3 !important; border-radius: 0.75rem !important;
+    color: #071c38 !important; -webkit-text-fill-color: #071c38; box-shadow: none !important;
+  }
+  [data-quote-action-dialog][data-quote-action-dialog] :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus {
+    border-color: #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.22) !important; outline: none !important; background: #fff !important;
+  }
+  /* Journey details in a pale grey summary area. */
+  [data-quote-action-dialog][data-quote-action-dialog] [class*="bg-white/5"] { background: #f4f7fa !important; border-color: #e1e7ee !important; color: #33445a !important; }
+  /* Primary: exact brand emerald with navy text (accessible contrast on #2FBF4A). */
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.btn-primary, button[class*="bg-emerald"]) {
+    background: #2fbf4a !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; border: 0 !important; font-weight: 700 !important; box-shadow: none !important;
+  }
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.btn-primary, button[class*="bg-emerald"]):hover:not(:disabled) { background: #29ab42 !important; }
+  /* Secondary: white with a subtle navy outline. */
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.btn-secondary, button[class*="border-white/25"]) {
+    background: #ffffff !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; border: 1.5px solid rgba(7, 28, 56, 0.35) !important; font-weight: 600 !important;
+  }
+  [data-quote-action-dialog][data-quote-action-dialog] :is(.btn-secondary, button[class*="border-white/25"]):hover:not(:disabled) { background: #f4f7fa !important; border-color: #071c38 !important; }
+  [data-quote-action-dialog][data-quote-action-dialog] a[class*="border-[#25D366]"] { color: #071c38 !important; background: #fff; }
+}
