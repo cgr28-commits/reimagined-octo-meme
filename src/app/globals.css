@@ -5180,3 +5180,19 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @media (min-width: 1024px) and (max-width: 1279px) {
   a[data-call-us-pill="header"] [data-phone-label] { display: none; }
 }
+
+/* Stage 2 contrast fixes (from the page sweep): small green text on white/off-white uses the
+   deeper #1A7F2E; Grand Central Station quote heading and "On this page" links on the light page. */
+@layer base {
+  @media (min-width: 1200px) {
+    body:has(footer.bg-navy-dark) main :is(.text-emerald-dark, .text-emerald a:not([class*="bg-"]):not([class*="text-"])):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):not(h1, h2) { color: #1a7f2e !important; }
+    [class*="station_page"] [data-landing-quote-header] h2 { color: #071c38 !important; }
+    [class*="station_page"] [data-landing-quote-header] p { color: #4a5a70 !important; }
+    [class*="station_page"] [data-landing-quote-header] p:first-child { color: #1a7f2e !important; }
+    [class*="station_page"] [class*="station_jumpLinks"] a {
+      background: #ffffff !important; border: 1px solid #dde4ec !important; border-radius: 0.75rem !important; color: #071c38 !important;
+      text-decoration: none !important; font-weight: 600 !important; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    [class*="station_page"] [class*="station_jumpLinks"] a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
+  }
+}
