@@ -136,7 +136,7 @@ jobs:
           if curl -fsS https://reimagined-octo-meme.cgr28.workers.dev/pricing/public -o /tmp/live-pricing.json \
              && node -e 'const j=require("/tmp/live-pricing.json"); if(!j.ok||!j.config||!j.config.saloon) process.exit(1); require("fs").writeFileSync("/tmp/pricing-settings.json", JSON.stringify(j.config));'; then
             # Staging TRACKING_STORE namespace (staging Cloudflare account only).
-            if npx wrangler kv key put "owner:pricing-settings" --path=/tmp/pricing-settings.json --namespace-id=d780d553438c48c1b3c67258fe92d3d8; then
+            if npx wrangler kv key put "owner:pricing-settings" -c wrangler.payment-staging.toml --path=/tmp/pricing-settings.json --namespace-id=d780d553438c48c1b3c67258fe92d3d8; then
               echo "::notice::Staging pricing mirrored from the live public tariff"
             else
               echo "::warning::Could not write mirrored pricing; staging keeps default prices"
