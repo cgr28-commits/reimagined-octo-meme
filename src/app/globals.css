@@ -4687,3 +4687,7 @@ body:has(.cookie-consent-banner--modal) {
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote] { color: #1a7f2e !important; }
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote]:hover { color: #071c38 !important; }
 }
+@media (min-width: 1200px) {
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote] { color: #1a7f2e !important; }
+  :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote]:hover { color: #071c38 !important; }
+}
