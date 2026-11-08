@@ -26,8 +26,10 @@ function formatGbp(amount: number | null): string {
  * browser, so going back restores it; clearing the open-checkout marker shows
  * the editable form instead of the "payment ready" panel.
  */
-function backToBooking(): void {
-  clearOpenCheckoutSession();
+function backToBooking(options?: { keepOpenCheckout?: boolean }): void {
+  // keepOpenCheckout: the payment link may still be valid (temporary error), so the booking page
+  // offers to continue this same payment instead of starting a new one (no duplicate session).
+  if (!options?.keepOpenCheckout) clearOpenCheckoutSession();
   let sameSite = false;
   try {
     sameSite = Boolean(document.referrer) && new URL(document.referrer).origin === window.location.origin;
@@ -309,7 +311,7 @@ export default function StripeCardPayClient() {
       {view !== "paying" ? (
         <button
           type="button"
-          onClick={backToBooking}
+          onClick={() => backToBooking()}
           className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline"
           data-pay-back-to-booking
         >
@@ -435,8 +437,9 @@ export default function StripeCardPayClient() {
           </Link>
           {/* Desktop (1200px+) recovery actions; below 1200px the single button above shows as before.
               "Try again" re-opens this same payment link (no new booking or payment attempt).
-              "Return to your booking" goes back to the saved booking, where Pay starts a fresh,
-              validated checkout only if the customer chooses to pay again. */}
+              "Return to your booking" goes back to the saved booking. After a temporary error the
+              open payment is kept, so the booking page continues this same payment; after an
+              expired/invalid link a new, validated checkout starts only if the customer pays again. */}
           <div className="hidden" data-pay-error-actions>
             {view === "error" ? (
               <button type="button" className="btn-primary" data-pay-retry onClick={() => window.location.reload()}>
@@ -447,7 +450,7 @@ export default function StripeCardPayClient() {
               type="button"
               className={view === "error" ? "btn-secondary" : "btn-primary"}
               data-pay-return-to-booking
-              onClick={backToBooking}
+              onClick={() => backToBooking({ keepOpenCheckout: view === "error" })}
             >
               Return to your booking
             </button>
