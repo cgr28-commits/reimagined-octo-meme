@@ -135,9 +135,12 @@ jobs:
           # match the real website. Staging never writes to the live Worker.
           if curl -fsS https://reimagined-octo-meme.cgr28.workers.dev/pricing/public -o /tmp/live-pricing.json \
              && node -e 'const j=require("/tmp/live-pricing.json"); if(!j.ok||!j.config||!j.config.saloon) process.exit(1); require("fs").writeFileSync("/tmp/pricing-settings.json", JSON.stringify(j.config));'; then
-            KV_ID=$(grep -A2 'binding = "TRACKING_STORE"' wrangler.payment-staging.toml | grep -o '[0-9a-f]\{32\}' | head -1)
-            npx wrangler kv key put --namespace-id "$KV_ID" --remote "owner:pricing-settings" --path /tmp/pricing-settings.json
-            echo "::notice::Staging pricing mirrored from the live public tariff"
+            # Staging TRACKING_STORE namespace (staging Cloudflare account only).
+            if npx wrangler kv key put "owner:pricing-settings" --path=/tmp/pricing-settings.json --namespace-id=d780d553438c48c1b3c67258fe92d3d8; then
+              echo "::notice::Staging pricing mirrored from the live public tariff"
+            else
+              echo "::warning::Could not write mirrored pricing; staging keeps default prices"
+            fi
           else
             echo "::warning::Could not mirror live pricing; staging keeps default prices"
           fi
