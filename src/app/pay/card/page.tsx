@@ -14,7 +14,7 @@ export default function StripeCardPayPage() {
   return (
     // No site header/footer here: the payment fits on one screen. The card
     // shows the logo, and the amount/reference stay at the top.
-    <main className="min-h-[100dvh] overflow-x-clip bg-navy px-3 py-3 sm:flex sm:items-center sm:py-6">
+    <main data-customer-standalone data-focused-payment className="min-h-[100dvh] overflow-x-clip bg-navy px-3 py-3 sm:flex sm:items-center sm:py-6">
       <div className="mx-auto w-full max-w-md">
         <StripeCardPayClient />
       </div>

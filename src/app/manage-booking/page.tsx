@@ -4,6 +4,7 @@ import Logo from "@/components/Logo";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import { SITE } from "@/lib/data";
 import ManageBookingClient from "./ManageBookingClient";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
   title: "Manage Your Booking | My Airport Taxi NI",
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
 
 export default function ManageBookingPage() {
   return (
-    <main className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
+    <>
+    <StandaloneBrandBar />
+    <main data-customer-standalone className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto mb-6 flex w-full max-w-lg flex-col items-center gap-4 sm:mb-8">
         <div className="flex w-full items-center justify-between gap-3">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
@@ -53,5 +56,6 @@ export default function ManageBookingPage() {
       </div>
       <ManageBookingClient />
     </main>
+    </>
   );
 }
