@@ -25,7 +25,7 @@ export default function Footer() {
               href="/manage-booking/"
               prefetch={false}
               data-footer-manage-booking
-              className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border border-emerald/50 px-5 text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10"
+              className="mt-6 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-5 text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10"
             >
               <svg className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
