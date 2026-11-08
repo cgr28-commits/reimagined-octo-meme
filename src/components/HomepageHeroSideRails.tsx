@@ -52,7 +52,7 @@ const VEHICLE_CARDS: readonly RailCard[] = [
     label: "7-seater",
     image: withBasePath("/images/hero/optimized/seven-seater-dublin-960.webp"),
     title: "Travelling as a group? Up to 7 in one vehicle",
-    text: "Families and groups stay together, with room for the luggage. On request: we confirm availability and the price by email.",
+    text: "Families and groups stay together, with room for the luggage. See the price online; available on request, subject to confirmation.",
     href: "/transfers/belfast-to-dublin-airport-7-seater/",
     cta: "See the 7-seater",
   },
