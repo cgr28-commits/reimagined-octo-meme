@@ -5007,7 +5007,7 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
-    main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"]) {
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"], :has(> [class*="bg-[radial-gradient"])) {
     display: none !important;
   }
   html:is(:has(body section.homepage-hero), :has(link[rel="canonical"]:is([href*="/airports/"], [href*="/locations/"], [href*="/transfers/"])))
@@ -5067,22 +5067,22 @@ body:has(.cookie-consent-banner--modal) {
 @layer base {
   @media (min-width: 1200px) {
     /* Tile links: white, subtle border, navy text, emerald hover border and a small lift. */
-    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *) {
+    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *) {
       background: #ffffff !important; border: 1px solid #dde4ec !important; border-radius: 0.85rem !important;
       color: #071c38 !important; font-weight: 600 !important;
       box-shadow: 0 1px 2px rgba(7, 28, 56, 0.04) !important;
       transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
     }
-    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):hover {
+    body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):hover {
       border-color: #2fbf4a !important; box-shadow: 0 12px 26px -18px rgba(7, 28, 56, 0.45) !important; transform: translateY(-1px);
     }
     body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:focus-visible { outline: 2px solid #2fbf4a !important; outline-offset: 2px; }
     /* Text-only tiles get a small emerald arrow, like the homepage route tiles. */
-    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
+    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
       display: flex !important; align-items: center; justify-content: space-between; gap: 0.75rem;
       min-height: 3.1rem; padding: 0.75rem 1rem !important; font-size: 0.92rem !important; line-height: 1.3;
     }
-    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *)::after {
+    body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *)::after {
       content: "→"; flex: none; color: #1f9a36; font-weight: 700; transition: transform 0.15s ease;
     }
     body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:hover::after { transform: translateX(2px); }
@@ -5110,10 +5110,10 @@ body:has(.cookie-consent-banner--modal) {
     #areas a[class*="hover:bg-emerald/10"] svg { color: #2fbf4a !important; }
 
     /* Airport cards: same hover treatment as the tiles. */
-    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
+    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *) {
       transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease !important;
     }
-    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(:is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *):hover {
+    body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *):hover {
       border-color: #2fbf4a !important; box-shadow: 0 18px 36px -24px rgba(7, 28, 56, 0.45) !important; transform: translateY(-2px);
     }
   }
