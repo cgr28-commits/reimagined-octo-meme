@@ -4712,3 +4712,7 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   body:has(footer.bg-navy-dark) main [class*="bg-[#071c38]"][class*="bg-[#071c38]"][class*="bg-[#071c38]"]:is([class*="text-white"], [class*="text-mist"]) { color: rgba(255, 255, 255, 0.8) !important; }
 }
+@media (min-width: 1200px) {
+  /* Photo-banner pages: no pale strip between the navy header and the banner. */
+  body:has(footer.bg-navy-dark):has([data-landing-hero]) main:has([data-landing-hero]) { background: linear-gradient(#071c38 0 7rem, #f4f7fa 7rem) !important; }
+}
