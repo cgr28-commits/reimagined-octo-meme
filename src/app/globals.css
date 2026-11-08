@@ -4642,8 +4642,8 @@ body:has(.cookie-consent-banner--modal) {
   /* ---------- Vehicle selection and checkout: light page, navy summary panel kept ---------- */
   section.homepage-hero:has([data-quote-results], [data-checkout-aside]) { background: #f4f7fa !important; }
   body:has([data-quote-results]) header[data-site-header], body:has([data-checkout-aside]) header[data-site-header] { background: #071c38 !important; }
-  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li { color: #5b6b80 !important; }
-  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li + li::before { background: #cfd8e3 !important; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li { color: rgba(255, 255, 255, 0.78) !important; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow[data-quote-results="ready"] > div:first-child > ol > li + li::before { background: rgba(255, 255, 255, 0.25) !important; }
 }
 
 /* Field icons: the shapes inside each icon follow the brand green too
@@ -4683,7 +4683,7 @@ body:has(.cookie-consent-banner--modal) {
    so they move from white to navy/slate. The navy summary panels are unchanged. */
 @media (min-width: 1200px) {
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-title], h2[data-site-nav-heading]) { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
-  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-subtitle], [data-results-desktop-phone], [data-checkout-desktop-bar] *) { color: #4a5a70 !important; -webkit-text-fill-color: #4a5a70; }
+  :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-results-desktop-subtitle] { color: #4a5a70 !important; -webkit-text-fill-color: #4a5a70; }
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote] { color: #1a7f2e !important; }
   :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote]:hover { color: #071c38 !important; }
 }
