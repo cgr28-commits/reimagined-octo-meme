@@ -1,5 +1,6 @@
 import { hasUncertainPayment, markPaymentPending, clearPaymentPending, PaymentOutcomeUncertainError } from "./payment-attempt-guard";
 import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
+import { getOrCreatePaymentGroupId } from "@/lib/payment-group";
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import {
@@ -359,6 +360,7 @@ export async function createPaymentCheckout(
       description: request.description,
       meetGreetSelected: request.meetGreetSelected === true,
       checkoutReference: request.checkoutReference,
+      ...(booking ? { paymentGroupId: getOrCreatePaymentGroupId() } : {}),
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       measurementConsent: currentMeasurementConsent(),
       ...(booking ? { booking } : {}),

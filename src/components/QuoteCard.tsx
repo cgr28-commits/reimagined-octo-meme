@@ -1,6 +1,7 @@
 "use client";
 
 import CallUsButton from "@/components/CallUsButton";
+import { clearPaymentGroupId } from "@/lib/payment-group";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
@@ -5246,6 +5247,7 @@ function QuoteCard({
    */
   function performStartNewQuote() {
     trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
+    clearPaymentGroupId();
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
     quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;

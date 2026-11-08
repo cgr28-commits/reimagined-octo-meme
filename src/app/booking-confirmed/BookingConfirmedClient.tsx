@@ -1,5 +1,6 @@
 "use client";
 
+import { clearPaymentGroupId } from "@/lib/payment-group";
 import { readCachedCustomerProfile, requestCustomerLoginCode } from "@/lib/customer-account-api";
 import Link from "next/link";
 import { CHECKOUT_CANCELLATION_SUMMARY, CANCELLATION_POLICY_PATH } from "../../../shared/cancellation-policy";
@@ -176,6 +177,8 @@ export default function BookingConfirmedClient() {
         setCashDueGbp(null);
       }
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
+      // This booking is done: the next booking gets a fresh payment group.
+      if (result.status === "confirmed") clearPaymentGroupId();
       if (result.status === "confirmed" && purchase) {
         setFireConversion(true);
         void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {

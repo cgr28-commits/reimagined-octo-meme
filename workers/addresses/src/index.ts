@@ -3,6 +3,8 @@ import {
   configureStripe,
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
+  expireStripeCheckoutSession,
+  isStripeSessionPaid,
   shouldUseStripeHold,
   stripeModeFromKey,
   cleanSecretValue,
@@ -26,6 +28,7 @@ import {
 } from "./stripe-holds";
 import { handleWhatsAppTemplates, isWhatsAppTemplatesPath } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
+import {createOrReplaceGroupedCheckout, resolvePaymentGroupKey} from "./payment-session-group";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
@@ -682,6 +685,8 @@ type Env = {
   /** HMAC secret for open-website quote receipts. Worker-only. Never sent to the browser. */
   QUOTE_RECEIPT_SECRET?: string;
   SITE_ORIGIN?: string;
+  /** Payment staging Worker only: the test site's own address. Never set on the live Worker. */
+  STAGING_SITE_ORIGIN?: string;
   RETURN_OFFER_LOCAL_TO_AIRPORT_DELAY_HOURS?: string;
   RETURN_OFFER_LAST_MINUTE_LOCAL_DELAY_HOURS?: string;
   RETURN_OFFER_AIRPORT_TO_LOCAL_DELAY_HOURS?: string;
@@ -2128,6 +2133,7 @@ async function handlePaymentRequest(
   origin: string | null,
   ctx?: ExecutionContext,
   timing: Record<string, number> = {},
+  options: { paymentGroupKey?: string } = {},
 ): Promise<Response> {
   const preparationStarted = performance.now();
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -2154,9 +2160,9 @@ async function handlePaymentRequest(
   /** Client-reported website fare for audit only — never used as SumUp amount when a quote applies. */
   const clientStandardWebsiteAmount = Number(body.standardWebsiteAmount);
   const description = String(body.description ?? "").trim();
-  const redirectUrl = canonicalizeBookingConfirmedRedirectUrl(
+  const redirectUrl = stagingSiteRedirect(env, canonicalizeBookingConfirmedRedirectUrl(
     String(body.redirectUrl ?? "").trim(),
-  );
+  ));
   if (body.meetGreetSelected != null && typeof body.meetGreetSelected !== "boolean") {
     return json({ error: "Invalid Meet & Greet selection" }, 400, origin);
   }
@@ -2308,6 +2314,7 @@ async function handlePaymentRequest(
           createdAt: record.quoteApprovedAt || new Date().toISOString(),
           a2aQuoteToken,
           a2aQuoteReference: record.reference,
+          ...(options.paymentGroupKey ? { paymentGroupKey: options.paymentGroupKey } : {}),
         });
         await saveA2aQuoteRequest(env.TRACKING_STORE, { ...record, booking, updatedAt: new Date().toISOString() });
         return json(
@@ -3917,6 +3924,7 @@ async function handlePaymentRequest(
       amount: Math.round(amount * 100) / 100,
       booking,
       createdAt: new Date().toISOString(),
+      ...(options.paymentGroupKey ? { paymentGroupKey: options.paymentGroupKey } : {}),
       ...(shortNoticeCheckoutAdmittedAt
         ? { checkoutStartedAt: shortNoticeCheckoutAdmittedAt }
         : {}),
@@ -4447,6 +4455,26 @@ async function handleFlightLookupRequest(
  */
 function stripePaymentsActive(env: Env, booking?: { customerEmail?: string } | null): boolean {
   return stripeActiveFor(env, booking === undefined ? undefined : (booking?.customerEmail ?? null));
+}
+
+/**
+ * Payment staging only: return customers to the staging test site instead of the live domain
+ * (the live address cannot open a sandbox payment). Without STAGING_SITE_ORIGIN (the live
+ * Worker) the address is returned unchanged.
+ */
+function stagingSiteRedirect(env: Env, redirectUrl: string): string {
+  const staging = env.STAGING_SITE_ORIGIN?.trim().replace(/\/+$/, "");
+  if (!staging || !redirectUrl) return redirectUrl;
+  try {
+    const parsed = new URL(redirectUrl);
+    const target = new URL(staging);
+    if (target.protocol !== "https:" || !target.hostname.endsWith(".workers.dev")) return redirectUrl;
+    parsed.protocol = target.protocol;
+    parsed.host = target.host;
+    return parsed.toString();
+  } catch {
+    return redirectUrl;
+  }
 }
 
 /** On-site payment page: swap a Checkout Session id for its client secret. */
@@ -5999,8 +6027,38 @@ export default {
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
         booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
         booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
-      const digest = await paymentOperationHash({...body, redirectUrl:undefined,
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined, paymentGroupId:undefined,
         booking:{...booking,termsAcceptedAt:Boolean(String(booking.termsAcceptedAt ?? "").trim())}});
+      // One customer booking = one payment group: earlier unpaid links are replaced (expired at
+      // Stripe), never duplicated; paid or in-progress payments block a new link. Simultaneous
+      // requests are serialised by the group lock. See payment-session-group.ts.
+      const groupKey = await resolvePaymentGroupKey({paymentGroupId:body?.paymentGroupId,
+        customerEmail:booking.customerEmail, tripDate:booking.tripDate});
+      if (groupKey) {
+        try {
+          const result = await createOrReplaceGroupedCheckout({
+            deps:{
+              namespace:env.QUOTE_LEAD_COORDINATOR,
+              isManagedSession:isStripeCheckoutId,
+              retrieve:async(id)=>{
+                const s = await retrieveStripeCheckoutSession(id);
+                const pi = s.payment_intent && typeof s.payment_intent === "object" ? s.payment_intent : null;
+                return {status:s.status, paid:isStripeSessionPaid(s), expiresAt:s.expires_at, paymentIntentStatus:pi?.status ?? null};
+              },
+              expire:expireStripeCheckoutSession,
+            },
+            groupKey, digest,
+            create:async()=>{
+              const response = await handlePaymentRequest(request, env, origin, ctx, timing, {paymentGroupKey:groupKey});
+              return {status:response.status, body:await response.json() as Record<string, unknown>};
+            },
+          });
+          return timedResponse(json(result.body, result.status, origin));
+        } catch (error) {
+          console.error("Payment group unavailable", error instanceof Error ? error.message : "");
+          return json({error:"Payment status is uncertain. Please contact us before trying another payment.",code:"payment_in_progress"},409,origin);
+        }
+      }
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
           key:`payment-create:${await paymentOperationHash(identity)}`,digest,

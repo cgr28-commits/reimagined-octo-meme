@@ -38,6 +38,48 @@ export class QuoteLeadCoordinator implements DurableObject {
       });
     }
 
+    // Payment groups (payment-session-group.ts): one record per customer booking, listing every
+    // payment link created for it. A short lease lock serialises link creation so simultaneous
+    // requests can never both create links; the lock is not held by the object during provider
+    // I/O (the caller holds it by token). Records expire 30 days after the last activity.
+    if (action === "group-begin" || action === "group-finish" || action === "group-finalize-claim") {
+      const body = await request.json() as {token?:string; now?:number; leaseMs?:number; sessions?:unknown[]; checkoutId?:string};
+      return this.ctx.blockConcurrencyWhile(async () => {
+        type Group = {sessions:unknown[]; finalizedCheckoutId?:string; finalizedAt?:string};
+        type Lock = {token:string; at:number};
+        const now = typeof body.now === "number" ? body.now : Date.now();
+        const group = (await this.ctx.storage.get<Group>("group")) ?? {sessions:[]};
+        const keepFor = async () => { await this.ctx.storage.setAlarm(now + 30 * 86400000); };
+        if (action === "group-begin") {
+          const lock = await this.ctx.storage.get<Lock>("group-lock");
+          const lease = typeof body.leaseMs === "number" ? body.leaseMs : 120000;
+          if (lock && now - lock.at < lease) return Response.json({state:"busy"});
+          await this.ctx.storage.put("group-lock", {token:String(body.token ?? ""), at:now});
+          await keepFor();
+          return Response.json({state:"acquired", sessions:group.sessions, finalizedCheckoutId:group.finalizedCheckoutId});
+        }
+        if (action === "group-finish") {
+          const lock = await this.ctx.storage.get<Lock>("group-lock");
+          if (!lock || lock.token !== body.token) return new Response("Lock mismatch", {status:409});
+          await this.ctx.storage.put("group", {...group, sessions:Array.isArray(body.sessions) ? body.sessions : group.sessions});
+          await this.ctx.storage.delete("group-lock");
+          await keepFor();
+          return Response.json({ok:true});
+        }
+        // group-finalize-claim: first paid payment wins; the same payment may re-claim (idempotent).
+        const checkoutId = String(body.checkoutId ?? "");
+        if (!checkoutId) return new Response("Missing checkout", {status:400});
+        if (group.finalizedCheckoutId && group.finalizedCheckoutId !== checkoutId) {
+          return Response.json({state:"duplicate", firstCheckoutId:group.finalizedCheckoutId, firstClaimedAt:group.finalizedAt});
+        }
+        if (!group.finalizedCheckoutId) {
+          await this.ctx.storage.put("group", {...group, finalizedCheckoutId:checkoutId, finalizedAt:new Date(now).toISOString()});
+        }
+        await keepFor();
+        return Response.json({state:"claimed"});
+      });
+    }
+
     if (action === "limit") {
       const allowed = await this.ctx.blockConcurrencyWhile(async () => {
         const now = Date.now();
