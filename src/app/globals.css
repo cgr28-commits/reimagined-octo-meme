@@ -5405,7 +5405,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
    <html data-mobile-light> is set by ?mobile=light on staging/preview hosts.
    The current mobile design is untouched without that attribute.
    Approach: re-map the brand colour variables to the light palette, then put
-   the original values back on "dark islands" (header, footer, photo overlays,
+   the original values back on "dark islands" (header:not(main header), footer, photo overlays,
    green buttons) so they keep their look.
    ========================================================================== */
 @media (max-width: 1199.98px) {
@@ -5439,7 +5439,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 
   /* Dark islands keep the original palette. */
   html[data-mobile-light] :is(
-      header, footer, #matni-test-mode,
+      header:not(main header), footer, #matni-test-mode,
       .bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, [class*="bg-[#25D366]"], [class*="bg-[#25d366]"],
       :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)
     ) {
@@ -5462,7 +5462,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
   }
   /* Muted greys meant for navy pages. */
-  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header, footer, .bg-emerald, .btn-primary) *) { color: #4a5a70; }
+  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #4a5a70; }
   /* Headings: navy, Manrope, tight. */
   html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     color: #071c38;
@@ -5471,7 +5471,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   }
   html[data-mobile-light] main :is(h1, h2) .text-emerald { color: #1f9a36; }
   /* Body copy emerald on light needs the darker green for contrast. */
-  html[data-mobile-light] main :is(p, li, span, a).text-emerald:not(:is(.bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, header, footer) *):not([class*="bg-"]) { color: #1a7f2e; }
+  html[data-mobile-light] main :is(p, li, span, a).text-emerald:not(:is(.bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, header:not(main header), footer) *):not([class*="bg-"]) { color: #1a7f2e; }
   /* Sections alternate white / off-white for rhythm. */
   html[data-mobile-light] main > section:nth-of-type(even):not(.homepage-hero) { background-color: #ffffff; }
 }
@@ -5480,7 +5480,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
    In @layer base so they outrank important utility classes (layered !important wins). */
 @layer base {
 @media (max-width: 1199.98px) {
-  html[data-mobile-light] header { background: #071c38 !important; box-shadow: 0 6px 18px rgba(7,28,56,0.18) !important; }
+  html[data-mobile-light] header:not(main header) { background: #071c38 !important; box-shadow: 0 6px 18px rgba(7,28,56,0.18) !important; }
   html[data-mobile-light] section.homepage-hero { background: #f4f7fa !important; }
   html[data-mobile-light] section.homepage-hero h1 { color: #071c38 !important; }
   html[data-mobile-light] section.homepage-hero h1 .text-emerald, html[data-mobile-light] section.homepage-hero h1 [class*="text-emerald"] { color: #1f9a36 !important; }
@@ -5523,7 +5523,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @layer base {
 @media (max-width: 1199.98px) {
   /* Very faint helper text meant for navy: lift to a readable slate on light. */
-  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header, footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #5f6f84 !important; }
+  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #5f6f84 !important; }
   /* Tinted green pills (e.g. "Available on request") read as dark green on pale green. */
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) { background-color: #e7f6ea !important; color: #1a7f2e !important; }
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) :is(span, svg) { color: #1a7f2e; }
@@ -5538,8 +5538,8 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   }
   html[data-mobile-light] [data-vehicle-category]:not([class*="border-emerald"]) { border-color: #dbe3ec !important; }
   /* Navy text classes stay navy (the navy variable is the page colour in this theme). */
-  html[data-mobile-light] .text-navy:not(:is(header, footer) *) { color: #071c38 !important; }
-  html[data-mobile-light] [class*="text-navy/"]:not(:is(header, footer) *) { color: #4a5a70 !important; }
+  html[data-mobile-light] .text-navy:not(:is(header:not(main header), footer) *) { color: #071c38 !important; }
+  html[data-mobile-light] [class*="text-navy/"]:not(:is(header:not(main header), footer) *) { color: #4a5a70 !important; }
   /* Price breakdown and quote panels. */
   html[data-mobile-light] .quote-breakdown-panel { background: #ffffff !important; border: 1px solid #e3e9f0 !important; color: #33445a !important; box-shadow: 0 10px 30px rgba(7,28,56,.12) !important; }
   html[data-mobile-light] .quote-panel { background: #f7f9fb !important; border-color: #e3e9f0 !important; }
