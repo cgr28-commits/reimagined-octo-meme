@@ -57,6 +57,8 @@ export type OpenCheckoutSession = {
   amountLabel: string;
   returnToken?: string;
   openedAt: string;
+  /** Journey and price this link was created for; other quotes never resume it. */
+  journeyKey?: string;
 };
 
 function canUseStorage(): boolean {
