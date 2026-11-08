@@ -4395,7 +4395,7 @@ body:has(.cookie-consent-banner--modal) {
     --u-mint: #2fbf4a; --u-green: #2fbf4a; --u-green-dark: #1a7f31; --u-green-tint: #eaf8ed;
     --co-mint: #2fbf4a; --co-green: #2fbf4a;
     --u-right: 22rem; --u-gap: 1.5rem; --u-radius: 1.1rem;
-    padding-top: 5.4rem !important;
+    padding-top: 5.75rem !important;
     background:
       radial-gradient(60rem 26rem at 12% -10%, rgba(18, 58, 107, 0.85) 0, rgba(18, 58, 107, 0) 65%),
       linear-gradient(180deg, #071c38 0%, #061833 100%) !important;
@@ -4409,8 +4409,8 @@ body:has(.cookie-consent-banner--modal) {
   body:has(section.homepage-hero) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
     content: ""; display: inline-block; width: 0.38rem; height: 0.38rem; margin-right: 0.45rem; border-radius: 999px; background: #2fbf4a; vertical-align: 0.08em;
   }
-  body:has(section.homepage-hero) header[data-site-header] > div:nth-child(2) { padding-top: 0.45rem; padding-bottom: 0.45rem; column-gap: 2.25rem; max-width: 80rem; }
-  body:has(section.homepage-hero) header[data-site-header] .quote-header-logo { height: 3.35rem !important; width: auto; }
+  body:has(section.homepage-hero) header[data-site-header] > div:nth-child(2) { padding-top: 0.3rem; padding-bottom: 0.3rem; column-gap: 2.25rem; max-width: 80rem; }
+  body:has(section.homepage-hero) header[data-site-header] .quote-header-logo { height: 4rem !important; width: auto; }
   body:has(section.homepage-hero) header[data-site-header] nav[aria-label="Main navigation"] { column-gap: 1.75rem; }
   body:has(section.homepage-hero) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary) {
     font-size: 0.875rem; font-weight: 500; letter-spacing: 0.005em; color: rgba(255, 255, 255, 0.82);
@@ -4469,7 +4469,7 @@ body:has(.cookie-consent-banner--modal) {
     background: rgba(255, 255, 255, 0.025) !important; border: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: none !important;
     padding: 1.35rem 1.45rem 1.3rem !important; border-radius: var(--u-radius) !important;
   }
-  section.homepage-hero [data-desktop-benefits-heading] { margin-bottom: 0.95rem !important; font-size: 0.68rem !important; letter-spacing: 0.16em !important; color: rgba(255, 255, 255, 0.5) !important; }
+  section.homepage-hero [data-desktop-benefits-heading] { margin-bottom: 0.95rem !important; font-size: 0.72rem !important; letter-spacing: 0.14em !important; color: rgba(255, 255, 255, 0.66) !important; }
   section.homepage-hero [data-desktop-benefits-list] { gap: 0.95rem !important; }
   section.homepage-hero [data-desktop-benefits-list] > li { grid-template-columns: 2.1rem minmax(0, 1fr) !important; column-gap: 0.8rem !important; }
   section.homepage-hero [data-desktop-benefit-icon] {
@@ -4477,8 +4477,8 @@ body:has(.cookie-consent-banner--modal) {
     background: rgba(47, 191, 74, 0.1) !important; border: 1px solid rgba(47, 191, 74, 0.3); color: #2fbf4a !important;
   }
   section.homepage-hero [data-desktop-benefit-icon] svg { width: 1.05rem !important; height: 1.05rem !important; }
-  section.homepage-hero [data-desktop-benefits-list] strong { font-size: 0.93rem !important; }
-  section.homepage-hero [data-desktop-benefits-list] li > span:last-child > span { font-size: 0.8rem !important; line-height: 1.45 !important; color: rgba(255, 255, 255, 0.64) !important; }
+  section.homepage-hero [data-desktop-benefits-list] strong { font-size: 0.97rem !important; }
+  section.homepage-hero [data-desktop-benefits-list] li > span:last-child > span { font-size: 0.86rem !important; line-height: 1.45 !important; color: rgba(255, 255, 255, 0.8) !important; }
   section.homepage-hero [data-desktop-benefits-reviews] { margin-top: 1.1rem !important; padding-top: 1.05rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 
   /* ---------- Promo cards: photo first, consistent cards, start above the fold ---------- */
