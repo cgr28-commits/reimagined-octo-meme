@@ -3,6 +3,8 @@ import {
   configureStripe,
   createStripeCheckoutSession,
   retrieveStripeCheckoutSession,
+  expireStripeCheckoutSession,
+  isStripeSessionPaid,
   shouldUseStripeHold,
   stripeModeFromKey,
   cleanSecretValue,
@@ -26,6 +28,7 @@ import {
 } from "./stripe-holds";
 import { handleWhatsAppTemplates, isWhatsAppTemplatesPath } from "./whatsapp-templates";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
+import {createOrReplaceGroupedCheckout, resolvePaymentGroupKey} from "./payment-session-group";
 import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
@@ -2128,6 +2131,7 @@ async function handlePaymentRequest(
   origin: string | null,
   ctx?: ExecutionContext,
   timing: Record<string, number> = {},
+  options: { paymentGroupKey?: string } = {},
 ): Promise<Response> {
   const preparationStarted = performance.now();
   const apiKey = env.SUMUP_API_KEY?.trim() ?? "";
@@ -2308,6 +2312,7 @@ async function handlePaymentRequest(
           createdAt: record.quoteApprovedAt || new Date().toISOString(),
           a2aQuoteToken,
           a2aQuoteReference: record.reference,
+          ...(options.paymentGroupKey ? { paymentGroupKey: options.paymentGroupKey } : {}),
         });
         await saveA2aQuoteRequest(env.TRACKING_STORE, { ...record, booking, updatedAt: new Date().toISOString() });
         return json(
@@ -3917,6 +3922,7 @@ async function handlePaymentRequest(
       amount: Math.round(amount * 100) / 100,
       booking,
       createdAt: new Date().toISOString(),
+      ...(options.paymentGroupKey ? { paymentGroupKey: options.paymentGroupKey } : {}),
       ...(shortNoticeCheckoutAdmittedAt
         ? { checkoutStartedAt: shortNoticeCheckoutAdmittedAt }
         : {}),
@@ -5999,8 +6005,38 @@ export default {
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
         booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
         booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
-      const digest = await paymentOperationHash({...body, redirectUrl:undefined,
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined, paymentGroupId:undefined,
         booking:{...booking,termsAcceptedAt:Boolean(String(booking.termsAcceptedAt ?? "").trim())}});
+      // One customer booking = one payment group: earlier unpaid links are replaced (expired at
+      // Stripe), never duplicated; paid or in-progress payments block a new link. Simultaneous
+      // requests are serialised by the group lock. See payment-session-group.ts.
+      const groupKey = await resolvePaymentGroupKey({paymentGroupId:body?.paymentGroupId,
+        customerEmail:booking.customerEmail, tripDate:booking.tripDate});
+      if (groupKey) {
+        try {
+          const result = await createOrReplaceGroupedCheckout({
+            deps:{
+              namespace:env.QUOTE_LEAD_COORDINATOR,
+              isManagedSession:isStripeCheckoutId,
+              retrieve:async(id)=>{
+                const s = await retrieveStripeCheckoutSession(id);
+                const pi = s.payment_intent && typeof s.payment_intent === "object" ? s.payment_intent : null;
+                return {status:s.status, paid:isStripeSessionPaid(s), expiresAt:s.expires_at, paymentIntentStatus:pi?.status ?? null};
+              },
+              expire:expireStripeCheckoutSession,
+            },
+            groupKey, digest,
+            create:async()=>{
+              const response = await handlePaymentRequest(request, env, origin, ctx, timing, {paymentGroupKey:groupKey});
+              return {status:response.status, body:await response.json() as Record<string, unknown>};
+            },
+          });
+          return timedResponse(json(result.body, result.status, origin));
+        } catch (error) {
+          console.error("Payment group unavailable", error instanceof Error ? error.message : "");
+          return json({error:"Payment status is uncertain. Please contact us before trying another payment.",code:"payment_in_progress"},409,origin);
+        }
+      }
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
           key:`payment-create:${await paymentOperationHash(identity)}`,digest,
