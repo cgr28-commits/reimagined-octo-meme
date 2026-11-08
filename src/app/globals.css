@@ -5386,8 +5386,11 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     color: #1a7f2e !important;
     box-shadow: 0 2px 8px rgba(7, 28, 56, 0.18);
   }
-  /* Four tours: one row of four instead of three plus one. */
+  /* Four tours: a balanced 2 x 2 grid instead of three plus one. */
   body:has(footer.bg-navy-dark) main .grid:has(> article:nth-child(4):last-child):has(> article a[href^="/tours/"]) {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    max-width: 62rem;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
