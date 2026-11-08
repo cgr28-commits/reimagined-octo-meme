@@ -5306,3 +5306,9 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > div.justify-between:has(> a img[src*="logo"]) { justify-content: flex-end !important; }
   }
 }
+@layer base {
+  @media (min-width: 1200px) {
+    /* Contact card: the round logo badge keeps its navy disc and emerald ring (official logo unchanged). */
+    main[data-customer-standalone] div.rounded-full[class*="bg-navy"]:has(> img) { background-color: #071c38 !important; box-shadow: 0 18px 40px -24px rgba(7, 28, 56, 0.55) !important; }
+  }
+}
