@@ -325,8 +325,7 @@ import {
   saveBookingFormDraft,
   saveOpenCheckoutSession,
   type BookingFormDraft,
-  type OpenCheckoutSession,
-} from "@/lib/booking-draft-storage";
+  type OpenCheckoutSession, markPaymentHandoff, consumePaymentHandoff, hasPaymentHandoff } from "@/lib/booking-draft-storage";
 import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
 import {
   clearStoredQuoteAddresses,
@@ -1723,14 +1722,27 @@ function QuoteCard({
     });
 
     const draft = readBookingFormDraft();
+    // Back from our own payment page in this tab: restore the journey the customer was paying for.
+    const returningFromPayment =
+      !returnOfferToken &&
+      !restoredQuote &&
+      consumePaymentHandoff() &&
+      Boolean(draft?.pickupAddress?.trim() && draft?.dropoffAddress?.trim() && draft?.pickupPlace && draft?.dropoffPlace);
 
-    if (visitDecision.clearStoredAddresses) {
+    if (visitDecision.clearStoredAddresses && !returningFromPayment) {
       // Never rehydrate pickup/destination from localStorage or an old session draft.
       clearStoredQuoteAddresses();
     }
 
     if (draft && !restoredQuote) {
       applyNonAddressDraftFields(draft);
+    }
+    if (returningFromPayment && draft) {
+      setPickupAddress(draft.pickupAddress ?? "");
+      setDropoffAddress(draft.dropoffAddress ?? "");
+      if (draft.pickupPlace) setPickupPlace(draft.pickupPlace);
+      if (draft.dropoffPlace) setDropoffPlace(draft.dropoffPlace);
+      if (presentation === "homepage") setHomepagePriceRequested(true);
     }
 
     const existingCheckout = readOpenCheckoutSession();
@@ -1767,6 +1779,11 @@ function QuoteCard({
         search: window.location.search,
         returnOfferToken,
       });
+      // Browser Back from our payment page restores the page as it was: keep the journey.
+      if (event.persisted && hasPaymentHandoff()) {
+        consumePaymentHandoff();
+        return;
+      }
       if (decision.clearStoredAddresses) {
         clearStoredQuoteAddresses();
       }
@@ -4899,6 +4916,7 @@ function QuoteCard({
     const amountLabel = formatQuote(paymentAmount ?? liveQuote.amount);
 
     // Persist before SumUp opens so closing the payment tab cannot wipe the form.
+    markPaymentHandoff();
     saveBookingFormDraft({
       quoteStep: 3,
       pickupAddress,
