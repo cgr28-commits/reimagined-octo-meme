@@ -6391,3 +6391,54 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-time-done]:disabled { background: #e2e8f0; color: #334155; border: 2px dashed #94a3b8; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ==========================================================================
+     DESIGN 3 PREMIUM STYLING (owner brief, 9 Nov 2026): same layout, more brand green.
+     Green text on light backgrounds uses #1F9A36 for large text (3.4:1) and #16803C for
+     small text (4.7–5:1); #2FBF4A is kept for buttons, bars and icons.
+     ========================================================================== */
+  /* Headline: "Belfast & Dublin" navy, "Airport Transfers" green, bold and compact. */
+  html[data-mobile-d3] #homepage-booking-intro h1 { font-weight: 800 !important; font-size: clamp(1.75rem, 7.6vw, 2.15rem) !important; line-height: 1.08 !important; letter-spacing: -0.03em !important; }
+  html[data-mobile-d3] #homepage-booking-intro h1 > span:first-child { color: #071c38 !important; -webkit-text-fill-color: #071c38; display: block; }
+  html[data-mobile-d3] #homepage-booking-intro h1 > span + span { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36; display: block; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+
+  /* Header: the official WhatsApp button in WhatsApp green (same link and tracking). */
+  html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] { background: #25d366 !important; border: 0 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(37,211,102,.35) !important; }
+  html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg { color: #fff !important; fill: #fff !important; width: 1.4rem !important; height: 1.4rem !important; }
+
+  /* Quote card: green top highlight, deeper shadow, green accent by the heading. */
+  html[data-mobile-d3] .quote-flow[data-d2] { border-top: 4px solid #2fbf4a !important; box-shadow: 0 2px 6px rgba(7,28,56,.06), 0 18px 40px -18px rgba(7,28,56,.35) !important; }
+  html[data-mobile-d3] .quote-flow[data-d2="details"] { border-top: 0 !important; box-shadow: none !important; }
+  html[data-mobile-d3] .quote-flow[data-d2] :is(h2[data-site-nav-heading], [data-d2-title]) { display: flex !important; align-items: center; gap: .55rem; }
+  html[data-mobile-d3] .quote-flow[data-d2] :is(h2[data-site-nav-heading], [data-d2-title])::before { content: ""; flex: none; width: .3rem; height: 1.25rem; border-radius: 999px; background: #2fbf4a; }
+  /* Green location icons (swap and clear buttons stay navy). */
+  html[data-mobile-d3] [data-d2-fields] svg { color: #16803c !important; }
+  html[data-mobile-d3] [data-d2-fields] :is([data-d2-swap], button[aria-label="Clear address"]) svg { color: #071c38 !important; }
+  /* Passenger / suitcase controls: green +, navy −, soft green tint once chosen. */
+  html[data-mobile-d3] [data-d2-stepper-btn="plus"]:not(:disabled) { background: #2fbf4a !important; border-color: #2fbf4a !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn="minus"]:not(:disabled) { border-color: #071c38 !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2-stepper]:has([data-d2-stepper-btn="minus"]:not(:disabled)) { background: #f2fbf4 !important; border-color: #16803c !important; }
+  /* Stronger green main button when it can be pressed. */
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:not(:disabled),
+  html[data-mobile-d3] [data-d2-sticky] #quote-book-now-button:not(:disabled),
+  html[data-mobile-d3] .quote-flow .btn-pay:not(:disabled) {
+    background: #2fbf4a !important; color: #071c38 !important; border: 0 !important;
+    box-shadow: inset 0 -3px 0 rgba(7,28,56,.2), 0 10px 22px -10px rgba(22,128,60,.8) !important;
+  }
+  /* Selected options: soft green tint + green border. */
+  html[data-mobile-d3] .quote-flow [data-d2-segment] > button[aria-pressed="true"],
+  html[data-mobile-d3] .quote-flow [role="group"][aria-label="Journey type"] > button.bg-emerald,
+  html[data-mobile-d3] .quote-flow [aria-label="Journey type"] > button.bg-white { background: #e9f7ee !important; color: #071c38 !important; box-shadow: inset 0 0 0 2px #2fbf4a !important; }
+  html[data-mobile-d3] .quote-flow [data-access-option]:has(input:checked), html[data-mobile-d3] .quote-flow .quote-choice-selected { background: #f2fbf4 !important; border-color: #16803c !important; }
+  /* Section headings with a short green rule; green links and route icons. */
+  html[data-mobile-d3] [data-d3-h2]::after { content: ""; display: block; width: 2.5rem; height: 3px; border-radius: 999px; background: #2fbf4a; margin-top: .45rem; }
+  html[data-mobile-d3] [data-d3-route-icon] { background: #e9f7ee !important; color: #16803c !important; }
+  html[data-mobile-d3] [data-d3-route]:active { border-color: #2fbf4a; }
+  html[data-mobile-d3] [data-d3-includes] { border-left: 4px solid #2fbf4a !important; }
+  html[data-mobile-d3] main a:not([class*="bg-"]):not([data-d3-route]):is([class*="underline"], [class*="text-emerald"]) { color: #16803c !important; text-decoration-color: #2fbf4a !important; }
+  html[data-mobile-d3] .quote-flow [data-d2-edit] { color: #16803c !important; }
+  html[data-mobile-d3] ol[data-mobile-steps] li[data-step-state="current"] > span { background: #2fbf4a !important; border-color: #2fbf4a !important; color: #071c38 !important; }
+}
+}
