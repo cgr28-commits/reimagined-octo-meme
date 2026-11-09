@@ -135,10 +135,10 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`} suppressHydrationWarning>
       <body className="overflow-x-clip antialiased">
-        {/* Light mobile design preview: opt-in with ?mobile=light (?mobile=classic to leave).
+        {/* Mobile design previews: ?mobile=light (Design 2), ?mobile=d3 (Design 3), ?mobile=classic to leave.
             Never switches on for the live domain until the new mobile design is approved. */}
         <Script id="matni-mobile-design" strategy="beforeInteractive">
-          {`try{if(!/myairporttaxini\.co\.uk$/i.test(location.hostname)){var k="matni-mobile-design",q=new URLSearchParams(location.search).get("mobile");if(q==="light"||q==="classic")localStorage.setItem(k,q);if(localStorage.getItem(k)==="light"&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,on=function(){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","")};on();new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light"]})}}}catch(e){}`}
+          {`try{if(!/myairporttaxini\.co\.uk$/i.test(location.hostname)){var k="matni-mobile-design",q=new URLSearchParams(location.search).get("mobile");if(q==="light"||q==="classic"||q==="d3")localStorage.setItem(k,q);var m=localStorage.getItem(k);if((m==="light"||m==="d3")&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,on=function(){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","");if(m==="d3"&&!d.hasAttribute("data-mobile-d3"))d.setAttribute("data-mobile-d3","")};on();new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light","data-mobile-d3"]})}}}catch(e){}`}
         </Script>
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
