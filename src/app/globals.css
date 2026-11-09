@@ -6106,3 +6106,147 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2-benefits] svg { color: #16803c !important; }
 }
 }
+
+/* ==========================================================================
+   DESIGN 3 (?mobile=d3 preview, phones and tablets below 1200px): Design 2 base + readability.
+   Owner's readability brief, 9 Nov 2026: same layout, clearer text, stronger outlines.
+   Contrast (WCAG AA), against white unless noted:
+     field outline #7D8DA3 3.4:1 (the brief's #94A3B8 is 2.6:1, below the 3:1 it also requires)
+     focus outline #16803C 5.0:1 + ring · input text #071C38 17:1 · placeholder #475569 7.6:1
+     headings #071C38 17:1 · body #1E293B 14.6:1 · secondary #475569 7.6:1
+     quote button: navy on #2FBF4A 7.6:1 · disabled: #334155 on #E2E8F0 8.6:1 + dashed edge
+   Styling only: pricing, validation, limits, autocomplete and Stripe are untouched.
+   ========================================================================== */
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] {
+    --d2-field: #7d8da3; --d2-muted: #475569;
+    --quote-input-border: #7d8da3; --quote-choice-border: #7d8da3; --quote-input-bg: #ffffff;
+    --quote-placeholder: #475569; --quote-secondary-ink: #475569;
+    --color-mist: #1e293b; --color-ink-secondary: #475569; --color-ink-muted: #475569;
+  }
+
+  /* ---- Text ---- */
+  html[data-mobile-d3] body, html[data-mobile-d3] main { color: #1e293b; }
+  html[data-mobile-d3] main :is(h1, h2, h3, h4) { color: #071c38 !important; }
+  html[data-mobile-d3] .quote-flow .quote-secondary,
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-d3] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])),
+  html[data-mobile-d3] main label:not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 700 !important; }
+
+  /* ---- Form boxes: addresses, date, time, passengers and customer details ---- */
+  html[data-mobile-d3] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"],
+  html[data-mobile-d3] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input) {
+    border: 1.5px solid #7d8da3 !important; background: #fff !important; min-height: 52px;
+  }
+  html[data-mobile-d3] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:focus-within,
+  html[data-mobile-d3] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input):focus-within {
+    border: 2px solid #16803c !important; box-shadow: 0 0 0 3px rgba(22,128,60,.22) !important;
+  }
+  html[data-mobile-d3] .quote-flow .address-input { color: #071c38 !important; -webkit-text-fill-color: #071c38 !important; min-height: 50px; }
+  html[data-mobile-d3] :is(.quote-flow, main) :is(input, textarea)::placeholder { color: #475569 !important; -webkit-text-fill-color: #475569 !important; opacity: 1; }
+  html[data-mobile-d3] .quote-flow select,
+  html[data-mobile-d3] .quote-flow .quote-text-input,
+  html[data-mobile-d3] .quote-flow :is([data-schedule-control], .quote-datetime-shell),
+  html[data-mobile-d3] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only) {
+    border: 1.5px solid #7d8da3 !important; background-color: #fff !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; min-height: 52px;
+  }
+  html[data-mobile-d3] .quote-flow :is(select, .quote-text-input):focus,
+  html[data-mobile-d3] .quote-flow :is([data-schedule-control], .quote-datetime-shell):focus-within,
+  html[data-mobile-d3] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, .sr-only):focus {
+    border: 2px solid #16803c !important; box-shadow: 0 0 0 3px rgba(22,128,60,.22) !important; outline: none !important;
+  }
+  html[data-mobile-d3] :is(main, [role="dialog"]) input:is([type="checkbox"], [type="radio"]):not(.sr-only, .opacity-0) { border: 1.5px solid #475569 !important; accent-color: #16803c; }
+  html[data-mobile-d3] .quote-flow :is(.quote-choice, [data-access-option]):not(.quote-choice-selected, :has(input:checked)) { border: 1.5px solid #7d8da3 !important; }
+
+  /* ---- Passengers / suitcases ---- */
+  html[data-mobile-d3] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #fff !important; }
+  html[data-mobile-d3] [data-d2-stepper-label] { color: #071c38 !important; font-size: .875rem !important; font-weight: 700 !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn] { width: 44px !important; height: 44px !important; min-width: 44px; border-radius: .7rem !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn] svg { width: 20px; height: 20px; stroke-width: 2.8; }
+  html[data-mobile-d3] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #475569 !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn="plus"] { background: #071c38 !important; border: 1.5px solid #071c38 !important; color: #fff !important; }
+  /* At a limit: still clearly a button, but flat grey with a dashed edge (not colour alone). */
+  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px dashed #7d8da3 !important; color: #64748b !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:focus-visible { outline: 3px solid #16803c !important; outline-offset: 2px; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:not(:disabled):active { transform: scale(.96); }
+
+  /* ---- Get My Fixed Price ---- */
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:not(:disabled) {
+    background: #2fbf4a !important; color: #071c38 !important; font-weight: 800 !important; opacity: 1 !important;
+    border: 2px solid #2fbf4a !important; box-shadow: 0 8px 18px -8px rgba(22,128,60,.6) !important;
+  }
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:not(:disabled):active { background: #25a63e !important; border-color: #25a63e !important; transform: translateY(1px); box-shadow: none !important; }
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:focus-visible { outline: 3px solid #071c38 !important; outline-offset: 3px; }
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:disabled {
+    background: #e2e8f0 !important; color: #334155 !important; -webkit-text-fill-color: #334155; opacity: 1 !important;
+    border: 2px dashed #94a3b8 !important; box-shadow: none !important; cursor: not-allowed;
+  }
+
+  /* ---- Trust and reassurance ---- */
+  html[data-mobile-d3] [data-reviews-compact], html[data-mobile-d3] [data-reviews-compact] * { color: #071c38 !important; }
+  html[data-mobile-d3] [data-reviews-compact] :is(.text-amber-300, .text-amber-400, [class*="text-[#f"]) { color: #d97706 !important; }
+  html[data-mobile-d3] [data-reviews-compact] { border-color: #cbd5e1 !important; font-size: .875rem !important; }
+  html[data-mobile-d3] [data-d2-caption] { color: #334155 !important; font-size: .875rem !important; font-weight: 600; }
+  html[data-mobile-d3] [data-d2-benefits] { color: #071c38 !important; font-size: .875rem !important; font-weight: 700 !important; }
+  html[data-mobile-d3] [data-d2-benefits] svg { color: #16803c !important; }
+}
+}
+
+/* ==========================================================================
+   DESIGN 3 extras (?mobile=d3, below 1200px): Meet & Greet as an on/off card under the
+   vehicles (same choice the checkout uses, priced from the owner's settings) and child seats
+   as one optional question row. Reuses the desktop markup; styling only.
+   ========================================================================== */
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Meet & Greet card under the vehicles */
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] [data-results-upgrades] { display: grid !important; gap: .6rem; margin: .9rem 0 .4rem; }
+  html[data-mobile-d3] [data-results-upgrades-heading] { margin: 0 0 0 .15rem; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade] {
+    position: relative; display: grid; grid-template-columns: 2.5rem minmax(0,1fr) auto; grid-template-areas: "icon copy toggle" "icon copy price";
+    column-gap: .75rem; row-gap: .2rem; align-items: center; padding: .85rem .9rem; border-radius: 1rem; cursor: pointer;
+    border: 1.5px solid #7d8da3; background: #fff; color: #071c38; min-height: 64px;
+  }
+  html[data-mobile-d3] [data-results-upgrade][data-selected="true"] { border: 2px solid #16803c; background: #f2fbf4; box-shadow: 0 0 0 3px rgba(22,128,60,.16); }
+  html[data-mobile-d3] [data-results-upgrade]:has(input:focus-visible) { outline: 3px solid #16803c; outline-offset: 2px; }
+  html[data-mobile-d3] [data-results-upgrade-input] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { grid-area: icon; width: 2.5rem; height: 2.5rem; border-radius: .7rem; display: grid; place-items: center; background: #071c38; color: #7be08e; }
+  html[data-mobile-d3] [data-results-upgrade-icon] svg { width: 1.25rem; height: 1.25rem; }
+  html[data-mobile-d3] [data-results-upgrade-copy] { grid-area: copy; display: grid; gap: .15rem; min-width: 0; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 800; color: #071c38; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong > small { padding: .1rem .4rem; border-radius: .35rem; background: #eef2f7; font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #334155; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { font-size: .875rem; line-height: 1.4; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade-price] { grid-area: price; justify-self: end; font-size: 1rem; font-weight: 800; color: #071c38; white-space: nowrap; }
+  /* The "Add / Added" text becomes a switch: grey when off, green when on (state also in the price colour and border). */
+  html[data-mobile-d3] [data-results-upgrade-state] { grid-area: toggle; justify-self: end; position: relative; width: 52px; height: 30px; border-radius: 999px; background: #7d8da3; font-size: 0; color: transparent; overflow: hidden; }
+  html[data-mobile-d3] [data-results-upgrade-state]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: left .15s ease; }
+  html[data-mobile-d3] [data-results-upgrade][data-selected="true"] [data-results-upgrade-state] { background: #16803c; }
+  html[data-mobile-d3] [data-results-upgrade][data-selected="true"] [data-results-upgrade-state]::after { left: 25px; }
+
+  /* Child seats: one optional question row; the existing options open beneath it */
+  html[data-mobile-d3] .quote-flow [data-child-seats-toggle] {
+    display: flex !important; align-items: center; gap: .75rem; width: 100%; min-height: 52px; padding: .7rem .9rem;
+    border: 1.5px solid #7d8da3; border-radius: .75rem; background: #fff; color: #071c38; font-size: .95rem; font-weight: 700; text-align: left;
+  }
+  html[data-mobile-d3] .quote-flow [data-child-seats-toggle]::before {
+    content: "+"; flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center; background: #071c38; color: #fff; font-size: 1rem; font-weight: 800; line-height: 1;
+  }
+  html[data-mobile-d3] .quote-flow [data-child-seats-toggle][aria-expanded="true"]::before { content: "−"; }
+  html[data-mobile-d3] .quote-flow [data-child-seats-toggle]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+  html[data-mobile-d3] .quote-flow [data-child-seats-summary] { margin-left: auto; padding: .2rem .55rem; border-radius: 999px; background: #e9f7ee; color: #16803c; font-size: .8125rem; font-weight: 800; white-space: nowrap; }
+  html[data-mobile-d3] .quote-flow [data-child-seats][data-child-seats-open="false"] > [data-child-seats-panel] { display: none !important; }
+  html[data-mobile-d3] .quote-flow [data-child-seats][data-child-seats-open="true"] > [data-child-seats-panel] { margin-top: .75rem; padding: .25rem 0 0 .9rem; border-left: 3px solid #cbd5e1; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Design 3: Meet & Greet is offered once, under the vehicles (as on desktop); checkout keeps
+     the other pickup options. The same choice carries through to checkout and the total. */
+  html[data-mobile-d3] .quote-flow [data-offered-at-vehicle-step="true"] { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrade] { align-items: start; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { align-self: start; }
+  html[data-mobile-d3] [data-results-upgrade-state] { align-self: start; }
+  html[data-mobile-d3] [data-results-upgrade-price] { align-self: end; }
+}
+}
