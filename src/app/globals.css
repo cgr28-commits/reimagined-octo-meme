@@ -5841,7 +5841,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind] > span { grid-column: 2; color: #071c38 !important; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind] > span + span { color: var(--d2-muted) !important; font-size: .85rem !important; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind]:hover, html[data-mobile-light] .address-suggestions li:first-child [data-suggestion-kind] { background: #f1f8f3 !important; }
-  html[data-mobile-light] mark[data-suggestion-match] { color: #1a7f2e; font-weight: 800; }
+  html[data-mobile-light] mark[data-suggestion-match] { color: #1a7f2e !important; font-weight: 800 !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-homepage-journey-summary] { display: none !important; }
   html[data-mobile-light] .address-suggestions [data-powered-by-google] { display: block !important; text-align: right; font-size: .6875rem; color: #8090a3; padding: .375rem .75rem; }
 
   /* Progress indicator (Vehicle and Details & Payment). */
@@ -5874,5 +5875,45 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2-segment] [data-return-discount-note] { font-size: .72rem; color: #1a7f2e; font-weight: 800; }
   html[data-mobile-light] [data-d2-schedule-note] { font-size: .86rem; color: #33445a; background: #f3faf4; border: 1px solid #cdebd3; border-radius: .7rem; padding: .7rem .8rem; }
   html[data-mobile-light] [data-d2-vehicle-head] #quote-section-schedule .form-label { font-size: .85rem !important; }
+
+  /* Vehicle list (screen 3): compact selectable cards with price on the right. */
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-vehicle-options-heading] { font-size: 1.25rem !important; font-weight: 800 !important; color: #071c38 !important; margin: .4rem 0 .5rem !important; letter-spacing: -.01em !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-vehicle-categories] [role="list"] { gap: .625rem !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category] { position: relative; border: 1.5px solid var(--d2-line) !important; border-radius: .9rem !important; padding: .65rem .75rem !important; box-shadow: none !important; min-height: 5.25rem; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] { border: 2px solid #2fbf4a !important; background: #f6fcf7 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.15) !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-layout] { grid-template-columns: 5.6rem minmax(0,1fr) auto !important; column-gap: .65rem !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-selection-indicator] { position: absolute; left: .55rem; top: .55rem; width: 1.35rem !important; height: 1.35rem !important; font-size: .7rem !important; z-index: 2; background-clip: padding-box; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category]:not([aria-pressed="true"]) [data-vehicle-selection-indicator] { background: #fff; border: 2px solid #c9d3df !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] { background: #2fbf4a !important; color: #071c38 !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-name] { font-size: 1rem !important; font-weight: 800 !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) { font-size: .78rem !important; font-weight: 600 !important; color: #33445a !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-on-request] { display: none !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price] { display: flex !important; flex-direction: column; align-items: flex-end; font-size: 1.4rem; font-weight: 800; color: #071c38; line-height: 1.1; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price]::after { content: "fixed price"; font-size: .72rem; font-weight: 600; color: var(--d2-muted); margin-top: .2rem; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-request] { display: flex !important; flex-direction: column-reverse; align-items: flex-end; gap: .3rem; text-align: right; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-request-action] { font-size: 0; border: 1.5px solid #071c38; border-radius: .6rem; padding: .45rem .8rem; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-request-action]::before { content: "Request"; font-size: .85rem; font-weight: 800; color: #071c38; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-from] { display: flex; flex-direction: column; align-items: flex-end; font-size: .78rem; font-weight: 700; color: #071c38; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-from] small { font-size: .7rem; font-weight: 600; color: var(--d2-muted); }
+
+  /* Selected-vehicle panel: kept below the list as "Price details" (price, surcharges, deposit). */
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-result-card] { background: #fff !important; border: 1px solid var(--d2-line) !important; border-radius: .9rem !important; box-shadow: none !important; padding: .75rem .9rem !important; margin-top: .75rem; scroll-margin-bottom: 7rem; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-result-card] :is([data-quote-result-art], [data-quote-party], [data-quote-result-capacity], [data-quote-result-detail-slot], [data-quote-trust], [data-quote-result-main-action]) { display: none !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-result-card] [data-quote-result-heading] { font-size: 1rem !important; text-align: left; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-quote-result-card] [data-quote-vehicle-summary] { text-align: left !important; }
+
+  /* Sticky Continue bar: fixed to the bottom, clear of the iPhone home indicator; hidden while
+     the on-screen keyboard is up (a field has focus) so it never covers what is being typed. */
+  html[data-mobile-light] [data-d2-sticky] { position: fixed; left: 0; right: 0; bottom: var(--matni-cookie-banner-offset, 0px); z-index: 60; display: flex; align-items: center; gap: .75rem; background: #fff; border-top: 1px solid var(--d2-line); box-shadow: 0 -8px 24px rgba(7,28,56,.08); padding: .7rem 1rem calc(.7rem + env(safe-area-inset-bottom, 0px)); }
+  html[data-mobile-light]:has(:is(input, select, textarea):focus) [data-d2-sticky] { display: none; }
+  html[data-mobile-light]:has([data-d2-sticky]) main { padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px)); }
+  html[data-mobile-light]:has([data-d2-sticky]) [data-matni-whatsapp-qr-launcher] { display: none !important; }
+  html[data-mobile-light] [data-d2-sticky-summary] { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  html[data-mobile-light] [data-d2-sticky-label] { font-size: .78rem; font-weight: 700; color: var(--d2-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html[data-mobile-light] [data-d2-sticky-price] { display: flex; align-items: baseline; gap: .6rem; }
+  html[data-mobile-light] [data-d2-sticky-price] strong { font-size: 1.4rem; font-weight: 800; color: #071c38; }
+  html[data-mobile-light] [data-d2-price-details] { font-size: .8rem; font-weight: 800; color: #1a7f2e; text-decoration: underline; text-underline-offset: 3px; min-height: 2.75rem; }
+  html[data-mobile-light] [data-d2-sticky] #quote-book-now-button { width: auto !important; flex: none; min-width: 7.5rem; min-height: 3.25rem !important; border-radius: .875rem !important; background: #2fbf4a !important; color: #071c38 !important; font-size: 1.0625rem !important; font-weight: 800 !important; text-transform: none !important; letter-spacing: 0 !important; padding: 0 1.4rem !important; box-shadow: 0 6px 16px rgba(47,191,74,.3) !important; }
+  html[data-mobile-light] [data-d2-sticky] #quote-book-now-button:disabled { opacity: .55 !important; }
 }
 }

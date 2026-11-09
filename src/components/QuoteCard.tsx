@@ -7979,6 +7979,10 @@ function QuoteCard({
             ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
+            : design2Home && isVehiclePersonalQuote
+            ? "Request quote"
+            : design2Home
+            ? "Continue"
             : showTransferCta && presentation === "homepage"
             ? (
                 <>
@@ -8705,6 +8709,7 @@ function QuoteCard({
         publicExecutiveEnabled={publicExecutiveEnabled}
         requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
+        heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
         desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
@@ -8735,7 +8740,7 @@ function QuoteCard({
               ? "Executive airport transfers tailored to your requirements. Contact us for a personalised quotation."
               : "Group airport transfers tailored to your requirements. Contact us for a personalised quotation.",
           }}
-          bookButton={renderStep1BookButton()}
+          bookButton={design2Home ? null : renderStep1BookButton()}
         />
       );
     }
@@ -8824,7 +8829,7 @@ function QuoteCard({
         onRetryPrice={retryAuthoritativeQuote}
         hasAirportCollection={isFromAirport || (returnJourney && Boolean(isAirportTrip || dropoffAirportCode))}
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
-        bookButton={renderStep1BookButton({ instantTransferLabel: true })}
+        bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
       {businessClassUpgrade}
       </>
@@ -9397,14 +9402,17 @@ function QuoteCard({
               <div data-d2-vehicle-head className="space-y-3">
                 <div data-d2-journey-card>
                   <div data-d2-journey-stops>
-                    <p data-d2-stop="from">
-                      <strong>{pickupLabel || "Pickup"}</strong>
-                      {pickupAddress.trim() && pickupAddress.trim() !== pickupLabel ? <span>{pickupAddress.trim()}</span> : null}
-                    </p>
-                    <p data-d2-stop="to">
-                      <strong>{dropoffLabel || "Drop-off"}</strong>
-                      {dropoffAddress.trim() && dropoffAddress.trim() !== dropoffLabel ? <span>{dropoffAddress.trim()}</span> : null}
-                    </p>
+                    {([["from", pickupLabel || pickupAddress.trim() || "Pickup"], ["to", dropoffLabel || dropoffAddress.trim() || "Drop-off"]] as const).map(([stop, text]) => {
+                      const cut = text.indexOf(",");
+                      const name = cut > 0 ? text.slice(0, cut) : text;
+                      const rest = cut > 0 ? text.slice(cut + 1).replace(/,\s*(UK|United Kingdom|Ireland)$/i, "").trim() : "";
+                      return (
+                        <p key={stop} data-d2-stop={stop}>
+                          <strong>{name}</strong>
+                          {rest ? <span>{rest}</span> : null}
+                        </p>
+                      );
+                    })}
                   </div>
                   <button
                     type="button"
@@ -9799,6 +9807,32 @@ function QuoteCard({
                     {showInstantQuoteResultCard || isVehiclePersonalQuote ? (
                       <>
                         {renderInstantQuoteResultCard()}
+                        {design2Home ? (
+                          <div data-d2-sticky role="region" aria-label="Selected vehicle and continue">
+                            <div data-d2-sticky-summary>
+                              <span data-d2-sticky-label>
+                                {vehicleShortLabel(quoteVehicle)} · {returnJourney ? "return" : "one way"}
+                              </span>
+                              <span data-d2-sticky-price>
+                                {isVehiclePersonalQuote
+                                  ? <strong>On request</strong>
+                                  : paymentAmount != null && Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
+                                    ? <strong>{formatQuote(paymentAmount)}</strong>
+                                    : <strong>…</strong>}
+                                <button
+                                  type="button"
+                                  data-d2-price-details
+                                  onClick={() => {
+                                    quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }}
+                                >
+                                  Price details
+                                </button>
+                              </span>
+                            </div>
+                            {renderStep1BookButton({ instantTransferLabel: true })}
+                          </div>
+                        ) : null}
                         {isVehiclePersonalQuote ? (
                           <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
                         ) : null}
