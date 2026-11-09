@@ -6268,3 +6268,30 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] main[class*="station_page"] [class*="station_routeLabel"], html[data-mobile-d3] main[class*="station_page"] figcaption { font-size: .8125rem !important; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ==========================================================================
+     Design 3 vehicle screen = the approved clickable mockup: vehicles, a slim Meet & Greet
+     on/off row, then the bottom bar (price + Continue). The large price card, the four action
+     buttons and the breakdown box are not part of Design 3 (the bar's Price details stays).
+     ========================================================================== */
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] :is(.quote-result-card, [data-quote-result-card], [data-quote-result-actions], [data-quote-price-breakdown]) { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrades-heading] { display: none !important; }
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] [data-results-upgrades] { margin: .25rem 0 .5rem !important; gap: .5rem !important; }
+  html[data-mobile-d3] [data-results-upgrade] {
+    grid-template-columns: 2.25rem minmax(0,1fr) auto !important; column-gap: .75rem !important; row-gap: .1rem !important;
+    padding: .8rem .9rem !important; min-height: 64px; border: 1.5px dashed #7d8da3 !important; border-radius: .9rem !important; background: #fff !important; box-shadow: none !important;
+  }
+  html[data-mobile-d3] [data-results-upgrade][data-selected="true"] { border: 2px solid #16803c !important; background: #f2fbf4 !important; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { grid-column: 1 !important; grid-row: 1 / span 2 !important; width: 2.25rem !important; height: 2.25rem !important; background: transparent !important; color: #071c38 !important; align-self: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-icon] svg { width: 1.5rem !important; height: 1.5rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { grid-column: 2 !important; grid-row: 1 !important; font-size: 1rem !important; gap: .35rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong > small { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { grid-column: 2 !important; grid-row: 2 !important; font-size: .875rem !important; line-height: 1.35 !important; }
+  /* Price sits right after the title: "Meet & Greet at arrivals  +£15" */
+  html[data-mobile-d3] [data-results-upgrade-price] { grid-column: 2 !important; grid-row: 1 !important; justify-self: end !important; align-self: start !important; font-size: 1rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-price]::before { content: none !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { padding-right: 3.25rem; }
+  html[data-mobile-d3] [data-results-upgrade-state] { grid-column: 3 !important; grid-row: 1 / span 2 !important; align-self: center !important; }
+}
+}
