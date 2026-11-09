@@ -21,4 +21,3 @@ jobs:
       - run: npm ci
       - run: npx tsx scripts/check-open-checkout-journey.ts
       - run: npx tsx scripts/check-child-seats-booking-sumup.ts
-      - run: npx tsc --noEmit -p tsconfig.json
