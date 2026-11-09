@@ -9224,7 +9224,9 @@ function QuoteCard({
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
-      {/* Booking progress: hidden by default; the light mobile design preview shows it. */}
+      {/* Mobile Design 2 progress line. Rendered only when Design 2 is active (below 1200px, preview
+          on), so the desktop card keeps its heading area as the first child its styles expect. */}
+      {design2Home ? (
       <ol data-mobile-steps aria-label="Booking progress" className="hidden" data-d2-stage={design2Home ? (quoteStep >= 2 ? "details" : homepagePriceRequested ? "vehicle" : "journey") : undefined}>
         {(design2Home ? ["Journey", "Vehicle", "Details & Payment"] : ["Journey", "Price", "Details & pay"]).map((label, index) => {
           const current = quoteStep >= 2 ? 3 : quoteResultsReady || (design2Home && homepagePriceRequested) ? 2 : 1;
@@ -9237,6 +9239,7 @@ function QuoteCard({
           );
         })}
       </ol>
+      ) : null}
       <div
         className={
           quoteStep >= 2
