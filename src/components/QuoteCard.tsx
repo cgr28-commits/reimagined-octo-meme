@@ -7960,6 +7960,10 @@ function QuoteCard({
             ? "Updating price…"
             : instantPriceExpected && !mayPaintNumericFare
             ? "Calculating your transfer price…"
+            : design2Home && isVehiclePersonalQuote
+            ? "Request quote"
+            : design2Home
+            ? "Continue"
             : showTransferCta && presentation === "homepage"
             ? (
                 <>
@@ -8686,6 +8690,7 @@ function QuoteCard({
         publicExecutiveEnabled={publicExecutiveEnabled}
         requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
         hideUnsuitable={presentation === "homepage"}
+        heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
         desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
@@ -8716,7 +8721,7 @@ function QuoteCard({
               ? "Executive airport transfers tailored to your requirements. Contact us for a personalised quotation."
               : "Group airport transfers tailored to your requirements. Contact us for a personalised quotation.",
           }}
-          bookButton={renderStep1BookButton()}
+          bookButton={design2Home ? null : renderStep1BookButton()}
         />
       );
     }
@@ -8805,7 +8810,7 @@ function QuoteCard({
         onRetryPrice={retryAuthoritativeQuote}
         hasAirportCollection={isFromAirport || (returnJourney && Boolean(isAirportTrip || dropoffAirportCode))}
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
-        bookButton={renderStep1BookButton({ instantTransferLabel: true })}
+        bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
       {businessClassUpgrade}
       </>
@@ -9783,6 +9788,32 @@ function QuoteCard({
                     {showInstantQuoteResultCard || isVehiclePersonalQuote ? (
                       <>
                         {renderInstantQuoteResultCard()}
+                        {design2Home ? (
+                          <div data-d2-sticky role="region" aria-label="Selected vehicle and continue">
+                            <div data-d2-sticky-summary>
+                              <span data-d2-sticky-label>
+                                {vehicleShortLabel(quoteVehicle)} · {returnJourney ? "return" : "one way"}
+                              </span>
+                              <span data-d2-sticky-price>
+                                {isVehiclePersonalQuote
+                                  ? <strong>On request</strong>
+                                  : paymentAmount != null && Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
+                                    ? <strong>{formatQuote(paymentAmount)}</strong>
+                                    : <strong>…</strong>}
+                                <button
+                                  type="button"
+                                  data-d2-price-details
+                                  onClick={() => {
+                                    quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  }}
+                                >
+                                  Price details
+                                </button>
+                              </span>
+                            </div>
+                            {renderStep1BookButton({ instantTransferLabel: true })}
+                          </div>
+                        ) : null}
                         {isVehiclePersonalQuote ? (
                           <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
                         ) : null}

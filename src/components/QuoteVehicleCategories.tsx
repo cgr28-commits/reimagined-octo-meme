@@ -108,6 +108,7 @@ export default function QuoteVehicleCategories({
   publicExecutiveEnabled = true,
   hideUnsuitable = false,
   requestQuoteVehicles = [],
+  heading,
   desktopPrices = {},
   desktopRequestPrices = {},
 }: {
@@ -125,6 +126,8 @@ export default function QuoteVehicleCategories({
    * Desktop (1200px+) only: the fare already calculated for each vehicle (e.g. "£48"),
    * or a short status. Display only — never priced here. Hidden below 1200px.
    */
+  /** Visible list heading (mobile Design 2 uses "Choose your vehicle"). */
+  heading?: string;
   desktopPrices?: Partial<Record<string, string>>;
   /** Desktop only: indicative "From" price for a request-only vehicle (e.g. "£83"). */
   desktopRequestPrices?: Partial<Record<string, string>>;
@@ -153,7 +156,7 @@ export default function QuoteVehicleCategories({
         className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
       >
-        Vehicle options
+        {heading ?? "Vehicle options"}
       </p>
       <div
         className="grid grid-cols-1 gap-1.5"
