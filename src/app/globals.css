@@ -6069,7 +6069,9 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     border: 2px solid #16803c !important; box-shadow: 0 0 0 3px rgba(22,128,60,.22) !important; outline: none !important;
   }
   html[data-mobile-light] :is(main, [role="dialog"]) input:is([type="checkbox"], [type="radio"]):not(.sr-only, .opacity-0) { border: 1.5px solid #475569 !important; accent-color: #16803c; }
-  html[data-mobile-light] .quote-flow :is(.quote-choice, [data-access-option]):not(.quote-choice-selected, :has(input:checked)) { border: 1.5px solid #7d8da3 !important; }
+  html[data-mobile-light] .quote-flow .quote-choice:not(.quote-choice-selected) { border: 1.5px solid #7d8da3 !important; color: #071c38 !important; }
+  html[data-mobile-light] .quote-flow [data-access-option] { border: 1.5px solid #7d8da3 !important; }
+  html[data-mobile-light] .quote-flow [data-access-option]:has(input:checked) { border-color: #16803c !important; }
 
   /* ---- Passengers / suitcases ---- */
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #fff !important; }
@@ -6097,7 +6099,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 
   /* ---- Trust and reassurance ---- */
   html[data-mobile-light] [data-reviews-compact], html[data-mobile-light] [data-reviews-compact] * { color: #071c38 !important; }
-  html[data-mobile-light] [data-reviews-compact] :is(.text-amber-300, .text-amber-400, [class*="text-[#f"]) { color: #d97706 !important; }
+  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars], html[data-mobile-light] [data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706; }
   html[data-mobile-light] [data-reviews-compact] { border-color: #cbd5e1 !important; font-size: .875rem !important; }
   html[data-mobile-light] [data-d2-caption] { color: #334155 !important; font-size: .875rem !important; font-weight: 600; }
   html[data-mobile-light] [data-d2-benefits] { color: #071c38 !important; font-size: .875rem !important; font-weight: 700 !important; }
