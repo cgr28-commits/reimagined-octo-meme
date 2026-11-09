@@ -6990,24 +6990,24 @@ function QuoteCard({
         returnTimeInputRef={returnTimeInputRef}
         onTripDateChange={(value) => {
           setTripDate(value);
-          if (presentation === "homepage") setHomepagePriceRequested(false);
+          if (presentation === "homepage" && !design2Home) setHomepagePriceRequested(false);
           if (value && tripTime) setTripDateError("");
           setReturnDateError("");
         }}
         onTripTimeChange={(value) => {
           setTripTime(value);
-          if (presentation === "homepage") setHomepagePriceRequested(false);
+          if (presentation === "homepage" && !design2Home) setHomepagePriceRequested(false);
           if (tripDate && value) setTripDateError("");
           setReturnDateError("");
         }}
         onReturnDateChange={(value) => {
           setReturnDate(value);
-          if (presentation === "homepage") setHomepagePriceRequested(false);
+          if (presentation === "homepage" && !design2Home) setHomepagePriceRequested(false);
           setReturnDateError("");
         }}
         onReturnTimeChange={(value) => {
           setReturnTime(value);
-          if (presentation === "homepage") setHomepagePriceRequested(false);
+          if (presentation === "homepage" && !design2Home) setHomepagePriceRequested(false);
           setReturnDateError("");
         }}
         onTimeBlur={
