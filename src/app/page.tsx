@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Design3QuickLinks from "@/components/Design3QuickLinks";
 import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import AirportsSection from "@/components/AirportsSection";
@@ -52,6 +53,7 @@ export default function Home() {
       <Header />
       <main className="overflow-x-clip">
         <HeroSlideshow />
+        <Design3QuickLinks />
         <AirportsSection />
         <PopularBelfastTransfers />
         <VitoGroupTransfersSection />
