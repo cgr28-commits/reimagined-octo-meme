@@ -6018,3 +6018,53 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   [class*="station_page"] > nav[class*="station_jumpLinks"] a { color: #071c38 !important; border-color: #c9d3df !important; background: #ffffff !important; }
 }
 }
+
+/* ==========================================================================
+   Design 2 (mobile light preview): clearer form boxes (Brian, 9 Nov 2026).
+   The old field outline (#D3DCE6) was only 1.4:1 against the white card, so the
+   boxes faded away. Outlines are now #7D8DA3 (3.4:1, meets WCAG non-text contrast),
+   fields get a faint tint so they read as boxes, labels are navy and bolder,
+   and the focused field gets a navy outline with a green ring. Styling only.
+   ========================================================================== */
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] {
+    --d2-field: #7d8da3;
+    --quote-input-border: #7d8da3;
+    --quote-choice-border: #7d8da3;
+    --quote-input-bg: #f6f8fb;
+  }
+  /* Address boxes */
+  html[data-mobile-light] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"],
+  html[data-mobile-light] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input) {
+    border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important;
+  }
+  html[data-mobile-light] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:focus-within,
+  html[data-mobile-light] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input):focus-within {
+    border-color: #071c38 !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important;
+  }
+  /* Passengers / suitcases */
+  html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important; }
+  html[data-mobile-light] [data-d2-stepper-label] { color: #33445a !important; font-size: .8125rem !important; }
+  html[data-mobile-light] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #7d8da3 !important; }
+  html[data-mobile-light] [data-d2-stepper-btn]:disabled { opacity: .45 !important; }
+  /* Swap button keeps the same outline as the boxes it sits between */
+  html[data-mobile-light] [data-d2-swap] { border: 1.5px solid #7d8da3 !important; }
+  /* Field labels: navy and bolder */
+  html[data-mobile-light] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 800 !important; }
+  /* Date, time, selects and text boxes on the Vehicle and Details & Payment steps */
+  html[data-mobile-light] .quote-flow select,
+  html[data-mobile-light] .quote-flow .quote-text-input,
+  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell) {
+    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important;
+  }
+  html[data-mobile-light] .quote-flow :is(select, .quote-text-input):focus,
+  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell):focus-within {
+    border-color: #071c38 !important; background-color: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important;
+  }
+  /* Standalone screens (Manage Booking, payment pages) use the same field outline */
+  html[data-mobile-light] main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important;
+  }
+}
+}
