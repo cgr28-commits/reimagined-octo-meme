@@ -66,6 +66,7 @@ assert.equal(isDublinAirportVariant(p("g-park", "Dublin Airport Logistics Park",
 assert.equal(isDublinAirportVariant(p("g-city", "Dublin", "Ireland")), false);
 
 // Choosing a terminal prices exactly as Dublin Airport did before.
+async function checkPricingPoints() {
 for (const terminal of ["T1", "T2"] as const) {
   const label = dublinTerminalAddress(terminal);
   assert.equal(dublinTerminalFromPlaceId(DUBLIN_TERMINAL_PLACE_IDS[terminal]), terminal);
@@ -80,6 +81,7 @@ for (const terminal of ["T1", "T2"] as const) {
     assert.equal(result.source, "served-airport");
     assert.deepEqual(result.point, { lat: dub.lat, lng: dub.lng });
   }
+}
 }
 
 // The selected place keeps Dublin Airport's own place ID and coordinates.
@@ -122,4 +124,10 @@ assert.equal(
   readFileSync(join(process.cwd(), "workers/addresses/shared/dublin-arrival-terminal.ts"), "utf8"),
 );
 
-console.log("check-dublin-terminal-search: ok");
+checkPricingPoints().then(
+  () => console.log("check-dublin-terminal-search: ok"),
+  (error) => {
+    console.error(error);
+    process.exit(1);
+  },
+);
