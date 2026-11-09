@@ -6326,7 +6326,6 @@ mark[data-suggestion-match] { background: none; color: inherit; }
      intro above and the homepage sections below step aside until the customer goes back. */
   html[data-mobile-d3] .homepage-hero:has(.quote-flow:is([data-d2="vehicle"], [data-d2="details"])) #homepage-booking-intro { display: none !important; }
   html[data-mobile-d3] main:has(.quote-flow:is([data-d2="vehicle"], [data-d2="details"])) > :not(:has(.quote-flow)) { display: none !important; }
-  html[data-mobile-d3] main:has(.quote-flow:is([data-d2="vehicle"], [data-d2="details"])) section.homepage-hero { padding-top: 0 !important; }
 
   /* Progress line on both steps, as in the mockup. */
   html[data-mobile-d3] .quote-flow:is([data-d2="vehicle"], [data-d2="details"]) ol[data-mobile-steps][data-mobile-steps] { display: flex !important; }
@@ -6340,5 +6339,14 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2="details"] #step3-payment-actions > button.w-full.text-center,
   html[data-mobile-d3] [data-d2="details"] #step3-payment-actions [data-start-new-quote-controls] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] section[aria-label="Airport services"] { background: #fff !important; border: 1px solid #e3e8ef !important; border-radius: 1rem !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706 !important; }
+  /* Details & Payment: one "Back to your quote" (top); flight card reads "Flight number (optional)". */
+  html[data-mobile-d3] [data-d2="details"] [data-back-to-quote="bottom"] { display: none !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: " (optional)"; font-weight: 600; color: #475569; }
 }
 }
