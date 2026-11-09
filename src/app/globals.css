@@ -6350,3 +6350,102 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: "Flight number (optional)"; font-size: 1.05rem; font-weight: 800; color: #071c38; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ---- Design 3: date + time side by side, labels and boxes aligned (long "Scheduled flight
+     arrival time" label no longer pushes its box lower). ---- */
+  html[data-mobile-d3] [data-homepage-inline-schedule] .grid { align-items: end !important; column-gap: .625rem !important; }
+  html[data-mobile-d3] [data-homepage-inline-schedule] .grid > div > label.form-label {
+    display: flex !important; align-items: flex-end; min-height: 2.6em; margin-bottom: .35rem !important; line-height: 1.25 !important;
+  }
+  html[data-mobile-d3] [data-homepage-inline-schedule] [data-schedule-control] { height: 52px !important; min-height: 52px !important; }
+
+  /* ---- Design 3 time selector (no iPhone wheels) ---- */
+  html[data-mobile-d3] [data-schedule-control="time"] input[type="time"] { pointer-events: none !important; }
+  html[data-mobile-d3] [data-d3-time-trigger] {
+    position: absolute; inset: 0; z-index: 12; width: 100%; height: 100%; display: flex; align-items: center;
+    padding: 0 .75rem 0 2.6rem; background: transparent; border: 0; color: #071c38; font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;
+  }
+  html[data-mobile-d3] [data-d3-time-trigger]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; border-radius: .75rem; }
+  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #475569; font-weight: 500; }
+  html[data-mobile-d3] [data-schedule-control="time"]:has([data-d3-time-trigger]) .homepage-schedule-prompt { visibility: hidden; }
+  html[data-mobile-d3] [data-d3-time-backdrop] { position: fixed; inset: 0; z-index: 200; background: rgba(7,28,56,.45); display: flex; align-items: flex-end; justify-content: center; }
+  html[data-mobile-d3] [data-d3-time-sheet] {
+    width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(7,28,56,.25); color: #071c38;
+  }
+  html[data-mobile-d3] [data-d3-time-head] { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+  html[data-mobile-d3] [data-d3-time-head] p { font-size: 1rem; font-weight: 800; margin: 0; }
+  html[data-mobile-d3] [data-d3-time-readout] { font-size: 1.75rem; font-weight: 800; letter-spacing: .02em; color: #071c38; font-variant-numeric: tabular-nums; }
+  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; margin: .6rem 0 .35rem; }
+  html[data-mobile-d3] [data-d3-time-grid] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; }
+  html[data-mobile-d3] [data-d3-time-grid] button {
+    min-height: 44px; border-radius: .7rem; border: 1.5px solid #7d8da3; background: #fff; color: #071c38; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38; border-color: #071c38; color: #fff; }
+  html[data-mobile-d3] [data-d3-time-grid] button:disabled { background: #f1f5f9; border-style: dashed; color: #94a3b8; }
+  html[data-mobile-d3] [data-d3-time-grid] button:focus-visible, html[data-mobile-d3] [data-d3-time-fine] button:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+  html[data-mobile-d3] [data-d3-time-fine] { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .6rem; }
+  html[data-mobile-d3] [data-d3-time-fine] button { min-height: 44px; border-radius: .7rem; border: 1.5px solid #475569; background: #fff; color: #071c38; font-weight: 800; }
+  html[data-mobile-d3] [data-d3-time-done] { width: 100%; min-height: 54px; margin-top: .8rem; border-radius: .9rem; border: 0; background: #2fbf4a; color: #071c38; font-size: 1.0625rem; font-weight: 800; }
+  html[data-mobile-d3] [data-d3-time-done]:disabled { background: #e2e8f0; color: #334155; border: 2px dashed #94a3b8; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ==========================================================================
+     DESIGN 3 PREMIUM STYLING (owner brief, 9 Nov 2026): same layout, more brand green.
+     Green text on light backgrounds uses #1F9A36 for large text (3.4:1) and #16803C for
+     small text (4.7–5:1); #2FBF4A is kept for buttons, bars and icons.
+     ========================================================================== */
+  /* Headline: "Belfast & Dublin" navy, "Airport Transfers" green, bold and compact. */
+  html[data-mobile-d3] #homepage-booking-intro h1 { font-weight: 800 !important; font-size: clamp(1.75rem, 7.6vw, 2.15rem) !important; line-height: 1.08 !important; letter-spacing: -0.03em !important; }
+  html[data-mobile-d3] #homepage-booking-intro h1 > span:first-child { color: #071c38 !important; -webkit-text-fill-color: #071c38; display: block; }
+  html[data-mobile-d3] #homepage-booking-intro h1 > span + span { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36; display: block; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+
+  /* Header: the official WhatsApp button in WhatsApp green (same link and tracking). */
+  html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] { background: #25d366 !important; border: 0 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(37,211,102,.35) !important; }
+  html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg { color: #fff !important; fill: #fff !important; width: 1.4rem !important; height: 1.4rem !important; }
+
+  /* Quote card: green top highlight, deeper shadow, green accent by the heading. */
+  html[data-mobile-d3] .quote-flow[data-d2] { border-top: 4px solid #2fbf4a !important; box-shadow: 0 2px 6px rgba(7,28,56,.06), 0 18px 40px -18px rgba(7,28,56,.35) !important; }
+  html[data-mobile-d3] .quote-flow[data-d2="details"] { border-top: 0 !important; box-shadow: none !important; }
+  html[data-mobile-d3] .quote-flow[data-d2] :is(h2[data-site-nav-heading], [data-d2-title]) { display: flex !important; align-items: center; gap: .55rem; }
+  html[data-mobile-d3] .quote-flow[data-d2] :is(h2[data-site-nav-heading], [data-d2-title])::before { content: ""; flex: none; width: .3rem; height: 1.25rem; border-radius: 999px; background: #2fbf4a; }
+  /* Green location icons (swap and clear buttons stay navy). */
+  html[data-mobile-d3] [data-d2-fields] svg { color: #16803c !important; }
+  html[data-mobile-d3] [data-d2-fields] :is([data-d2-swap], button[aria-label="Clear address"]) svg { color: #071c38 !important; }
+  /* Passenger / suitcase controls: green +, navy −, soft green tint once chosen. */
+  html[data-mobile-d3] [data-d2-stepper-btn="plus"]:not(:disabled) { background: #2fbf4a !important; border-color: #2fbf4a !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn="minus"]:not(:disabled) { border-color: #071c38 !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2-stepper]:has([data-d2-stepper-btn="minus"]:not(:disabled)) { background: #f2fbf4 !important; border-color: #16803c !important; }
+  /* Stronger green main button when it can be pressed. */
+  html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:not(:disabled),
+  html[data-mobile-d3] [data-d2-sticky] #quote-book-now-button:not(:disabled),
+  html[data-mobile-d3] .quote-flow .btn-pay:not(:disabled) {
+    background: #2fbf4a !important; color: #071c38 !important; border: 0 !important;
+    box-shadow: inset 0 -3px 0 rgba(7,28,56,.2), 0 10px 22px -10px rgba(22,128,60,.8) !important;
+  }
+  /* Selected options: soft green tint + green border. */
+  html[data-mobile-d3] .quote-flow [data-d2-segment] > button[aria-pressed="true"],
+  html[data-mobile-d3] .quote-flow [role="group"][aria-label="Journey type"] > button.bg-emerald,
+  html[data-mobile-d3] .quote-flow [aria-label="Journey type"] > button.bg-white { background: #e9f7ee !important; color: #071c38 !important; box-shadow: inset 0 0 0 2px #2fbf4a !important; }
+  html[data-mobile-d3] .quote-flow [data-access-option]:has(input:checked), html[data-mobile-d3] .quote-flow .quote-choice-selected { background: #f2fbf4 !important; border-color: #16803c !important; }
+  /* Section headings with a short green rule; green links and route icons. */
+  html[data-mobile-d3] [data-d3-h2]::after { content: ""; display: block; width: 2.5rem; height: 3px; border-radius: 999px; background: #2fbf4a; margin-top: .45rem; }
+  html[data-mobile-d3] [data-d3-route-icon] { background: #e9f7ee !important; color: #16803c !important; }
+  html[data-mobile-d3] [data-d3-route]:active { border-color: #2fbf4a; }
+  html[data-mobile-d3] [data-d3-includes] { border-left: 4px solid #2fbf4a !important; }
+  html[data-mobile-d3] main a:not([class*="bg-"]):not([data-d3-route]):is([class*="underline"], [class*="text-emerald"]) { color: #16803c !important; text-decoration-color: #2fbf4a !important; }
+  html[data-mobile-d3] .quote-flow [data-d2-edit] { color: #16803c !important; }
+  html[data-mobile-d3] ol[data-mobile-steps] li[data-step-state="current"] > span { background: #2fbf4a !important; border-color: #2fbf4a !important; color: #071c38 !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] [data-d2-fields] [data-d2-stepper-btn] svg { color: currentColor !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { color: #64748b !important; }
+  html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff; }
+}
+}

@@ -257,6 +257,7 @@ import QuoteResultShowcase, {
 } from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import { useMobileDesign2 } from "@/lib/use-mobile-design2";
+import { useMobileDesign3 } from "@/lib/use-mobile-design3";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -989,6 +990,7 @@ function QuoteCard({
   // Design 2 (approved mobile reference): homepage asks for route and party first,
   // then journey type, date and time on the Vehicle step before any price is shown.
   const mobileDesign2 = useMobileDesign2();
+  const mobileDesign3 = useMobileDesign3();
   const design2Home = mobileDesign2 && presentation === "homepage";
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
@@ -1043,10 +1045,13 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
-  // Design 2 uses +/- steppers that start at 1 passenger and no suitcases.
+  // Design 2 uses +/- steppers that start at 1 passenger and no suitcases. Design 3 starts at
+  // 0 passengers: the count stays unset (shown as 0) until the customer taps +, so a quote
+  // can't be requested without a real passenger choice.
   useEffect(() => {
     if (!design2Home) return;
-    setPassengers((value) => (value == null ? 1 : value));
+    const design3 = typeof document !== "undefined" && document.documentElement.hasAttribute("data-mobile-d3");
+    if (!design3) setPassengers((value) => (value == null ? 1 : value));
     setSuitcases((value) => (value == null ? 0 : value));
   }, [design2Home]);
 
@@ -7025,6 +7030,7 @@ function QuoteCard({
         returnTimeLabel={checkoutTimeLabel("return")}
         tripDateInputRef={tripDateInputRef}
         tripTimeInputRef={tripTimeInputRef}
+        d3TimePicker={mobileDesign3 && homepageInline}
         returnDateInputRef={returnDateInputRef}
         returnTimeInputRef={returnTimeInputRef}
         onTripDateChange={(value) => {
@@ -9577,6 +9583,7 @@ function QuoteCard({
             ) : presentation === "homepage" ? (
               <HomepageQuoteFields
                 design2={design2Home}
+                design3={mobileDesign3}
                 homepagePolish={homepagePolish}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
