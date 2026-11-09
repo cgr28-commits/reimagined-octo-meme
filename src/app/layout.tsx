@@ -16,7 +16,10 @@ import {
   getPublicUnapprovedPriceLabel,
 } from "@/lib/pricing-config";
 import { getGoogleAdsConfig } from "@/lib/google-ads";
-import { absoluteSiteUrl } from "@/lib/paths";
+import { absoluteSiteUrl, withBasePath } from "@/lib/paths";
+
+/** Bump when public/mobile-light.css changes so phones fetch the new file. */
+const MOBILE_LIGHT_CSS_VERSION = "1";
 import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
 
@@ -123,6 +126,8 @@ export const metadata: Metadata = {
   },
 };
 
+const MOBILE_PREVIEW_SCRIPT = `try{var q=new URLSearchParams(location.search).get("mobile");if(q==="new")localStorage.setItem("matni-mobile2","1");if(q==="old")localStorage.removeItem("matni-mobile2");if(localStorage.getItem("matni-mobile2")==="1"){document.documentElement.classList.add("m2");var l=document.createElement("link");l.rel="stylesheet";l.href=${JSON.stringify(withBasePath("/mobile-light.css"))}+"?v="+${JSON.stringify(MOBILE_LIGHT_CSS_VERSION)};document.head.appendChild(l)}}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -133,8 +138,13 @@ export default function RootLayout({
   const googleAdsConfig = getGoogleAdsConfig();
 
   return (
-    <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`}>
+    <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`} suppressHydrationWarning>
       <body className="overflow-x-clip antialiased">
+        {/* Mobile redesign preview switch: off unless the visitor opens a page with ?mobile=new
+            (?mobile=old switches it off again). Desktop (1200px+) is never affected. */}
+        <Script id="matni-mobile-preview" strategy="beforeInteractive">
+          {MOBILE_PREVIEW_SCRIPT}
+        </Script>
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
         </Script>
