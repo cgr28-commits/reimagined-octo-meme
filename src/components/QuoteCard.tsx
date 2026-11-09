@@ -7110,12 +7110,58 @@ function QuoteCard({
       </>
     );
 
+    const design2When =
+      tripDate && tripTime ? `${formatBookingDate(tripDate)}, ${formatCustomerClock(tripTime) || tripTime}` : "";
     return (
       <>
+        {design2Home ? (
+          <section data-d2-pay-summary aria-label="Price summary">
+            <div data-d2-pay-head>
+              <div>
+                <p data-d2-pay-when>
+                  {vehicleShortLabel(quoteVehicle)}
+                  {design2When ? ` · ${design2When}` : ""}
+                </p>
+                <p data-d2-pay-route>
+                  {(pickupLabel || "Pickup").split(",")[0]} <span aria-hidden="true">→</span>
+                  <span className="sr-only"> to </span> {(dropoffLabel || "Destination").split(",")[0]}
+                </p>
+              </div>
+              <p data-d2-pay-amount>{amountLabel ?? "TBC"}</p>
+            </div>
+            <dl data-d2-pay-lines>
+              {bookingMeetGreetActive ? (
+                <div>
+                  <dt>Meet &amp; Greet (in total)</dt>
+                  <dd>{formatMeetGreetGbp(bookingMeetGreetCharge)}</dd>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <dt>{vehicleShortLabel(quoteVehicle)}, {returnJourney ? "return" : "one way"}</dt>
+                    <dd>{amountLabel ?? "TBC"}</dd>
+                  </div>
+                  {bookingMeetGreetEligible ? (
+                    <div>
+                      <dt>Meet &amp; Greet</dt>
+                      <dd>Not added</dd>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              <div data-d2-pay-total>
+                <dt>Total to pay</dt>
+                <dd>{amountLabel ?? "TBC"}</dd>
+              </div>
+            </dl>
+            <p data-d2-pay-note>Fixed price · Free cancellation up to 24 hrs</p>
+          </section>
+        ) : null}
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
           onBlurCapture={handleCheckoutBoxBlur}
+          data-d2-schedule-done={design2Home && isScheduleComplete ? "true" : undefined}
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2

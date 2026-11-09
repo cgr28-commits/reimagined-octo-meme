@@ -5915,5 +5915,37 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2-price-details] { font-size: .8rem; font-weight: 800; color: #1a7f2e; text-decoration: underline; text-underline-offset: 3px; min-height: 2.75rem; }
   html[data-mobile-light] [data-d2-sticky] #quote-book-now-button { width: auto !important; flex: none; min-width: 7.5rem; min-height: 3.25rem !important; border-radius: .875rem !important; background: #2fbf4a !important; color: #071c38 !important; font-size: 1.0625rem !important; font-weight: 800 !important; text-transform: none !important; letter-spacing: 0 !important; padding: 0 1.4rem !important; box-shadow: 0 6px 16px rgba(47,191,74,.3) !important; }
   html[data-mobile-light] [data-d2-sticky] #quote-book-now-button:disabled { opacity: .55 !important; }
+
+  /* Details & Payment (screen 4): navy price summary, then numbered cards. */
+  html[data-mobile-light] [data-d2="details"] { counter-reset: d2card; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+  html[data-mobile-light] [data-d2="details"] ol[data-mobile-steps] { background: #fff !important; border: 1px solid var(--d2-line) !important; border-radius: .9rem; padding: .75rem .9rem !important; }
+  html[data-mobile-light] [data-d2-pay-summary] { display: block; background: #071c38 !important; color: #fff; border-radius: 1rem; padding: 1rem 1rem .9rem; margin-bottom: .9rem; box-shadow: 0 10px 28px rgba(7,28,56,.22); }
+  html[data-mobile-light] [data-d2-pay-summary] * { color: inherit; }
+  html[data-mobile-light] [data-d2-pay-head] { display: flex; justify-content: space-between; gap: .75rem; align-items: flex-start; padding-bottom: .75rem; border-bottom: 1px solid rgba(255,255,255,.14); }
+  html[data-mobile-light] [data-d2-pay-when] { font-size: .8rem; color: #c6d2e3 !important; font-weight: 600; }
+  html[data-mobile-light] [data-d2-pay-route] { margin-top: .15rem; font-size: .98rem; font-weight: 800; }
+  html[data-mobile-light] [data-d2-pay-amount] { font-size: 1.65rem; font-weight: 800; line-height: 1; white-space: nowrap; }
+  html[data-mobile-light] [data-d2-pay-lines] { margin: .65rem 0 0; display: grid; gap: .45rem; font-size: .88rem; }
+  html[data-mobile-light] [data-d2-pay-lines] > div { display: flex; justify-content: space-between; gap: .75rem; color: #d6dfeb !important; }
+  html[data-mobile-light] [data-d2-pay-lines] [data-d2-pay-total] { color: #fff !important; font-weight: 800; }
+  html[data-mobile-light] [data-d2-pay-note] { margin-top: .7rem; padding-top: .65rem; border-top: 1px solid rgba(255,255,255,.14); font-size: .8rem; font-weight: 700; color: #2fbf4a !important; }
+  html[data-mobile-light] [data-d2-pay-note]::before { content: "✓ "; }
+  html[data-mobile-light] [data-d2-schedule-done] > h2[data-booking-nav-heading]:first-child,
+  html[data-mobile-light] [data-d2-schedule-done] > [data-quote-schedule] { display: none !important; }
+  html[data-mobile-light] [data-d2="details"] :is(#step3-customer-details, #step2-flight-details, #step3-payment-actions) { counter-increment: d2card; background: #fff !important; border: 1px solid var(--d2-line) !important; border-radius: 1rem !important; padding: 1rem !important; box-shadow: 0 4px 16px rgba(7,28,56,.05); }
+  html[data-mobile-light] [data-d2="details"] #step3-customer-details > p[data-booking-nav-heading],
+  html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p,
+  html[data-mobile-light] [data-d2="details"] #step3-payment-actions::before { display: flex; align-items: center; gap: .55rem; font-size: 1.05rem !important; font-weight: 800 !important; text-transform: none !important; letter-spacing: 0 !important; color: #071c38 !important; margin-bottom: .5rem; }
+  html[data-mobile-light] [data-d2="details"] #step3-customer-details > p[data-booking-nav-heading]::before,
+  html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p::before { content: counter(d2card); }
+  html[data-mobile-light] [data-d2="details"] #step3-payment-actions::before { content: counter(d2card) "  Payment"; white-space: pre; }
+  html[data-mobile-light] [data-d2="details"] #step3-customer-details > p[data-booking-nav-heading]::before,
+  html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p::before { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: #071c38; color: #fff; font-size: .82rem; font-weight: 800; }
+  html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p { font-size: 0 !important; }
+  html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: "Flight number"; font-size: 1.05rem; }
+  html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email, input[id$="FlightNumber"]) { height: 3.25rem !important; border: 1.5px solid var(--d2-field) !important; border-radius: .75rem !important; background: #fff !important; color: #071c38 !important; font-size: 1rem !important; padding: 0 .9rem !important; }
+  html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email):not(:placeholder-shown):valid:not([aria-invalid="true"]) { border-color: #9ad9a8 !important; }
+  html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email):focus { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important; }
+  html[data-mobile-light] [data-d2="details"] #step3-customer-details .form-label { font-size: .8125rem !important; font-weight: 700 !important; text-transform: none !important; letter-spacing: 0 !important; color: #0f2340 !important; }
 }
 }
