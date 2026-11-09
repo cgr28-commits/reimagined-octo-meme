@@ -134,7 +134,7 @@ jobs:
           # Mirror the live public tariff into staging storage (read-only on live) so test quotes
           # match the real website. Staging never writes to the live Worker.
           if curl -fsS https://reimagined-octo-meme.cgr28.workers.dev/pricing/public -o /tmp/live-pricing.json \
-             && node -e 'const j=require("/tmp/live-pricing.json"); if(!j.ok||!j.config||!j.config.saloon) process.exit(1); const o=require(process.cwd()+"/staging/pricing-overlay.json"); delete o._note; require("fs").writeFileSync("/tmp/pricing-settings.json", JSON.stringify({...j.config, ...o}));'; then
+             && node -e 'const j=require("/tmp/live-pricing.json"); if(!j.ok||!j.config||!j.config.saloon) process.exit(1); const o=require(process.cwd()+"/staging/pricing-overlay.json"); delete o._note; require("fs").writeFileSync("/tmp/pricing-settings.json", JSON.stringify(Object.fromEntries([...new Set([...Object.keys(j.config),...Object.keys(o)])].map(k=>[k, (o[k]&&typeof o[k]==="object"&&!Array.isArray(o[k])&&j.config[k]&&typeof j.config[k]==="object") ? {...j.config[k], ...o[k]} : (k in o ? o[k] : j.config[k])]))));'; then
             # Staging TRACKING_STORE namespace (staging Cloudflare account only).
             if npx wrangler kv key put "owner:pricing-settings" -c wrangler.payment-staging.toml --path=/tmp/pricing-settings.json --namespace-id=d780d553438c48c1b3c67258fe92d3d8; then
               echo "::notice::Staging pricing mirrored from the live public tariff"
