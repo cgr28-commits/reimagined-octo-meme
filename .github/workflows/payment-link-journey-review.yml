@@ -1,0 +1,24 @@
+name: Payment link journey review
+on:
+  pull_request:
+    paths:
+      - 'src/lib/booking-draft-storage.ts'
+      - 'src/components/QuoteCard.tsx'
+      - 'scripts/check-open-checkout-journey.ts'
+      - '.github/workflows/payment-link-journey-review.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/check-open-checkout-journey.ts
+      - run: npx tsx scripts/check-child-seats-booking-sumup.ts
+      - run: npx tsc --noEmit -p tsconfig.json

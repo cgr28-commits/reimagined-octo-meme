@@ -57,7 +57,47 @@ export type OpenCheckoutSession = {
   amountLabel: string;
   returnToken?: string;
   openedAt: string;
+  /** Journey and price this link was created for; a different quote never resumes it. */
+  journeyKey?: string;
 };
+
+/** What identifies the journey a saved payment link belongs to. */
+export type OpenCheckoutJourney = {
+  pickupAddress: string;
+  dropoffAddress: string;
+  tripDate: string;
+  tripTime: string;
+  journeyMode: string | null;
+  returnDate: string;
+  returnTime: string;
+  vehicle: string | null;
+  amountLabel: string;
+};
+
+export function buildOpenCheckoutJourneyKey(journey: OpenCheckoutJourney): string {
+  return JSON.stringify([
+    journey.pickupAddress.trim(),
+    journey.dropoffAddress.trim(),
+    journey.tripDate,
+    journey.tripTime,
+    journey.journeyMode ?? "",
+    journey.returnDate,
+    journey.returnTime,
+    journey.vehicle ?? "",
+    journey.amountLabel,
+  ]);
+}
+
+/**
+ * The saved "Secure payment ready" link is only offered for the journey and price it was made
+ * for. Links saved before this check existed (no journeyKey) are never offered again.
+ */
+export function openCheckoutForJourney<T extends { journeyKey?: string }>(
+  session: T | null,
+  journeyKey: string,
+): T | null {
+  return session && session.journeyKey === journeyKey ? session : null;
+}
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
