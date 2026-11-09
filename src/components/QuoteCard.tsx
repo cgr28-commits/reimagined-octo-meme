@@ -9136,6 +9136,19 @@ function QuoteCard({
           : "quote-flow glass-card min-w-0 rounded-[1.05rem] p-4 sm:p-7 lg:p-6 xl:p-7"
       }
     >
+      {/* Booking progress: hidden by default; the light mobile design preview shows it. */}
+      <ol data-mobile-steps aria-label="Booking progress" className="hidden">
+        {["Journey", "Price", "Details & pay"].map((label, index) => {
+          const current = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
+          const state = index + 1 < current ? "done" : index + 1 === current ? "current" : "next";
+          return (
+            <li key={label} data-step-state={state} aria-current={state === "current" ? "step" : undefined}>
+              <span aria-hidden>{state === "done" ? "✓" : index + 1}</span>
+              {label}
+            </li>
+          );
+        })}
+      </ol>
       <div
         className={
           quoteStep >= 2
