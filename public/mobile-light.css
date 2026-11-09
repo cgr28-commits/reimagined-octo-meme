@@ -1,1 +1,349 @@
-/* Mobile light redesign (below 1200px), only when html.m2 is set by ?mobile=new. */
+/* Mobile light redesign (Design 2), phones and tablets below 1200px.
+   Loaded only when html.m2 is set by the ?mobile=new preview switch (see layout.tsx).
+   Part 1 is generated from the desktop light design (colours only); part 2 is mobile-specific. */
+/* Ported automatically: colour declarations of the desktop light design, re-scoped to mobile (html.m2). */
+@media (max-width: 1199.98px) {
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #17692a !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *) { color: #b07800 !important; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-title], h2[data-site-nav-heading]) { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow :is([data-results-desktop-subtitle], [data-checkout-desktop-subtitle], [data-checkout-desktop-subtitle] *) { color: #4a5a70 !important; -webkit-text-fill-color: #4a5a70; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote] { color: #1a7f2e !important; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]):has([data-quote-results], [data-checkout-aside]) .quote-flow.quote-flow [data-back-to-quote]:hover { color: #071c38 !important; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote] { color: #1a7f2e !important; }
+  html.m2 :is(section.homepage-hero, [data-hub-quote]) .quote-flow:has(#step3-payment-actions) > div:first-child > [data-back-to-quote][data-back-to-quote]:hover { color: #071c38 !important; }
+  html.m2 header[data-site-header] nav[class*="lg:gap-5"] > a[class*="text-white/70"] { color: rgba(255, 255, 255, 0.84) !important; }
+  html.m2 header[data-site-header] nav[class*="lg:gap-5"] > a[class*="text-white/70"]:hover { color: #2fbf4a !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-eyebrow:not(section.homepage-hero *) { color: #1a7f2e !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-description:not(section.homepage-hero *) { color: #4a5a70 !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not(section.homepage-hero *) { color: #b07800 !important; }
+  html.m2 body:has(footer.bg-navy-dark) main [class*="bg-[#071c38]"][class*="bg-[#071c38]"][class*="bg-[#071c38]"]:is([class*="text-white"], [class*="text-mist"]) { color: rgba(255, 255, 255, 0.8) !important; }
+  html.m2 body:has(footer.bg-navy-dark):has([data-landing-hero]) main:has([data-landing-hero]) { background: linear-gradient(#071c38 0 7rem, #f4f7fa 7rem) !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+    main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+    main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+    main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { color: #071c38 !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+    main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) { box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important; }
+  html.m2 #vito-group-transfers .desktop-vito-figure.desktop-vito-figure { background: #ffffff !important; border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 24px 48px -32px rgba(7, 28, 56, 0.45) !important; }
+  html.m2 #vito-group-transfers .desktop-vito-figure img { background: radial-gradient(120% 90% at 50% 100%, #e9eef4 0%, #f6f8fb 55%, #ffffff 100%) !important; }
+  html.m2 #vito-group-transfers [data-vito-caption][data-vito-caption] { background: #f7f9fc !important; color: #4a5a70 !important; }
+  html.m2 #vito-group-transfers [data-vito-availability][data-vito-availability] { background: #eaf7ed !important; border-color: #bfe5c7 !important; color: #17692a !important; box-shadow: none !important; }
+  html.m2 [class*="station_page"] { background: #f4f7fa !important; color: #33445a !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] { background: #ffffff; }
+  html.m2 [class*="station_page"] [class*="station_section"]:nth-of-type(even) { background: #f4f7fa; }
+  html.m2 [class*="station_page"] [class*="station_section"] :is(h2, h3) { color: #071c38 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] :is(p, li, summary, dd, dt) { color: #33445a !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] summary { color: #071c38 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_eyebrow"] { color: #1a7f2e !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_routeLabel"] { color: #5b6b80 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] :is([class*="station_route_"], [class*="station_travelCard"]) { background: #ffffff !important; border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 14px 30px -24px rgba(7, 28, 56, 0.4); }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_route_"]:hover { border-color: #2fbf4a !important; background: #ffffff !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] a:not([class*="bg-emerald"]):not([class*="btn"]) { color: #1a7f2e !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_why"] span { color: #1f9a36 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_faqs"] details { border-bottom-color: #e3e9f0 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a { background: #ffffff; border: 1px solid #dde4ec !important; color: #071c38 !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] img { background: #ffffff !important; border-color: #dde4ec !important; }
+  html.m2 [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] figcaption { color: #5b6b80 !important; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] { background: #071c38 !important; backdrop-filter: none; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden]) { color: rgba(255, 255, 255, 0.72); }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before { content: ""; background: #2fbf4a; }
+  html.m2 body:has(footer.bg-navy-dark):not(:has([data-staff-page], section.homepage-hero, [data-hub-quote])) header[data-site-header] nav[aria-label="Main navigation"] :is(a, summary) { color: rgba(255, 255, 255, 0.82); }
+}
+@layer base { @media (max-width: 1199.98px) {
+  html.m2 :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .quote-flow label.form-label { color: #33445a !important; }
+  html.m2 body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *) { background: #ffffff !important; border: 1px solid #dde4ec !important; color: #071c38 !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.04) !important; }
+  html.m2 body:has(footer.bg-navy-dark) main a[class*="hover:border-emerald/40"]:not(.rounded-full):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):hover { border-color: #2fbf4a !important; box-shadow: 0 12px 26px -18px rgba(7, 28, 56, 0.45) !important; }
+  html.m2 body:has(footer.bg-navy-dark) main a.block[class*="hover:border-emerald/40"][class*="py-3"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *)::after { content: "→"; color: #1f9a36; }
+  html.m2 body:has(footer.bg-navy-dark) main :is(a, span).rounded-full[class*="bg-white/5"][class*="text-xs"] { background: #f4f7fa !important; border: 1px solid #dde4ec !important; color: #33445a !important; box-shadow: none !important; }
+  html.m2 body:has(footer.bg-navy-dark) main a.rounded-full[class*="bg-white/5"][class*="text-xs"] { color: #071c38 !important; background: #ffffff !important; }
+  html.m2 body:has(footer.bg-navy-dark) main a.rounded-full[class*="bg-white/5"][class*="text-xs"]:hover { border-color: #2fbf4a !important; color: #17692a !important; }
+  html.m2 #areas a[class*="hover:bg-emerald/10"], html.m2 #areas div[class*="hover:bg-emerald/10"] { background: #f7f9fc !important; border: 1px solid #e3e9f0 !important; color: #071c38 !important; }
+  html.m2 #areas a[class*="hover:bg-emerald/10"]:hover { background: #ffffff !important; border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4) !important; }
+  html.m2 #areas a[class*="hover:bg-emerald/10"] svg { color: #2fbf4a !important; }
+  html.m2 body:has(footer.bg-navy-dark) main [class*="hover:border-emerald/30"]:not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"]) *):hover { border-color: #2fbf4a !important; box-shadow: 0 18px 36px -24px rgba(7, 28, 56, 0.45) !important; }
+  html.m2 body:has(footer.bg-navy-dark) main :is(.text-emerald-dark, .text-emerald a:not([class*="bg-"]):not([class*="text-"])):not(main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], section.homepage-hero, [data-landing-hero], [data-hub-quote]) *):not(h1, h2) { color: #1a7f2e !important; }
+  html.m2 [class*="station_page"] [data-landing-quote-header] h2 { color: #071c38 !important; }
+  html.m2 [class*="station_page"] [data-landing-quote-header] p { color: #4a5a70 !important; }
+  html.m2 [class*="station_page"] [data-landing-quote-header] p:first-child { color: #1a7f2e !important; }
+  html.m2 [class*="station_page"] [class*="station_jumpLinks"] a { background: #ffffff !important; border: 1px solid #dde4ec !important; color: #071c38 !important; }
+  html.m2 [class*="station_page"] [class*="station_jumpLinks"] a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
+  html.m2 body:has(main[data-customer-standalone]) { background: #f4f7fa !important; }
+  html.m2 main[data-customer-standalone] { background: #f4f7fa !important; color: #33445a !important; }
+  html.m2 main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
+  html.m2 main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
+  html.m2 main[data-customer-standalone] :is(h1, h2, h3, h4) { color: #071c38 !important; }
+  html.m2 main[data-customer-standalone] :is(.text-white, [class*="text-white/"], [class*="text-mist"], .text-slate-200, .text-slate-300):not(h1, h2, h3, h4):not(:is(button, a)[class*="bg-emerald"], :is(button, a)[class*="bg-emerald"] *, .btn-primary, .btn-primary *, [class*="bg-[#25D366]"], [class*="bg-[#25D366]"] *, [data-stripe-pay] *) { color: #33445a !important; }
+  html.m2 main[data-customer-standalone] :is(strong, b, dt, label, summary) { color: #071c38 !important; }
+  html.m2 main[data-customer-standalone] :is(.text-emerald, [class*="text-emerald/"], .text-emerald-light, .text-emerald-dark):not([class*="bg-emerald"]):not(h1, h2) { color: #1a7f2e !important; }
+  html.m2 main[data-customer-standalone] :is(.text-amber-200, .text-amber-300, .text-yellow-200, .text-yellow-300) { color: #8a5a00 !important; }
+  html.m2 main[data-customer-standalone] :is(.text-red-200, .text-red-300, .text-red-400) { color: #c62828 !important; }
+  html.m2 main[data-customer-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-light/"], [class*="bg-[#0b"], [class*="bg-[#071c38]"]):not([data-stripe-pay]) { background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 40px -30px rgba(7, 28, 56, 0.4); }
+  html.m2 main[data-customer-standalone] :is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, [class*="bg-navy/"]) :is(section, div, li, details, p, span):is([class*="bg-white/"], .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-light/"]) { background-color: #f7f9fc !important; box-shadow: none !important; }
+  html.m2 main[data-customer-standalone] [class*="border-white/"] { border-color: #dde4ec !important; }
+  html.m2 main[data-customer-standalone] :is(hr, [class*="divide-white/"] > *) { border-color: #e3e9f0 !important; }
+  html.m2 main[data-customer-standalone] [class*="bg-emerald/"]:not(button):not(a) { background-color: #eaf7ed !important; border-color: #bfe5c7 !important; }
+  html.m2 main[data-customer-standalone] [class*="bg-amber-"]:not(button):not(a) { background-color: #fff7e6 !important; border-color: #f3d9a4 !important; }
+  html.m2 main[data-customer-standalone] [class*="bg-red-"]:not(button):not(a) { background-color: #fef2f2 !important; border-color: #fecaca !important; }
+  html.m2 main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { background-color: #f4f6fa !important; border: 1px solid #cfd8e3 !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  html.m2 main[data-customer-standalone] :is(input, select, textarea)::placeholder { color: #7a8799 !important; -webkit-text-fill-color: #7a8799; }
+  html.m2 main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus { border-color: #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47, 191, 74, 0.22) !important; background-color: #fff !important; }
+  html.m2 main[data-customer-standalone] :is(input[type="checkbox"], input[type="radio"]) { accent-color: #2fbf4a; }
+  html.m2 main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) { background-color: #2fbf4a !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; box-shadow: none !important; }
+  html.m2 main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) * { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  html.m2 main[data-customer-standalone] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) { background-color: #29ab42 !important; }
+  html.m2 main[data-customer-standalone] :is(.btn-secondary, :is(a, button)[class*="border-white/"]:not([class*="bg-emerald"])) { background-color: #ffffff !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; border: 1.5px solid rgba(7, 28, 56, 0.3) !important; }
+  html.m2 main[data-customer-standalone] :is(.btn-secondary, :is(a, button)[class*="border-white/"]:not([class*="bg-emerald"])):hover { border-color: #071c38 !important; background-color: #f4f7fa !important; }
+  html.m2 main[data-customer-standalone] a:not([class*="bg-"]):not([class*="border"]):is(.underline, [class*="text-emerald"], [class*="hover:text-emerald"]) { color: #1a7f2e !important; }
+  html.m2 main[data-customer-standalone][data-focused-payment] { background: #f4f7fa !important; }
+  html.m2 main[data-focused-payment] [data-stripe-pay] { border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 30px 60px -36px rgba(7, 28, 56, 0.45) !important; }
+  html.m2 main[data-focused-payment] [data-stripe-pay] .btn-primary { background-color: #2fbf4a !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  html.m2 main[data-focused-payment] [data-stripe-pay] .btn-primary:hover:not(:disabled) { background-color: #29ab42 !important; }
+  html.m2 main[data-focused-payment] [data-stripe-pay] .btn-primary:disabled { background-color: #2fbf4a !important; }
+  html.m2 main[data-customer-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-navy-dark/"], [class*="bg-[#0"]):not([data-stripe-pay]) { background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 18px 40px -30px rgba(7, 28, 56, 0.4); }
+  html.m2 main[data-customer-standalone] :is([class*="bg-white/"], .glass-card, [class*="bg-navy"], [class*="bg-[#0"]) :is(section, div, li, details, p, span):is([class*="bg-navy"], [class*="bg-[#0"]):not(button *, a *) { background-color: #f7f9fc !important; box-shadow: none !important; }
+  html.m2 main[data-customer-standalone] div.rounded-full[class*="bg-navy"]:has(> img) { background-color: #071c38 !important; box-shadow: 0 18px 40px -24px rgba(7, 28, 56, 0.55) !important; }
+} }
+/* ==========================================================================
+   MOBILE LIGHT DESIGN (Design 2) — phones and tablets below 1200px.
+   Active only when <html class="m2"> (preview switch ?mobile=new).
+   Styling only: no markup, validation, pricing or payment behaviour changes.
+   Page #F4F7FA · cards #FFF · header/footer #071C38 · emerald #2FBF4A
+   (#1A7F2E for small green text on white) · Manrope throughout.
+   ========================================================================== */
+@media (max-width: 1199.98px) {
+  html.m2 {
+    background-color: #f4f7fa;
+    --m2-navy: #071c38; --m2-ink: #0f1b2d; --m2-slate: #33445a; --m2-muted: #5b6b80;
+    --m2-line: #e3e8ef; --m2-field: #cfd7e2; --m2-green: #2fbf4a; --m2-green-ink: #1a7f2e;
+    --m2-tint: #f6f8fb; --m2-shadow: 0 1px 2px rgba(7,28,56,.06), 0 8px 24px rgba(7,28,56,.07);
+    /* quote-flow tokens: light card */
+    --quote-card-bg: #ffffff; --quote-card-border: #e3e8ef;
+    --quote-panel-bg: #f6f8fb; --quote-panel-border: #e3e8ef;
+    --quote-input-bg: #ffffff; --quote-input-border: #cfd7e2;
+    --quote-choice-bg: #ffffff; --quote-choice-border: #cfd7e2;
+    --quote-selected-border: #2fbf4a; --quote-selected-bg: #eaf8ed;
+    --quote-selected-glow: 0 0 0 3px rgba(47,191,74,.22);
+    --quote-selected-icon: #1a7f2e;
+    --quote-placeholder: #8090a3; --quote-price-ink: #071c38; --quote-secondary-ink: #5b6b80;
+  }
+  html.m2 body { background-color: #f4f7fa !important; color: var(--m2-slate); }
+  html.m2 .font-display { font-family: var(--font-sans), system-ui, sans-serif !important; letter-spacing: -0.02em; }
+  html.m2 ::selection { color: var(--m2-navy); }
+
+  /* ---------- Header: solid compact navy bar ---------- */
+  html.m2 header[data-site-header] { background: #071c38 !important; backdrop-filter: none !important; border-bottom: 1px solid rgba(255,255,255,.06); }
+  html.m2 header[data-site-header] > div { padding-top: 6px !important; padding-bottom: 6px !important; }
+  html.m2 header[data-site-header] .quote-header-logo { height: 46px !important; }
+  html.m2 header[data-site-header] [data-mobile-header-actions] { gap: 8px !important; }
+  html.m2 header[data-site-header] [data-call-us-pill] {
+    background: #2fbf4a !important; color: #071c38 !important; border: 0 !important; border-radius: 999px !important;
+    height: 44px !important; min-height: 44px !important; padding: 0 16px 0 13px !important; font-weight: 800 !important; font-size: 15px !important; box-shadow: none !important;
+  }
+  html.m2 header[data-site-header] [data-call-us-pill] :is(svg, span, svg *), html.m2 header[data-site-header] a[data-call-us-pill] span[data-phone-label] { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+  html.m2 header[data-site-header] [data-matni-whatsapp-quick] {
+    width: 44px !important; height: 44px !important; border-radius: 12px !important;
+    background: rgba(255,255,255,.06) !important; border: 1px solid rgba(255,255,255,.2) !important; color: #fff !important;
+  }
+  html.m2 header[data-site-header] [data-mobile-header-actions] > button { width: 44px; min-width: 44px !important; height: 44px; padding: 0 !important; border-radius: 12px !important; border-color: rgba(255,255,255,.2) !important; }
+  html.m2 header[data-site-header] [data-mobile-header-actions] > button > span { display: none; }
+  html.m2 header[data-site-header] [data-mobile-header-actions] > button svg { width: 22px; height: 22px; }
+
+  /* ---------- Homepage + hub quote section: light page ---------- */
+  html.m2 section.homepage-hero { background: #f4f7fa !important; }
+  html.m2 section.homepage-hero > :is(div.absolute, img, picture, video), html.m2 section.homepage-hero > div[class*="bg-gradient"] { display: none !important; }
+  html.m2 .homepage-hero-copy h1, html.m2 .homepage-hero-copy h1 .text-white { color: #071c38 !important; text-shadow: none !important; }
+  html.m2 .homepage-hero-copy h1 { font-weight: 800 !important; letter-spacing: -0.025em !important; }
+  html.m2 .homepage-hero-copy h1 .text-emerald { color: #1f9a36 !important; }
+  html.m2 .homepage-hero-copy p { color: #5b6b80 !important; }
+  html.m2 .hero-benefits-row { background: #fff; border: 1px solid var(--m2-line); border-radius: 16px; padding: 10px 4px; box-shadow: var(--m2-shadow); margin-bottom: 12px !important; }
+  html.m2 .hero-benefits-row .hero-benefit-label, html.m2 .hero-benefits-row .hero-benefit-label * { color: #071c38 !important; }
+  html.m2 .hero-benefits-row .hero-benefit-icon { color: #1a7f2e !important; }
+  html.m2 .hero-benefits-row .hero-benefit-icon :is(svg, svg *) { color: #1a7f2e !important; }
+  html.m2 .hero-benefits-row .hero-benefit-divider { border-color: var(--m2-line) !important; }
+  html.m2 .hero-benefits-row .hero-benefit-divider::before { background: var(--m2-line) !important; }
+
+  /* ---------- Quote card ---------- */
+  html.m2 .quote-flow.glass-card { background: #fff !important; border: 1px solid #e3e8ef !important; box-shadow: var(--m2-shadow) !important; backdrop-filter: none !important; border-radius: 18px !important; padding: 16px !important; }
+  html.m2 .quote-flow { color: var(--m2-slate) !important; }
+  html.m2 .quote-flow :is(h1, h2, h3, h4, legend, strong) { color: #071c38 !important; }
+  html.m2 .quote-flow h2[data-site-nav-heading] { font-size: 1.3rem !important; font-weight: 800 !important; letter-spacing: -0.015em !important; text-transform: none !important; }
+  html.m2 .quote-flow :is(.text-white, [class*="text-white/"], .text-mist, [class*="text-ink"]):not(.btn-primary, .btn-primary *, .btn-pay, .btn-pay *, [class*="bg-emerald"], [class*="bg-emerald"] *, #quote-price-summary *, [data-vehicle-selection-indicator]) { color: var(--m2-slate) !important; }
+  html.m2 .quote-flow :is(p, span, dd, dt, li, label):is(.text-white, .font-semibold.text-white) { color: #071c38 !important; }
+  html.m2 .quote-flow .form-label, html.m2 .quote-flow label.form-label { color: #33445a !important; font-weight: 700 !important; letter-spacing: 0.01em; text-transform: none; font-size: 0.82rem !important; }
+  html.m2 .quote-flow .quote-secondary { color: #5b6b80 !important; }
+  html.m2 .quote-flow :is(a, button, span, p, summary):is(.text-emerald, [class*="text-emerald/"]):not([class*="bg-"]) { color: #1a7f2e !important; }
+  html.m2 .quote-flow :is(.text-red-400, .text-red-300) { color: #c62828 !important; }
+
+  /* Journey type switch */
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] { background: #e8edf3 !important; border-radius: 12px !important; }
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] > button:not(.bg-emerald) { color: #33445a !important; }
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] > button:not(.bg-emerald) span { color: #33445a !important; }
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] [data-return-discount-note] { color: #1a7f2e !important; font-size: 11px !important; }
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] > button.bg-emerald { background: #fff !important; color: #071c38 !important; box-shadow: 0 1px 3px rgba(7,28,56,.14); font-weight: 800; }
+  html.m2 .quote-flow [role="group"][aria-label="Journey type"] > button.bg-emerald * { color: #071c38 !important; }
+
+  /* Address fields */
+  html.m2 .quote-flow div:has(> div > .address-input), html.m2 .quote-flow div:has(> .address-input) {
+    background: #fff !important; border: 1.5px solid #cfd7e2 !important; border-radius: 12px !important; box-shadow: none !important;
+  }
+  html.m2 .quote-flow div:has(> div > .address-input):focus-within { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; }
+  html.m2 .quote-flow .address-input { color: #0f1b2d !important; height: 50px !important; font-size: 16px !important; font-weight: 600; -webkit-text-fill-color: #0f1b2d; }
+  html.m2 .quote-flow .address-input::placeholder { color: #8090a3 !important; -webkit-text-fill-color: #8090a3; font-weight: 500; }
+  html.m2 .quote-flow [data-gps-location], html.m2 .quote-flow [data-gps-location] svg { color: #1a7f2e !important; }
+  html.m2 .quote-flow button[aria-label="Clear address"] { color: #5b6b80 !important; }
+  html.m2 .address-suggestions { background: #fff !important; border: 1px solid #e3e8ef !important; box-shadow: 0 16px 36px rgba(7,28,56,.18) !important; border-radius: 14px !important; }
+  html.m2 .address-suggestions :is(li, button, div, span, p) { color: #0f1b2d !important; border-color: #eef2f6 !important; }
+  html.m2 .address-suggestions :is(li, button, [role="option"]) { background: transparent !important; }
+  html.m2 .address-suggestions [role="option"]:is([aria-selected="true"], :hover) { background: #f1f8f3 !important; }
+  html.m2 .address-suggestions :is(p, span):is([class*="text-white/"], [class*="text-slate"], .text-xs, .text-sm) { color: #5b6b80 !important; }
+  html.m2 .address-suggestions [role="option"] > :first-child, html.m2 .address-suggestions [role="option"] span:first-child { color: #071c38 !important; font-weight: 700; }
+
+  /* Date / time / passengers / suitcases */
+  html.m2 .quote-flow [data-schedule-control], html.m2 .quote-flow .quote-datetime-shell {
+    background: #fff !important; border: 1.5px solid #cfd7e2 !important; border-radius: 12px !important; height: 50px !important; box-shadow: none !important;
+  }
+  html.m2 .quote-flow [data-schedule-control] input, html.m2 .quote-flow .quote-datetime-shell input { height: 48px !important; }
+  html.m2 .quote-flow :is([data-schedule-control], .quote-datetime-shell) :is(svg, svg *) { color: #1a7f2e !important; }
+  html.m2 .quote-flow .homepage-schedule-prompt { color: #0f1b2d !important; font-weight: 600; line-height: 48px !important; }
+  html.m2 .quote-flow .homepage-schedule-prompt[data-empty="true"] { color: #8090a3 !important; font-weight: 500; }
+  html.m2 .quote-flow .quote-datetime-input { color: #0f1b2d !important; -webkit-text-fill-color: #0f1b2d; color-scheme: light; font-weight: 600; }
+  html.m2 .quote-flow #passenger-luggage-section select, html.m2 .quote-flow select {
+    background-color: #fff !important; border: 1.5px solid #cfd7e2 !important; color: #0f1b2d !important; height: 50px !important; border-radius: 12px !important; color-scheme: light; font-weight: 600 !important;
+  }
+  html.m2 .quote-flow .homepage-compact-control svg, html.m2 .quote-flow .homepage-compact-control svg * { color: #1a7f2e !important; }
+  html.m2 .quote-flow .quote-text-input:not(.quote-datetime-input) {
+    background: #fff !important; border: 1.5px solid #cfd7e2 !important; color: #0f1b2d !important; -webkit-text-fill-color: #0f1b2d; height: 52px !important; border-radius: 12px !important; font-weight: 600; box-shadow: none !important;
+  }
+  html.m2 .quote-flow .quote-text-input::placeholder { color: #8090a3 !important; -webkit-text-fill-color: #8090a3; font-weight: 500; }
+  html.m2 .quote-flow .quote-text-input:focus { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none; }
+  html.m2 .quote-flow .quote-choice { background: #fff !important; color: #071c38 !important; border: 1.5px solid #cfd7e2 !important; }
+  html.m2 .quote-flow .quote-choice-selected { background: #eaf8ed !important; color: #071c38 !important; border: 1.5px solid #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47,191,74,.18) !important; }
+  html.m2 .quote-flow #homepage-quote-requirement { color: #5b6b80 !important; }
+
+  /* Primary buttons: emerald, navy text (7.6:1) */
+  html.m2 :is(.btn-primary, .btn-pay) {
+    background: #2fbf4a !important; color: #071c38 !important; border: 0 !important; border-radius: 14px !important;
+    min-height: 54px !important; font-weight: 800 !important; font-size: 17px !important; letter-spacing: 0 !important;
+    box-shadow: 0 8px 18px -6px rgba(47,191,74,.55) !important; text-transform: none !important;
+  }
+  html.m2 :is(.btn-primary, .btn-pay) * { color: #071c38 !important; }
+  html.m2 :is(.btn-primary, .btn-pay):disabled { background: #cfe9d5 !important; color: #3f5f48 !important; box-shadow: none !important; opacity: 1 !important; }
+  html.m2 :is(.btn-primary, .btn-pay):disabled * { color: #3f5f48 !important; }
+  html.m2 .quote-flow .quote-help-contact { color: #33445a !important; }
+
+  /* Reviews pill */
+  html.m2 [data-hero-reviews-badge] a, html.m2 .quote-flow [data-quote-trust] a { background: #fff !important; border: 1px solid #e3e8ef !important; color: #33445a !important; }
+  html.m2 [data-hero-reviews-badge] a :is(span, strong), html.m2 .quote-flow [data-quote-trust] a :is(span, strong) { color: #071c38 !important; }
+  html.m2 :is([data-hero-reviews-badge], [data-quote-trust]) a .text-amber-300 { color: #f5a623 !important; }
+
+  /* ---------- Vehicle step ---------- */
+  html.m2 .quote-flow [data-homepage-journey-summary] { background: #f6f8fb !important; border: 1px solid #e3e8ef !important; color: #071c38 !important; }
+  html.m2 .quote-flow [data-homepage-journey-summary] :is(p, span) { color: #071c38 !important; }
+  html.m2 .quote-flow [data-homepage-journey-summary] p.text-xs { color: #5b6b80 !important; }
+  html.m2 .quote-flow [data-journey-arrow] { color: #1a7f2e !important; }
+  html.m2 .quote-flow [data-vehicle-category] { border: 1.5px solid #e3e8ef !important; border-radius: 16px !important; box-shadow: 0 1px 2px rgba(7,28,56,.05) !important; padding-top: 8px !important; padding-bottom: 8px !important; }
+  html.m2 .quote-flow [data-vehicle-category]:is([aria-pressed="true"], [aria-checked="true"], [data-selected="true"]),
+  html.m2 .quote-flow [data-vehicle-category]:has([data-vehicle-selection-indicator].bg-\[\#147a2a\]) { border-color: #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47,191,74,.22) !important; background: #fbfefc !important; }
+  html.m2 .quote-flow [data-vehicle-selection-indicator][class*="bg-"] { background: #2fbf4a !important; color: #071c38 !important; }
+  html.m2 .quote-flow .quote-result-card { border: 1px solid #e3e8ef !important; box-shadow: var(--m2-shadow) !important; border-radius: 16px !important; }
+  html.m2 .quote-flow [data-quote-result-price] p:first-child { color: #5b6b80 !important; letter-spacing: 0.08em !important; }
+  html.m2 .quote-flow [data-quote-assurance] { color: #1a7f2e !important; }
+  html.m2 .quote-flow [data-quote-result-actions] button { background: #f6f8fb !important; border: 1px solid #e3e8ef !important; color: #071c38 !important; }
+  html.m2 .quote-flow [data-quote-result-actions] button :is(span, svg, svg *) { color: #071c38 !important; }
+  html.m2 .quote-flow [data-quote-result-actions] button[aria-label*="WhatsApp"] :is(svg, svg *) { color: #1a7f2e !important; }
+  html.m2 .quote-flow .quote-panel { background: #f6f8fb !important; border: 1px solid #e3e8ef !important; }
+  html.m2 .quote-flow .quote-breakdown-panel { background: #fff !important; color: #33445a !important; }
+  html.m2 .quote-flow .quote-breakdown-panel button { border-color: #cfd7e2 !important; color: #071c38 !important; }
+  html.m2 .quote-flow [data-quote-price-breakdown] summary { color: #071c38 !important; }
+
+  /* ---------- Details & Payment ---------- */
+  html.m2 .quote-flow [data-back-to-quote] { color: #1a7f2e !important; }
+  html.m2 .quote-flow section[aria-label="Airport services"] { background: #f6f8fb !important; }
+  html.m2 .quote-flow [data-access-option] { background: #fff !important; border: 1.5px solid #e3e8ef !important; color: #071c38 !important; }
+  html.m2 .quote-flow [data-access-option]:has(input:checked) { border-color: #2fbf4a !important; box-shadow: 0 0 0 3px rgba(47,191,74,.18) !important; background: #fbfefc !important; }
+  html.m2 .quote-flow [data-access-option] .text-emerald { color: #1a7f2e !important; }
+  /* Booking summary stays a navy panel (brand anchor, as on desktop). */
+  html.m2 .quote-flow #quote-price-summary { background: #071c38 !important; border: 0 !important; border-radius: 16px !important; padding: 14px 16px !important; }
+  html.m2 .quote-flow #quote-price-summary :is(p, span, strong, summary, details, button) { color: #dde5ee !important; }
+  html.m2 .quote-flow #quote-price-summary :is([data-checkout-route], [data-checkout-total], [data-checkout-total] *, [data-checkout-pickup-time]) { color: #fff !important; }
+  html.m2 .quote-flow #quote-price-summary :is(summary.text-emerald, button.text-emerald) { color: #7be08e !important; }
+  html.m2 .quote-flow #step3-payment-actions label.rounded-lg { background: #fff !important; border: 1.5px solid #e3e8ef !important; }
+  html.m2 .quote-flow #step3-payment-actions input[type="checkbox"] { background-color: #fff !important; border-color: #071c38 !important; accent-color: #1f9a36; }
+  html.m2 .quote-flow #step3-payment-actions a { color: #071c38 !important; font-weight: 700 !important; text-decoration-color: #2fbf4a !important; }
+  html.m2 .quote-flow #step3-payment-actions p.text-emerald { color: #1a7f2e !important; font-weight: 700 !important; }
+  html.m2 .quote-flow [data-payment-method-logos] li { border: 1px solid #e3e8ef; box-shadow: none !important; }
+
+  /* ---------- Progress indicator (CSS only, from the step the flow is on) ---------- */
+  html.m2 .quote-flow > div:first-child { position: relative; }
+  html.m2 .quote-flow:has([data-quote-results="ready"], #quote-results-summary) > div:first-child::before,
+  html.m2 .quote-flow[data-quote-results="ready"] > div:first-child::before,
+  html.m2 .quote-flow:has(#step3-payment-actions) > div:first-child::before {
+    display: block; margin: -2px 0 12px; padding-bottom: 12px; border-bottom: 1px solid #e3e8ef;
+    font: 800 12px/1.2 var(--font-sans), system-ui, sans-serif; letter-spacing: .02em; color: #071c38;
+    padding-top: 10px; background: linear-gradient(90deg, #2fbf4a var(--m2-p), #e3e8ef var(--m2-p)) top / 100% 4px no-repeat;
+  }
+  html.m2 .quote-flow[data-quote-results="ready"] > div:first-child::before { content: "Step 2 of 3  ·  Choose your vehicle"; --m2-p: 66%; }
+  html.m2 .quote-flow:has(#step3-payment-actions) > div:first-child::before { content: "Step 3 of 3  ·  Details & Payment"; --m2-p: 100%; }
+
+  /* ---------- Cookie banner (light) ---------- */
+  html.m2 [role="dialog"][aria-label="Cookie consent"] { background: #fff !important; color: #33445a !important; border: 1px solid #e3e8ef !important; box-shadow: 0 -8px 30px rgba(7,28,56,.16) !important; }
+  html.m2 [role="dialog"][aria-label="Cookie consent"] :is(p, h2, h3, span) { color: #33445a !important; }
+  html.m2 [role="dialog"][aria-label="Cookie consent"] a { color: #071c38 !important; }
+}
+
+/* ---------- Every public page: light sections, navy text ----------
+   Kept dark on purpose: header, footer, photo banners, the navy price card and booking summary. */
+@media (max-width: 1199.98px) {
+  html.m2 main { background: #f4f7fa !important; color: #33445a; }
+  html.m2 main :is(section, div, article, aside, nav, ul, ol):is([class*="bg-navy"], [class*="from-navy"], [class*="bg-gradient"], [class*="bg-[#0"], [class*="bg-[#1"]):not(:is(.quote-result-card, #quote-price-summary, [data-m2-keep-dark], [data-landing-hero], [class*="hero"]) *, .quote-result-card, #quote-price-summary, [data-landing-hero]) {
+    background-color: transparent !important; background-image: none !important;
+  }
+  html.m2 main :is(section, div, article, li, a):is(.glass-card, [class*="bg-white/"], [class*="bg-navy-light"], [class*="bg-navy/"], .quote-panel):not(:is(.quote-result-card, #quote-price-summary, [data-landing-hero]) *, .quote-flow, .quote-flow *, header *) {
+    background-color: #fff !important; background-image: none !important; border-color: #e3e8ef !important; box-shadow: 0 1px 2px rgba(7,28,56,.05), 0 10px 24px -18px rgba(7,28,56,.28) !important; backdrop-filter: none !important;
+  }
+  html.m2 main :is(h1, h2, h3, h4, h5, h6, dt, strong, b, legend, summary):not(:is(.quote-result-card, #quote-price-summary, [data-landing-hero] .absolute, .btn-primary, [class*="bg-emerald"], [class*="bg-navy"]:not(section):not(main)) *) { color: #071c38 !important; -webkit-text-fill-color: currentColor; }
+  html.m2 main :is(.text-white, [class*="text-white/"], .text-mist, [class*="text-mist"], [class*="text-ink"], [class*="text-slate-"], [class*="text-gray-"], .quote-secondary):not(button[class*="bg-"], a[class*="bg-"], [data-landing-hero] *, [data-landing-hero]):not(:is(.quote-result-card, #quote-price-summary, .btn-primary, .btn-pay, [class*="bg-emerald"], [data-landing-hero] .absolute) *, .btn-primary, .btn-pay, [class*="bg-emerald"]) { color: #33445a !important; }
+  html.m2 main :is(a, span, p, button, summary, li):is(.text-emerald, [class*="text-emerald/"]):not([class*="bg-"], :is(.quote-result-card, #quote-price-summary, [class*="bg-emerald"]) *) { color: #1a7f2e !important; }
+  html.m2 main a:not([class*="bg-"]):not(.btn-primary):is([class*="underline"]) { color: #071c38 !important; text-decoration-color: #2fbf4a !important; }
+  html.m2 main :is(section, div, li, article, a, details)[class*="border-white/"]:not(:is(.quote-result-card, #quote-price-summary) *) { border-color: #e3e8ef !important; }
+  html.m2 main svg:is(.text-emerald, [class*="text-emerald/"]) { color: #1a7f2e !important; }
+  html.m2 main .text-amber-300 { color: #e09412 !important; }
+  /* Page titles in the old serif face: Manrope bold */
+  html.m2 main :is(h1, h2, h3).font-display { font-weight: 800 !important; letter-spacing: -0.02em !important; }
+  /* Eyebrow lines either side of small headings */
+  html.m2 main [class*="bg-emerald/"]:is(span, div):empty { background-color: #2fbf4a !important; }
+  /* Photo banners keep their image and white text */
+  html.m2 main [data-landing-hero] :is(h1, h2, p, span) { -webkit-text-fill-color: currentColor; }
+
+  /* Native date/time icons: the field draws its own icon */
+  html.m2 :is([data-schedule-control], .quote-datetime-shell) input::-webkit-calendar-picker-indicator { opacity: 0; }
+
+  /* Vehicle options: white cards, navy text, green when chosen */
+  html.m2 .quote-flow [data-vehicle-category] { background: #fff !important; color: #071c38 !important; }
+  html.m2 .quote-flow [data-vehicle-category] :is(span, p):not([data-vehicle-selection-indicator]) { color: #071c38 !important; }
+  html.m2 .quote-flow [data-vehicle-category] [data-vehicle-option-copy] span + span { color: #33445a !important; }
+  html.m2 .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator]:not([class*="bg-"]) { border-color: #cfd7e2 !important; background: #fff !important; }
+  html.m2 .quote-flow [data-vehicle-category] svg { color: #5b6b80 !important; }
+
+  /* Spacing in the quote form: labels never touch the field above */
+  html.m2 .quote-flow [data-homepage-quote-scroll] > * + * { margin-top: 12px !important; }
+  html.m2 .quote-flow [data-homepage-quote-scroll] label.form-label, html.m2 .quote-flow [data-homepage-quote-scroll] p.form-label { margin-bottom: 6px !important; display: inline-block; }
+}
+/* Field labels carry a layered !important utility; an !important in an earlier layer wins. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html.m2 .quote-flow label.form-label, html.m2 .quote-flow .form-label { color: #33445a !important; }
+  }
+}
+@media (max-width: 1199.98px) {
+  /* One typeface: the old serif display face maps to Manrope */
+  html.m2 { --font-cormorant: var(--font-manrope); --font-display: var(--font-manrope); }
+  html.m2 :is(.section-heading, .quote-price-figure) { font-weight: 800 !important; letter-spacing: -0.025em !important; }
+  html.m2 header[data-site-header] [data-mobile-header-actions] a[data-call-us-pill][data-call-us-pill] :is(span, svg) { color: #071c38 !important; -webkit-text-fill-color: #071c38; }
+}
