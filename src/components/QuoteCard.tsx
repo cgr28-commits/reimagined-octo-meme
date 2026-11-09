@@ -9378,14 +9378,17 @@ function QuoteCard({
               <div data-d2-vehicle-head className="space-y-3">
                 <div data-d2-journey-card>
                   <div data-d2-journey-stops>
-                    <p data-d2-stop="from">
-                      <strong>{pickupLabel || "Pickup"}</strong>
-                      {pickupAddress.trim() && pickupAddress.trim() !== pickupLabel ? <span>{pickupAddress.trim()}</span> : null}
-                    </p>
-                    <p data-d2-stop="to">
-                      <strong>{dropoffLabel || "Drop-off"}</strong>
-                      {dropoffAddress.trim() && dropoffAddress.trim() !== dropoffLabel ? <span>{dropoffAddress.trim()}</span> : null}
-                    </p>
+                    {([["from", pickupLabel || pickupAddress.trim() || "Pickup"], ["to", dropoffLabel || dropoffAddress.trim() || "Drop-off"]] as const).map(([stop, text]) => {
+                      const cut = text.indexOf(",");
+                      const name = cut > 0 ? text.slice(0, cut) : text;
+                      const rest = cut > 0 ? text.slice(cut + 1).replace(/,\s*(UK|United Kingdom|Ireland)$/i, "").trim() : "";
+                      return (
+                        <p key={stop} data-d2-stop={stop}>
+                          <strong>{name}</strong>
+                          {rest ? <span>{rest}</span> : null}
+                        </p>
+                      );
+                    })}
                   </div>
                   <button
                     type="button"

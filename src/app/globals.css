@@ -5841,7 +5841,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind] > span { grid-column: 2; color: #071c38 !important; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind] > span + span { color: var(--d2-muted) !important; font-size: .85rem !important; }
   html[data-mobile-light] .address-suggestions [data-suggestion-kind]:hover, html[data-mobile-light] .address-suggestions li:first-child [data-suggestion-kind] { background: #f1f8f3 !important; }
-  html[data-mobile-light] mark[data-suggestion-match] { color: #1a7f2e; font-weight: 800; }
+  html[data-mobile-light] mark[data-suggestion-match] { color: #1a7f2e !important; font-weight: 800 !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-homepage-journey-summary] { display: none !important; }
   html[data-mobile-light] .address-suggestions [data-powered-by-google] { display: block !important; text-align: right; font-size: .6875rem; color: #8090a3; padding: .375rem .75rem; }
 
   /* Progress indicator (Vehicle and Details & Payment). */
