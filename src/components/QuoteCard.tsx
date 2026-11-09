@@ -7167,6 +7167,12 @@ function QuoteCard({
       </>
     );
 
+    /** Design 2/3 summary: a paid airport option (Belfast Meet & Greet or terminal area) shown as
+        its own line; the total is unchanged (it already includes it). */
+    const design2AccessGbp = Number.isFinite(airportAccessQuote.airportAccessChargeGbp)
+      ? airportAccessQuote.airportAccessChargeGbp
+      : 0;
+    const design2AccessIsMeetGreet = Object.values(terminalAccessChoices).includes("meet-greet");
     const design2When =
       tripDate && tripTime ? `${formatBookingDate(tripDate)}, ${formatCustomerClock(tripTime) || tripTime}` : "";
     return (
@@ -7196,8 +7202,18 @@ function QuoteCard({
                 <>
                   <div>
                     <dt>{vehicleShortLabel(quoteVehicle)}, {returnJourney ? "return" : "one way"}</dt>
-                    <dd>{amountLabel ?? "TBC"}</dd>
+                    <dd>
+                      {design2AccessGbp > 0 && paymentAmount != null && Number.isFinite(paymentAmount)
+                        ? formatQuote(Math.round((paymentAmount - design2AccessGbp) * 100) / 100)
+                        : amountLabel ?? "TBC"}
+                    </dd>
                   </div>
+                  {design2AccessGbp > 0 ? (
+                    <div>
+                      <dt>{design2AccessIsMeetGreet ? "Meet & Greet" : "Airport pickup / drop-off option"}</dt>
+                      <dd>{formatQuote(design2AccessGbp)}</dd>
+                    </div>
+                  ) : null}
                   {bookingMeetGreetEligible ? (
                     <div>
                       <dt>Meet &amp; Greet</dt>
@@ -9908,7 +9924,12 @@ function QuoteCard({
                                 {isVehiclePersonalQuote
                                   ? <strong>On request</strong>
                                   : paymentAmount != null && Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
-                                    ? <strong>{formatQuote(paymentAmount)}</strong>
+                                    ? <strong>{formatQuote(
+                                        // Includes a Meet & Greet chosen under the vehicles (same sum as the desktop panel).
+                                        Math.round((paymentAmount + desktopMeetGreetUpgrades()
+                                          .filter((upgrade) => upgrade.selected)
+                                          .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100,
+                                      )}</strong>
                                     : <strong>…</strong>}
                                 <button
                                   type="button"
