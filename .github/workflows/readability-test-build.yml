@@ -1,0 +1,50 @@
+# Builds the static site for the mobile redesign branch so it can be screenshot-tested
+# against mocked APIs. Build only: no secrets, no deploy, no live services.
+name: Mobile redesign build
+
+"on":
+  push:
+    branches:
+      - mobile-readability-test
+      - mobile-readability-before
+  workflow_dispatch:
+
+concurrency:
+  group: readability-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_BOOKINGS_API_URL: https://mock.test/bookings
+      NEXT_PUBLIC_ADDRESSES_API_URL: https://mock.test/addresses
+      NEXT_PUBLIC_GOOGLE_ADS_ID: AW-STAGING-OFF
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build static export
+        run: |
+          for attempt in 1 2 3; do
+            GITHUB_PAGES=true npm run build && exit 0
+            sleep $((attempt * 5))
+          done
+          exit 1
+      - name: Default public pricing for the mocks
+        run: node --import tsx -e "import('./shared/owner-pricing-config.ts').then(m=>require('fs').writeFileSync('out/__mock-pricing.json',JSON.stringify(m.toPublicOwnerPricingConfig(m.defaultOwnerPricingSettings()))))"
+      - name: Publish the build output to a throwaway branch (for local screenshot tests only)
+        run: |
+          set -euo pipefail
+          cd out
+          git init -q -b build-output-${GITHUB_REF_NAME}
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add -A && git commit -qm "Build of ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" build-output-${GITHUB_REF_NAME}
