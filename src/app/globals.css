@@ -6214,3 +6214,14 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] .quote-flow [data-child-seats][data-child-seats-open="true"] > [data-child-seats-panel] { margin-top: .75rem; padding: .25rem 0 0 .9rem; border-left: 3px solid #cbd5e1; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Design 3: Meet & Greet is offered once, under the vehicles (as on desktop); checkout keeps
+     the other pickup options. The same choice carries through to checkout and the total. */
+  html[data-mobile-d3] .quote-flow [data-offered-at-vehicle-step="true"] { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrade] { align-items: start; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { align-self: start; }
+  html[data-mobile-d3] [data-results-upgrade-state] { align-self: start; }
+  html[data-mobile-d3] [data-results-upgrade-price] { align-self: end; }
+}
+}
