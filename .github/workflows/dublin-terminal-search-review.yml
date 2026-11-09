@@ -1,0 +1,29 @@
+name: Dublin terminal search review
+on:
+  pull_request:
+    paths:
+      - 'src/lib/dublin-terminal-suggestions.ts'
+      - 'src/lib/google-maps.ts'
+      - 'shared/dublin-arrival-terminal.ts'
+      - 'shared/served-airports.ts'
+      - 'workers/addresses/src/dublin-terminal-resolve.ts'
+      - 'scripts/check-dublin-terminal-search.ts'
+      - '.github/workflows/dublin-terminal-search-review.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/check-dublin-terminal-search.ts
+      - run: npx tsx scripts/check-served-airport-suggestions.ts
+      - run: npx tsx scripts/check-payment-placeid-route-resolve.ts
+      - run: npx tsx scripts/check-quote-path-fare-parity.ts
+      - run: npx --prefix workers/addresses tsc -p workers/addresses --noEmit
