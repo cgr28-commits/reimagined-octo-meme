@@ -326,6 +326,8 @@ import {
   saveOpenCheckoutSession,
   type BookingFormDraft,
   type OpenCheckoutSession,
+  buildOpenCheckoutJourneyKey,
+  openCheckoutForJourney,
 } from "@/lib/booking-draft-storage";
 import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
 import {
@@ -4678,24 +4680,19 @@ function QuoteCard({
       (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
       (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
 
-  /**
-   * A saved "secure payment ready" link is only offered for the journey and price it was
-   * created for. A different quote in the same tab (new route, date, vehicle or price)
-   * hides it, so the customer can never resume a payment for another journey.
-   */
-  const openCheckoutJourneyKey = JSON.stringify([
-    pickupAddress.trim(),
-    dropoffAddress.trim(),
+  // A saved payment link is only offered for the same journey and price (see openCheckoutForJourney).
+  const openCheckoutJourneyKey = buildOpenCheckoutJourneyKey({
+    pickupAddress,
+    dropoffAddress,
     tripDate,
     tripTime,
     journeyMode,
     returnDate,
     returnTime,
-    quoteVehicle,
-    formatQuote(paymentAmount ?? liveQuote?.amount ?? 0),
-  ]);
-  const activeOpenCheckout =
-    openCheckout && openCheckout.journeyKey === openCheckoutJourneyKey ? openCheckout : null;
+    vehicle: quoteVehicle == null ? null : String(quoteVehicle),
+    amountLabel: formatQuote(paymentAmount ?? liveQuote?.amount ?? 0),
+  });
+  const activeOpenCheckout = openCheckoutForJourney(openCheckout, openCheckoutJourneyKey);
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
