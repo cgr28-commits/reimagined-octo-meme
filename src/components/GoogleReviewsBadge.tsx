@@ -20,7 +20,7 @@ export default function GoogleReviewsBadge({
 }: {
   className?: string;
   /** "panel": the desktop navy panel's larger strip. Same live numbers and link. */
-  variant?: "pill" | "panel";
+  variant?: "pill" | "panel" | "compact";
 }) {
   const [rating, setRating] = useState<string>(GOOGLE_REVIEW_RATING);
   const [count, setCount] = useState<number>(GOOGLE_REVIEW_COUNT);
@@ -39,6 +39,24 @@ export default function GoogleReviewsBadge({
       cancelled = true;
     };
   }, []);
+
+  if (variant === "compact") {
+    return (
+      <a
+        href={GOOGLE_BUSINESS_PROFILE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-reviews-compact
+        className={className}
+        aria-label={`Rated ${rating} out of 5 on Google from ${count} reviews`}
+      >
+        <span data-reviews-stars aria-hidden="true">★★★★★</span>
+        <span aria-hidden="true">
+          <strong>{rating}</strong> on Google · {count} reviews
+        </span>
+      </a>
+    );
+  }
 
   if (variant === "panel") {
     return (
