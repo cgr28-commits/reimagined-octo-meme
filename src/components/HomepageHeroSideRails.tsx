@@ -10,7 +10,8 @@ import { TOURS } from "@/lib/tours";
  * equal cards under the homepage quote tool. Hidden on phones, tablets and smaller
  * laptops, so the quote flow there is unchanged.
  *
- * Card 1: Business Class. Card 2: rotates the estate car and the 7-seater.
+ * Card 1: rotates Business Class and Christmas shopping in Belfast.
+ * Card 2: rotates the estate car and the 7-seater.
  * Card 3: rotates the private day tours.
  * The rotating cards change together every few seconds, pause while any card is
  * hovered or focused, and stay still for visitors who prefer reduced motion.
@@ -34,6 +35,15 @@ const BUSINESS_CLASS_CARDS: readonly RailCard[] = [
     text: "Meet & Greet with a name board on airport pickups. On request: we confirm the price and availability by email.",
     href: "/transfers/business-class-dublin-airport/",
     cta: "See Business Class",
+  },
+  {
+    key: "christmas-shopping-belfast",
+    label: "Christmas shopping in Belfast",
+    image: withBasePath("/images/hero/optimized/christmas-shopping-belfast-960.webp"),
+    title: "Christmas shopping in Belfast? Leave the car at home",
+    text: "Door to door at a fixed price, with a pre-booked driver. Book a return and we'll collect you and your shopping.",
+    href: "/#quote",
+    cta: "Get a fixed price",
   },
 ];
 
@@ -150,6 +160,7 @@ function RotatingRail({
 export default function HomepageHeroSideRails() {
   // One shared timer, so the rotating cards change at the same moment.
   const [tick, setTick] = useState(0);
+  const [businessPick, setBusinessPick] = useState<number | null>(null);
   const [vehiclePick, setVehiclePick] = useState<number | null>(null);
   const [tourPick, setTourPick] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
@@ -161,6 +172,7 @@ export default function HomepageHeroSideRails() {
     if (!desktop.matches || reducedMotion.matches) return;
     const interval = window.setInterval(() => {
       setTick((t) => t + 1);
+      setBusinessPick(null);
       setVehiclePick(null);
       setTourPick(null);
     }, ROTATE_MS);
@@ -171,10 +183,10 @@ export default function HomepageHeroSideRails() {
     <div className="homepage-hero-rails" data-homepage-hero-rails>
       <RotatingRail
         side="business"
-        label="Business Class"
+        label="Business Class and Christmas shopping in Belfast"
         cards={BUSINESS_CLASS_CARDS}
-        active={0}
-        onPick={() => {}}
+        active={businessPick ?? tick % BUSINESS_CLASS_CARDS.length}
+        onPick={setBusinessPick}
         onPause={setPaused}
       />
       <RotatingRail
