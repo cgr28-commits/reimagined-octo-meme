@@ -6262,3 +6262,9 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] main[class*="station_page"] [class*="station_actions"] a[data-landing-quote-cta][data-landing-quote-cta] { color: #071c38 !important; -webkit-text-fill-color: #071c38 !important; }
+  html[data-mobile-d3] main[class*="station_page"] [class*="station_routeLabel"], html[data-mobile-d3] main[class*="station_page"] figcaption { font-size: .8125rem !important; }
+}
+}
