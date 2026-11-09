@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -39,8 +39,11 @@ jobs:
           exit 1
       - name: Default public pricing for the mocks
         run: node --import tsx -e "import('./shared/owner-pricing-config.ts').then(m=>require('fs').writeFileSync('out/__mock-pricing.json',JSON.stringify(m.toPublicOwnerPricingConfig(m.defaultOwnerPricingSettings()))))"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site-out
-          path: out/
-          retention-days: 3
+      - name: Publish the build output to a throwaway branch (for local screenshot tests only)
+        run: |
+          set -euo pipefail
+          cd out
+          git init -q -b mobile-redesign-build-output
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add -A && git commit -qm "Build of ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" mobile-redesign-build-output
