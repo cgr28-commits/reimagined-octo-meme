@@ -6347,6 +6347,6 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   /* Details & Payment: one "Back to your quote" (top); flight card reads "Flight number (optional)". */
   html[data-mobile-d3] [data-d2="details"] [data-back-to-quote="bottom"] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
-  html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: " (optional)"; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: "Flight number (optional)"; font-size: 1.05rem; font-weight: 800; color: #071c38; }
 }
 }
