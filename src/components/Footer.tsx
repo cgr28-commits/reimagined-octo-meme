@@ -221,6 +221,10 @@ export default function Footer() {
             <Link href="/privacy/" className="transition-colors hover:text-emerald">
               Privacy Policy
             </Link>
+            <span className="text-white/20">|</span>
+            <Link href="/photo-credits/" className="transition-colors hover:text-emerald">
+              Photo credits
+            </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
             <span className="text-white/65">Fully licensed &amp; insured private hire operator</span>
           </div>

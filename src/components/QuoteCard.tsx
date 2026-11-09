@@ -9237,7 +9237,11 @@ function QuoteCard({
           {quoteStep >= 2
             ? "COMPLETE YOUR BOOKING"
             : presentation === "homepage"
-              ? design2Home ? "Get your fixed price" : "Get Your Fixed Quote"
+              ? design2Home
+                ? initialAirportCode && /^(BFS|BHD|DUB|LDY)$/.test(initialAirportCode)
+                  ? `Your fixed price to or from ${initialAirportCode}`
+                  : "Get your fixed price"
+                : "Get Your Fixed Quote"
               : "Get Your Fixed Quote"}
         </h2>
         {returnOfferToken ? (
