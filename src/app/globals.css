@@ -6020,64 +6020,89 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 }
 
 /* ==========================================================================
-   Design 2 (mobile light preview): clearer form boxes (Brian, 9 Nov 2026).
-   The old field outline (#D3DCE6) was only 1.4:1 against the white card, so the
-   boxes faded away. Outlines are now #7D8DA3 (3.4:1, meets WCAG non-text contrast),
-   fields get a faint tint so they read as boxes, labels are navy and bolder,
-   and the focused field gets a navy outline with a green ring. Styling only.
+   MOBILE READABILITY (?mobile=light preview, phones and tablets below 1200px).
+   Owner's readability brief, 9 Nov 2026: same layout, clearer text, stronger outlines.
+   Contrast (WCAG AA), against white unless noted:
+     field outline #7D8DA3 3.4:1 (the brief's #94A3B8 is 2.6:1, below the 3:1 it also requires)
+     focus outline #16803C 5.0:1 + ring · input text #071C38 17:1 · placeholder #475569 7.6:1
+     headings #071C38 17:1 · body #1E293B 14.6:1 · secondary #475569 7.6:1
+     quote button: navy on #2FBF4A 7.6:1 · disabled: #334155 on #E2E8F0 8.6:1 + dashed edge
+   Styling only: pricing, validation, limits, autocomplete and Stripe are untouched.
    ========================================================================== */
 @layer base {
 @media (max-width: 1199.98px) {
   html[data-mobile-light] {
-    --d2-field: #7d8da3;
-    --quote-input-border: #7d8da3;
-    --quote-choice-border: #7d8da3;
-    --quote-input-bg: #f6f8fb;
+    --d2-field: #7d8da3; --d2-muted: #475569;
+    --quote-input-border: #7d8da3; --quote-choice-border: #7d8da3; --quote-input-bg: #ffffff;
+    --quote-placeholder: #475569; --quote-secondary-ink: #475569;
+    --color-mist: #1e293b; --color-ink-secondary: #475569; --color-ink-muted: #475569;
   }
-  /* Address boxes */
+
+  /* ---- Text ---- */
+  html[data-mobile-light] body, html[data-mobile-light] main { color: #1e293b; }
+  html[data-mobile-light] main :is(h1, h2, h3, h4) { color: #071c38 !important; }
+  html[data-mobile-light] .quote-flow .quote-secondary,
+  html[data-mobile-light] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-light] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])),
+  html[data-mobile-light] main label:not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 700 !important; }
+
+  /* ---- Form boxes: addresses, date, time, passengers and customer details ---- */
   html[data-mobile-light] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"],
   html[data-mobile-light] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input) {
-    border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important;
+    border: 1.5px solid #7d8da3 !important; background: #fff !important; min-height: 52px;
   }
   html[data-mobile-light] [data-d2] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:focus-within,
   html[data-mobile-light] [data-d2] [data-d2-fields] div[class*="border"][class*="rounded"]:has(> .relative > .address-input):focus-within {
-    border-color: #071c38 !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important;
+    border: 2px solid #16803c !important; box-shadow: 0 0 0 3px rgba(22,128,60,.22) !important;
   }
-  /* Passengers / suitcases */
-  html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important; }
-  html[data-mobile-light] [data-d2-stepper-label] { color: #33445a !important; font-size: .8125rem !important; }
-  html[data-mobile-light] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #7d8da3 !important; }
-  html[data-mobile-light] [data-d2-stepper-btn]:disabled { opacity: .45 !important; }
-  /* Swap button keeps the same outline as the boxes it sits between */
-  html[data-mobile-light] [data-d2-swap] { border: 1.5px solid #7d8da3 !important; }
-  /* Field labels: navy and bolder */
-  html[data-mobile-light] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 800 !important; }
-  /* Date, time, selects and text boxes on the Vehicle and Details & Payment steps */
+  html[data-mobile-light] .quote-flow .address-input { color: #071c38 !important; -webkit-text-fill-color: #071c38 !important; min-height: 50px; }
+  html[data-mobile-light] :is(.quote-flow, main) :is(input, textarea)::placeholder { color: #475569 !important; -webkit-text-fill-color: #475569 !important; opacity: 1; }
   html[data-mobile-light] .quote-flow select,
   html[data-mobile-light] .quote-flow .quote-text-input,
-  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell) {
-    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important;
+  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell),
+  html[data-mobile-light] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only) {
+    border: 1.5px solid #7d8da3 !important; background-color: #fff !important; color: #071c38 !important; -webkit-text-fill-color: #071c38; min-height: 52px;
   }
   html[data-mobile-light] .quote-flow :is(select, .quote-text-input):focus,
-  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell):focus-within {
-    border-color: #071c38 !important; background-color: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important;
-  }
-  /* Every other form box on the mobile site (hub and route forms, contact, Manage Booking,
-     Meet & Greet, tips, tracking): same outline, tint and focus ring. Inputs that sit inside a
-     drawn box (address and date/time pickers) are left to their wrapper above. */
-  html[data-mobile-light] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only) {
-    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important; color: #071c38 !important; -webkit-text-fill-color: #071c38;
-  }
+  html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell):focus-within,
   html[data-mobile-light] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, .sr-only):focus {
-    border-color: #071c38 !important; background-color: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important;
+    border: 2px solid #16803c !important; box-shadow: 0 0 0 3px rgba(22,128,60,.22) !important; outline: none !important;
   }
-  html[data-mobile-light] :is(main, [role="dialog"]) input:is([type="checkbox"], [type="radio"]):not(.sr-only, .opacity-0) { border: 1.5px solid #5b6b80 !important; accent-color: #1f9a36; }
-  html[data-mobile-light] main label:not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 700 !important; }
-  /* Option tiles (child seats, airport pickup options, journey choices) */
-  html[data-mobile-light] .quote-flow :is(.quote-choice, [data-access-option]):not(.quote-choice-selected, :has(input:checked)) { border: 1.5px solid #7d8da3 !important; }
-  /* Standalone screens (Manage Booking, payment pages) use the same field outline */
-  html[data-mobile-light] main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
-    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important;
+  html[data-mobile-light] :is(main, [role="dialog"]) input:is([type="checkbox"], [type="radio"]):not(.sr-only, .opacity-0) { border: 1.5px solid #475569 !important; accent-color: #16803c; }
+  html[data-mobile-light] .quote-flow .quote-choice:not(.quote-choice-selected) { border: 1.5px solid #7d8da3 !important; color: #071c38 !important; }
+  html[data-mobile-light] .quote-flow [data-access-option] { border: 1.5px solid #7d8da3 !important; }
+  html[data-mobile-light] .quote-flow [data-access-option]:has(input:checked) { border-color: #16803c !important; }
+
+  /* ---- Passengers / suitcases ---- */
+  html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #fff !important; }
+  html[data-mobile-light] [data-d2-stepper-label] { color: #071c38 !important; font-size: .875rem !important; font-weight: 700 !important; }
+  html[data-mobile-light] [data-d2-stepper-btn] { width: 44px !important; height: 44px !important; min-width: 44px; border-radius: .7rem !important; }
+  html[data-mobile-light] [data-d2-stepper-btn] svg { width: 20px; height: 20px; stroke-width: 2.8; }
+  html[data-mobile-light] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #475569 !important; color: #071c38 !important; }
+  html[data-mobile-light] [data-d2-stepper-btn="plus"] { background: #071c38 !important; border: 1.5px solid #071c38 !important; color: #fff !important; }
+  /* At a limit: still clearly a button, but flat grey with a dashed edge (not colour alone). */
+  html[data-mobile-light] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px dashed #7d8da3 !important; color: #64748b !important; }
+  html[data-mobile-light] [data-d2-stepper-btn]:focus-visible { outline: 3px solid #16803c !important; outline-offset: 2px; }
+  html[data-mobile-light] [data-d2-stepper-btn]:not(:disabled):active { transform: scale(.96); }
+
+  /* ---- Get My Fixed Price ---- */
+  html[data-mobile-light] [data-d2] button[data-get-fixed-price]:not(:disabled) {
+    background: #2fbf4a !important; color: #071c38 !important; font-weight: 800 !important; opacity: 1 !important;
+    border: 2px solid #2fbf4a !important; box-shadow: 0 8px 18px -8px rgba(22,128,60,.6) !important;
   }
+  html[data-mobile-light] [data-d2] button[data-get-fixed-price]:not(:disabled):active { background: #25a63e !important; border-color: #25a63e !important; transform: translateY(1px); box-shadow: none !important; }
+  html[data-mobile-light] [data-d2] button[data-get-fixed-price]:focus-visible { outline: 3px solid #071c38 !important; outline-offset: 3px; }
+  html[data-mobile-light] [data-d2] button[data-get-fixed-price]:disabled {
+    background: #e2e8f0 !important; color: #334155 !important; -webkit-text-fill-color: #334155; opacity: 1 !important;
+    border: 2px dashed #94a3b8 !important; box-shadow: none !important; cursor: not-allowed;
+  }
+
+  /* ---- Trust and reassurance ---- */
+  html[data-mobile-light] [data-reviews-compact], html[data-mobile-light] [data-reviews-compact] * { color: #071c38 !important; }
+  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars], html[data-mobile-light] [data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706; }
+  html[data-mobile-light] [data-reviews-compact] { border-color: #cbd5e1 !important; font-size: .875rem !important; }
+  html[data-mobile-light] [data-d2-caption] { color: #334155 !important; font-size: .875rem !important; font-weight: 600; }
+  html[data-mobile-light] [data-d2-benefits] { color: #071c38 !important; font-size: .875rem !important; font-weight: 700 !important; }
+  html[data-mobile-light] [data-d2-benefits] svg { color: #16803c !important; }
 }
 }
