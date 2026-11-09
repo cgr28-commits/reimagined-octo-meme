@@ -6350,3 +6350,44 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: "Flight number (optional)"; font-size: 1.05rem; font-weight: 800; color: #071c38; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ---- Design 3: date + time side by side, labels and boxes aligned (long "Scheduled flight
+     arrival time" label no longer pushes its box lower). ---- */
+  html[data-mobile-d3] [data-homepage-inline-schedule] .grid { align-items: end !important; column-gap: .625rem !important; }
+  html[data-mobile-d3] [data-homepage-inline-schedule] .grid > div > label.form-label {
+    display: flex !important; align-items: flex-end; min-height: 2.6em; margin-bottom: .35rem !important; line-height: 1.25 !important;
+  }
+  html[data-mobile-d3] [data-homepage-inline-schedule] [data-schedule-control] { height: 52px !important; min-height: 52px !important; }
+
+  /* ---- Design 3 time selector (no iPhone wheels) ---- */
+  html[data-mobile-d3] [data-schedule-control="time"] input[type="time"] { pointer-events: none !important; }
+  html[data-mobile-d3] [data-d3-time-trigger] {
+    position: absolute; inset: 0; z-index: 12; width: 100%; height: 100%; display: flex; align-items: center;
+    padding: 0 .75rem 0 2.6rem; background: transparent; border: 0; color: #071c38; font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;
+  }
+  html[data-mobile-d3] [data-d3-time-trigger]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; border-radius: .75rem; }
+  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #475569; font-weight: 500; }
+  html[data-mobile-d3] [data-schedule-control="time"]:has([data-d3-time-trigger]) .homepage-schedule-prompt { visibility: hidden; }
+  html[data-mobile-d3] [data-d3-time-backdrop] { position: fixed; inset: 0; z-index: 200; background: rgba(7,28,56,.45); display: flex; align-items: flex-end; justify-content: center; }
+  html[data-mobile-d3] [data-d3-time-sheet] {
+    width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 1.25rem 1.25rem 0 0;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(7,28,56,.25); color: #071c38;
+  }
+  html[data-mobile-d3] [data-d3-time-head] { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
+  html[data-mobile-d3] [data-d3-time-head] p { font-size: 1rem; font-weight: 800; margin: 0; }
+  html[data-mobile-d3] [data-d3-time-readout] { font-size: 1.75rem; font-weight: 800; letter-spacing: .02em; color: #071c38; font-variant-numeric: tabular-nums; }
+  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; margin: .6rem 0 .35rem; }
+  html[data-mobile-d3] [data-d3-time-grid] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; }
+  html[data-mobile-d3] [data-d3-time-grid] button {
+    min-height: 44px; border-radius: .7rem; border: 1.5px solid #7d8da3; background: #fff; color: #071c38; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38; border-color: #071c38; color: #fff; }
+  html[data-mobile-d3] [data-d3-time-grid] button:disabled { background: #f1f5f9; border-style: dashed; color: #94a3b8; }
+  html[data-mobile-d3] [data-d3-time-grid] button:focus-visible, html[data-mobile-d3] [data-d3-time-fine] button:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+  html[data-mobile-d3] [data-d3-time-fine] { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .6rem; }
+  html[data-mobile-d3] [data-d3-time-fine] button { min-height: 44px; border-radius: .7rem; border: 1.5px solid #475569; background: #fff; color: #071c38; font-weight: 800; }
+  html[data-mobile-d3] [data-d3-time-done] { width: 100%; min-height: 54px; margin-top: .8rem; border-radius: .9rem; border: 0; background: #2fbf4a; color: #071c38; font-size: 1.0625rem; font-weight: 800; }
+  html[data-mobile-d3] [data-d3-time-done]:disabled { background: #e2e8f0; color: #334155; border: 2px dashed #94a3b8; }
+}
+}
