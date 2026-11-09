@@ -6062,6 +6062,18 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] .quote-flow :is([data-schedule-control], .quote-datetime-shell):focus-within {
     border-color: #071c38 !important; background-color: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important;
   }
+  /* Every other form box on the mobile site (hub and route forms, contact, Manage Booking,
+     Meet & Greet, tips, tracking): same outline, tint and focus ring. Inputs that sit inside a
+     drawn box (address and date/time pickers) are left to their wrapper above. */
+  html[data-mobile-light] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only) {
+    border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important; color: #071c38 !important; -webkit-text-fill-color: #071c38;
+  }
+  html[data-mobile-light] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="password"], [type="url"], [type="date"], [type="time"], [type="datetime-local"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, .sr-only):focus {
+    border-color: #071c38 !important; background-color: #fff !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important;
+  }
+  html[data-mobile-light] :is(main, [role="dialog"]) input:is([type="checkbox"], [type="radio"]):not(.sr-only, .opacity-0) { border: 1.5px solid #5b6b80 !important; accent-color: #1f9a36; }
+  /* Option tiles (child seats, airport pickup options, journey choices) */
+  html[data-mobile-light] .quote-flow :is(.quote-choice, [data-access-option]):not(.quote-choice-selected, :has(input:checked)) { border: 1.5px solid #7d8da3 !important; }
   /* Standalone screens (Manage Booking, payment pages) use the same field outline */
   html[data-mobile-light] main[data-customer-standalone] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
     border: 1.5px solid #7d8da3 !important; background-color: #f6f8fb !important;
