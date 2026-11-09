@@ -256,6 +256,7 @@ import QuoteResultShowcase, {
   preloadQuoteResultVehicleImages,
 } from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
+import { useMobileDesign2 } from "@/lib/use-mobile-design2";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -982,6 +983,10 @@ function QuoteCard({
   );
   /** Homepage shows vehicle prices only after Get My Fixed Price. */
   const [homepagePriceRequested, setHomepagePriceRequested] = useState(false);
+  // Design 2 (approved mobile reference): homepage asks for route and party first,
+  // then journey type, date and time on the Vehicle step before any price is shown.
+  const mobileDesign2 = useMobileDesign2();
+  const design2Home = mobileDesign2 && presentation === "homepage";
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
@@ -1035,6 +1040,12 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
+  // Design 2 uses +/- steppers that start at 1 passenger and no suitcases.
+  useEffect(() => {
+    if (!design2Home) return;
+    setPassengers((value) => (value == null ? 1 : value));
+    setSuitcases((value) => (value == null ? 0 : value));
+  }, [design2Home]);
 
   // Let WhatsApp links (floating QR, header icon, Need help?) pre-fill this journey.
   useEffect(() => {
@@ -3650,7 +3661,9 @@ function QuoteCard({
 
   function requestHomepagePrice(): boolean {
     if (presentation !== "homepage" || !homepageQuoteReady) return false;
-    if (journeyMode == null) {
+    if (journeyMode == null && design2Home) {
+      setJourneyMode("one-way");
+    } else if (journeyMode == null) {
       setSubmitError("Choose One Way or Return to continue.");
       return false;
     }
@@ -3665,7 +3678,7 @@ function QuoteCard({
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
       return false;
     }
-    if (!isScheduleComplete) {
+    if (!isScheduleComplete && !design2Home) {
       validateTripForBooking();
       focusHomepageScheduleError();
       return false;
@@ -5847,7 +5860,7 @@ function QuoteCard({
         );
         return;
       }
-      if (presentation !== "homepage" && !isScheduleComplete) {
+      if ((presentation !== "homepage" || design2Home) && !isScheduleComplete) {
         failStep1(
           "missing_schedule",
           travelDetailsBlocker || QUOTE_PRICE_WAIT_FOR_SCHEDULE,
@@ -9129,6 +9142,8 @@ function QuoteCard({
       ref={cardRef}
       data-quote-presentation={presentation}
       data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
+      data-d2={design2Home ? (quoteStep >= 2 ? "details" : homepagePriceRequested ? "vehicle" : "journey") : undefined}
+      data-d2-schedule={design2Home && homepagePriceRequested && quoteStep === 1 ? (isScheduleComplete ? "set" : "pending") : undefined}
       data-desktop-journey-editing={desktopJourneyEditing && quoteResultsReady && quoteStep === 1 ? "true" : undefined}
       className={
         presentation === "homepage"
@@ -9137,9 +9152,9 @@ function QuoteCard({
       }
     >
       {/* Booking progress: hidden by default; the light mobile design preview shows it. */}
-      <ol data-mobile-steps aria-label="Booking progress" className="hidden">
-        {["Journey", "Price", "Details & pay"].map((label, index) => {
-          const current = quoteStep >= 2 ? 3 : quoteResultsReady ? 2 : 1;
+      <ol data-mobile-steps aria-label="Booking progress" className="hidden" data-d2-stage={design2Home ? (quoteStep >= 2 ? "details" : homepagePriceRequested ? "vehicle" : "journey") : undefined}>
+        {(design2Home ? ["Journey", "Vehicle", "Details & Payment"] : ["Journey", "Price", "Details & pay"]).map((label, index) => {
+          const current = quoteStep >= 2 ? 3 : quoteResultsReady || (design2Home && homepagePriceRequested) ? 2 : 1;
           const state = index + 1 < current ? "done" : index + 1 === current ? "current" : "next";
           return (
             <li key={label} data-step-state={state} aria-current={state === "current" ? "step" : undefined}>
@@ -9172,7 +9187,7 @@ function QuoteCard({
           {quoteStep >= 2
             ? "COMPLETE YOUR BOOKING"
             : presentation === "homepage"
-              ? "Get Your Fixed Quote"
+              ? design2Home ? "Get your fixed price" : "Get Your Fixed Quote"
               : "Get Your Fixed Quote"}
         </h2>
         {returnOfferToken ? (
@@ -9378,8 +9393,75 @@ function QuoteCard({
         </h2>
         {isA2AFlow ? (
           <>
-            {presentation === "homepage" ? (
+            {design2Home && homepagePriceRequested ? (
+              <div data-d2-vehicle-head className="space-y-3">
+                <div data-d2-journey-card>
+                  <div data-d2-journey-stops>
+                    <p data-d2-stop="from">
+                      <strong>{pickupLabel || "Pickup"}</strong>
+                      {pickupAddress.trim() && pickupAddress.trim() !== pickupLabel ? <span>{pickupAddress.trim()}</span> : null}
+                    </p>
+                    <p data-d2-stop="to">
+                      <strong>{dropoffLabel || "Drop-off"}</strong>
+                      {dropoffAddress.trim() && dropoffAddress.trim() !== dropoffLabel ? <span>{dropoffAddress.trim()}</span> : null}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-d2-edit
+                    onClick={() => {
+                      setHomepagePriceRequested(false);
+                      window.setTimeout(() => {
+                        document.getElementById("pickup")?.scrollIntoView({ block: "center" });
+                      }, 0);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <ul data-d2-chips aria-label="Journey details">
+                    <li data-chip="pax">
+                      {effectivePassengers ?? passengers} passenger{(effectivePassengers ?? passengers) === 1 ? "" : "s"}
+                    </li>
+                    <li data-chip="bags">
+                      {suitcases != null && suitcases >= 5 ? "5+ suitcases" : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
+                    </li>
+                    {journeyDurationLabel ? <li data-chip="time">≈ {journeyDurationLabel}</li> : null}
+                  </ul>
+                </div>
+                <div role="group" aria-label="Journey type" data-d2-segment>
+                  <button
+                    type="button"
+                    aria-pressed={journeyMode !== "return"}
+                    onClick={() => {
+                      if (returnOfferToken) return;
+                      setJourneyMode("one-way");
+                      setReturnDateError("");
+                    }}
+                  >
+                    One way
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={journeyMode === "return"}
+                    onClick={() => {
+                      if (returnOfferToken) return;
+                      setJourneyMode("return");
+                    }}
+                  >
+                    Return
+                    <span data-return-discount-note>Save 5%</span>
+                  </button>
+                </div>
+                {renderQuoteScheduleFields("quote", true)}
+                {!isScheduleComplete ? (
+                  <p data-d2-schedule-note role="status">
+                    Add your pickup date and time{journeyMode === "return" ? ", and your return date and time," : ""} to see your fixed price for each vehicle.
+                  </p>
+                ) : null}
+              </div>
+            ) : presentation === "homepage" ? (
               <HomepageQuoteFields
+                design2={design2Home}
                 homepagePolish={homepagePolish}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
@@ -9431,8 +9513,8 @@ function QuoteCard({
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
                 pickupNeedsHouseNumber={isIncompletePickupAddress}
-                scheduleFields={renderQuoteScheduleFields("quote", true)}
-                scheduleComplete={isScheduleComplete}
+                scheduleFields={design2Home ? null : renderQuoteScheduleFields("quote", true)}
+                scheduleComplete={design2Home ? true : isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}

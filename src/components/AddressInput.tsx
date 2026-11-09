@@ -96,6 +96,27 @@ type AddressInputProps = {
   compactHomepage?: boolean;
 };
 
+/** Bold the part of a suggestion that matches what the customer typed. */
+function highlightMatch(text: string, query: string) {
+  const q = query.trim();
+  if (q.length < 2) return text;
+  const at = text.toLowerCase().indexOf(q.toLowerCase());
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark data-suggestion-match>{text.slice(at, at + q.length)}</mark>
+      {text.slice(at + q.length)}
+    </>
+  );
+}
+
+function suggestionKind(text: string): "airport" | "station" | "place" {
+  if (/\bairport\b/i.test(text)) return "airport";
+  if (/\b(station|bus centre|coach)\b/i.test(text)) return "station";
+  return "place";
+}
+
 export default function AddressInput({
   id,
   name,
@@ -692,12 +713,13 @@ export default function AddressInput({
         <li key={`${prediction.placeId}-${index}`} role="option">
           <button
             type="button"
+            data-suggestion-kind={suggestionKind(`${prediction.mainText} ${prediction.secondaryText ?? ""}`)}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => void handleSelect(prediction)}
             className="block min-h-[3.25rem] w-full px-4 py-3.5 text-left transition-colors hover:bg-emerald/15 active:bg-emerald/20 focus-visible:bg-emerald/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald"
           >
-            <span className="block truncate text-base font-semibold leading-snug text-white">
-              {prediction.mainText}
+            <span className="block truncate text-base font-semibold leading-snug text-white" data-suggestion-main>
+              {highlightMatch(prediction.mainText, value)}
             </span>
             {prediction.secondaryText ? (
               <span className="mt-0.5 block truncate text-sm leading-snug text-[#C4D3E5]">
@@ -707,6 +729,9 @@ export default function AddressInput({
           </button>
         </li>
       ))}
+      <li role="presentation" className="hidden" data-powered-by-google aria-hidden="true">
+        powered by Google
+      </li>
     </ul>
   ) : null;
 
