@@ -5635,14 +5635,13 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @layer base {
 @media (max-width: 767.98px) {
   /* Rhythm: shorter sections, tighter headers. */
-  html[data-mobile-light] main > section:not(.homepage-hero) { padding-top: 2.75rem !important; padding-bottom: 2.75rem !important; }
+  html[data-mobile-light] main > section:not(.homepage-hero):not(:first-child) { padding-top: 2.75rem !important; padding-bottom: 2.75rem !important; }
   html[data-mobile-light] main .section-header { margin-bottom: 0 !important; }
   html[data-mobile-light] main .section-header h2, html[data-mobile-light] main > section > div > h2 { font-size: 1.55rem !important; line-height: 1.2 !important; }
   html[data-mobile-light] main .section-description { font-size: 0.95rem !important; line-height: 1.55 !important; margin-top: 0.75rem !important; }
   html[data-mobile-light] main .section-header [class*="mx-auto"][class*="h-"][class*="w-"] { margin-top: 0.75rem !important; }
 
   /* Hero: compact, headline first, quote card right under. */
-  html[data-mobile-light] section.homepage-hero { padding-top: 0.25rem !important; }
   html[data-mobile-light] section.homepage-hero h1 { font-size: 1.85rem !important; line-height: 1.12 !important; letter-spacing: -0.03em !important; }
   html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { font-size: 0.93rem !important; line-height: 1.45 !important; margin-top: 0.5rem !important; }
   html[data-mobile-light] .hero-benefits-row { margin: 0.9rem 0 0.9rem !important; gap: 0.4rem !important; }
