@@ -15,10 +15,11 @@ export const metadata: Metadata = {
 export default function ManageBookingPage() {
   return (
     <>
-    <StandaloneBrandBar />
+    <StandaloneBrandBar quoteLink />
     <main data-customer-standalone className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto mb-6 flex w-full max-w-lg flex-col items-center gap-4 sm:mb-8">
-        <div className="flex w-full items-center justify-between gap-3">
+        {/* 1200px+: logo and Get a Quote sit in the brand bar instead. */}
+        <div className="flex w-full items-center justify-between gap-3 min-[75rem]:hidden">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
             <Logo className="h-12 sm:h-14" />
           </Link>
