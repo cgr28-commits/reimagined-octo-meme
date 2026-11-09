@@ -6245,3 +6245,20 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] .quote-flow [data-child-seats-summary] { margin-left: 2.25rem !important; white-space: normal !important; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Design 3 polish (owner approved 9 Nov 2026). */
+  /* Grand Central: the closing navy band keeps white text (its heading had turned navy on navy). */
+  html[data-mobile-d3] main [class*="station_final"] :is(h1, h2, h3, p, li) { color: #ffffff !important; -webkit-text-fill-color: #ffffff; }
+  /* Green buttons carry navy text (7.6:1), as everywhere else in Design 3. */
+  html[data-mobile-d3] main a[data-landing-quote-cta], html[data-mobile-d3] main :is(a, button)[class*="bg-emerald"]:not([class*="bg-emerald/"]) { color: #071c38 !important; -webkit-text-fill-color: #071c38; font-weight: 800 !important; }
+  /* Small section labels: at least 12.5px. */
+  html[data-mobile-d3] .section-eyebrow, html[data-mobile-d3] [data-stripe-pay] span.uppercase { font-size: .8125rem !important; letter-spacing: .12em !important; }
+  /* Location and clear buttons in the address boxes: 44px touch targets. */
+  html[data-mobile-d3] .quote-flow :is(button[data-gps-location], button[aria-label="Clear address"]) { width: 44px !important; height: 44px !important; min-width: 44px; display: inline-flex !important; align-items: center; justify-content: center; }
+  /* Vehicle step: when Meet & Greet is switched on, the price card says the total includes it. */
+  html[data-mobile-d3] .quote-flow:has([data-results-upgrade][data-selected="true"]) .quote-result-card [data-quote-result-price]::after {
+    content: "Meet & Greet is added to your total below"; display: block; margin-top: .35rem; font-size: .875rem; font-weight: 700; color: #16803c;
+  }
+}
+}
