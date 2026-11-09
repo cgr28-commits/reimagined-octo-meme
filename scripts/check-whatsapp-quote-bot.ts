@@ -1215,3 +1215,28 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   }
   console.log("OK  failed delivery statuses are parsed for diagnostics");
 }
+
+// Reactions, edits, photo captions and emoji (customer chat, 7 Nov 2026).
+{
+  const wrap = (m: Record<string, unknown>) => ({
+    object: "whatsapp_business_account",
+    entry: [{ changes: [{ field: "messages", value: { messages: [{ id: "wamid.x", from: "447700900123", timestamp: "1", ...m }] } }] }],
+  });
+  const reaction = parseWhatsAppWebhook(wrap({ type: "reaction", reaction: { message_id: "wamid.y", emoji: "🤟" } })).messages[0];
+  assert.equal(reaction.type, "reaction");
+  assert.equal(reaction.reactionEmoji, "🤟");
+  const edit = parseWhatsAppWebhook(
+    wrap({ type: "edit", edit: { original_message_id: "wamid.orig", message: { type: "text", text: { body: "Flight lands at 0031" } } } }),
+  ).messages[0];
+  assert.equal(edit.editOf, "wamid.orig");
+  assert.equal(edit.text, "Flight lands at 0031");
+  const captioned = parseWhatsAppWebhook(wrap({ type: "image", image: { caption: "Pick me up here" } })).messages[0];
+  assert.equal(captioned.text, "Pick me up here");
+  assert.equal(parseWhatsAppWebhook(wrap({ type: "image", image: {} })).messages[0].text, "");
+  for (const t of ["Yes 😊", "yes please 🙌", "Yes 👍🏻", "👍", "👍🏽", "👌", "✅"]) {
+    assert.equal(detectWhatsAppIntent(t), "confirm", t);
+  }
+  for (const t of ["😂", "🙏", "❤️", "👍 but change the time"]) assert.notEqual(detectWhatsAppIntent(t), "confirm", t);
+  assert.equal(detectWhatsAppIntent("New 🙂"), "reset");
+  console.log("OK  reactions, edits, photo captions and emoji are read");
+}

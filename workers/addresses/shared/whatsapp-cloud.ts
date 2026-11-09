@@ -60,8 +60,14 @@ export type WhatsAppInboundMessage = {
   /** Unix seconds as sent by Meta. */
   timestamp: number;
   type: string;
-  /** Text body (or button / list reply title). Empty for media and other types. */
+  /** Text body (or button / list reply title, or a photo / file caption). Empty for other types. */
   text: string;
+  /** type "edit": the id of the customer's original message that they changed. */
+  editOf?: string;
+  /** type "edit": the kind of message that was edited ("text", "image", ...). */
+  editedType?: string;
+  /** type "reaction": the emoji (empty when the customer removed their reaction). */
+  reactionEmoji?: string;
 };
 
 export type WhatsAppOwnerEcho = {
@@ -240,11 +246,25 @@ type RawMessage = {
     button_reply?: { id?: string; title?: string };
     list_reply?: { id?: string; title?: string };
   };
+  image?: { caption?: string };
+  video?: { caption?: string };
+  document?: { caption?: string; filename?: string };
+  reaction?: { message_id?: string; emoji?: string };
+  /** A customer edited an earlier message: the new content, and which message it replaces. */
+  edit?: { original_message_id?: string; message?: RawMessage };
 };
 
 function messageText(message: RawMessage): string {
   if (message.type === "text") return message.text?.body ?? "";
   if (message.type === "button") return message.button?.text ?? "";
+  // A photo, video or file sent with words: the words are the message (7 Nov 2026).
+  if (message.type === "image") return message.image?.caption ?? "";
+  if (message.type === "video") return message.video?.caption ?? "";
+  if (message.type === "document") return message.document?.caption ?? "";
+  if (message.type === "edit") {
+    const edited = message.edit?.message;
+    return edited && edited.type !== "edit" ? messageText(edited) : "";
+  }
   if (message.type === "interactive") {
     // Our reply buttons carry the command in the id ("txt:yes"), so the title can be friendly.
     const id = message.interactive?.button_reply?.id ?? message.interactive?.list_reply?.id ?? "";
@@ -302,6 +322,10 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
             timestamp: Number(message.timestamp) || 0,
             type: message.type ?? "unknown",
             text: messageText(message).trim(),
+            ...(message.type === "edit"
+              ? { editOf: message.edit?.original_message_id, editedType: message.edit?.message?.type }
+              : {}),
+            ...(message.type === "reaction" ? { reactionEmoji: message.reaction?.emoji ?? "" } : {}),
           });
         }
         for (const status of value.statuses ?? []) {
