@@ -6268,3 +6268,85 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] main[class*="station_page"] [class*="station_routeLabel"], html[data-mobile-d3] main[class*="station_page"] figcaption { font-size: .8125rem !important; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ==========================================================================
+     Design 3 vehicle screen = the approved clickable mockup: vehicles, a slim Meet & Greet
+     on/off row, then the bottom bar (price + Continue). The large price card, the four action
+     buttons and the breakdown box are not part of Design 3 (the bar's Price details stays).
+     ========================================================================== */
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] :is(.quote-result-card, [data-quote-result-card], [data-quote-result-actions], [data-quote-price-breakdown]) { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrades-heading] { display: none !important; }
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] [data-results-upgrades] { margin: .25rem 0 .5rem !important; gap: .5rem !important; }
+  html[data-mobile-d3] [data-results-upgrade] {
+    grid-template-columns: 2.25rem minmax(0,1fr) auto !important; column-gap: .75rem !important; row-gap: .1rem !important;
+    padding: .8rem .9rem !important; min-height: 64px; border: 1.5px dashed #7d8da3 !important; border-radius: .9rem !important; background: #fff !important; box-shadow: none !important;
+  }
+  html[data-mobile-d3] [data-results-upgrade][data-selected="true"] { border: 2px solid #16803c !important; background: #f2fbf4 !important; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { grid-column: 1 !important; grid-row: 1 / span 2 !important; width: 2.25rem !important; height: 2.25rem !important; background: transparent !important; color: #071c38 !important; align-self: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-icon] svg { width: 1.5rem !important; height: 1.5rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { grid-column: 2 !important; grid-row: 1 !important; font-size: 1rem !important; gap: .35rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong > small { display: none !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { grid-column: 2 !important; grid-row: 2 !important; font-size: .875rem !important; line-height: 1.35 !important; }
+  /* Price sits right after the title: "Meet & Greet at arrivals  +£15" */
+  html[data-mobile-d3] [data-results-upgrade-price] { grid-column: 2 !important; grid-row: 1 !important; justify-self: end !important; align-self: start !important; font-size: 1rem !important; }
+  html[data-mobile-d3] [data-results-upgrade-price]::before { content: none !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { padding-right: 3.25rem; }
+  html[data-mobile-d3] [data-results-upgrade-state] { grid-column: 3 !important; grid-row: 1 / span 2 !important; align-self: center !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  /* ==========================================================================
+     DESIGN 3 = the approved clickable mockup (claude.ai/artifact/1jGGEsTz6xJuMMPLcjrHEF).
+     Layout pass so the real screens match it. ?mobile=d3 only; styling + hidden-by-default blocks.
+     ========================================================================== */
+
+  /* Homepage: "Where are you travelling?" and "Every booking includes" under the quote card. */
+  html[data-mobile-d3] [data-d3-quick] { display: block !important; max-width: 560px; margin: 0 auto; padding: 1.25rem 1rem .5rem; background: #f4f7fa; }
+  html[data-mobile-d3] [data-d3-eyebrow] { font-size: .8125rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #16803c; margin: 0; }
+  html[data-mobile-d3] [data-d3-h2] { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; color: #071c38; margin: .25rem 0 .75rem; }
+  html[data-mobile-d3] [data-d3-routes] { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+  html[data-mobile-d3] [data-d3-route] { display: flex; align-items: center; gap: .75rem; min-height: 60px; padding: .75rem .9rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); color: #071c38; text-decoration: none; }
+  html[data-mobile-d3] [data-d3-route] > svg { color: #475569; flex: none; }
+  html[data-mobile-d3] [data-d3-route-icon] { width: 2.25rem; height: 2.25rem; border-radius: 999px; background: #eef2f7; display: grid; place-items: center; color: #071c38; flex: none; }
+  html[data-mobile-d3] [data-d3-route-text] { flex: 1; min-width: 0; display: grid; }
+  html[data-mobile-d3] [data-d3-route-text] strong { font-size: 1rem; font-weight: 800; color: #071c38; }
+  html[data-mobile-d3] [data-d3-route-text] small { font-size: .875rem; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-d3-includes] { margin-top: 1.25rem; padding: .9rem 1rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); }
+  html[data-mobile-d3] [data-d3-includes] h3 { font-size: 1rem; font-weight: 800; color: #071c38; margin: 0 0 .4rem; }
+  html[data-mobile-d3] :is([data-d3-includes] ul, ul[data-d3-included]) { margin: 0; padding: 0; list-style: none; display: grid; gap: .35rem; }
+  html[data-mobile-d3] :is([data-d3-includes] li, ul[data-d3-included] li) { position: relative; padding-left: 1.5rem; font-size: .875rem; font-weight: 700; line-height: 1.35; color: #071c38; }
+  html[data-mobile-d3] :is([data-d3-includes] li, ul[data-d3-included] li)::before { content: ""; position: absolute; left: .15rem; top: .2rem; width: .45rem; height: .8rem; border: solid #16803c; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+
+  /* Vehicle screen: included list after Meet & Greet. */
+  html[data-mobile-d3] .quote-flow[data-quote-results="ready"] ul[data-d3-included] { display: grid !important; margin: .6rem 0 .25rem; padding: .8rem .9rem; background: #fff; border: 1px solid #e3e8ef; border-radius: .9rem; }
+
+  /* Booking steps (Vehicle, Details & Payment): the mockup shows only the booking, so the page
+     intro above and the homepage sections below step aside until the customer goes back. */
+  html[data-mobile-d3] .homepage-hero:has(.quote-flow:is([data-d2="vehicle"], [data-d2="details"])) #homepage-booking-intro { display: none !important; }
+  html[data-mobile-d3] main:has(.quote-flow:is([data-d2="vehicle"], [data-d2="details"])) > :not(:has(.quote-flow)) { display: none !important; }
+
+  /* Progress line on both steps, as in the mockup. */
+  html[data-mobile-d3] .quote-flow:is([data-d2="vehicle"], [data-d2="details"]) ol[data-mobile-steps][data-mobile-steps] { display: flex !important; }
+
+  /* Details & Payment */
+  html[data-mobile-d3] [data-d2="details"] h2[data-site-nav-heading] { display: none !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-journey-summary { display: none !important; }
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: "3  Payment" !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details label[for="goingFlightNumber"],
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { text-transform: none !important; letter-spacing: 0 !important; font-size: .875rem !important; font-weight: 700 !important; color: #071c38 !important; }
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions > button.w-full.text-center,
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions [data-start-new-quote-controls] { display: none !important; }
+  html[data-mobile-d3] [data-d2="details"] section[aria-label="Airport services"] { background: #fff !important; border: 1px solid #e3e8ef !important; border-radius: 1rem !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706 !important; }
+  /* Details & Payment: one "Back to your quote" (top); flight card reads "Flight number (optional)". */
+  html[data-mobile-d3] [data-d2="details"] [data-back-to-quote="bottom"] { display: none !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
+  html[data-mobile-d3] [data-d2="details"] #step2-flight-details > div:first-child > p::after { content: "Flight number (optional)"; font-size: 1.05rem; font-weight: 800; color: #071c38; }
+}
+}

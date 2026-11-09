@@ -9898,6 +9898,18 @@ function QuoteCard({
                     ) : null}
                     {renderQuoteVehicleChoice()}
                     {renderDesktopMeetGreetUpgrades()}
+                    {design2Home ? (
+                      /* Design 3 (?mobile=d3) only, shown by its stylesheet: what the fare includes,
+                         with the waiting time that applies to this pickup. */
+                      <ul className="hidden" data-d3-included>
+                        <li>
+                          {isFromAirport
+                            ? "Up to 60 minutes’ free waiting from your flight’s landing time"
+                            : "10 minutes’ complimentary waiting at pickup"}
+                        </li>
+                        <li>Free cancellation up to 24 hours before pickup</li>
+                      </ul>
+                    ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown
