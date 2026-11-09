@@ -9869,7 +9869,12 @@ function QuoteCard({
                                 {isVehiclePersonalQuote
                                   ? <strong>On request</strong>
                                   : paymentAmount != null && Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
-                                    ? <strong>{formatQuote(paymentAmount)}</strong>
+                                    ? <strong>{formatQuote(
+                                        // Includes a Meet & Greet chosen under the vehicles (same sum as the desktop panel).
+                                        Math.round((paymentAmount + desktopMeetGreetUpgrades()
+                                          .filter((upgrade) => upgrade.selected)
+                                          .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100,
+                                      )}</strong>
                                     : <strong>…</strong>}
                                 <button
                                   type="button"

@@ -6225,3 +6225,19 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-results-upgrade-price] { align-self: end; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Design 3: tapping the Meet & Greet switch must not hide the Continue bar (the bar hides
+     only while a customer is typing in a field). */
+  html[data-mobile-d3]:has([data-results-upgrade-input]:focus) [data-d2-sticky] { display: flex !important; }
+  /* Meet & Greet card: title and switch on one line, description full width, price under the switch. */
+  html[data-mobile-d3] [data-results-upgrade] { grid-template-columns: 2.5rem minmax(0,1fr) auto !important; grid-template-areas: none !important; row-gap: .45rem !important; align-items: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] { display: contents !important; }
+  html[data-mobile-d3] [data-results-upgrade-icon] { grid-column: 1; grid-row: 1; grid-area: auto; align-self: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > strong { grid-column: 2; grid-row: 1; }
+  html[data-mobile-d3] [data-results-upgrade-state] { grid-column: 3; grid-row: 1; grid-area: auto; align-self: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { grid-column: 1 / -1; grid-row: 2; }
+  html[data-mobile-d3] [data-results-upgrade-price] { grid-column: 1 / -1; grid-row: 3; grid-area: auto; justify-self: end; align-self: center !important; }
+  html[data-mobile-d3] [data-results-upgrade-price]::before { content: "Adds "; font-weight: 600; color: #475569; }
+}
+}
