@@ -5686,3 +5686,78 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] #areas .mt-8.flex.flex-wrap > * > :last-child { font-size: 0.72rem !important; }
 }
 }
+
+/* Light mobile design (preview): Grand Central Station page reuses the desktop light rules;
+   its navy hero stays a dark area so the heading keeps white text. */
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] {
+
+  [class*="station_page"] { background: #f4f7fa !important; color: #33445a !important; }
+  [class*="station_page"] [class*="station_section"] { background: #ffffff; border-bottom: 1px solid #e3e9f0 !important; }
+  [class*="station_page"] [class*="station_section"]:nth-of-type(even) { background: #f4f7fa; }
+  [class*="station_page"] [class*="station_section"] :is(h2, h3) { color: #071c38 !important; font-weight: 800 !important; letter-spacing: -0.025em; }
+  [class*="station_page"] [class*="station_section"] h3 { font-weight: 700 !important; letter-spacing: -0.01em; }
+  [class*="station_page"] [class*="station_section"] :is(p, li, summary, dd, dt) { color: #33445a !important; }
+  [class*="station_page"] [class*="station_section"] summary { color: #071c38 !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_eyebrow"] { color: #1a7f2e !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_routeLabel"] { color: #5b6b80 !important; }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_route_"], [class*="station_travelCard"]) {
+    background: #ffffff !important; border: 1px solid #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 14px 30px -24px rgba(7, 28, 56, 0.4);
+  }
+  [class*="station_page"] [class*="station_section"] [class*="station_route_"]:nth-child(-n+3) { border-top: 3px solid #2fbf4a !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_route_"]:hover { border-color: #2fbf4a !important; background: #ffffff !important; }
+  [class*="station_page"] [class*="station_section"] a:not([class*="bg-emerald"]):not([class*="btn"]) { color: #1a7f2e !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_why"] span { color: #1f9a36 !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_faqs"] details { border-bottom-color: #e3e9f0 !important; }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a {
+    background: #ffffff; border: 1px solid #dde4ec !important; border-radius: 0.75rem !important; color: #071c38 !important;
+    text-decoration: none !important; font-weight: 600; transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  [class*="station_page"] [class*="station_section"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]) a:hover { border-color: #2fbf4a !important; box-shadow: 0 10px 22px -16px rgba(7, 28, 56, 0.4); }
+  [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] img { background: #ffffff !important; border-color: #dde4ec !important; }
+  [class*="station_page"] [class*="station_section"] [class*="station_stationPhoto"] figcaption { color: #5b6b80 !important; }
+
+  }
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] :is([class*="station_hero"], [class*="station_band"], [class*="station_cta"]) {
+    --color-navy: #071c38; --color-navy-light: #0c2a52; --color-navy-dark: #041020;
+    --color-white: #ffffff; --color-mist: #e8edf5; --color-ink-muted: rgba(232, 237, 245, 0.68); --color-ink-secondary: #b5c0cd;
+  }
+  html[data-mobile-light] [class*="station_hero"] :is(h1, h2, p, span, a:not([class*="btn"]), li) { color: #ffffff; }
+}
+@media (max-width: 767.98px) {
+  /* Tap targets: links and chips at least 44px tall. */
+  html[data-mobile-light] #airports article.group > div.mt-5 > a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+  html[data-mobile-light] #areas .grid.grid-cols-2 > * { min-height: 2.75rem; }
+  html[data-mobile-light] #flight-status a[class*="rounded-lg"][class*="border"] { min-height: 2.75rem; }
+  html[data-mobile-light] #vehicles a.mt-2.inline-block { display: inline-flex; align-items: center; min-height: 2.75rem; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-light] main a.underline:not([class*="bg-"]):not(:is(header:not(main header), footer, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #1a7f2e !important; }
+}
+}
+@layer base {
+@media (max-width: 1199.98px) {
+  /* Booking progress (light mobile preview only). */
+  html[data-mobile-light] .quote-flow [data-mobile-steps] {
+    display: flex !important; gap: 0.35rem; margin: 0.15rem 0 0.85rem; padding: 0; list-style: none;
+  }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li {
+    flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+    min-height: 2.1rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em;
+    background: #eef2f6; color: #5f6f84;
+  }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li > span {
+    display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem;
+    border-radius: 999px; background: #ffffff; color: #5f6f84; font-size: 0.68rem;
+  }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] { background: #071c38; color: #ffffff; }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] > span { background: #2fbf4a; color: #071c38; }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="done"] { background: #e7f6ea; color: #1a7f2e; }
+  html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="done"] > span { background: #2fbf4a; color: #071c38; }
+}
+}
