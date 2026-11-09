@@ -72,6 +72,8 @@ export type OpenCheckoutJourney = {
   returnTime: string;
   vehicle: string | null;
   amountLabel: string;
+  /** Other details the payment link carries (party, customer, flights, airport options). */
+  bookingDetails?: Record<string, unknown>;
 };
 
 export function buildOpenCheckoutJourneyKey(journey: OpenCheckoutJourney): string {
@@ -85,12 +87,13 @@ export function buildOpenCheckoutJourneyKey(journey: OpenCheckoutJourney): strin
     journey.returnTime,
     journey.vehicle ?? "",
     journey.amountLabel,
+    journey.bookingDetails ?? {},
   ]);
 }
 
 /**
- * The saved "Secure payment ready" link is only offered for the journey and price it was made
- * for. Links saved before this check existed (no journeyKey) are never offered again.
+ * The saved "Secure payment ready" link is only offered for the exact booking (journey, price,
+ * party, customer and airport options) it was made for. Links saved before this check existed (no journeyKey) are never offered again.
  */
 export function openCheckoutForJourney<T extends { journeyKey?: string }>(
   session: T | null,

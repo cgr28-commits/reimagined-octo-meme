@@ -4725,6 +4725,22 @@ function QuoteCard({
     returnTime,
     vehicle: quoteVehicle == null ? null : String(quoteVehicle),
     amountLabel: formatQuote(paymentAmount ?? liveQuote?.amount ?? 0),
+    bookingDetails: {
+      passengers: effectivePassengers ?? passengers,
+      exactPassengers,
+      suitcases,
+      childSeats,
+      childSeatNotes: childSeatNotes.trim(),
+      customerName: customerName.trim(),
+      customerEmail: customerEmail.trim().toLowerCase(),
+      customerMobile: customerMobile.trim(),
+      goingFlightNumber: goingFlightNumber.trim().toUpperCase(),
+      collectionFlightNumber: collectionFlightNumber.trim().toUpperCase(),
+      meetGreet: bookingMeetGreetActive,
+      outboundAccessChoice,
+      returnAccessChoice,
+      terminalAccessChoices,
+    },
   });
   const activeOpenCheckout = openCheckoutForJourney(openCheckout, openCheckoutJourneyKey);
   useEffect(() => {
