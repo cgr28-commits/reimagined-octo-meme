@@ -6442,3 +6442,10 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] ol[data-mobile-steps] li[data-step-state="current"] > span { background: #2fbf4a !important; border-color: #2fbf4a !important; color: #071c38 !important; }
 }
 }
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] [data-d2-fields] [data-d2-stepper-btn] svg { color: currentColor !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { color: #64748b !important; }
+  html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff; }
+}
+}
