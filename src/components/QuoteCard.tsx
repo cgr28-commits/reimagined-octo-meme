@@ -329,6 +329,9 @@ import {
   type OpenCheckoutSession,
   buildOpenCheckoutJourneyKey,
   openCheckoutForJourney,
+  markPaymentHandoff,
+  consumePaymentHandoff,
+  hasPaymentHandoff,
 } from "@/lib/booking-draft-storage";
 import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
 import {
@@ -1726,14 +1729,27 @@ function QuoteCard({
     });
 
     const draft = readBookingFormDraft();
+    // Back from our own payment page in this tab: restore the journey the customer was paying for.
+    const returningFromPayment =
+      !returnOfferToken &&
+      !restoredQuote &&
+      consumePaymentHandoff() &&
+      Boolean(draft?.pickupAddress?.trim() && draft?.dropoffAddress?.trim() && draft?.pickupPlace && draft?.dropoffPlace);
 
-    if (visitDecision.clearStoredAddresses) {
+    if (visitDecision.clearStoredAddresses && !returningFromPayment) {
       // Never rehydrate pickup/destination from localStorage or an old session draft.
       clearStoredQuoteAddresses();
     }
 
     if (draft && !restoredQuote) {
       applyNonAddressDraftFields(draft);
+    }
+    if (returningFromPayment && draft) {
+      setPickupAddress(draft.pickupAddress ?? "");
+      setDropoffAddress(draft.dropoffAddress ?? "");
+      if (draft.pickupPlace) setPickupPlace(draft.pickupPlace);
+      if (draft.dropoffPlace) setDropoffPlace(draft.dropoffPlace);
+      if (presentation === "homepage") setHomepagePriceRequested(true);
     }
 
     const existingCheckout = readOpenCheckoutSession();
@@ -1770,6 +1786,11 @@ function QuoteCard({
         search: window.location.search,
         returnOfferToken,
       });
+      // Browser Back from our payment page restores the page as it was: keep the journey.
+      if (event.persisted && hasPaymentHandoff()) {
+        consumePaymentHandoff();
+        return;
+      }
       if (decision.clearStoredAddresses) {
         clearStoredQuoteAddresses();
       }
@@ -4916,6 +4937,7 @@ function QuoteCard({
     const amountLabel = formatQuote(paymentAmount ?? liveQuote.amount);
 
     // Persist before SumUp opens so closing the payment tab cannot wipe the form.
+    markPaymentHandoff();
     saveBookingFormDraft({
       quoteStep: 3,
       pickupAddress,
@@ -7129,12 +7151,58 @@ function QuoteCard({
       </>
     );
 
+    const design2When =
+      tripDate && tripTime ? `${formatBookingDate(tripDate)}, ${formatCustomerClock(tripTime) || tripTime}` : "";
     return (
       <>
+        {design2Home ? (
+          <section data-d2-pay-summary aria-label="Price summary">
+            <div data-d2-pay-head>
+              <div>
+                <p data-d2-pay-when>
+                  {vehicleShortLabel(quoteVehicle)}
+                  {design2When ? ` · ${design2When}` : ""}
+                </p>
+                <p data-d2-pay-route>
+                  {(pickupLabel || "Pickup").split(",")[0]} <span aria-hidden="true">→</span>
+                  <span className="sr-only"> to </span> {(dropoffLabel || "Destination").split(",")[0]}
+                </p>
+              </div>
+              <p data-d2-pay-amount>{amountLabel ?? "TBC"}</p>
+            </div>
+            <dl data-d2-pay-lines>
+              {bookingMeetGreetActive ? (
+                <div>
+                  <dt>Meet &amp; Greet (in total)</dt>
+                  <dd>{formatMeetGreetGbp(bookingMeetGreetCharge)}</dd>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <dt>{vehicleShortLabel(quoteVehicle)}, {returnJourney ? "return" : "one way"}</dt>
+                    <dd>{amountLabel ?? "TBC"}</dd>
+                  </div>
+                  {bookingMeetGreetEligible ? (
+                    <div>
+                      <dt>Meet &amp; Greet</dt>
+                      <dd>Not added</dd>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              <div data-d2-pay-total>
+                <dt>Total to pay</dt>
+                <dd>{amountLabel ?? "TBC"}</dd>
+              </div>
+            </dl>
+            <p data-d2-pay-note>Fixed price · Free cancellation up to 24 hrs</p>
+          </section>
+        ) : null}
         <div
           id="step2-travel-details"
           ref={step2TravelDetailsRef}
           onBlurCapture={handleCheckoutBoxBlur}
+          data-d2-schedule-done={design2Home && isScheduleComplete ? "true" : undefined}
           className="scroll-mt-44 space-y-3 md:scroll-mt-28"
         >
           <h2
@@ -9192,7 +9260,11 @@ function QuoteCard({
           {quoteStep >= 2
             ? "COMPLETE YOUR BOOKING"
             : presentation === "homepage"
-              ? design2Home ? "Get your fixed price" : "Get Your Fixed Quote"
+              ? design2Home
+                ? initialAirportCode && /^(BFS|BHD|DUB|LDY)$/.test(initialAirportCode)
+                  ? `Your fixed price to or from ${initialAirportCode}`
+                  : "Get your fixed price"
+                : "Get Your Fixed Quote"
               : "Get Your Fixed Quote"}
         </h2>
         {returnOfferToken ? (

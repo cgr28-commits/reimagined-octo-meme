@@ -52,6 +52,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+const D2_AIRPORT_PLACE: Record<string, string> = {
+  BFS: "Aldergrove",
+  BHD: "Belfast City",
+  DUB: "Dublin",
+  LDY: "Derry~Londonderry",
+};
+
 export default async function AirportTransferPage({ params }: Props) {
   const { slug } = await params;
   const page = getAirportPage(slug);
@@ -94,7 +101,9 @@ export default async function AirportTransferPage({ params }: Props) {
       ) : null}
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
-        <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
+        <div data-d2-airport-photo data-d2-badge={`${page.code} · ${D2_AIRPORT_PLACE[page.code] ?? page.shortName}`}>
+          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
+        </div>
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Link
@@ -107,18 +116,26 @@ export default async function AirportTransferPage({ params }: Props) {
             All airports
           </Link>
 
-          <header className="mt-6">
+          {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
+          <nav aria-label="Breadcrumb" className="hidden" data-d2-crumb>
+            <Link href="/">Home</Link> <span aria-hidden="true">›</span> <Link href="/airports/">Airports</Link>{" "}
+            <span aria-hidden="true">›</span> <span aria-current="page">{page.shortName}</span>
+          </nav>
+          <header className="mt-6" data-d2-airport-head>
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {page.code} · Airport transfers
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.title}</h1>
+            <p className="hidden" data-d2-airport-sub>
+              Pre-booked, fixed-price transfers to and from {D2_AIRPORT_PLACE[page.code] ?? page.shortName}. {page.durationNote}
+            </p>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
               <span className="rounded-lg bg-emerald/15 px-3 py-1 font-semibold text-emerald">
                 {page.fromPriceLabel}
               </span>
               <span className="text-white/50">{page.durationNote}</span>
             </div>
-            <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+            <p className="mt-6 text-lg leading-relaxed text-white/70" data-airport-intro>{page.intro}</p>
             <div className="mt-6">
               <LandingPageQuoteCta />
             </div>
@@ -141,6 +158,8 @@ export default async function AirportTransferPage({ params }: Props) {
         />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          {/* Mobile Design 2 shows the longer introduction after the quote form. */}
+          <p className="hidden" data-d2-airport-intro-after>{page.intro}</p>
           {page.code === "BFS" || page.code === "BHD" ? (
             <p className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-sm leading-relaxed text-white/70">
               {page.code === "BFS"

@@ -5,6 +5,7 @@ import { readCachedCustomerProfile, requestCustomerLoginCode } from "@/lib/custo
 import Link from "next/link";
 import { CHECKOUT_CANCELLATION_SUMMARY, CANCELLATION_POLICY_PATH } from "../../../shared/cancellation-policy";
 import { useEffect, useState } from "react";
+import { clearPaymentHandoff } from "@/lib/booking-draft-storage";
 import GoogleAdsConversion from "@/components/GoogleAdsConversion";
 import { saveToContactsHref } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -51,6 +52,11 @@ export default function BookingConfirmedClient() {
   const [totalFareGbp, setTotalFareGbp] = useState<number | null>(null);
   const [depositPaidGbp, setDepositPaidGbp] = useState<number | null>(null);
   const [cardBalanceGbp, setCardBalanceGbp] = useState<number | null>(null);
+
+  // Paid: a later visit to the quote must not restore this journey.
+  useEffect(() => {
+    clearPaymentHandoff();
+  }, []);
 
   useEffect(() => {
     setContactsHref(saveToContactsHref());
