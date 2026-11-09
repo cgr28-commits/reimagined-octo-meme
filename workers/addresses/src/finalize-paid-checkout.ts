@@ -2,6 +2,7 @@ import { enqueueCardBalanceBooking } from "./card-balance";
 import { sendAddFlightNumberWhatsApp, sendBookingConfirmedWhatsApp } from "./whatsapp-templates";
 import { missingAirportCollectionFlight } from "../shared/flight-lookup";
 import {runPaymentOperation, PaymentOperationBusy, paymentOperationHash} from "./payment-operation";
+import { claimGroupFinalization } from "./payment-session-group";
 import { recordBookingFunnelEvent } from "./booking-funnel";
 import { queueMeetGreetEmail } from "./meet-greet-upgrade-handlers";
 import {
@@ -974,6 +975,89 @@ export function extractCheckoutIdFromRequest(
   return "";
 }
 
+/**
+ * Last line of defence against duplicate bookings: within one payment group (one customer booking)
+ * only the first paid payment becomes a booking. A later, different paid payment in the same group
+ * is recorded and the owner is alerted to refund it; no second booking, emails or calendar entries.
+ * Never cancels or refunds anything itself. If the guard cannot be reached the payment is finalised
+ * as before (a paid customer must never be left without a booking).
+ */
+async function duplicateGroupPayment(
+  input: Parameters<typeof finalizePaidCheckoutOnce>[0],
+  checkout: SumUpCheckoutDetails,
+): Promise<FinalizePaidCheckoutResult | null> {
+  const { env, checkoutId } = input;
+  if (!env.TRACKING_STORE || !env.QUOTE_LEAD_COORDINATOR) return null;
+  const pending = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+  if (!pending?.paymentGroupKey) return null;
+  if (pending.checkoutKind && pending.checkoutKind !== "booking") return null;
+  let claim: Awaited<ReturnType<typeof claimGroupFinalization>>;
+  try {
+    claim = await claimGroupFinalization({
+      namespace: env.QUOTE_LEAD_COORDINATOR,
+      groupKey: pending.paymentGroupKey,
+      checkoutId,
+    });
+  } catch (error) {
+    console.error("Payment group guard unavailable; finalising normally", error instanceof Error ? error.message : "");
+    return null;
+  }
+  if (claim.state !== "duplicate") return null;
+
+  const amountPaid = formatPaidAmount(checkout.amount ?? pending.amount, checkout.currency ?? "GBP");
+  const booking = pending.booking;
+  const detectedAt = new Date().toISOString();
+  try {
+    await env.TRACKING_STORE.put(
+      `duplicate-payment:${checkoutId}`,
+      JSON.stringify({
+        checkoutId,
+        duplicateOfCheckoutId: claim.firstCheckoutId,
+        amount: checkout.amount ?? pending.amount,
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        pickupLabel: booking.pickupLabel,
+        dropoffLabel: booking.dropoffLabel,
+        tripDate: booking.tripDate,
+        tripTime: booking.tripTime,
+        detectedAt,
+        status: "refund_needed",
+      }),
+    );
+  } catch (error) {
+    console.error("Duplicate payment record failed", checkoutId, error instanceof Error ? error.message : "");
+  }
+  const owner = await trySendOwnerOperationalEmail(env, {
+    to: ownerInbox(env),
+    subject: `ACTION: duplicate payment to refund — ${booking.customerName || "customer"} ${amountPaid}`,
+    body: [
+      "A second payment was completed for a booking that is already paid.",
+      "No second booking, confirmation or calendar entry was created.",
+      "",
+      `Duplicate payment (refund this one): ${checkoutId} — ${amountPaid}`,
+      `Original payment (keep): ${claim.firstCheckoutId}`,
+      `Customer: ${booking.customerName || "—"} <${booking.customerEmail || "—"}>`,
+      `Journey: ${booking.pickupLabel || "—"} → ${booking.dropoffLabel || "—"} on ${booking.tripDate || "—"} ${booking.tripTime || ""}`,
+      "",
+      "Please refund the duplicate in Stripe and let the customer know.",
+    ].join("\n"),
+  });
+  return {
+    ok: false,
+    paid: true,
+    amountPaid,
+    paymentReference: "",
+    emailSent: false,
+    customerEmailSent: false,
+    ownerEmailSent: owner.sent,
+    calendarLogged: false,
+    calendarEvents: 0,
+    trackingCreated: false,
+    error:
+      "This payment duplicates a booking that was already paid, so no second booking was made. We've been alerted and will refund this payment. Please contact us if you have any questions.",
+  };
+}
+
 /** All browser/webhook callers share the same durable operation per checkout. */
 export async function finalizePaidCheckout(input: Parameters<typeof finalizePaidCheckoutOnce>[0]): Promise<FinalizePaidCheckoutResult> {
   if (!input.env.SUMUP_API_KEY?.trim() && !(isStripeCheckoutId(input.checkoutId) && stripeConfigured())) {
@@ -992,7 +1076,7 @@ export async function finalizePaidCheckout(input: Parameters<typeof finalizePaid
     const {result,reused}=await runPaymentOperation({
       namespace:input.env.QUOTE_LEAD_COORDINATOR,
       key:`payment-finalize:${await paymentOperationHash(input.checkoutId)}`,
-      run:()=>finalizePaidCheckoutOnce({...input, checkout}),
+      run:async()=>(await duplicateGroupPayment(input, checkout)) ?? finalizePaidCheckoutOnce({...input, checkout}),
       retrySafe:result=>!result.paid,
     });
     return reused ? {...result,alreadyFinalized:true} : result;
@@ -1001,3 +1085,6 @@ export async function finalizePaidCheckout(input: Parameters<typeof finalizePaid
     return {ok:false,paid:false,amountPaid:"",paymentReference:"",emailSent:false,customerEmailSent:false,ownerEmailSent:false,calendarLogged:false,calendarEvents:0,trackingCreated:false,error:error.message};
   }
 }
+
+/** Test-only access to the group duplicate guard. */
+export const __duplicateGroupPaymentForTests = duplicateGroupPayment;

@@ -1,5 +1,6 @@
 "use client";
 
+import { clearPaymentGroupId } from "@/lib/payment-group";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
@@ -321,6 +322,8 @@ import {
   saveOpenCheckoutSession,
   type BookingFormDraft,
   type OpenCheckoutSession,
+  buildOpenCheckoutJourneyKey,
+  openCheckoutForJourney,
 } from "@/lib/booking-draft-storage";
 import { clearAbandonedQuotePersistence } from "@/lib/reset-quote-journey";
 import {
@@ -4558,6 +4561,19 @@ function QuoteCard({
         ? (liveQuote?.amount ?? null)
         : null);
   const paymentAmount = transferPaymentAmount == null ? null : Math.round((transferPaymentAmount + bookingMeetGreetCharge) * 100) / 100;
+  // A saved payment link is only offered for the same journey and price (see openCheckoutForJourney).
+  const openCheckoutJourneyKey = buildOpenCheckoutJourneyKey({
+    pickupAddress,
+    dropoffAddress,
+    tripDate,
+    tripTime,
+    journeyMode,
+    returnDate,
+    returnTime,
+    vehicle: quoteVehicle == null ? null : String(quoteVehicle),
+    amountLabel: formatQuote(paymentAmount ?? liveQuote?.amount ?? 0),
+  });
+  const activeOpenCheckout = openCheckoutForJourney(openCheckout, openCheckoutJourneyKey);
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
@@ -4904,6 +4920,7 @@ function QuoteCard({
         amountLabel,
         returnToken,
         openedAt: new Date().toISOString(),
+        journeyKey: openCheckoutJourneyKey,
       };
       saveOpenCheckoutSession(session);
 
@@ -5040,14 +5057,14 @@ function QuoteCard({
   }
 
   function handleOpenPaymentAgain() {
-    if (!openCheckout?.paymentUrl) {
+    if (!activeOpenCheckout?.paymentUrl) {
       void handlePayNow();
       return;
     }
     setPaymentPopupBlocked(false);
     setPaymentError("");
     setPaymentLoading(true);
-    openSumUpPayment(openCheckout.paymentUrl);
+    openSumUpPayment(activeOpenCheckout.paymentUrl);
   }
 
   function handleReturnToEditBooking() {
@@ -5106,6 +5123,7 @@ function QuoteCard({
    */
   function performStartNewQuote() {
     trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
+    clearPaymentGroupId();
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
     quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -7201,7 +7219,7 @@ function QuoteCard({
           {payNow &&
           liveQuote &&
           isMinibusNoticeRequest &&
-          !openCheckout &&
+          !activeOpenCheckout &&
           !ownerClosed &&
           !checkoutBlocked ? (
             <MinibusNoticeCheckoutNotice />
@@ -7210,7 +7228,7 @@ function QuoteCard({
           {payNow &&
           liveQuote &&
           isMinimumNoticeRequest &&
-          !openCheckout &&
+          !activeOpenCheckout &&
           !ownerClosed &&
           !checkoutBlocked ? (
             <ShortNoticeCheckoutNotice noticeHours={minimumBookingNoticeHours} />
@@ -7295,7 +7313,7 @@ function QuoteCard({
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
-              {!isAvailabilityRequest && !openCheckout ? (
+              {!isAvailabilityRequest && !activeOpenCheckout ? (
                 <p className="text-xs leading-relaxed text-white/70">
                   Your transfer is reserved for your selected pickup time.
                 </p>
@@ -7317,11 +7335,11 @@ function QuoteCard({
                   {renderBookingErrorHelp("payment-actions")}
                 </div>
               ) : null}
-              {openCheckout ? (
+              {activeOpenCheckout ? (
                 <div className="space-y-3 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-4">
                   <p className="text-sm font-semibold text-emerald">Secure payment ready</p>
                   <p className="text-xs leading-relaxed text-white/75">
-                    Your booking details are saved for {openCheckout.amountLabel}. Continue to
+                    Your booking details are saved for {activeOpenCheckout.amountLabel}. Continue to
                     secure payment to finish paying, or cancel payment and return to your quote.
                   </p>
                   {isMobileDevice === false ? (
@@ -7485,7 +7503,7 @@ function QuoteCard({
                     ) : null}
                   </div>
                 ) : null}
-                {isAvailabilityRequest && !openCheckout ? (
+                {isAvailabilityRequest && !activeOpenCheckout ? (
                   <ShortNoticePaymentFollowUp windowHours={shortNoticeConfirmationWindowHours} />
                 ) : null}
                 <button
@@ -7561,7 +7579,7 @@ function QuoteCard({
           payNow &&
           !appliedPersonalQuote &&
           !submitted &&
-          !openCheckout ? (
+          !activeOpenCheckout ? (
             <button
               type="button"
               onClick={() => handleSaveQuoteClick()}

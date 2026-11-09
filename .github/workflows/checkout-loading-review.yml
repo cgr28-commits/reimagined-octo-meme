@@ -8,6 +8,11 @@ on:
       - 'workers/addresses/src/index.ts'
       - 'scripts/check-checkout-loading*'
       - 'scripts/check-quote-required-fields.ts'
+      - 'scripts/check-payment-session-group.ts'
+      - 'workers/addresses/src/payment-session-group.ts'
+      - 'workers/addresses/src/quote-lead-coordinator.ts'
+      - 'workers/addresses/src/finalize-paid-checkout.ts'
+      - 'src/lib/payment-group.ts'
       - '.github/workflows/checkout-loading-review.yml'
 permissions:
   contents: read
@@ -30,6 +35,7 @@ jobs:
       - run: node --import tsx scripts/check-checkout-loading-timing.ts
       - run: node --import tsx scripts/check-checkout-loading-recovery.ts
       - run: node --import tsx scripts/check-payment-operation.ts
+      - run: node --import tsx scripts/check-payment-session-group.ts
       - run: node --import tsx scripts/check-sumup-payment-ux.ts
       - run: node --import tsx scripts/check-deposit-cash.ts
       - run: node --import tsx scripts/check-quote-required-fields.ts

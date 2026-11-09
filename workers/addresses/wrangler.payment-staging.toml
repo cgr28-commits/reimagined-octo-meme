@@ -1,0 +1,77 @@
+# Payment-fix staging Worker (PR #881). Separate Cloudflare account: "My Airport Taxi NI Staging".
+# Never production: its own account, its own KV, no cron triggers, no email binding,
+# no Resend / WhatsApp / Google Calendar / Google Ads credentials. Stripe TEST keys only
+# (the deploy workflow refuses anything that is not sk_test_ / pk_test_ / whsec_).
+name = "matni-payment-staging"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+account_id = "ecad568dc411e28a3e435ef40b36c2b5"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
+
+[[durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"
+
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]
+
+[[migrations]]
+tag = "v2-quote-lead-coordinator"
+new_sqlite_classes = ["QuoteLeadCoordinator"]
+
+[[migrations]]
+tag = "v3-meet-greet-coordinator"
+new_sqlite_classes = ["MeetGreetCoordinator"]
+
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
+
+[build]
+command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
+
+[observability]
+enabled = true
+
+# The test website is served by this same Worker (same address), so no Pages project
+# and no cross-site permission are needed. Files that exist are served directly;
+# every other path (/bookings, /payments, …) runs the Worker as normal.
+[assets]
+directory = "../../staging-site"
+
+# Staging account namespaces (already exist in ecad568d…; never the production ids).
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "d780d553438c48c1b3c67258fe92d3d8"
+
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "55d5e6a826a1494e8be9e6236b37cef2"
+
+[vars]
+# Stripe TEST mode: the payment code only accepts LIVE keys under PAYMENT_PROVIDER = "stripe",
+# so staging uses "stripe-test", which sends the emails listed in STRIPE_TEST_EMAILS to Stripe.
+# STRIPE_TEST_EMAILS is set by the deploy workflow from the GitHub "staging" environment variable
+# STAGING_STRIPE_TEST_EMAILS (kept out of this public file).
+PAYMENT_PROVIDER = "stripe-test"
+# Return customers (and the /pay/card/ page) to this staging test site, not the live domain.
+STAGING_SITE_ORIGIN = "https://matni-payment-staging.my-airport-taxi-ni-staging.workers.dev"
+REVIEW_REQUEST_DELAY_MINUTES = "120"
+# Keep every customer-messaging feature off in staging.
+WHATSAPP_TEMPLATES_ENABLED = "false"
+WHATSAPP_BOT_ENABLED = "false"
+
+# No [triggers]: no scheduled reminders, review requests or captures run in staging.
