@@ -5,6 +5,7 @@
 
 import {
   chooseDublinArrivalTerminal,
+  dublinTerminalFromAddress,
   isDublinAirportCode,
   parseDublinArrivalTerminal,
   type DublinArrivalTerminal,
@@ -41,8 +42,12 @@ export async function resolveDublinArrivalTerminalForJob(
     ? paid?.returnDublinArrivalTerminalSource
     : paid?.dublinArrivalTerminalSource;
 
+  // Terminal the customer picked in address search ("Dublin Airport Terminal 1") — used only
+  // when the owner and flight data have not set one, and never saved as flight data.
+  const fromAddress = dublinTerminalFromAddress(job.pickupLabel);
+
   if (source === "owner") {
-    return parseDublinArrivalTerminal(stored);
+    return parseDublinArrivalTerminal(stored) ?? fromAddress;
   }
 
   let fromFlight: DublinArrivalTerminal | null = null;
@@ -87,5 +92,5 @@ export async function resolveDublinArrivalTerminalForJob(
     }
   }
 
-  return resolved;
+  return resolved ?? fromAddress;
 }
