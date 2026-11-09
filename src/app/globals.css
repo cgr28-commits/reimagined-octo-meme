@@ -5724,7 +5724,10 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --color-navy: #071c38; --color-navy-light: #0c2a52; --color-navy-dark: #041020;
     --color-white: #ffffff; --color-mist: #e8edf5; --color-ink-muted: rgba(232, 237, 245, 0.68); --color-ink-secondary: #b5c0cd;
   }
-  html[data-mobile-light] [class*="station_hero"] :is(h1, h2, p, span, a:not([class*="btn"]), li) { color: #ffffff; }
+  html[data-mobile-light] [class*="station_hero"] :is(h1, h2, p, span, a:not([class*="btn"]), li):not([class*="eyebrow"]) { color: #ffffff !important; }
+  html[data-mobile-light] [class*="station_hero"] [class*="eyebrow"] { color: #2fbf4a !important; }
+  html[data-mobile-light] [class*="station_hero"] figcaption, html[data-mobile-light] [class*="station_hero"] figcaption a { color: #bac8da !important; }
+  html[data-mobile-light] [class*="station_page"] :is([class*="station_jumpLinks"], [class*="station_destinationLinks"]):not([class*="station_hero"] *) a { color: #071c38 !important; border-color: #c9d3df !important; background: #ffffff; }
 }
 @media (max-width: 767.98px) {
   /* Tap targets: links and chips at least 44px tall. */
