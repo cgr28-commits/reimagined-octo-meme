@@ -6449,3 +6449,65 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff; }
 }
 }
+
+/* Design 3: homepage intro wording (Design 3 only). */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { display: none !important; }
+    html[data-mobile-d3] #homepage-booking-intro > p[data-d3-intro-sub][data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #475569 !important; max-width: 22rem; }
+  }
+}
+
+/* Design 3: trip type + date/time on the home form. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] [data-d3-home-segment] { margin: .875rem 0 .25rem; }
+    html[data-mobile-d3] [data-homepage-quote-fields] [data-homepage-inline-schedule] { margin-top: .5rem; }
+  }
+}
+
+/* Design 3: softer, cleaner "not ready yet" state for Get My Fixed Price. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:disabled {
+      background: #e9f6ed !important;
+      border: 1.5px solid #bfe4c9 !important;
+      border-style: solid !important;
+      color: #16803c !important;
+      -webkit-text-fill-color: #16803c;
+      opacity: 1 !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+    }
+  }
+}
+
+/* Design 3: completed steps in the top progress line are tappable. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] [data-mobile-steps] button[data-d3-step-link] { display: inline-flex; align-items: center; gap: inherit; min-height: 44px; padding: 0; margin: 0; font: inherit; white-space: nowrap; color: inherit; background: none; border: 0; border-radius: .5rem; cursor: pointer; text-decoration: underline; text-decoration-color: #2fbf4a; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li > button[data-d3-step-link] > span { width: 1.375rem; height: 1.375rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 800; border: 1.5px solid #2fbf4a; background: #2fbf4a; color: #071c38; text-decoration: none; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li[data-step-state="done"] { color: #071c38 !important; }
+    html[data-mobile-d3] [data-mobile-steps] button[data-d3-step-link]:focus-visible { outline: 3px solid #071c38; outline-offset: 2px; }
+  }
+}
+
+/* Design 3: details step clears the fixed header so the progress line is visible; labels fit. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] { scroll-padding-top: 4.75rem; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .3rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { white-space: nowrap; font-size: .8125rem; gap: .3rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { width: .6rem !important; }
+  }
+}
+
+/* Design 3: progress line fits on the narrowest phones (320px). */
+@layer base {
+  @media (max-width: 374.98px) {
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .5rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { font-size: .75rem; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { display: none !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li:last-child { white-space: normal; line-height: 1.15; min-width: 0; }
+  }
+}
