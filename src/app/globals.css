@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* lg: breakpoint at 1200px: Design 3 (phones and tablets, up to 1199px) keeps its tablet layout
+   on iPad landscape; the desktop design starts at 1200px as before. Staff pages use
+   min-[64rem]: so their layouts are unchanged. */
+@theme {
+  --breakpoint-lg: 75rem;
+}
+
 /* Brand colours are real CSS variables (same values) so the opt-in light mobile design can
    re-map them in one place. Fonts stay inline: they depend on next/font variables. */
 @theme {
@@ -542,11 +549,11 @@ main {
 }
 
 @media (min-width: 1024px) {
-  .homepage-hero-photo {
+  html:not([data-mobile-d3]) .homepage-hero-photo {
     object-position: center 42%;
   }
 
-  .homepage-hero-scrim {
+  html:not([data-mobile-d3]) .homepage-hero-scrim {
     background:
       linear-gradient(
         90deg,
@@ -572,7 +579,7 @@ main {
  * Mobile and tablet keep the existing single-column order.
  */
 @media (min-width: 1024px) {
-  .homepage-hero-layout {
+  html:not([data-mobile-d3]) .homepage-hero-layout {
     grid-template-columns: minmax(0, min(100%, 46rem));
     justify-content: center;
     row-gap: 1.25rem;
@@ -580,7 +587,7 @@ main {
     padding-bottom: 2.5rem;
   }
 
-  .homepage-hero-layout .homepage-hero-copy {
+  html:not([data-mobile-d3]) .homepage-hero-layout .homepage-hero-copy {
     padding-top: 0;
   }
 }
@@ -1465,23 +1472,23 @@ main {
 
 /* Desktop vehicle comparison; retain the existing tablet and mobile arrangement. */
 @media (min-width: 1024px) {
-  [data-quote-help-inline] { display: none; }
+  html:not([data-mobile-d3]) [data-quote-help-inline] { display: none; }
 
-  .quote-flow [data-quote-vehicle-categories] [role="list"] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [role="list"] {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-flow: row;
     grid-auto-columns: auto;
     gap: 0.75rem;
   }
 
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-category][aria-pressed] {
     position: relative;
     min-height: 6rem;
     border-width: 1px;
     padding: 0.375rem 0.75rem;
   }
 
-  .quote-flow [data-vehicle-option-layout] {
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-layout] {
     display: grid;
     grid-template-columns: clamp(9.5rem, 14vw, 11rem) minmax(0, 1fr) 1.5rem;
     height: 100%;
@@ -1489,15 +1496,15 @@ main {
     gap: 0.75rem;
   }
 
-  .quote-flow [data-vehicle-option-copy] { width: 100%; text-align: left; }
-  .quote-flow [data-vehicle-option-copy] > .flex { justify-content: flex-start; }
-  .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.2rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] { width: 100%; text-align: left; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] > .flex { justify-content: flex-start; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.2rem; }
 
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] {
     width: 100%; max-width: 11rem; height: 5rem;
   }
 
-  .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-category] [data-vehicle-selection-indicator] {
     position: static;
   }
 }
@@ -1506,9 +1513,9 @@ main {
 .desktop-enquiry-trigger { display: none; }
 
 @media (min-width: 1024px) {
-  .desktop-enquiry-trigger { display: flex; }
-  .desktop-result-whatsapp { display: none; }
-  .homepage-hero .section-eyebrow {
+  html:not([data-mobile-d3]) .desktop-enquiry-trigger { display: flex; }
+  html:not([data-mobile-d3]) .desktop-result-whatsapp { display: none; }
+  html:not([data-mobile-d3]) .homepage-hero .section-eyebrow {
     max-width: 62rem;
     font-size: clamp(0.875rem, 1.1vw, 1.125rem);
     line-height: 1.4;
@@ -1516,31 +1523,31 @@ main {
     white-space: nowrap;
     margin-bottom: 1rem;
   }
-  .address-suggestions-overlay {
+  html:not([data-mobile-d3]) .address-suggestions-overlay {
     background: #0B2748;
     color: #FFFFFF;
     border: 1px solid #244B70;
     box-shadow: 0 16px 36px rgba(2, 10, 24, 0.35);
   }
-  .address-suggestions-overlay button { color: #FFFFFF; }
-  .address-suggestions-overlay button:hover,
-  .address-suggestions-overlay button:focus-visible { background: rgba(47, 191, 74, 0.15); }
-  .address-suggestions-overlay button:focus-visible { outline: 2px solid #2FBF4A; outline-offset: -2px; }
-  .quote-flow [data-quote-result-card] { padding: 1rem; }
-  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+  html:not([data-mobile-d3]) .address-suggestions-overlay button { color: #FFFFFF; }
+  html:not([data-mobile-d3]) .address-suggestions-overlay button:hover,
+  html:not([data-mobile-d3]) .address-suggestions-overlay button:focus-visible { background: rgba(47, 191, 74, 0.15); }
+  html:not([data-mobile-d3]) .address-suggestions-overlay button:focus-visible { outline: 2px solid #2FBF4A; outline-offset: -2px; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] { padding: 1rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
     height: clamp(14rem, 22vw, 18rem);
     max-width: 42rem;
     width: 100%;
   }
-  .quote-flow [data-quote-result-art] { margin: 0.375rem auto; }
-  .quote-flow [data-quote-result-heading] { font-size: 1.25rem; }
-  .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3.5rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-art] { margin: 0.375rem auto; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-heading] { font-size: 1.25rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-main-action] .btn-primary { min-height: 3.5rem; }
   /* Static desktop branding: no photograph, vehicle overlay or selection transition. */
-  .homepage-hero-media {
+  html:not([data-mobile-d3]) .homepage-hero-media {
     background: radial-gradient(ellipse at 50% 12%, #12365b 0%, #0b2748 40%, #071c38 80%);
   }
-  .homepage-hero-media > picture,
-  .homepage-hero-media > .homepage-hero-scrim { display: none; }
+  html:not([data-mobile-d3]) .homepage-hero-media > picture,
+  html:not([data-mobile-d3]) .homepage-hero-media > .homepage-hero-scrim { display: none; }
 
 }
 
@@ -1797,121 +1804,121 @@ main {
 
 /* Separate polished desktop sources; mobile retains its exact source, frame and transforms. */
 @media (min-width: 1024px) {
-  [data-vehicle-art] img { transform: none; filter: drop-shadow(0 10px 12px rgba(0,0,0,.22)); }
-  [data-fleet-vehicle] > div { max-width: 340px; }
-  [data-fleet-vehicle] img { padding: 0; transform: none !important; }
-  .desktop-vito-figure { background: #071c38; }
-  .desktop-vito-figure img { background: transparent; }
+  html:not([data-mobile-d3]) [data-vehicle-art] img { transform: none; filter: drop-shadow(0 10px 12px rgba(0,0,0,.22)); }
+  html:not([data-mobile-d3]) [data-fleet-vehicle] > div { max-width: 340px; }
+  html:not([data-mobile-d3]) [data-fleet-vehicle] img { padding: 0; transform: none !important; }
+  html:not([data-mobile-d3]) .desktop-vito-figure { background: #071c38; }
+  html:not([data-mobile-d3]) .desktop-vito-figure img { background: transparent; }
 }
 
 /* Compact desktop quote layout: actual spacing and type sizes, without scaling the tool. */
 @media (min-width: 1024px) {
-  .quote-flow.glass-card[data-quote-presentation] {
+  html:not([data-mobile-d3]) .quote-flow.glass-card[data-quote-presentation] {
     width: 100%;
     max-width: 44rem;
     margin-inline: auto;
     padding: 1rem;
   }
   /* Desktop: keep the car on the price card a sensible size (it filled the card). */
-  .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-vehicle-art-size="result"] {
     height: 9.5rem;
     max-width: 21rem;
     width: 100%;
     margin-inline: auto;
   }
-  .quote-flow [data-quote-result-art] img { object-fit: contain; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-art] img { object-fit: contain; }
   /* Desktop: the four benefit icons sit directly above the quote card, same width. */
-  .homepage-hero .hero-benefits-row {
+  html:not([data-mobile-d3]) .homepage-hero .hero-benefits-row {
     width: 100%;
     max-width: 44rem;
     margin-inline: auto;
   }
-  .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.5rem; }
-  .quote-flow.glass-card[data-quote-presentation] > form > * + * { margin-top: 0.5rem; }
-  .quote-flow [data-homepage-quote-scroll] > * + * { margin-top: 0.625rem; }
-  .quote-flow [data-homepage-quote-scroll] {
+  html:not([data-mobile-d3]) .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.5rem; }
+  html:not([data-mobile-d3]) .quote-flow.glass-card[data-quote-presentation] > form > * + * { margin-top: 0.5rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] > * + * { margin-top: 0.625rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 2.75rem minmax(0, 1fr);
     gap: 0.625rem;
   }
-  .quote-flow [data-homepage-quote-scroll] > * { grid-column: 1 / -1; margin-block: 0; min-width: 0; }
-  .quote-flow [data-homepage-quote-scroll] > div:has(#pickup) { grid-column: 1; grid-row: 2; }
-  .quote-flow [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 3; grid-row: 2; }
-  .quote-flow [data-homepage-quote-scroll] > div:has(> [data-swap-locations]) {
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] > * { grid-column: 1 / -1; margin-block: 0; min-width: 0; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] > div:has(#pickup) { grid-column: 1; grid-row: 2; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 3; grid-row: 2; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-scroll] > div:has(> [data-swap-locations]) {
     grid-column: 2; grid-row: 2; align-self: start; padding-top: 1.75rem;
   }
-  .quote-flow [data-swap-locations] svg { rotate: 90deg; }
-  .quote-flow [data-homepage-quote-fields] .form-label,
-  .quote-flow [data-homepage-quote-fields] #homepage-quote-requirements,
-  .quote-flow.glass-card[data-quote-presentation] > div:first-child p { font-size: 0.9375rem; line-height: 1.35; }
-  .quote-flow [data-quote-vehicle-categories] [role="list"] { gap: 0.5rem; }
-  .quote-flow [data-vehicle-option-copy] > span,
-  .quote-flow [data-vehicle-option-copy] > .flex { font-size: 0.9375rem; line-height: 1.3; }
-  .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.25rem; line-height: 1.2; }
-  .quote-flow [data-vehicle-option-copy] > .flex svg { width: 1rem; height: 1rem; }
-  .quote-flow [data-quote-result-detail-slot] { min-height: 0; margin-top: 0.125rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-swap-locations] svg { rotate: 90deg; }
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-fields] .form-label,
+  html:not([data-mobile-d3]) .quote-flow [data-homepage-quote-fields] #homepage-quote-requirements,
+  html:not([data-mobile-d3]) .quote-flow.glass-card[data-quote-presentation] > div:first-child p { font-size: 0.9375rem; line-height: 1.35; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [role="list"] { gap: 0.5rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] > span,
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] > .flex { font-size: 0.9375rem; line-height: 1.3; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] [data-vehicle-name] { font-size: 1.25rem; line-height: 1.2; }
+  html:not([data-mobile-d3]) .quote-flow [data-vehicle-option-copy] > .flex svg { width: 1rem; height: 1rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-detail-slot] { min-height: 0; margin-top: 0.125rem; }
   /* The full capacity/luggage line below already includes this passenger range. */
-  .quote-flow [data-quote-result-card] [data-quote-result-capacity] { display: none; }
-  .quote-flow [data-quote-result-detail-slot] p,
-  .quote-flow [data-quote-result-capacity],
-  .quote-flow [data-quote-party] { font-size: 1rem; line-height: 1.35; }
-  .quote-flow [data-quote-info-grid],
-  .quote-flow [data-quote-footer-grid] { display: block; }
-  .quote-flow [data-quote-layout-reference] { display: none; }
-  .quote-flow [data-quote-result-airport-access] { margin-block: 0.375rem; }
-  .quote-flow [data-quote-airport-benefits],
-  .quote-flow [data-business-class-inclusions] { padding: 0.625rem 0.75rem; }
-  .quote-flow [data-quote-airport-benefits] p,
-  .quote-flow [data-business-class-inclusions] p,
-  .quote-flow [data-quote-assurance] { font-size: 0.9375rem; line-height: 1.35; }
-  .quote-flow [data-quote-result-price] > p:first-child,
-  .quote-flow [data-quote-manual-state] > p:first-child { font-size: 0.9375rem; letter-spacing: 0.08em; }
-  .quote-flow [data-quote-fare-status="ready"] > span,
-  .quote-flow [data-quote-fare-status="on-request"] > span { font-size: 2.625rem; line-height: 1.1; }
-  .quote-flow [data-quote-result-main-action] { margin-top: 0.625rem; }
-  .quote-flow [data-quote-result-main-action] .btn-primary { font-size: 1.125rem; }
-  .quote-flow [data-quote-result-actions] > .grid > button { min-height: 3.5rem; padding: 0.625rem 0.5rem; font-size: 0.9375rem; line-height: 1.2; }
-  .quote-flow [data-quote-price-breakdown] { padding: 0.625rem 0.75rem; }
-  .quote-flow [data-quote-price-breakdown] summary,
-  .quote-flow [data-quote-price-breakdown] summary .quote-secondary,
-  .quote-flow [data-quote-breakdown-panel] :is(p, li, span, button) { font-size: 0.9375rem; line-height: 1.4; }
-  [data-desktop-enquiry-form] :is(p, label, input, textarea),
-  [data-desktop-enquiry-status] p { font-size: 0.9375rem; line-height: 1.45; }
-  [data-desktop-enquiry-form] .btn-primary { min-height: 3rem; font-size: 1rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-result-capacity] { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-detail-slot] p,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-capacity],
+  html:not([data-mobile-d3]) .quote-flow [data-quote-party] { font-size: 1rem; line-height: 1.35; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-info-grid],
+  html:not([data-mobile-d3]) .quote-flow [data-quote-footer-grid] { display: block; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-layout-reference] { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-airport-access] { margin-block: 0.375rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-airport-benefits],
+  html:not([data-mobile-d3]) .quote-flow [data-business-class-inclusions] { padding: 0.625rem 0.75rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-airport-benefits] p,
+  html:not([data-mobile-d3]) .quote-flow [data-business-class-inclusions] p,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-assurance] { font-size: 0.9375rem; line-height: 1.35; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-price] > p:first-child,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-manual-state] > p:first-child { font-size: 0.9375rem; letter-spacing: 0.08em; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-fare-status="ready"] > span,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-fare-status="on-request"] > span { font-size: 2.625rem; line-height: 1.1; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-main-action] { margin-top: 0.625rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-main-action] .btn-primary { font-size: 1.125rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-actions] > .grid > button { min-height: 3.5rem; padding: 0.625rem 0.5rem; font-size: 0.9375rem; line-height: 1.2; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-price-breakdown] { padding: 0.625rem 0.75rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-price-breakdown] summary,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-price-breakdown] summary .quote-secondary,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-breakdown-panel] :is(p, li, span, button) { font-size: 0.9375rem; line-height: 1.4; }
+  html:not([data-mobile-d3]) [data-desktop-enquiry-form] :is(p, label, input, textarea),
+  html:not([data-mobile-d3]) [data-desktop-enquiry-status] p { font-size: 0.9375rem; line-height: 1.45; }
+  html:not([data-mobile-d3]) [data-desktop-enquiry-form] .btn-primary { min-height: 3rem; font-size: 1rem; }
 }
 
 /* Desktop result inclusions sit directly between the fare and full-width booking action. */
 @media (min-width: 1024px) {
-  .quote-flow [data-quote-result-card] [data-private-transfer-benefit] { display: none; }
-  .quote-flow [data-quote-result-card] [data-quote-airport-benefits] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-private-transfer-benefit] { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-airport-benefits] {
     display: grid; gap: 0.375rem;
     border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0;
   }
-  .quote-flow [data-quote-result-card] [data-quote-airport-benefits] > div { margin-block: 0; }
-  .quote-flow [data-quote-result-card] [data-quote-result-airport-access] { margin-block: 0.25rem; }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-row] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-airport-benefits] > div { margin-block: 0; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-result-airport-access] { margin-block: 0.25rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-row] {
     display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     column-gap: 0.375rem; row-gap: 0.125rem; text-align: center;
   }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-copy] { display: contents; }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-row] > [aria-hidden] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-copy] { display: contents; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-row] > [aria-hidden] {
     grid-column: 1; grid-row: 1; justify-self: end; align-self: center;
   }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-heading] { grid-column: 2; grid-row: 1; font-size: 1rem; }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-description] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-heading] { grid-column: 2; grid-row: 1; font-size: 1rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-description] {
     grid-column: 1 / -1; margin: 0; font-size: 0.9375rem; font-weight: 400;
   }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-label] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-label] {
     grid-column: 1 / -1; grid-row: 1; margin: 0; font-size: 0.875rem;
   }
-  .quote-flow [data-quote-result-card] [data-airport-benefit-row]:has([data-airport-benefit-label]) > [aria-hidden],
-  .quote-flow [data-quote-result-card] [data-airport-benefit-row]:has([data-airport-benefit-label]) [data-airport-benefit-heading] { grid-row: 2; }
-  .quote-flow [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.375rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-row]:has([data-airport-benefit-label]) > [aria-hidden],
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-airport-benefit-row]:has([data-airport-benefit-label]) [data-airport-benefit-heading] { grid-row: 2; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-result-main-action] { margin-top: 0.375rem; }
 }
 
 /* Keep existing mobile payment styling; lift desktop supporting-copy contrast. */
 @media (min-width: 1024px) {
-  .quote-flow .desktop-payment-support { color: var(--quote-secondary-ink); }
+  html:not([data-mobile-d3]) .quote-flow .desktop-payment-support { color: var(--quote-secondary-ink); }
 }
 
 /* Homepage hero only: shared station/airport forms retain their existing presentation. */
@@ -2000,10 +2007,10 @@ main {
 .homepage-hero #passenger-luggage-section .form-label { line-height: 1.5; }
 /* hub desktop copy */ @media (min-width: 1200px) { [data-hub-quote] #passenger-luggage-section .form-label { line-height: 1.5; } }
 @media (min-width: 1024px) {
-  .homepage-hero [data-homepage-quote-scroll] {
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-scroll] {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .homepage-hero [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 2; }
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 2; }
 }
 /* hub desktop copy */ @media (min-width: 1200px) { [data-hub-quote] [data-homepage-quote-scroll] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 /* hub desktop copy */ @media (min-width: 1200px) { [data-hub-quote] [data-homepage-quote-scroll] > div:has(#dropoff) { grid-column: 2; } }
@@ -2067,31 +2074,31 @@ html:has(.cookie-consent-banner) {
    without scrolling — slimmer header, smaller heading/icons, tighter quote fields.
    Mobile and tablet are untouched. */
 @media (min-width: 1024px) {
-  header .quote-header-logo { height: 5rem; }
-  header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-  header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
-  section.homepage-hero { padding-top: 5.25rem; }
-  .homepage-hero .homepage-hero-layout { padding-top: 0.6rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
-  .homepage-hero h1 { font-size: 1.95rem; line-height: 1.1; }
-  .homepage-hero-copy > p { margin-top: 0.25rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
-  .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.4rem; }
-  .homepage-hero .quote-flow.glass-card[data-quote-presentation] { padding: 0.75rem 1rem; }
-  .homepage-hero .hero-benefit-icon { height: 1.6rem; width: 1.6rem; }
-  .homepage-hero .hero-benefits-row svg { height: 1rem; width: 1rem; }
-  .homepage-hero .hero-benefit-label { font-size: 0.75rem; }
-  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.35rem; }
-  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child h2 { font-size: 1.35rem; line-height: 1.2; }
-  .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child p { display: none; }
+  html:not([data-mobile-d3]) header .quote-header-logo { height: 5rem; }
+  html:not([data-mobile-d3]) header .desktop-shell.lg\:grid { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  html:not([data-mobile-d3]) header .hidden.md\:block > div { padding-top: 0.2rem; padding-bottom: 0.2rem; font-size: 0.75rem; }
+  html:not([data-mobile-d3]) section.homepage-hero { padding-top: 5.25rem; }
+  html:not([data-mobile-d3]) .homepage-hero .homepage-hero-layout { padding-top: 0.6rem; padding-bottom: 1.5rem; row-gap: 0.5rem; }
+  html:not([data-mobile-d3]) .homepage-hero h1 { font-size: 1.95rem; line-height: 1.1; }
+  html:not([data-mobile-d3]) .homepage-hero-copy > p { margin-top: 0.25rem; font-size: 0.95rem; line-height: 1.35; max-width: 46rem; white-space: nowrap; }
+  html:not([data-mobile-d3]) .homepage-hero .hero-benefits-row { margin-top: 0; margin-bottom: 0.4rem; }
+  html:not([data-mobile-d3]) .homepage-hero .quote-flow.glass-card[data-quote-presentation] { padding: 0.75rem 1rem; }
+  html:not([data-mobile-d3]) .homepage-hero .hero-benefit-icon { height: 1.6rem; width: 1.6rem; }
+  html:not([data-mobile-d3]) .homepage-hero .hero-benefits-row svg { height: 1rem; width: 1rem; }
+  html:not([data-mobile-d3]) .homepage-hero .hero-benefit-label { font-size: 0.75rem; }
+  html:not([data-mobile-d3]) .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.35rem; }
+  html:not([data-mobile-d3]) .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child h2 { font-size: 1.35rem; line-height: 1.2; }
+  html:not([data-mobile-d3]) .homepage-hero .quote-flow.glass-card[data-quote-presentation] > div:first-child p { display: none; }
   /* Labels the layout makes obvious stay available to screen readers. */
-  .homepage-hero [data-homepage-quote-fields] p.form-label.mb-1,
-  .homepage-hero [data-homepage-quote-fields] p.form-label.sm\:not-sr-only {
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] p.form-label.mb-1,
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] p.form-label.sm\:not-sr-only {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
-  .homepage-hero [data-homepage-quote-fields] button.min-h-11 { min-height: 2.375rem; height: 2.375rem; }
-  .homepage-hero [data-homepage-quote-fields] input.address-input,
-  .homepage-hero [data-homepage-quote-fields] input.quote-datetime-input,
-  .homepage-hero [data-homepage-quote-fields] select { height: 2.375rem; min-height: 2.375rem; line-height: 2.375rem; }
-  .homepage-hero [data-homepage-quote-fields] .btn-primary.min-h-12 { min-height: 2.75rem; }
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] button.min-h-11 { min-height: 2.375rem; height: 2.375rem; }
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] input.address-input,
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] input.quote-datetime-input,
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] select { height: 2.375rem; min-height: 2.375rem; line-height: 2.375rem; }
+  html:not([data-mobile-d3]) .homepage-hero [data-homepage-quote-fields] .btn-primary.min-h-12 { min-height: 2.75rem; }
 }
 /* hub desktop copy */ @media (min-width: 1200px) { [data-hub-quote] .quote-flow.glass-card[data-quote-presentation] { padding: 0.75rem 1rem; } }
 /* hub desktop copy */ @media (min-width: 1200px) { [data-hub-quote] .quote-flow.glass-card[data-quote-presentation] > div:first-child { margin-bottom: 0.35rem; } }
@@ -2108,138 +2115,138 @@ html:has(.cookie-consent-banner) {
    Vehicle options become one row of tiles; the price card drops the duplicate
    vehicle heading/photo and tightens its reassurance lines. Mobile untouched. */
 @media (min-width: 1024px) {
-  .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [role="list"] { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   /* Only vehicles that suit the party: the minibus is hidden when a car fits. */
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: none; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] { padding: 0.3rem 0.45rem !important; border-radius: 0.9rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-not-needed="true"] { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] { padding: 0.3rem 0.45rem !important; border-radius: 0.9rem; }
   /* Each tile: car on top, name and capacity centred underneath, tick in the corner. */
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] { display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.1rem; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { position: absolute; top: 0; right: 0; height: 1.1rem !important; width: 1.1rem !important; font-size: 0.65rem; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 2.1rem; width: 4.5rem; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span { line-height: 1.15; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 0.85rem; }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.72rem; }
-  .quote-flow [data-quote-vehicle-categories] [data-quote-vehicle-options-heading] { margin-bottom: 0.15rem; }
-  .quote-flow [data-quote-result-card] { padding-top: 0.6rem; padding-bottom: 0.6rem; }
-  .quote-flow [data-quote-result-card] [data-quote-vehicle-summary] { display: none; }
-  .quote-flow [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-layout] { display: flex !important; flex-direction: column; align-items: center; position: relative; gap: 0.1rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] { width: 100%; text-align: center; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { position: absolute; top: 0; right: 0; height: 1.1rem !important; width: 1.1rem !important; font-size: 0.65rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-art-size="option"] { height: 2.1rem; width: 4.5rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span { line-height: 1.15; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.flex { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-name] { font-size: 0.85rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-option-copy] > span.mt-0\.5 { font-size: 0.72rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-quote-vehicle-options-heading] { margin-bottom: 0.15rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-vehicle-summary] { display: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] > div.mt-1.min-w-0.text-center *:not([data-quote-result-price]):not([data-quote-result-price] *):not(button):not(button *):not([data-quote-assurance]) {
     font-size: 0.72rem; line-height: 1.25; margin-top: 0;
   }
-  .quote-flow [data-quote-result-card] [data-quote-result-price] span { font-size: 2rem; line-height: 1.1; }
-  .quote-flow [data-quote-result-card] [data-quote-reassurance] { text-align: center; }
-  .quote-flow [data-quote-result-card] [data-quote-reassurance] p.flex { justify-content: center; }
-  .quote-flow [data-business-class-upgrade] { padding-top: 0.4rem; padding-bottom: 0.4rem; }
-  .quote-flow [data-quote-result-actions] button,
-  .quote-flow [data-quote-result-actions] a { min-height: 2.6rem !important; padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-result-price] span { font-size: 2rem; line-height: 1.1; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-reassurance] { text-align: center; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-reassurance] p.flex { justify-content: center; }
+  html:not([data-mobile-d3]) .quote-flow [data-business-class-upgrade] { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-actions] button,
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-actions] a { min-height: 2.6rem !important; padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
 }
 
 
 /* Desktop: a slower, noticeable change when the customer picks another vehicle. */
 @media (min-width: 1024px) {
-  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: quote-vehicle-change-desktop 1100ms ease-out both; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: quote-vehicle-change-desktop 1100ms ease-out both; }
   @keyframes quote-vehicle-change-desktop {
     0% { opacity: 0; transform: translateY(8px); }
     35% { opacity: 0.35; }
     100% { opacity: 1; transform: none; }
   }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-category] {
     transition: border-color 450ms ease, box-shadow 450ms ease, background-color 450ms ease;
   }
-  .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { transition: background-color 450ms ease, border-color 450ms ease; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-vehicle-categories] [data-vehicle-selection-indicator] { transition: background-color 450ms ease, border-color 450ms ease; }
 }
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
-  .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: none; }
+  html:not([data-mobile-d3]) .quote-flow [data-quote-result-card] [data-quote-changing-info] { animation: none; }
 }
 
 /* Desktop: on Complete your booking the boxes to fill in fit a laptop screen (same width
    as the quote tool); the summary and payment follow below and the page scrolls to them
    once the boxes are filled. Mobile and tablet are untouched. */
 @media (min-width: 1024px) {
-  .quote-flow:has(#step2-travel-details) { padding: 0.6rem 1.25rem 0.75rem; }
-  .quote-flow:has(#step2-travel-details) > div:first-child {
+  html:not([data-mobile-d3]) .quote-flow:has(#step2-travel-details) { padding: 0.6rem 1.25rem 0.75rem; }
+  html:not([data-mobile-d3]) .quote-flow:has(#step2-travel-details) > div:first-child {
     display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem;
   }
-  .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1rem; }
-  .quote-flow:has(#step2-travel-details) > div:first-child [data-back-to-quote] { margin-top: 0; }
+  html:not([data-mobile-d3]) .quote-flow:has(#step2-travel-details) > div:first-child h2 { font-size: 1rem; }
+  html:not([data-mobile-d3]) .quote-flow:has(#step2-travel-details) > div:first-child [data-back-to-quote] { margin-top: 0; }
 
-  #quoteForm:has(> #step2-travel-details) > [data-back-to-quote] { display: none; }
-  #step2-travel-details { display: contents; }
-  #step2-travel-details > * { break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.6rem; }
-  #step2-travel-details > h2[data-booking-nav-heading] {
+  html:not([data-mobile-d3]) #quoteForm:has(> #step2-travel-details) > [data-back-to-quote] { display: none; }
+  html:not([data-mobile-d3]) #step2-travel-details { display: contents; }
+  html:not([data-mobile-d3]) #step2-travel-details > * { break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.6rem; }
+  html:not([data-mobile-d3]) #step2-travel-details > h2[data-booking-nav-heading] {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
 
   /* Smaller fields, details two-up. */
-  #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; }
-  #step2-travel-details input.quote-text-input:not([type="checkbox"]),
-  #step2-travel-details .quote-datetime-shell,
-  #step2-travel-details .quote-datetime-shell input { height: 2.5rem; min-height: 2.5rem; }
-  #step2-travel-details .form-label { margin-bottom: 0.2rem; }
-  #step3-customer-details > div.space-y-3 {
+  html:not([data-mobile-d3]) #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; }
+  html:not([data-mobile-d3]) #step2-travel-details input.quote-text-input:not([type="checkbox"]),
+  html:not([data-mobile-d3]) #step2-travel-details .quote-datetime-shell,
+  html:not([data-mobile-d3]) #step2-travel-details .quote-datetime-shell input { height: 2.5rem; min-height: 2.5rem; }
+  html:not([data-mobile-d3]) #step2-travel-details .form-label { margin-bottom: 0.2rem; }
+  html:not([data-mobile-d3]) #step3-customer-details > div.space-y-3 {
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 0.9rem; row-gap: 0.55rem; align-items: start;
   }
-  #step3-customer-details > div.space-y-3 > * { margin-top: 0 !important; }
-  #step3-customer-details [data-child-seat-options] { width: 100%; }
-  #step3-customer-details [data-child-seat-options] button { min-height: 2.5rem; height: 2.5rem; }
-  #step3-customer-details #child-seat-availability,
-  #step3-customer-details p.mt-1\.5 { margin-top: 0.3rem; font-size: 0.68rem; line-height: 1.3; }
+  html:not([data-mobile-d3]) #step3-customer-details > div.space-y-3 > * { margin-top: 0 !important; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-child-seat-options] { width: 100%; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-child-seat-options] button { min-height: 2.5rem; height: 2.5rem; }
+  html:not([data-mobile-d3]) #step3-customer-details #child-seat-availability,
+  html:not([data-mobile-d3]) #step3-customer-details p.mt-1\.5 { margin-top: 0.3rem; font-size: 0.68rem; line-height: 1.3; }
 
   /* Summary and payment, tightened. */
-  #step2-journey-summary > * { padding-top: 0.6rem; padding-bottom: 0.55rem; }
-  #step2-journey-summary > * > p.mt-1 { margin-top: 0.15rem; }
-  #step2-journey-summary [data-checkout-summary-controls] { margin-top: 0.15rem; }
-  #step2-journey-summary [data-checkout-summary-controls] summary,
-  #step2-journey-summary [data-checkout-summary-controls] button { min-height: 0; padding-block: 0.1rem; }
-  #step3-payment-actions { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1rem; align-items: center; margin-top: 0.6rem !important; }
-  #step3-payment-actions > * { grid-column: 1 / -1; margin-top: 0.45rem !important; }
-  #step3-payment-actions > *:first-child { margin-top: 0 !important; }
-  #step3-payment-actions > .sr-only { position: absolute; }
-  #step3-payment-actions > div > * { margin-bottom: 0 !important; }
-  #step3-payment-actions > div > * + * { margin-top: 0.4rem !important; }
-  #step3-payment-actions label { font-size: 0.8rem; line-height: 1.35; }
-  #step3-payment-actions label.min-h-11 { min-height: 0; padding-top: 0.25rem; padding-bottom: 0.25rem; }
-  #step3-payment-actions .btn-pay { min-height: 2.6rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  html:not([data-mobile-d3]) #step2-journey-summary > * { padding-top: 0.6rem; padding-bottom: 0.55rem; }
+  html:not([data-mobile-d3]) #step2-journey-summary > * > p.mt-1 { margin-top: 0.15rem; }
+  html:not([data-mobile-d3]) #step2-journey-summary [data-checkout-summary-controls] { margin-top: 0.15rem; }
+  html:not([data-mobile-d3]) #step2-journey-summary [data-checkout-summary-controls] summary,
+  html:not([data-mobile-d3]) #step2-journey-summary [data-checkout-summary-controls] button { min-height: 0; padding-block: 0.1rem; }
+  html:not([data-mobile-d3]) #step3-payment-actions { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1rem; align-items: center; margin-top: 0.6rem !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions > * { grid-column: 1 / -1; margin-top: 0.45rem !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions > *:first-child { margin-top: 0 !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions > .sr-only { position: absolute; }
+  html:not([data-mobile-d3]) #step3-payment-actions > div > * { margin-bottom: 0 !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions > div > * + * { margin-top: 0.4rem !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions label { font-size: 0.8rem; line-height: 1.35; }
+  html:not([data-mobile-d3]) #step3-payment-actions label.min-h-11 { min-height: 0; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  html:not([data-mobile-d3]) #step3-payment-actions .btn-pay { min-height: 2.6rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
   /* "Email my quote" and "Start over" share one line. */
-  #step3-payment-actions > button.w-full.text-xs { grid-column: 1; width: auto; justify-self: end; }
-  #step3-payment-actions > [data-start-new-quote-controls] { grid-column: 2; justify-self: start; margin-top: 0.4rem !important; }
-  #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; font-size: 0.75rem; }
+  html:not([data-mobile-d3]) #step3-payment-actions > button.w-full.text-xs { grid-column: 1; width: auto; justify-self: end; }
+  html:not([data-mobile-d3]) #step3-payment-actions > [data-start-new-quote-controls] { grid-column: 2; justify-self: start; margin-top: 0.4rem !important; }
+  html:not([data-mobile-d3]) #step3-payment-actions > [data-start-new-quote-controls] button { min-height: 0; font-size: 0.75rem; }
 }
 
 /* Desktop booking screen, airport pickups: flight number heads the right-hand column,
    Meet & Greet offer spans the details area, both tightened. */
 @media (min-width: 1024px) {
-  #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; font-size: 0.7rem; line-height: 1.1; }
-  #step3-customer-details [data-booking-meet-greet] { grid-column: 1 / -1; order: 10; padding: 0.55rem 0.75rem; }
-  #step3-customer-details [data-booking-meet-greet] p.text-xs { font-size: 0.7rem; line-height: 1.3; }
-  #step3-customer-details [data-booking-meet-greet] label.min-h-11 { min-height: 0; padding-top: 0.3rem; }
-  #step2-travel-details #step2-flight-details { padding: 0.55rem 0.75rem; }
-  #step2-travel-details #step2-flight-details .quote-helper-text { font-size: 0.68rem; line-height: 1.3; margin-top: 0.3rem; }
-  #step2-travel-details #step2-flight-details input { height: 2.5rem; min-height: 2.5rem; }
+  html:not([data-mobile-d3]) #step2-travel-details [data-quote-schedule] p.min-h-\[1\.1rem\] { min-height: 0; font-size: 0.7rem; line-height: 1.1; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] { grid-column: 1 / -1; order: 10; padding: 0.55rem 0.75rem; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] p.text-xs { font-size: 0.7rem; line-height: 1.3; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] label.min-h-11 { min-height: 0; padding-top: 0.3rem; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details { padding: 0.55rem 0.75rem; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details .quote-helper-text { font-size: 0.68rem; line-height: 1.3; margin-top: 0.3rem; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details input { height: 2.5rem; min-height: 2.5rem; }
   /* Date and time were chosen on the first screen and show in the summary (Edit journey
      changes them), so the boxes only reappear if something needs fixing. */
-  #step2-travel-details [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid)) { display: none; }
+  html:not([data-mobile-d3]) #step2-travel-details [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid)) { display: none; }
 }
 
 /* Desktop booking screen: final tightening so airport pickups with a return fit too. */
 @media (min-width: 1024px) {
-  .quote-flow:has(#step2-travel-details) { padding-bottom: 0.5rem; }
-  #step2-travel-details > * { margin-bottom: 0.5rem; }
-  #step3-customer-details > p[data-booking-nav-heading] { margin-bottom: 0.35rem; }
-  #step3-customer-details > * + * { margin-top: 0.35rem !important; }
-  #step2-travel-details #step2-flight-details > div:first-child:not(.quote-field) { display: none; }
-  #step2-travel-details #step2-flight-details > * + * { margin-top: 0 !important; }
-  #step2-travel-details #step2-flight-details label { margin-bottom: 0.25rem; }
-  #step3-customer-details [data-booking-meet-greet] h3 { display: inline; }
-  #step3-customer-details [data-booking-meet-greet] h3 + p { display: inline; margin-left: 0.5rem; color: rgb(52 211 153); }
-  #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
-  #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
+  html:not([data-mobile-d3]) .quote-flow:has(#step2-travel-details) { padding-bottom: 0.5rem; }
+  html:not([data-mobile-d3]) #step2-travel-details > * { margin-bottom: 0.5rem; }
+  html:not([data-mobile-d3]) #step3-customer-details > p[data-booking-nav-heading] { margin-bottom: 0.35rem; }
+  html:not([data-mobile-d3]) #step3-customer-details > * + * { margin-top: 0.35rem !important; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details > div:first-child:not(.quote-field) { display: none; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details > * + * { margin-top: 0 !important; }
+  html:not([data-mobile-d3]) #step2-travel-details #step2-flight-details label { margin-bottom: 0.25rem; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] h3 { display: inline; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] h3 + p { display: inline; margin-left: 0.5rem; color: rgb(52 211 153); }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] h3 + p::before { content: "· "; }
+  html:not([data-mobile-d3]) #step3-customer-details [data-booking-meet-greet] h3 + p + p { margin-top: 0.2rem; }
 }
 
 /* Desktop booking screen: the offers tick box lines up under the terms tick box. */
 @media (min-width: 1024px) {
-  #step3-payment-actions > label { padding-left: calc(1rem + 0.8px); padding-right: 1rem; }
+  html:not([data-mobile-d3]) #step3-payment-actions > label { padding-left: calc(1rem + 0.8px); padding-right: 1rem; }
 }
 
 
@@ -2379,7 +2386,7 @@ html:has(.cookie-consent-banner) {
 /* Desktop only: a compact card in the bottom-right corner with a lighter dim,
    so the page and quote form stay readable behind it. Mobile and tablet unchanged. */
 @media (min-width: 1024px) {
-  .cookie-consent-banner.cookie-consent-banner--modal {
+  html:not([data-mobile-d3]) .cookie-consent-banner.cookie-consent-banner--modal {
     top: auto;
     left: auto;
     right: 1.5rem;
@@ -2390,26 +2397,26 @@ html:has(.cookie-consent-banner) {
     border-radius: 1rem;
   }
 
-  .cookie-consent-banner--modal .cookie-consent-inner {
+  html:not([data-mobile-d3]) .cookie-consent-banner--modal .cookie-consent-inner {
     gap: 1rem;
   }
 
-  .cookie-consent-banner--modal .cookie-consent-copy {
+  html:not([data-mobile-d3]) .cookie-consent-banner--modal .cookie-consent-copy {
     font-size: 0.9375rem;
     line-height: 1.5;
   }
 
-  .cookie-consent-banner--modal .cookie-consent-actions {
+  html:not([data-mobile-d3]) .cookie-consent-banner--modal .cookie-consent-actions {
     gap: 0.625rem;
   }
 
-  .cookie-consent-banner--modal .cookie-consent-actions .btn-primary,
-  .cookie-consent-banner--modal .cookie-consent-actions .btn-secondary {
+  html:not([data-mobile-d3]) .cookie-consent-banner--modal .cookie-consent-actions .btn-primary,
+  html:not([data-mobile-d3]) .cookie-consent-banner--modal .cookie-consent-actions .btn-secondary {
     min-height: 2.75rem;
     font-size: 0.9375rem;
   }
 
-  [data-cookie-consent-overlay] {
+  html:not([data-mobile-d3]) [data-cookie-consent-overlay] {
     background-color: rgba(2, 8, 20, 0.35);
     backdrop-filter: none;
   }
@@ -2789,13 +2796,13 @@ body:has(.cookie-consent-banner--modal) {
    wrapper is display: contents, so these rules keep the 1024–1199px layout exactly as it
    was when they were direct children of the form / travel details. */
 @media (min-width: 1024px) {
-  [data-checkout-aside] > [data-back-to-quote] { display: none; }
-  :where([data-checkout-aside] > :not(:last-child)) { margin-block-end: 0.75rem; }
-  [data-checkout-aside] > #step2-journey-summary,
-  [data-checkout-aside] > #customer-smart-availability-blocked {
+  html:not([data-mobile-d3]) [data-checkout-aside] > [data-back-to-quote] { display: none; }
+  html:not([data-mobile-d3]) :where([data-checkout-aside] > :not(:last-child)) { margin-block-end: 0.75rem; }
+  html:not([data-mobile-d3]) [data-checkout-aside] > #step2-journey-summary,
+  html:not([data-mobile-d3]) [data-checkout-aside] > #customer-smart-availability-blocked {
     break-inside: avoid; margin-top: 0 !important; margin-bottom: 0.5rem;
   }
-  #step2-journey-summary > * > [data-checkout-summary-details] > p.mt-1 { margin-top: 0.15rem; }
+  html:not([data-mobile-d3]) #step2-journey-summary > * > [data-checkout-summary-details] > p.mt-1 { margin-top: 0.15rem; }
 }
 
 /* ==========================================================================
@@ -5183,7 +5190,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @media (max-width: 359px) { a[data-call-us-pill="compact"] { width: 2.75rem; padding: 0; justify-content: center; } a[data-call-us-pill="compact"] [data-phone-label] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
 /* Smaller laptops (1024-1279px): the label steps aside so the bar never crowds; the number stays. */
 @media (min-width: 1024px) and (max-width: 1279px) {
-  a[data-call-us-pill="header"] [data-phone-label] { display: none; }
+  html:not([data-mobile-d3]) a[data-call-us-pill="header"] [data-phone-label] { display: none; }
 }
 
 /* Stage 2 contrast fixes (from the page sweep): small green text on white/off-white uses the
