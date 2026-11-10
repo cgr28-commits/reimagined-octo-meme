@@ -6670,6 +6670,13 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
   html[data-mobile-d3] .homepage-hero-layout > .homepage-hero-copy { order: -1 !important; }
 }
 
+/* Phones and tablets (light designs): the area above the header (iPhone status bar, and the
+   space shown when the page is pulled down) stays the site's navy, not white. The page itself
+   keeps its light background. */
+@layer base {
+  html:root:root[data-mobile-light] { background-color: #071c38 !important; }
+}
+
 /* Mobile menu logo: the menu panel is light under the mobile design, so show the
    navy-text logo there (the white header logo disappears on a pale background). */
 html[data-mobile-light] [aria-label="Site menu"] .menu-logo-dark { display: none !important; }
