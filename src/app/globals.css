@@ -6485,9 +6485,19 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 /* Design 3: completed steps in the top progress line are tappable. */
 @layer base {
   @media (max-width: 1199.98px) {
-    html[data-mobile-d3] [data-mobile-steps] button[data-d3-step-link] { display: inline-flex; align-items: center; gap: inherit; min-height: 44px; padding: 0 .25rem; margin: 0 -.25rem; font: inherit; color: inherit; background: none; border: 0; border-radius: .5rem; cursor: pointer; text-decoration: underline; text-decoration-color: #2fbf4a; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+    html[data-mobile-d3] [data-mobile-steps] button[data-d3-step-link] { display: inline-flex; align-items: center; gap: inherit; min-height: 44px; padding: 0; margin: 0; font: inherit; white-space: nowrap; color: inherit; background: none; border: 0; border-radius: .5rem; cursor: pointer; text-decoration: underline; text-decoration-color: #2fbf4a; text-decoration-thickness: 2px; text-underline-offset: 4px; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li > button[data-d3-step-link] > span { width: 1.375rem; height: 1.375rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 800; border: 1.5px solid #2fbf4a; background: #2fbf4a; color: #071c38; text-decoration: none; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li[data-step-state="done"] { color: #071c38 !important; }
     html[data-mobile-d3] [data-mobile-steps] button[data-d3-step-link]:focus-visible { outline: 3px solid #071c38; outline-offset: 2px; }
+  }
+}
+
+/* Design 3: details step clears the fixed header so the progress line is visible; labels fit. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] .homepage-hero:has(.quote-flow[data-d2="details"]) { padding-top: 4.5rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .3rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { white-space: nowrap; font-size: .8125rem; gap: .3rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { width: .6rem !important; }
   }
 }
