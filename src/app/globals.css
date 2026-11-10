@@ -6760,3 +6760,12 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     html:root:root[data-mobile-d3] [data-d3-time-v2][data-d3-time-sheet] { max-width: 420px; border-radius: 1.25rem; padding-bottom: 1.1rem; box-shadow: 0 20px 50px rgba(7,28,56,.3); }
   }
 }
+
+/* Light designs: the phone's date/time pop-up calendar uses its light (white) style to match
+   the light booking form, instead of the dark style kept from the old navy design. */
+@layer base {
+  html:root[data-mobile-light] .quote-flow :is(input, select, textarea) { color-scheme: light !important; }
+  @media (min-width: 1200px) {
+    html:root:not([data-mobile-light]) .quote-flow :is(input[type="date"], input[type="time"]) { color-scheme: light !important; }
+  }
+}
