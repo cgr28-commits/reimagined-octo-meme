@@ -6695,3 +6695,25 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important;
   }
 }
+
+/* Design 3 (phones and tablets): navy band under the header. The heading sits on navy
+   (white text, green "Airport Transfers"), and the white quote card overlaps the band's
+   bottom edge; the rest of the page stays light. On later booking steps (no heading) a
+   shorter navy band still sits behind the top of the card. */
+@layer base {
+  html:root[data-mobile-d3] section.homepage-hero { position: relative; }
+  html:root[data-mobile-d3] section.homepage-hero::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4.5rem;
+    background: #071c38; pointer-events: none;
+  }
+  html:root[data-mobile-d3] section.homepage-hero .homepage-hero-layout { position: relative; z-index: 1; }
+  html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy {
+    background: #071c38;
+    box-shadow: 0 0 0 100vmax #071c38;
+    clip-path: inset(-100vmax -100vmax -3.25rem -100vmax);
+  }
+  html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1,
+  html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1 > span:first-child { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+  html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1 > span + span { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; }
+  html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy > p { color: #d6dee8 !important; -webkit-text-fill-color: #d6dee8 !important; }
+}
