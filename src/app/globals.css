@@ -6465,3 +6465,19 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     html[data-mobile-d3] [data-homepage-quote-fields] [data-homepage-inline-schedule] { margin-top: .5rem; }
   }
 }
+
+/* Design 3: softer, cleaner "not ready yet" state for Get My Fixed Price. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] [data-d2] button[data-get-fixed-price]:disabled {
+      background: #e9f6ed !important;
+      border: 1.5px solid #bfe4c9 !important;
+      border-style: solid !important;
+      color: #16803c !important;
+      -webkit-text-fill-color: #16803c;
+      opacity: 1 !important;
+      box-shadow: none !important;
+      cursor: not-allowed;
+    }
+  }
+}
