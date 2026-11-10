@@ -6084,8 +6084,13 @@ function QuoteCard({
       const bookingHeading = cardRef.current?.querySelector<HTMLElement>(
         '[data-site-nav-heading="quote"]',
       );
+      // Mobile Design 3: stop with the progress line (Journey / Vehicle / Details & Payment) just
+      // below the fixed header, so it stays visible and tappable.
+      const design3Steps = mobileDesign3
+        ? cardRef.current?.querySelector<HTMLElement>("[data-mobile-steps]")
+        : null;
       return scheduleBookTransferGlide(
-        introduction ?? bookingHeading ?? cardRef.current ?? step2TravelDetailsRef.current ?? "step2-travel-details",
+        design3Steps ?? introduction ?? bookingHeading ?? cardRef.current ?? step2TravelDetailsRef.current ?? "step2-travel-details",
       );
     }
     const element =
@@ -6098,7 +6103,7 @@ function QuoteCard({
       focusHeading: true,
       correctAfterMs: 150,
     });
-  }, [quoteStep, presentation, homepagePolish]);
+  }, [quoteStep, presentation, homepagePolish, mobileDesign3]);
 
   // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
