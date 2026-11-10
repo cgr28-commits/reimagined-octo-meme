@@ -1151,6 +1151,8 @@ function QuoteCard({
   /** Worker quote finished without a fare — only then may the loaded client engine paint. */
   const [serverQuoteUnavailable, setServerQuoteUnavailable] = useState(false);
   const serverQuoteGenRef = useRef(0);
+  /** Fare key already given one automatic silent retry (a dropped or raced request must not leave "Price unavailable"). */
+  const quoteAutoRetryKeyRef = useRef<string | null>(null);
   const quoteVehicleRef = useRef("");
   const customerPickedVehicleRef = useRef(false);
   const preferMinibusPartyKeyRef = useRef("");
@@ -2617,6 +2619,22 @@ function QuoteCard({
     }
     const requestGen = ++serverQuoteGenRef.current;
     const selectedKey = fareKeyFor(requestedVehicle);
+    const retrySelectedFareOnce = async (): Promise<boolean> => {
+      if (quoteAutoRetryKeyRef.current === selectedKey) return false;
+      quoteAutoRetryKeyRef.current = selectedKey;
+      quoteFareInflightRef.current.delete(selectedKey);
+      setServerQuoteUnavailable(false);
+      setVehicleFareUpdating(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 800));
+      if (
+        signal?.aborted ||
+        requestGen !== serverQuoteGenRef.current ||
+        requestedVehicle !== quoteVehicleRef.current
+      ) {
+        return true;
+      }
+      return refreshAuthoritativeServerQuoteRef.current(true, signal);
+    };
     if (force) quoteFareInflightRef.current.delete(selectedKey);
     try {
       quoteFareTimingRef.current.requestAt =
@@ -2725,6 +2743,7 @@ function QuoteCard({
         }
         setServerQuoteUnavailable(false);
         unsuitableFareRecoveryRef.current = "";
+        quoteAutoRetryKeyRef.current = null;
         if (typeof result.minimumBookingNoticeHours === "number") {
           setMinimumBookingNoticeHours(result.minimumBookingNoticeHours);
         }
@@ -2804,6 +2823,7 @@ function QuoteCard({
           return false;
         }
       }
+      if (await retrySelectedFareOnce()) return true;
       setServerFareParts(null);
       setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);
@@ -2811,13 +2831,17 @@ function QuoteCard({
     } catch (error) {
       const fetchAborted = error instanceof Error && error.name === "AbortError";
       if (
-        fetchAborted ||
         signal?.aborted ||
         requestGen !== serverQuoteGenRef.current ||
         requestedVehicle !== quoteVehicleRef.current
       ) {
         return false;
       }
+      // Still the current request, but the shared in-flight fetch it waited on was cancelled or
+      // dropped (e.g. by an earlier, now-replaced quote): fetch again rather than leave the
+      // customer on "Calculating…" or "Price unavailable".
+      if (await retrySelectedFareOnce()) return true;
+      if (fetchAborted) return false;
       setServerFareParts(null);
       setVehicleFareUpdating(false);
       setServerQuoteUnavailable(true);

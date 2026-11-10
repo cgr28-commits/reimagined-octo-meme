@@ -21,6 +21,8 @@ export type WebsitePromoPricingFields = {
   returnAirportAccessChargeGbp?: number;
   journeyFareAfterPromotionsGbp?: number;
   nightWeekendSurchargeGbp?: number;
+  /** Airport barrier / parking costs built into the transfer fare (e.g. Dublin £13 on a return). */
+  airportFixedCostsGbp?: number;
   finalAmountPayableGbp?: number;
 };
 
@@ -63,8 +65,46 @@ export function parseWebsitePromoPricingFields(
     returnAirportAccessChargeGbp: num("returnAirportAccessChargeGbp"),
     journeyFareAfterPromotionsGbp: num("journeyFareAfterPromotionsGbp"),
     nightWeekendSurchargeGbp: num("nightWeekendSurchargeGbp"),
+    airportFixedCostsGbp: num("airportFixedCostsGbp"),
     finalAmountPayableGbp: num("finalAmountPayableGbp"),
   };
+}
+
+/**
+ * Display-only: the journey fare row, plus the airport charges row, adjusted so the rows a
+ * customer sees add up to the amount charged. The amount payable rounds to whole pounds
+ * (e.g. £502.30 → £502), so that rounding is folded into the journey fare row, as on the
+ * quote page. Larger gaps are left alone (never hide a real difference).
+ */
+function displayJourneyRows(fields: WebsitePromoPricingFields): {
+  journeyGbp: number | undefined;
+  airportFixedGbp: number;
+} {
+  const journey =
+    typeof fields.originalEligibleJourneyPriceGbp === "number" &&
+    fields.originalEligibleJourneyPriceGbp > 0
+      ? fields.originalEligibleJourneyPriceGbp
+      : undefined;
+  const fixed = (fields.airportFixedCostsGbp ?? 0) > 0 ? (fields.airportFixedCostsGbp ?? 0) : 0;
+  if (journey == null || typeof fields.finalAmountPayableGbp !== "number") {
+    return { journeyGbp: journey, airportFixedGbp: fixed };
+  }
+  const access =
+    (fields.outboundAirportAccessChargeGbp ?? 0) > 0 || (fields.returnAirportAccessChargeGbp ?? 0) > 0
+      ? (fields.outboundAirportAccessChargeGbp ?? 0) + (fields.returnAirportAccessChargeGbp ?? 0)
+      : (fields.airportAccessChargeGbp ?? 0);
+  const shown =
+    journey -
+    (fields.returnJourneySavingGbp ?? 0) -
+    (fields.returnOfferSavingGbp ?? 0) +
+    (fields.nightWeekendSurchargeGbp ?? 0) +
+    fixed +
+    access;
+  const gap = Math.round((fields.finalAmountPayableGbp - shown) * 100) / 100;
+  if (gap !== 0 && Math.abs(gap) < 1) {
+    return { journeyGbp: Math.round((journey + gap) * 100) / 100, airportFixedGbp: fixed };
+  }
+  return { journeyGbp: journey, airportFixedGbp: fixed };
 }
 
 /** Customer-facing text lines for confirmation email / page (applied items only). */
@@ -74,11 +114,9 @@ export function formatCustomerPromoPricingLines(
 ): string[] {
   const lines: string[] = [];
   if (fields.meetGreetFeeGbp != null) lines.push(`Meet & Greet: ${formatGbpFare(fields.meetGreetFeeGbp)}`);
-  if (
-    typeof fields.originalEligibleJourneyPriceGbp === "number" &&
-    fields.originalEligibleJourneyPriceGbp > 0
-  ) {
-    lines.push(`Journey fare: ${formatGbpFare(fields.originalEligibleJourneyPriceGbp)}`);
+  const display = displayJourneyRows(fields);
+  if (display.journeyGbp != null) {
+    lines.push(`Journey fare: ${formatGbpFare(display.journeyGbp)}`);
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
@@ -94,6 +132,9 @@ export function formatCustomerPromoPricingLines(
     lines.push(
       `Evening / Night / Weekend surcharge: ${formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0)}`,
     );
+  }
+  if (display.airportFixedGbp > 0) {
+    lines.push(`Airport / barrier charges: ${formatGbpFare(display.airportFixedGbp)}`);
   }
   if (
     (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
@@ -133,13 +174,11 @@ export function formatCustomerPromoPricingHtmlRows(
 ): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
   if (fields.meetGreetFeeGbp != null) rows.push({ label: "Meet & Greet", value: formatGbpFare(fields.meetGreetFeeGbp) });
-  if (
-    typeof fields.originalEligibleJourneyPriceGbp === "number" &&
-    fields.originalEligibleJourneyPriceGbp > 0
-  ) {
+  const display = displayJourneyRows(fields);
+  if (display.journeyGbp != null) {
     rows.push({
       label: "Journey fare",
-      value: formatGbpFare(fields.originalEligibleJourneyPriceGbp),
+      value: formatGbpFare(display.journeyGbp),
     });
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
@@ -159,6 +198,9 @@ export function formatCustomerPromoPricingHtmlRows(
       label: "Evening / Night / Weekend surcharge",
       value: formatGbpFare(fields.nightWeekendSurchargeGbp ?? 0),
     });
+  }
+  if (display.airportFixedGbp > 0) {
+    rows.push({ label: "Airport / barrier charges", value: formatGbpFare(display.airportFixedGbp) });
   }
   if (
     (fields.outboundAirportAccessChargeGbp ?? 0) > 0 ||
