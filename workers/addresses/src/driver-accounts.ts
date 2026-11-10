@@ -27,6 +27,8 @@ export type DriverAccountsEnv = {
   DRIVER_DB?: D1Like;
 };
 
+export type DriverIdentity = { id: string; name: string; email: string; mobile: string };
+
 /** An upcoming confirmed booking the driver is assigned to (read-only view). */
 export type DriverUpcomingBooking = {
   reference: string;
@@ -35,7 +37,23 @@ export type DriverUpcomingBooking = {
   pickup: string;
   customerName: string;
   leg: "outbound" | "return";
+  /** "driver_id" = booking carries the permanent driver id; "contact" = older assignment matched by email/mobile. */
+  matchMethod?: "driver_id" | "contact";
+  /** Snapshot of the assignment as it stood when the alert was raised. */
+  assignment?: Record<string, string>;
 };
+
+/** Current state of a booking, read to verify what the owner reports. */
+export type BookingAssignmentCheck = {
+  found: boolean;
+  cancelled: boolean;
+  assignedToThisDriver: boolean;
+  /** Label of the driver now assigned instead, if any. */
+  otherDriver: string;
+};
+
+export const REVIEW_ITEM_STATUSES = ["needs_replacement", "replacement_confirmed", "cancelled", "acknowledged"] as const;
+export type ReviewItemStatus = (typeof REVIEW_ITEM_STATUSES)[number];
 
 export type DriverAccountsDeps = {
   ownerAuthorized: (request: Request) => boolean;
@@ -43,7 +61,9 @@ export type DriverAccountsDeps = {
    * Read-only lookup of upcoming confirmed bookings assigned to this driver.
    * Must never change a booking. Used to raise an owner alert on suspension.
    */
-  findUpcomingBookingsForDriver?: (driver: { id: string; name: string; email: string; mobile: string }) => Promise<DriverUpcomingBooking[]>;
+  findUpcomingBookingsForDriver?: (driver: DriverIdentity) => Promise<DriverUpcomingBooking[]>;
+  /** Read-only: the booking's current state, to verify "replacement confirmed" / "cancelled". */
+  checkBookingAssignment?: (reference: string, driver: DriverIdentity) => Promise<BookingAssignmentCheck>;
   corsHeaders: (origin: string | null) => HeadersInit;
   now?: () => Date;
   randomToken?: (prefix: string) => string;
@@ -382,6 +402,7 @@ export async function handleDriverAccountsRequest(
     now: deps.now ?? (() => new Date()),
     token: deps.randomToken ?? defaultRandomToken,
     findUpcomingBookingsForDriver: deps.findUpcomingBookingsForDriver,
+    checkBookingAssignment: deps.checkBookingAssignment,
   };
   try {
     if (url.pathname.startsWith("/owner/driver-accounts")) {
@@ -404,6 +425,7 @@ type Ctx = {
   now: () => Date;
   token: (prefix: string) => string;
   findUpcomingBookingsForDriver?: DriverAccountsDeps["findUpcomingBookingsForDriver"];
+  checkBookingAssignment?: DriverAccountsDeps["checkBookingAssignment"];
 };
 
 // ---------- owner routes ----------
@@ -641,6 +663,8 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
     return json({ ok: true }, 200, cors);
   }
 
+  // Only an alert with no listed bookings (the booking check itself failed) can be closed as a whole,
+  // and only with a recorded reason. Alerts that list bookings close when every booking is resolved.
   if (path === "/owner/driver-accounts/alerts/resolve" && request.method === "POST") {
     const body = await readJson(request);
     const alertId = text(body.alertId, 64);
@@ -651,11 +675,21 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
       .first<{ id: string; driver_id: string | null; kind: string; resolved_at: string | null }>();
     if (!alert) throw new HttpError(404, "Alert not found.");
     if (alert.resolved_at) return json({ ok: true }, 200, cors);
+    const items = await db.prepare("SELECT COUNT(*) AS n FROM owner_alert_items WHERE alert_id = ?").bind(alert.id).first<{ n: number }>();
+    if (Number(items?.n ?? 0) > 0) {
+      throw new HttpError(409, "Resolve each booking on this alert. It closes when every booking is resolved.");
+    }
+    if (note.length < 5) throw new HttpError(400, "Say what you checked. The reason is kept in the audit log.");
     await db.batch([
       db.prepare("UPDATE owner_alerts SET resolved_at = ?, resolution_note = ? WHERE id = ? AND resolved_at IS NULL").bind(at, note, alert.id),
-      auditStatement(db, at, "owner", "owner", "alert.reviewed", alert.driver_id, { alertId: alert.id, kind: alert.kind, note }),
+      auditStatement(db, at, "owner", "owner", "alert.acknowledged", alert.driver_id, { alertId: alert.id, kind: alert.kind, reason: note }),
     ]);
     return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/alerts/item" && request.method === "POST") {
+    const body = await readJson(request);
+    return json(await updateReviewItem(ctx, text(body.itemId, 64), text(body.status, 30), text(body.note, 300)), 200, cors);
   }
 
   if (path === "/owner/driver-accounts/audit" && request.method === "GET") {
@@ -702,11 +736,162 @@ function categoryLabel(category: string): string {
 
 type AlertRow = { id: string; kind: string; driver_id: string | null; title: string; detail: string; created_at: string };
 
+type ItemRow = {
+  id: string;
+  alert_id: string;
+  booking_reference: string;
+  leg: "outbound" | "return";
+  trip_date: string;
+  trip_time: string;
+  pickup: string;
+  customer_name: string;
+  match_method: "driver_id" | "contact";
+  original_driver_id: string;
+  original_driver_name: string;
+  original_assignment: string;
+  suspension_reason: string;
+  status: ReviewItemStatus;
+  status_note: string;
+  status_detail: string;
+  status_at: string | null;
+  created_at: string;
+};
+
+function itemView(r: ItemRow) {
+  return {
+    id: r.id,
+    reference: r.booking_reference,
+    leg: r.leg,
+    tripDate: r.trip_date,
+    tripTime: r.trip_time,
+    pickup: r.pickup,
+    customerName: r.customer_name,
+    matchMethod: r.match_method,
+    originalDriverId: r.original_driver_id,
+    originalDriverName: r.original_driver_name,
+    originalAssignment: safeParse(r.original_assignment),
+    suspensionReason: r.suspension_reason,
+    status: r.status,
+    statusNote: r.status_note,
+    statusDetail: safeParse(r.status_detail),
+    statusAt: r.status_at,
+  };
+}
+
 async function openAlerts(db: D1Like) {
   const rows = (await db
     .prepare("SELECT id, kind, driver_id, title, detail, created_at FROM owner_alerts WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT 50")
     .all<AlertRow>()).results ?? [];
-  return rows.map((r) => ({ id: r.id, kind: r.kind, driverId: r.driver_id, title: r.title, detail: safeParse(r.detail), createdAt: r.created_at }));
+  const out = [];
+  for (const r of rows) {
+    const items = (await db
+      .prepare("SELECT * FROM owner_alert_items WHERE alert_id = ? ORDER BY trip_date, trip_time")
+      .bind(r.id)
+      .all<ItemRow>()).results ?? [];
+    out.push({
+      id: r.id,
+      kind: r.kind,
+      driverId: r.driver_id,
+      title: r.title,
+      detail: safeParse(r.detail),
+      createdAt: r.created_at,
+      items: items.map(itemView),
+      unresolved: items.filter((i) => i.status === "needs_replacement").length,
+    });
+  }
+  return out;
+}
+
+const ITEM_STATUS_LABEL: Record<ReviewItemStatus, string> = {
+  needs_replacement: "Needs replacement",
+  replacement_confirmed: "Replacement confirmed",
+  cancelled: "Cancelled",
+  acknowledged: "Acknowledged",
+};
+
+/**
+ * Record what happened to one affected booking. Never changes the booking itself:
+ * "replacement confirmed" and "cancelled" are only accepted once the booking shows it.
+ */
+async function updateReviewItem(ctx: Ctx, itemId: string, status: string, note: string) {
+  const { db } = ctx;
+  const at = ctx.now().toISOString();
+  if (!(REVIEW_ITEM_STATUSES as readonly string[]).includes(status)) throw new HttpError(400, "Choose a status.");
+  const next = status as ReviewItemStatus;
+  const item = await db.prepare("SELECT * FROM owner_alert_items WHERE id = ?").bind(itemId).first<ItemRow>();
+  if (!item) throw new HttpError(404, "Booking not found on this alert.");
+  const alert = await db
+    .prepare("SELECT id, resolved_at FROM owner_alerts WHERE id = ?")
+    .bind(item.alert_id)
+    .first<{ id: string; resolved_at: string | null }>();
+  if (!alert) throw new HttpError(404, "Alert not found.");
+  if (item.status === next) return { ok: true, status: next, alertResolved: Boolean(alert.resolved_at) };
+  if (alert.resolved_at && next === "needs_replacement") {
+    throw new HttpError(409, "This alert is closed. Raise the booking again from its own page.");
+  }
+
+  let detail: Record<string, unknown> = {};
+  if (next === "acknowledged" || next === "needs_replacement") {
+    if (note.length < 5) throw new HttpError(400, "Give a reason. It is kept with the booking in the audit log.");
+  }
+  if (next === "replacement_confirmed" || next === "cancelled") {
+    if (!ctx.checkBookingAssignment) {
+      throw new HttpError(409, "Can't check the booking right now. Use Acknowledge with a reason instead.");
+    }
+    const driver = await getDriver(db, item.original_driver_id);
+    const check = await ctx.checkBookingAssignment(item.booking_reference, {
+      id: item.original_driver_id,
+      name: item.original_driver_name,
+      email: driver?.email ?? "",
+      mobile: driver?.mobile ?? "",
+    });
+    if (!check.found) throw new HttpError(409, "That booking can't be found. Use Acknowledge with a reason instead.");
+    if (next === "cancelled" && !check.cancelled) {
+      throw new HttpError(409, "The booking isn't cancelled. Cancel it from the booking first — nothing is cancelled automatically.");
+    }
+    if (next === "replacement_confirmed") {
+      if (check.cancelled) throw new HttpError(409, "The booking is cancelled. Choose Cancelled instead.");
+      if (check.assignedToThisDriver) {
+        throw new HttpError(409, `The booking is still assigned to ${item.original_driver_name}. Assign the new driver from the booking first.`);
+      }
+      if (!check.otherDriver) throw new HttpError(409, "No new driver is assigned on the booking yet. Assign one from the booking first.");
+    }
+    detail = { verified: true, otherDriver: check.otherDriver, cancelled: check.cancelled };
+  }
+
+  const statements = [
+    db
+      .prepare("UPDATE owner_alert_items SET status = ?, status_note = ?, status_detail = ?, status_at = ? WHERE id = ? AND status = ?")
+      .bind(next, note, JSON.stringify(detail), at, item.id, item.status),
+    auditStatement(db, at, "owner", "owner", "booking_review.updated", item.original_driver_id, {
+      alertId: item.alert_id,
+      itemId: item.id,
+      reference: item.booking_reference,
+      leg: item.leg,
+      from: item.status,
+      to: next,
+      note,
+      ...detail,
+    }),
+  ];
+  await db.batch(statements);
+
+  // Close the alert once no booking still needs a replacement.
+  const remaining = await db
+    .prepare("SELECT COUNT(*) AS n FROM owner_alert_items WHERE alert_id = ? AND status = 'needs_replacement'")
+    .bind(item.alert_id)
+    .first<{ n: number }>();
+  let alertResolved = Boolean(alert.resolved_at);
+  if (!alert.resolved_at && Number(remaining?.n ?? 0) === 0) {
+    await db.batch([
+      db
+        .prepare("UPDATE owner_alerts SET resolved_at = ?, resolution_note = 'Every booking resolved individually' WHERE id = ? AND resolved_at IS NULL")
+        .bind(at, item.alert_id),
+      auditStatement(db, at, "system", "", "alert.all_bookings_resolved", item.original_driver_id, { alertId: item.alert_id }),
+    ]);
+    alertResolved = true;
+  }
+  return { ok: true, status: next, statusLabel: ITEM_STATUS_LABEL[next], alertResolved };
 }
 
 function ownerDriverView(d: DriverRow) {
@@ -784,6 +969,7 @@ async function changeStatus(ctx: Ctx, driver: DriverRow, action: string, reason:
   if ((rule.to === "suspended" || rule.to === "removed") && driver.status === "approved") {
     let lookupFailed = false;
     try {
+      // Looked up by the permanent driver id first; email/mobile only for older assignments.
       reviewBookings = ctx.findUpcomingBookingsForDriver
         ? await ctx.findUpcomingBookingsForDriver({ id: driver.id, name: driver.name, email: driver.email, mobile: driver.mobile })
         : [];
@@ -800,10 +986,32 @@ async function changeStatus(ctx: Ctx, driver: DriverRow, action: string, reason:
       await db.batch([
         db
           .prepare("INSERT INTO owner_alerts (id, kind, driver_id, title, detail, created_at) VALUES (?, 'driver_bookings_review', ?, ?, ?, ?)")
-          .bind(alertId, driver.id, title, JSON.stringify({ bookings: reviewBookings, lookupFailed, reason }), at),
+          .bind(alertId, driver.id, title, JSON.stringify({ lookupFailed, reason, action: rule.to }), at),
+        ...reviewBookings.map((b) =>
+          db
+            .prepare(
+              "INSERT INTO owner_alert_items (id, alert_id, booking_reference, leg, trip_date, trip_time, pickup, customer_name, match_method, original_driver_id, original_driver_name, original_assignment, suspension_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(
+              newId("itm"),
+              alertId,
+              b.reference,
+              b.leg,
+              b.tripDate,
+              b.tripTime,
+              b.pickup,
+              b.customerName,
+              b.matchMethod ?? "contact",
+              driver.id,
+              driver.name,
+              JSON.stringify(b.assignment ?? {}),
+              reason,
+              at,
+            ),
+        ),
         auditStatement(db, at, "system", "", "alert.raised", driver.id, {
           alertId,
-          bookings: reviewBookings.map((b) => b.reference),
+          bookings: reviewBookings.map((b) => `${b.reference}:${b.leg}:${b.matchMethod ?? "contact"}`),
           lookupFailed,
         }),
       ]);

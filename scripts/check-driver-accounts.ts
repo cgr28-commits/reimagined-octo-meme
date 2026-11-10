@@ -5,9 +5,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { upcomingBookingsForDriver } from "../workers/addresses/src/driver-upcoming-bookings";
+import { checkBookingAssignment, upcomingBookingsForDriver } from "../workers/addresses/src/driver-upcoming-bookings";
 import {
   AI_RECEPTIONIST_DIGITS,
+  type BookingAssignmentCheck,
   type DriverUpcomingBooking,
   DRIVER_ACCOUNT_SESSION_HEADER,
   handleDriverAccountsRequest,
@@ -41,7 +42,7 @@ function d1(db: DatabaseSync): D1Like {
 }
 
 const sqlite = new DatabaseSync(":memory:");
-for (const file of ["0001_stage1_driver_accounts.sql", "0002_stage1_alerts_priority.sql"]) {
+for (const file of ["0001_stage1_driver_accounts.sql", "0002_stage1_alerts_priority.sql", "0003_stage1_booking_review_items.sql"]) {
   sqlite.exec(readFileSync(`workers/addresses/migrations/driver-db/${file}`, "utf8"));
 }
 const env = { DRIVER_DB: d1(sqlite) };
@@ -50,7 +51,11 @@ let clock = new Date("2026-11-10T12:00:00Z");
 let tokenN = 0;
 let bookingLookup: (d: { email: string }) => Promise<DriverUpcomingBooking[]> = async () => [];
 let lookupCalls = 0;
+/** Current booking state the stub reports (reference → check). Never written by the code under test. */
+const bookingState = new Map<string, BookingAssignmentCheck>();
 const deps = {
+  checkBookingAssignment: async (reference: string) =>
+    bookingState.get(reference) ?? { found: false, cancelled: false, assignedToThisDriver: false, otherDriver: "" },
   findUpcomingBookingsForDriver: (d: { id: string; name: string; email: string; mobile: string }) => {
     lookupCalls++;
     return bookingLookup(d);
@@ -289,9 +294,11 @@ async function refinements() {
   // 4 + 5 + 6 + 7. Suspension: reason required, audited with who/when, sessions revoked,
   // offers blocked, upcoming bookings raised for manual review, bookings untouched.
   const bookings: DriverUpcomingBooking[] = [
-    { reference: "MATNI-1201", tripDate: "2026-11-14", tripTime: "05:30", pickup: "Glengormley", customerName: "Niamh", leg: "outbound" },
-    { reference: "MATNI-1207", tripDate: "2026-11-20", tripTime: "14:10", pickup: "Return journey", customerName: "Paul", leg: "return" },
+    { reference: "MATNI-1201", tripDate: "2026-11-14", tripTime: "05:30", pickup: "Glengormley", customerName: "Niamh", leg: "outbound", matchMethod: "driver_id", assignment: { driverAccountId: a.id, assignmentStatus: "accepted" } },
+    { reference: "MATNI-1207", tripDate: "2026-11-20", tripTime: "14:10", pickup: "Return journey", customerName: "Paul", leg: "return", matchMethod: "driver_id", assignment: { driverAccountId: a.id, assignmentStatus: "accepted" } },
+    { reference: "MATNI-1215", tripDate: "2026-11-22", tripTime: "08:00", pickup: "Antrim", customerName: "Orla", leg: "outbound", matchMethod: "contact", assignment: { driverEmail: "aine@example.com", assignmentStatus: "pending" } },
   ];
+  for (const b of bookings) bookingState.set(b.reference, { found: true, cancelled: false, assignedToThisDriver: true, otherDriver: "" });
   const snapshot = JSON.stringify(bookings);
   bookingLookup = async (d) => (d.email === "aine@example.com" ? bookings : []);
   assert.equal((await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "suspend", reason: "" }, owner)).status, 400);
@@ -299,7 +306,7 @@ async function refinements() {
   const sus = await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "suspend", reason: "Insurance query" }, owner);
   assert.equal(sus.status, 200);
   assert.equal(lookupCalls, before + 1);
-  assert.equal(sus.body.reviewBookings.length, 2);
+  assert.equal(sus.body.reviewBookings.length, 3);
   assert.equal(JSON.stringify(bookings), snapshot, "bookings are only read");
   assert.equal((await call("GET", "/driver-portal/account/me", undefined, asDriver(a.session))).status, 401, "session revoked");
   detailA = await call("GET", `/owner/driver-accounts/detail?id=${a.id}`, undefined, owner);
@@ -314,18 +321,67 @@ async function refinements() {
   summary = await call("GET", "/owner/driver-accounts/summary", undefined, owner);
   const alert = summary.body.alerts.find((x: any) => x.driverId === a.id);
   assert.ok(alert, "alert raised");
-  assert.match(alert.title, /Aine Able was suspended with 2 upcoming bookings/);
-  assert.deepEqual(alert.detail.bookings.map((x: any) => x.reference), ["MATNI-1201", "MATNI-1207"]);
-  // Reinstating does not touch bookings or clear the alert; the owner marks it reviewed.
+  assert.match(alert.title, /Aine Able was suspended with 3 upcoming bookings/);
+  assert.deepEqual(alert.items.map((x: any) => `${x.reference}:${x.status}:${x.matchMethod}`), [
+    "MATNI-1201:needs_replacement:driver_id",
+    "MATNI-1207:needs_replacement:driver_id",
+    "MATNI-1215:needs_replacement:contact",
+  ]);
+  assert.equal(alert.unresolved, 3);
+  assert.equal(alert.items[0].originalDriverId, a.id);
+  assert.equal(alert.items[0].suspensionReason, "Insurance query");
+  const [i1, i2, i3] = alert.items.map((x: any) => x.id as string);
+  const item = (status: string, itemId: string, note = "") => call("POST", "/owner/driver-accounts/alerts/item", { itemId, status, note }, owner);
+
+  // No general "mark reviewed": an alert that lists bookings can't be closed as a whole.
+  assert.equal((await call("POST", "/owner/driver-accounts/alerts/resolve", { alertId: alert.id, note: "All sorted" }, owner)).status, 409);
+  // Reinstating the driver changes no booking and does not clear the alert.
   await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "reinstate" }, owner);
   assert.equal((await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts.length, 1);
-  assert.equal((await call("POST", "/owner/driver-accounts/alerts/resolve", { alertId: alert.id, note: "Moved to Brendan by hand" }, owner)).status, 200);
+
+  // Replacement confirmed only once the booking really has another driver.
+  let r = await item("replacement_confirmed", i1);
+  assert.equal(r.status, 409); assert.match(r.body.error, /still assigned to Aine Able/);
+  bookingState.set("MATNI-1201", { found: true, cancelled: false, assignedToThisDriver: false, otherDriver: "Brendan" });
+  r = await item("replacement_confirmed", i1);
+  assert.equal(r.status, 200); assert.equal(r.body.alertResolved, false);
+  // Cancelled only once the booking really is cancelled (nothing is cancelled automatically).
+  r = await item("cancelled", i2);
+  assert.equal(r.status, 409); assert.match(r.body.error, /isn't cancelled/);
+  bookingState.set("MATNI-1207", { found: true, cancelled: true, assignedToThisDriver: false, otherDriver: "" });
+  assert.equal((await item("cancelled", i2)).status, 200);
+  // Acknowledge needs a recorded reason.
+  assert.equal((await item("acknowledged", i3)).status, 400);
+  assert.equal((await item("bogus", i3)).status, 400);
+  let still = (await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts.find((x: any) => x.id === alert.id);
+  assert.equal(still.unresolved, 1, "alert stays while one booking is unresolved");
+  // Reopen needs a reason too; then acknowledge closes the alert automatically.
+  assert.equal((await item("needs_replacement", i1)).status, 400);
+  r = await item("acknowledged", i3, "Customer rebooked directly with another operator");
+  assert.equal(r.status, 200); assert.equal(r.body.alertResolved, true);
   assert.equal((await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts.length, 0);
+
+  // Originals are permanent: snapshot can't be edited or deleted; full history kept.
+  assert.throws(() => sqlite.exec(`UPDATE owner_alert_items SET original_driver_id = 'x' WHERE id = '${i1}'`), /permanent/);
+  assert.throws(() => sqlite.exec(`UPDATE owner_alert_items SET suspension_reason = '' WHERE id = '${i1}'`), /permanent/);
+  assert.throws(() => sqlite.exec("DELETE FROM owner_alert_items"), /permanent/);
+  assert.throws(() => sqlite.exec("DELETE FROM owner_alerts"), /permanent/);
+  const kept = sqlite.prepare("SELECT original_assignment, original_driver_name, status, status_note FROM owner_alert_items WHERE id = ?").get(i3) as any;
+  assert.equal(JSON.parse(kept.original_assignment).driverEmail, "aine@example.com");
+  assert.equal(kept.original_driver_name, "Aine Able");
+  assert.equal(kept.status_note, "Customer rebooked directly with another operator");
+  const hist = (sqlite.prepare("SELECT action, detail FROM audit_log WHERE action IN ('booking_review.updated','alert.raised','alert.all_bookings_resolved','driver.suspended') AND driver_id = ? ORDER BY seq").all(a.id) as any[]);
+  assert.deepEqual(hist.map((h) => h.action), ["driver.suspended", "alert.raised", "booking_review.updated", "booking_review.updated", "booking_review.updated", "alert.all_bookings_resolved"]);
+  assert.equal(JSON.parse(hist[2].detail).otherDriver, "Brendan");
+  assert.equal(JSON.stringify(bookings.map(({ reference, leg }) => ({ reference, leg }))), JSON.stringify(JSON.parse(snapshot).map(({ reference, leg }: any) => ({ reference, leg }))), "bookings are only read");
+
   // Lookup failure still raises an alert (never silently skipped).
   bookingLookup = async () => { throw new Error("KV down"); };
   await call("POST", "/owner/driver-accounts/status", { driverId: b.id, action: "suspend", reason: "Test" }, owner);
   const failAlert = (await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts[0];
   assert.match(failAlert.title, /check their upcoming bookings by hand/);
+  assert.equal((await call("POST", "/owner/driver-accounts/alerts/resolve", { alertId: failAlert.id }, owner)).status, 400, "reason required");
+  assert.equal((await call("POST", "/owner/driver-accounts/alerts/resolve", { alertId: failAlert.id, note: "Checked the calendar: no jobs" }, owner)).status, 200);
   // No booking-changing calls exist in the module.
   const src = readFileSync("workers/addresses/src/driver-accounts.ts", "utf8") + readFileSync("workers/addresses/src/driver-upcoming-bookings.ts", "utf8");
   const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
@@ -340,9 +396,23 @@ async function refinements() {
     { id: "j5", paymentReference: "MATNI-5", status: "paid", driverAssignmentStatus: "accepted", driverEmail: "other@example.com", tripDate: "2026-11-12", tripTime: "09:00", customerName: "X", pickupLabel: "", returnJourney: false },
   ];
   const frozen = JSON.stringify(jobs);
-  const found = upcomingBookingsForDriver(jobs, { email: "aine@example.com", mobile: "07700900201" }, "2026-11-10");
-  assert.deepEqual(found.map((f) => `${f.reference}:${f.leg}`), ["MATNI-1:outbound", "MATNI-4:return"]);
-  assert.equal(JSON.stringify(jobs), frozen);
+  jobs.push(
+    // Permanent id wins: same email, but assigned to a different driver account → not this driver.
+    { id: "j6", paymentReference: "MATNI-6", status: "paid", driverAssignmentStatus: "accepted", driverAccountId: "drv_someoneelse", driverEmail: "aine@example.com", tripDate: "2026-11-12", tripTime: "10:00", customerName: "X", pickupLabel: "", returnJourney: false },
+    // Permanent id match even with different (changed) contact details.
+    { id: "j7", paymentReference: "MATNI-7", status: "paid", driverAssignmentStatus: "accepted", driverAccountId: "drv_aine", driverEmail: "old-address@example.com", tripDate: "2026-11-13", tripTime: "10:00", customerName: "Y", pickupLabel: "", returnJourney: false },
+  );
+  const frozen2 = JSON.stringify(jobs);
+  const me = { id: "drv_aine", name: "Aine", email: "aine@example.com", mobile: "07700900201" };
+  const found = upcomingBookingsForDriver(jobs, me, "2026-11-10");
+  assert.deepEqual(found.map((f) => `${f.reference}:${f.leg}:${f.matchMethod}`), ["MATNI-1:outbound:contact", "MATNI-7:outbound:driver_id", "MATNI-4:return:contact"]);
+  assert.equal(JSON.stringify(jobs), frozen2);
+  assert.equal(frozen.length > 0, true);
+  // Verification of the owner's update.
+  assert.deepEqual(checkBookingAssignment(jobs[5], me), { found: true, cancelled: false, assignedToThisDriver: false, otherDriver: "drv_someoneelse" });
+  assert.equal(checkBookingAssignment(jobs[6], me).assignedToThisDriver, true);
+  assert.equal(checkBookingAssignment(jobs[1], me).cancelled, true);
+  assert.equal(checkBookingAssignment(null, me).found, false);
 }
 
 main().catch((error) => {

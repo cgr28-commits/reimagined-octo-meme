@@ -1,7 +1,7 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
-import { londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
+import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -164,7 +164,7 @@ import {
   handleDriverAcceptConfirmRequest,
   handleDriverAcceptLookupRequest,
 } from "./booking-job-handlers";
-import { bookingJobStoreConfigured, listAllBookingJobs } from "./booking-job-store";
+import { bookingJobStoreConfigured, getBookingJob, listAllBookingJobs } from "./booking-job-store";
 import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
@@ -4704,6 +4704,15 @@ export default {
       findUpcomingBookingsForDriver: async (driver) => {
         if (!env.TRACKING_STORE) return [];
         return upcomingBookingsForDriver(await listAllBookingJobs(env.TRACKING_STORE), driver, londonTodayYmd());
+      },
+      // Read-only: current state of one booking, to verify the owner's update.
+      checkBookingAssignment: async (reference, driver) => {
+        if (!env.TRACKING_STORE) return { found: false, cancelled: false, assignedToThisDriver: false, otherDriver: "" };
+        let job = await getBookingJob(env.TRACKING_STORE, reference);
+        if (!job) {
+          job = (await listAllBookingJobs(env.TRACKING_STORE)).find((j) => (j.paymentReference || "").trim() === reference) ?? null;
+        }
+        return checkBookingAssignment(job, driver);
       },
     });
     if (driverAccountsResponse) return driverAccountsResponse;

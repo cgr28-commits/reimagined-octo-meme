@@ -58,13 +58,43 @@ export type ReviewBooking = {
   leg: "outbound" | "return";
 };
 
+export type ReviewItemStatus = "needs_replacement" | "replacement_confirmed" | "cancelled" | "acknowledged";
+
+export type ReviewItem = {
+  id: string;
+  reference: string;
+  leg: "outbound" | "return";
+  tripDate: string;
+  tripTime: string;
+  pickup: string;
+  customerName: string;
+  matchMethod: "driver_id" | "contact";
+  originalDriverId: string;
+  originalDriverName: string;
+  originalAssignment: Record<string, string>;
+  suspensionReason: string;
+  status: ReviewItemStatus;
+  statusNote: string;
+  statusDetail: { otherDriver?: string; verified?: boolean };
+  statusAt: string | null;
+};
+
 export type OwnerAlert = {
   id: string;
   kind: string;
   driverId: string | null;
   title: string;
-  detail: { bookings?: ReviewBooking[]; lookupFailed?: boolean; reason?: string };
+  detail: { lookupFailed?: boolean; reason?: string; action?: string };
   createdAt: string;
+  items: ReviewItem[];
+  unresolved: number;
+};
+
+export const REVIEW_STATUS_LABEL: Record<ReviewItemStatus, string> = {
+  needs_replacement: "Needs replacement",
+  replacement_confirmed: "Replacement confirmed",
+  cancelled: "Cancelled",
+  acknowledged: "Acknowledged",
 };
 
 export type DriverMessage = {
@@ -151,8 +181,14 @@ export const ownerDrivers = {
   summary: (key: string) => request<DriversSummary>("/owner/driver-accounts/summary", { headers: owner(key) }),
   markHandled: (key: string, messageId: string) =>
     request<{ ok: true }>("/owner/driver-accounts/messages/handled", { headers: owner(key), body: { messageId } }),
-  resolveAlert: (key: string, alertId: string, note: string) =>
+  /** Only for an alert that lists no bookings (the booking check failed); needs a reason. */
+  acknowledgeAlert: (key: string, alertId: string, note: string) =>
     request<{ ok: true }>("/owner/driver-accounts/alerts/resolve", { headers: owner(key), body: { alertId, note } }),
+  updateReviewItem: (key: string, itemId: string, status: ReviewItemStatus, note: string) =>
+    request<{ status: ReviewItemStatus; alertResolved: boolean }>("/owner/driver-accounts/alerts/item", {
+      headers: owner(key),
+      body: { itemId, status, note },
+    }),
   detail: (key: string, id: string) =>
     request<OwnerDriverDetail>(`/owner/driver-accounts/detail?id=${encodeURIComponent(id)}`, { headers: owner(key) }),
   invite: (key: string, body: { name: string; email: string; mobile: string }) =>

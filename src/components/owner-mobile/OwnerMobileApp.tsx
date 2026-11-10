@@ -84,11 +84,11 @@ export type OwnerMobileTab = "home" | "bookings" | "inbox" | "customers" | "more
 
 type View =
   | { kind: "tab" }
-  | { kind: "booking"; ref: string; leg: OwnerOpsLeg["leg"] }
+  | { kind: "booking"; ref: string; leg: OwnerOpsLeg["leg"]; fromDriverId?: string }
   | { kind: "email"; threadKey: string }
   | { kind: "whatsapp"; phone: string }
   | { kind: "customer"; id: string }
-  | { kind: "drivers" };
+  | { kind: "drivers"; driverId?: string };
 
 export type OwnerMobileAppProps = {
   ownerKey: string;
@@ -355,7 +355,7 @@ export default function OwnerMobileApp({
         now={now}
         threads={threads}
         chats={chats}
-        onBack={() => setView({ kind: "tab" })}
+        onBack={() => setView(view.fromDriverId ? { kind: "drivers", driverId: view.fromDriverId } : { kind: "tab" })}
         onCopy={copy}
         onOpenMessage={openMessage}
         onFullControls={(date) => onOpenTool("jobs", { date, returnTab: tab })}
@@ -408,6 +408,8 @@ export default function OwnerMobileApp({
     screen = (
       <OwnerDriversScreen
         ownerKey={ownerKey}
+        initialDriverId={view.driverId}
+        onOpenBooking={(ref, leg, driverId) => setView({ kind: "booking", ref, leg, fromDriverId: driverId })}
         onBack={() => {
           setView({ kind: "tab" });
           void ownerDrivers.summary(ownerKey).then(setDriversSummary).catch(() => undefined);
@@ -2205,6 +2207,7 @@ function DriverAlertBanner({ summary, onOpen }: { summary: DriversSummary | null
   if (!summary) return null;
   const urgent = summary.urgent.length;
   const reviews = summary.alerts.length;
+  const needReplacement = summary.alerts.reduce((n, a) => n + (a.unresolved ?? 0), 0);
   const unread = summary.unreadMessages;
   if (!urgent && !reviews && !unread) return null;
   const critical = urgent > 0 || reviews > 0;
@@ -2212,12 +2215,14 @@ function DriverAlertBanner({ summary, onOpen }: { summary: DriversSummary | null
   const title = urgent
     ? `${first.categoryLabel} — ${first.driverName}${urgent > 1 ? ` (+${urgent - 1} more)` : ""}`
     : reviews
-      ? summary.alerts[0].title
+      ? needReplacement
+        ? `${needReplacement} booking${needReplacement === 1 ? "" : "s"} need${needReplacement === 1 ? "s" : ""} a replacement driver`
+        : summary.alerts[0].title
       : `${unread} new driver message${unread === 1 ? "" : "s"}`;
   const detail = urgent
     ? first.body
     : reviews
-      ? "Upcoming bookings need checking by hand. Nothing has been cancelled or reassigned."
+      ? `${summary.alerts[0].title}. Nothing has been cancelled or reassigned.`
       : "Open Drivers to read them.";
   return (
     <button

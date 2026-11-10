@@ -18,13 +18,17 @@ import {
   checkSupportPhone,
   ownerDrivers,
   ukDate,
+  REVIEW_STATUS_LABEL,
   type OwnerAlert,
+  type ReviewItem,
+  type ReviewItemStatus,
   type OwnerDriver,
   type OwnerDriverDetail,
   type UrgentReport,
 } from "@/lib/driver-accounts-api";
 
 type Props = { ownerKey: string; onBack: () => void; onToast: (text: string) => void };
+type OpenBooking = (reference: string, leg: "outbound" | "return", driverId: string) => void;
 
 const ACTION_LABEL: Record<string, string> = {
   approve: "Approve driver",
@@ -59,6 +63,9 @@ const AUDIT_LABEL: Record<string, string> = {
   "message.handled": "Urgent report marked handled",
   "alert.raised": "Bookings flagged for your review",
   "alert.reviewed": "Bookings review marked done",
+  "alert.acknowledged": "Booking check acknowledged",
+  "alert.all_bookings_resolved": "Every affected booking resolved",
+  "booking_review.updated": "Booking review updated",
   "document.submitted": "Document added",
   "document.accepted": "Document accepted",
   "document.rejected": "Document rejected",
@@ -78,13 +85,19 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props) {
+export default function OwnerDriversScreen({
+  ownerKey,
+  onBack,
+  onToast,
+  initialDriverId,
+  onOpenBooking,
+}: Props & { initialDriverId?: string; onOpenBooking?: OpenBooking }) {
   const [drivers, setDrivers] = useState<OwnerDriver[] | null>(null);
   const [alerts, setAlerts] = useState<OwnerAlert[]>([]);
   const [urgent, setUrgent] = useState<UrgentReport[]>([]);
   const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialDriverId ?? null);
   const [inviting, setInviting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -111,6 +124,7 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
       <DriverDetail
         ownerKey={ownerKey}
         driverId={selected}
+        onOpenBooking={onOpenBooking}
         onBack={() => {
           setSelected(null);
           void load();
@@ -162,7 +176,15 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
           <>
             {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
             {alerts.map((a) => (
-              <AlertCard key={a.id} alert={a} ownerKey={ownerKey} onOpenDriver={a.driverId ? () => setSelected(a.driverId) : undefined} onDone={load} onToast={onToast} />
+              <AlertCard
+                key={a.id}
+                alert={a}
+                ownerKey={ownerKey}
+                onOpenDriver={a.driverId ? () => setSelected(a.driverId) : undefined}
+                onOpenBooking={onOpenBooking}
+                onDone={load}
+                onToast={onToast}
+              />
             ))}
             {urgent.length ? (
               <section className={styles.card} style={{ overflow: "hidden", border: "2px solid #D92D20" }} data-urgent-reports>
@@ -232,78 +254,203 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
   );
 }
 
-function bookingLine(b: { tripDate: string; tripTime: string; reference: string; customerName: string; pickup: string; leg: string }): string {
-  const d = new Date(`${b.tripDate}T12:00:00Z`);
-  const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
-  return [`${day} ${b.tripTime}`.trim(), b.reference, b.customerName, b.leg === "return" ? "return" : b.pickup].filter(Boolean).join(" · ");
-}
+
+const ITEM_TONE: Record<ReviewItemStatus, string> = {
+  needs_replacement: "red",
+  replacement_confirmed: "green",
+  cancelled: "grey",
+  acknowledged: "amber",
+};
 
 function AlertCard({
   alert,
   ownerKey,
   onOpenDriver,
+  onOpenBooking,
   onDone,
   onToast,
 }: {
   alert: OwnerAlert;
   ownerKey: string;
   onOpenDriver?: () => void;
+  onOpenBooking?: OpenBooking;
   onDone: () => void;
   onToast: (t: string) => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const bookings = alert.detail.bookings ?? [];
+  const items = alert.items ?? [];
+  const resolved = items.length - alert.unresolved;
   return (
-    <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10, border: "2px solid #D92D20" }} data-owner-alert={alert.id}>
-      <span className={`${styles.chip} ${styles.red}`} style={{ justifySelf: "start" }}>
-        Review needed
-      </span>
+    <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 12, border: "2px solid #D92D20" }} data-owner-alert={alert.id}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span className={`${styles.chip} ${styles.red}`}>Review needed</span>
+        {items.length ? (
+          <span style={{ fontSize: 13, fontWeight: 800, color: "#33445C" }}>
+            {resolved} of {items.length} resolved
+          </span>
+        ) : null}
+      </div>
       <h2 className={styles.sectionTitle}>{alert.title}</h2>
-      {bookings.length ? (
-        <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6, fontSize: 15, color: "#071C38", fontWeight: 600 }}>
-          {bookings.map((b) => (
-            <li key={`${b.reference}-${b.leg}`}>{bookingLine(b)}</li>
-          ))}
-        </ul>
+      {alert.detail.reason ? (
+        <p style={{ margin: 0, fontSize: 14, color: "#33445C" }}>
+          Reason: <b>{alert.detail.reason}</b>
+        </p>
+      ) : null}
+      {items.map((item) => (
+        <ReviewItemCard key={item.id} item={item} ownerKey={ownerKey} onOpenBooking={onOpenBooking} onDone={onDone} onToast={onToast} />
+      ))}
+      {!items.length ? (
+        <AcknowledgeWholeAlert alert={alert} ownerKey={ownerKey} onDone={onDone} onToast={onToast} />
       ) : null}
       <p style={{ margin: 0, fontSize: 13, color: "#33445C", lineHeight: 1.45 }}>
-        Nothing has been cancelled, reassigned or refunded. Check each booking and arrange cover yourself.
+        Nothing has been cancelled, reassigned or refunded. This alert stays until every booking is resolved or acknowledged with a reason.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: onOpenDriver ? "1fr 1fr" : "1fr", gap: 10 }}>
-        {onOpenDriver ? (
-          <button type="button" className={styles.secondaryButton} onClick={onOpenDriver}>
-            Open driver
-          </button>
-        ) : null}
-        {confirming ? (
-          <button
-            type="button"
-            className={styles.primaryButton}
-            style={{ minHeight: 44, fontSize: 14 }}
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await ownerDrivers.resolveAlert(ownerKey, alert.id, "Reviewed by owner");
-                onToast("Marked as reviewed");
-                onDone();
-              } catch (e) {
-                onToast(e instanceof Error ? e.message : "Could not update");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Confirm reviewed
-          </button>
-        ) : (
-          <button type="button" className={styles.secondaryButton} onClick={() => setConfirming(true)}>
-            Mark reviewed
-          </button>
-        )}
-      </div>
+      {onOpenDriver ? (
+        <button type="button" className={styles.secondaryButton} onClick={onOpenDriver}>
+          Open driver
+        </button>
+      ) : null}
     </section>
+  );
+}
+
+function ReviewItemCard({
+  item,
+  ownerKey,
+  onOpenBooking,
+  onDone,
+  onToast,
+}: {
+  item: ReviewItem;
+  ownerKey: string;
+  onOpenBooking?: OpenBooking;
+  onDone: () => void;
+  onToast: (t: string) => void;
+}) {
+  const [mode, setMode] = useState<"" | "acknowledged" | "needs_replacement">("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const open = item.status === "needs_replacement";
+  const day = new Date(`${item.tripDate}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+
+  async function setStatus(status: ReviewItemStatus, reason = "") {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await ownerDrivers.updateReviewItem(ownerKey, item.id, status, reason);
+      onToast(res.alertResolved ? "All bookings resolved — alert closed" : `${item.reference}: ${REVIEW_STATUS_LABEL[status]}`);
+      setMode("");
+      setNote("");
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      data-review-item={item.reference}
+      data-review-status={item.status}
+      style={{ border: `1px solid ${open ? "#F3C5C1" : "#dce3ec"}`, background: open ? "#FFF8F7" : "#F8FAFC", borderRadius: 14, padding: 12, display: "grid", gap: 8 }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+        <div style={{ display: "grid", gap: 2 }}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#071C38" }}>
+            {day} {item.tripTime} · {item.reference}
+          </span>
+          <span style={{ fontSize: 14, color: "#33445C" }}>
+            {[item.customerName, item.leg === "return" ? "Return journey" : item.pickup].filter(Boolean).join(" · ")}
+          </span>
+        </div>
+        <span className={`${styles.chip} ${styles[ITEM_TONE[item.status]]}`}>{REVIEW_STATUS_LABEL[item.status]}</span>
+      </div>
+      <span style={{ fontSize: 13, color: "#5B6B80" }}>
+        Was assigned to {item.originalDriverName} ·{" "}
+        {item.matchMethod === "driver_id" ? "linked by driver ID" : <b style={{ color: "#B54708" }}>matched by email/phone only — please check</b>}
+      </span>
+      {item.status !== "needs_replacement" ? (
+        <span style={{ fontSize: 13, color: "#33445C" }}>
+          {item.status === "replacement_confirmed" && item.statusDetail.otherDriver ? `Now with ${item.statusDetail.otherDriver}. ` : ""}
+          {item.statusNote ? `“${item.statusNote}” ` : ""}
+          {item.statusAt ? `· ${when(item.statusAt)}` : ""}
+        </span>
+      ) : null}
+      {onOpenBooking ? (
+        <button type="button" className={styles.primaryButton} style={{ minHeight: 44, fontSize: 15 }} onClick={() => onOpenBooking(item.reference, item.leg, item.originalDriverId)}>
+          Open booking
+        </button>
+      ) : null}
+      {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
+      {mode ? (
+        <>
+          <Field label={mode === "acknowledged" ? "Why is no replacement needed? (kept in the audit log)" : "Why reopen it? (kept in the audit log)"}>
+            <input style={inputStyle} value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button type="button" className={styles.secondaryButton} onClick={() => setMode("")}>
+              Cancel
+            </button>
+            <button type="button" className={styles.secondaryButton} style={{ fontWeight: 800 }} disabled={busy || note.trim().length < 5} onClick={() => setStatus(mode, note)}>
+              {mode === "acknowledged" ? "Save acknowledgement" : "Reopen"}
+            </button>
+          </div>
+        </>
+      ) : open ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => setStatus("replacement_confirmed")}>
+            Replacement confirmed
+          </button>
+          <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => setStatus("cancelled")}>
+            Cancelled
+          </button>
+          <button type="button" className={styles.secondaryButton} style={{ gridColumn: "1 / -1" }} disabled={busy} onClick={() => setMode("acknowledged")}>
+            Acknowledge with a reason
+          </button>
+        </div>
+      ) : (
+        <button type="button" className={styles.linkButton} style={{ justifySelf: "start", minHeight: 44 }} onClick={() => setMode("needs_replacement")}>
+          Reopen
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AcknowledgeWholeAlert({ alert, ownerKey, onDone, onToast }: { alert: OwnerAlert; ownerKey: string; onDone: () => void; onToast: (t: string) => void }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <p style={{ margin: 0, fontSize: 14, color: "#33445C" }}>
+        The bookings couldn&apos;t be checked automatically. Look through the calendar for this driver&apos;s jobs, then record what you found.
+      </p>
+      <Field label="What you checked (kept in the audit log)">
+        <input style={inputStyle} value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
+      <button
+        type="button"
+        className={styles.secondaryButton}
+        disabled={busy || note.trim().length < 5}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await ownerDrivers.acknowledgeAlert(ownerKey, alert.id, note);
+            onToast("Recorded");
+            onDone();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Could not save.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Save and close alert
+      </button>
+    </div>
   );
 }
 
@@ -428,7 +575,7 @@ function InviteDriver({ ownerKey, onBack, onToast }: Props) {
   );
 }
 
-function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverId: string }) {
+function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Props & { driverId: string; onOpenBooking?: OpenBooking }) {
   const [detail, setDetail] = useState<OwnerDriverDetail | null>(null);
   const [error, setError] = useState("");
   const [action, setAction] = useState<string | null>(null);
@@ -513,7 +660,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
             </section>
 
             {detail.alerts.map((a) => (
-              <AlertCard key={a.id} alert={a} ownerKey={ownerKey} onDone={load} onToast={onToast} />
+              <AlertCard key={a.id} alert={a} ownerKey={ownerKey} onOpenBooking={onOpenBooking} onDone={load} onToast={onToast} />
             ))}
 
             {detail.attention.length ? (
@@ -716,8 +863,13 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                     <div key={a.seq} className={styles.row} style={{ cursor: "default" }}>
                       <span className={styles.rowBody}>
                         <span className={styles.rowTitle} style={{ fontWeight: 600 }}>
-                          {a.action === "driver.approved" && a.detail.from === "suspended" ? "Reinstated" : AUDIT_LABEL[a.action] ?? a.action}
+                          {a.action === "driver.approved" && a.detail.from === "suspended"
+                            ? "Reinstated"
+                            : a.action === "booking_review.updated"
+                              ? `${String(a.detail.reference)}: ${REVIEW_STATUS_LABEL[a.detail.to as ReviewItemStatus] ?? String(a.detail.to)}`
+                              : AUDIT_LABEL[a.action] ?? a.action}
                           {typeof a.detail.reason === "string" && a.detail.reason ? ` — ${a.detail.reason}` : ""}
+                          {a.action === "booking_review.updated" && typeof a.detail.note === "string" && a.detail.note ? ` — ${a.detail.note}` : ""}
                         </span>
                         <span className={styles.rowDetail}>
                           {when(a.at)} · {a.actor_type === "owner" ? "You" : a.actor_type === "driver" ? "Driver" : "System"}
