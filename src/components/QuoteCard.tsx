@@ -5959,6 +5959,27 @@ function QuoteCard({
     }
   }
 
+  /** Mobile Design 3: completed stages in the top progress line go back to that stage. Same
+   * back-navigation as Edit / Back; nothing is cleared and no quote or payment is created. */
+  function scrollToD3Card() {
+    if (typeof window === "undefined") return;
+    window.setTimeout(() => {
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+  }
+
+  function goToJourneyFromD3Steps() {
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(false);
+    scrollToD3Card();
+  }
+
+  function goToVehicleFromD3Steps() {
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(true);
+    scrollToD3Card();
+  }
+
   function goToVehicleFromProgress() {
     handleBackToQuote();
   }
@@ -9239,8 +9260,22 @@ function QuoteCard({
           const state = index + 1 < current ? "done" : index + 1 === current ? "current" : "next";
           return (
             <li key={label} data-step-state={state} aria-current={state === "current" ? "step" : undefined}>
-              <span aria-hidden>{state === "done" ? "✓" : index + 1}</span>
-              {label}
+              {mobileDesign3 && state === "done" ? (
+                <button
+                  type="button"
+                  data-d3-step-link={index === 0 ? "journey" : "vehicle"}
+                  aria-label={`Go back to ${label}`}
+                  onClick={() => (index === 0 ? goToJourneyFromD3Steps() : goToVehicleFromD3Steps())}
+                >
+                  <span aria-hidden>✓</span>
+                  {label}
+                </button>
+              ) : (
+                <>
+                  <span aria-hidden>{state === "done" ? "✓" : index + 1}</span>
+                  {label}
+                </>
+              )}
             </li>
           );
         })}
