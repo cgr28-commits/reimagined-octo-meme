@@ -11,6 +11,7 @@ import {
   readPaymentConfirmationSummary,
   readPendingPayment,
   readPendingPaymentByToken,
+  readPendingPaymentForReturn,
   resolveCheckoutIdFromUrl,
   resolveReturnTokenFromUrl,
 } from "@/lib/pending-payment";
@@ -22,8 +23,11 @@ import {
   isDepositCashPaymentMethod,
 } from "../../shared/deposit-cash";
 
-const PAYMENT_CONFIRM_RETRY_MS = 2000;
-const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
+const PAYMENT_CONFIRM_RETRY_MS = 2500;
+// About 30 seconds: Stripe can take a little while to mark a payment complete after the redirect.
+const PAYMENT_CONFIRM_MAX_ATTEMPTS = 12;
+/** After the payment is confirmed, re-check only briefly for follow-up details (emails, calendar). */
+const PAYMENT_FOLLOW_UP_MAX_RETRIES = 4;
 
 export type FinalizePaidBookingResult = {
   status: "confirmed" | "pending" | "missing" | "error";
@@ -64,7 +68,7 @@ export async function finalizePaidBookingFromUrl(
   const checkoutIdFromUrl = resolveCheckoutIdFromUrl(search);
   const returnToken = resolveReturnTokenFromUrl(search);
   const pending =
-    readPendingPayment() || (returnToken ? readPendingPaymentByToken(returnToken) : null);
+    readPendingPaymentForReturn(search);
   const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
 
   if (checkoutId && hasConfirmedPayment(checkoutId)) {
@@ -95,6 +99,7 @@ export async function finalizePaidBookingFromUrl(
   // when the customer returns without localStorage (new device / cleared storage).
   const booking: BookingDetails | null = pending?.booking ?? null;
 
+  let followUps = 0;
   for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
     try {
       let result = await confirmPaidBooking(checkoutId, booking);
@@ -121,7 +126,8 @@ export async function finalizePaidBookingFromUrl(
       );
       markPaymentConfirmed(checkoutId, summary, returnToken || undefined, result);
 
-      if (paymentNeedsFollowUp(result) && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+      if (paymentNeedsFollowUp(result) && followUps < PAYMENT_FOLLOW_UP_MAX_RETRIES && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+        followUps += 1;
         await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
         continue;
       }
