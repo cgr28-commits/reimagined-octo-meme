@@ -338,7 +338,7 @@ async function main() {
     { id: "wamid.1", from: "447700900123", profileName: "Sam Taylor", timestamp: 1, type: "text", text: "hi" },
   );
   assert.equal(parsed.messages[1].text, "");
-  assert.deepEqual(parsed.echoes, [{ id: "wamid.3", to: "447700900999", timestamp: 3 }]);
+  assert.deepEqual(parsed.echoes, [{ id: "wamid.3", to: "447700900999", timestamp: 3, text: "", type: "unknown" }]);
   assert.deepEqual(parseWhatsAppWebhook({ object: "page" }), { messages: [], echoes: [], failures: [] });
 
   console.log("=== Date / time helpers ===");
@@ -1239,4 +1239,17 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   for (const t of ["😂", "🙏", "❤️", "👍 but change the time"]) assert.notEqual(detectWhatsAppIntent(t), "confirm", t);
   assert.equal(detectWhatsAppIntent("New 🙂"), "reset");
   console.log("OK  reactions, edits, photo captions and emoji are read");
+}
+
+// The owner's own WhatsApp messages and automatic booking messages are kept in the chat (10 Nov 2026).
+{
+  const echoed = parseWhatsAppWebhook({
+    object: "whatsapp_business_account",
+    entry: [{ changes: [{ field: "smb_message_echoes", value: { message_echoes: [
+      { id: "wamid.owner1", from: "447549815538", to: "447700900123", timestamp: "1", type: "text", text: { body: "Driver will be there at 00:45" } },
+    ] } }] }],
+  }).echoes[0];
+  assert.equal(echoed.text, "Driver will be there at 00:45");
+  assert.equal(echoed.to, "447700900123");
+  console.log("OK  owner's own WhatsApp replies are read into the chat");
 }

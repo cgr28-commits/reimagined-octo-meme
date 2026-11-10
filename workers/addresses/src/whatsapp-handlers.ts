@@ -543,11 +543,33 @@ export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv)
   for (const echo of echoes) {
     await store.put(pausedKey(echo.to), "owner", { expirationTtl: handoffTtlSeconds(env) });
     logEvent("whatsapp_bot_paused_owner_reply", echo.to);
+    // Keep what the owner wrote in the chat, so the assistant reads it before its next reply
+    // (it used to see only its own and the customer's messages, 10 Nov 2026).
+    if (await store.get(messageKey(echo.id))) continue;
+    await store.put(messageKey(echo.id), "1", { expirationTtl: 60 * 60 * 24 * 3 });
+    await appendWhatsAppChat(store, echo.to, { from: "team", text: echo.text || ownerEchoLabel(echo.type) });
   }
 
   for (const message of messages) {
     await handleInboundMessage(message, env, store);
   }
+}
+
+function ownerEchoLabel(type: string): string {
+  if (type === "reaction") return "[Reacted]";
+  if (type === "image") return "[Photo]";
+  if (type === "audio") return "[Voice note]";
+  if (type === "document") return "[File]";
+  return "[Message]";
+}
+
+/** How many earlier chat messages the assistant reads before replying. */
+const CHAT_HISTORY_FOR_AI = 25;
+
+/** One earlier chat message for the assistant: who sent it (the team is the owner) and what it said. */
+function chatLineForAi(m: { from: string; text: string }): string {
+  const who = m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant";
+  return `${who}: ${m.text.slice(0, 600)}`;
 }
 
 /** Chat-log line for a message that needs no reply, or null when it should be answered. */
@@ -1265,8 +1287,8 @@ async function decideWithClaude(
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-13, -1)
-      .map((m) => `${m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
       .join("\n");
     const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
     const turn = await claudeLedClient.turn(env, context);
@@ -1290,8 +1312,8 @@ async function answerCustomerQuestion(
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-11, -1)
-      .map((m) => `${m.from === "customer" ? "Customer" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
       .join("\n");
     const draft = conversation.draft;
     const collected = describeWhatsAppDraft(draft);
