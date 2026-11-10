@@ -80,7 +80,14 @@ function mergePredictions(
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
 
-  const served = matchServedAirportSuggestions(query).map((item) => ({
+  // "Belfast City Airport" also loosely matches Belfast International ("belfast" + "air"),
+  // which then sat first in the list. When the customer names the City airport, only
+  // offer the City airport from the catalogue.
+  const namesCityAirport = /\bcity\b|george\s*best|\bbhd\b/i.test(query);
+  const bfsPlaceId = getServedAirport("BFS")?.placeId;
+  const served = matchServedAirportSuggestions(query)
+    .filter((item) => !(namesCityAirport && item.id === bfsPlaceId))
+    .map((item) => ({
     placeId: item.id,
     description: item.label,
     mainText: item.mainText,

@@ -5820,7 +5820,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2] div:has(> .relative > .address-input:focus) { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; }
   html[data-mobile-light] [data-d2] [data-gps-location] { color: #2fbf4a !important; }
   html[data-mobile-light] [data-d2-swap-row] { position: relative; height: 0; z-index: 35; }
-  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -1.45rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
+  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -.15rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
   html[data-mobile-light] [data-d2-party] { margin-top: .25rem; gap: .625rem !important; }
   html[data-mobile-light] [data-d2-fields]:has(.address-suggestions, .address-input:focus) [data-d2-swap] { display: none; }
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid var(--d2-field); border-radius: .75rem; padding: .5rem .5rem .5rem .75rem; background: #fff; }
@@ -6340,7 +6340,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   /* Details & Payment */
   html[data-mobile-d3] [data-d2="details"] h2[data-site-nav-heading] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-journey-summary { display: none !important; }
-  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: "3  Payment" !important; }
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: counter(d2card) "  Payment" !important; white-space: pre; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details label[for="goingFlightNumber"],
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { text-transform: none !important; letter-spacing: 0 !important; font-size: .875rem !important; font-weight: 700 !important; color: #071c38 !important; }
   html[data-mobile-d3] [data-d2="details"] #step3-payment-actions > button.w-full.text-center,
@@ -6668,4 +6668,23 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
 /* Design 3 on tablets (768-1199px): the homepage heading sits above the quote form, as on phones. */
 @media (min-width: 768px) and (max-width: 1199.98px) {
   html[data-mobile-d3] .homepage-hero-layout > .homepage-hero-copy { order: -1 !important; }
+}
+
+/* Mobile menu logo: the menu panel is light under the mobile design, so show the
+   navy-text logo there (the white header logo disappears on a pale background). */
+html[data-mobile-light] [aria-label="Site menu"] .menu-logo-dark { display: none !important; }
+html[data-mobile-light] [aria-label="Site menu"] .menu-logo-light { display: block !important; }
+
+/* Details & Payment (phones and tablets): the floating WhatsApp bubble sat over the
+   Pay button; the header WhatsApp button stays available on this step. */
+html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launcher] { display: none !important; }
+
+/* Desktop/laptop booking screen: once date and time are set, the schedule boxes are
+   hidden (see above), so hide their "Pickup date & time" heading too instead of leaving
+   it above nothing. Visually hidden only, so it stays a keyboard/scroll target. */
+@media (min-width: 1024px) {
+  :where(html:not([data-mobile-d3])) #step2-travel-details:has(> [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid))) > h2[data-booking-nav-heading]:first-child {
+    position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important;
+    padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important;
+  }
 }
