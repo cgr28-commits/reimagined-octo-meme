@@ -496,7 +496,6 @@ export default function HomepageQuoteFields({
             onChange={(value) => onPassengersChange(value)}
             format={(value) => String(value)}
             error={passengersError}
-            allowUnset={design3}
           />
           <Design2Stepper
             id="quote-section-suitcases"

@@ -6580,3 +6580,31 @@ html[data-mobile-d3] nav[aria-label="Breadcrumb"] a:hover { color: #16803c !impo
 }
 html[data-mobile-light] p[data-confirm-status="error"] { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c; }
 html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !important; -webkit-text-fill-color: #16803c; }
+
+/* Design 3 refinements (Nov 2026): clearer form borders and a smaller header Call Us button.
+   Borders: one consistent 1.5px slate-grey (#94A3B8) on every booking-form field; existing
+   rounded corners and the green focus state are unchanged (focus rules win via :not(:focus*)). */
+html[data-mobile-d3] [data-d2-fields] div[class*="rounded"][class*="border"]:has(.address-input):not(:focus-within),
+html[data-mobile-d3] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:not(:focus-within),
+html[data-mobile-d3] [data-schedule-control]:not(:focus-within),
+html[data-mobile-d3] [data-d2-fields] [data-d2-stepper],
+html[data-mobile-d3] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="url"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only, :focus) {
+  border-width: 1.5px !important;
+  border-style: solid !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Header: smaller green Call Us button so the mobile header is less crowded.
+   The visible pill is 36px tall; an invisible extension keeps a 44px tap area. */
+html[data-mobile-d3] a[data-call-us-pill="compact"] {
+  position: relative;
+  height: 2.25rem;
+  padding: 0 0.65rem;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+}
+html[data-mobile-d3] a[data-call-us-pill="compact"] [data-phone-icon] { width: 14px; height: 14px; }
+html[data-mobile-d3] a[data-call-us-pill="compact"]::after { content: ""; position: absolute; inset: -4px 0; }
+@media (max-width: 359px) {
+  html[data-mobile-d3] a[data-call-us-pill="compact"] { width: 2.25rem; padding: 0; }
+}
