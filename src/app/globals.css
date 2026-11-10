@@ -6495,7 +6495,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 /* Design 3: details step clears the fixed header so the progress line is visible; labels fit. */
 @layer base {
   @media (max-width: 1199.98px) {
-    html[data-mobile-d3] .homepage-hero:has(.quote-flow[data-d2="details"]) { padding-top: 4.5rem !important; }
+    html[data-mobile-d3] { scroll-padding-top: 4.75rem; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .3rem !important; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { white-space: nowrap; font-size: .8125rem; gap: .3rem !important; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { width: .6rem !important; }
