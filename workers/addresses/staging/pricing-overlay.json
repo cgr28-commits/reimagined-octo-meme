@@ -1,5 +1,5 @@
 {
-  "_note": "Staging only. Owner-only pricing settings that the live public tariff does not expose, copied read-only from the live Owner Dashboard on 8 Nov 2026, plus proposed changes under review (9 Nov: 7 Seater and Business Class request-only, as the owner asked). Objects are merged one level deep over the live settings. Update this file if these settings change on live.",
+  "_note": "Staging only. Owner-only pricing settings that the live public tariff does not expose, copied read-only from the live Owner Dashboard on 8 Nov 2026. Everything else is mirrored from live on each deploy, so staging prices match live exactly (no proposed changes are overlaid). Update this file if these settings change on live.",
   "profitability": {
     "targetHourlyEarningsGbp": 40,
     "minimumSaloonOneWayGbp": 35,
@@ -23,11 +23,5 @@
       "BHD": false,
       "DUB": false
     }
-  },
-  "minibus": {
-    "requestQuote": true
-  },
-  "executive": {
-    "requestQuote": true
   }
 }

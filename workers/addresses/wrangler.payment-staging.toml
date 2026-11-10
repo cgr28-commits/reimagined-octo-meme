@@ -65,6 +65,11 @@ id = "d780d553438c48c1b3c67258fe92d3d8"
 binding = "BOOKING_COUNTER"
 id = "55d5e6a826a1494e8be9e6236b37cef2"
 
+# Staging-only build flag: makes staging-guard.ts block all outbound traffic except Stripe sandbox,
+# address lookup and flight data from the moment the code loads (including Durable Objects).
+[define]
+MATNI_STAGING_BUILD = "\"true\""
+
 [vars]
 # Stripe TEST mode: the payment code only accepts LIVE keys under PAYMENT_PROVIDER = "stripe",
 # so staging uses "stripe-test", which sends the emails listed in STRIPE_TEST_EMAILS to Stripe.

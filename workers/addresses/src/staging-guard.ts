@@ -9,6 +9,8 @@
  *
  * The live Worker never sets STAGING_ACCESS_KEY_SHA256, so none of this runs there.
  */
+import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+
 export type StagingGuardEnv = {
   STAGING_ACCESS_KEY_SHA256?: string;
   ASSETS?: { fetch(request: Request): Promise<Response> };
@@ -25,40 +27,64 @@ export function stagingGuardActive(env: StagingGuardEnv): boolean {
 }
 
 /**
- * Staging must never contact customers, the business inbox or ad accounts. Every outbound call to
- * an email, WhatsApp/SMS or Google Ads service is answered locally with a "blocked" failure, so the
- * normal code paths run but nothing leaves the Worker. Stripe (sandbox) and address lookup are allowed.
+ * Staging must never contact customers, the business inbox or ad accounts. Outbound calls are
+ * DENIED BY DEFAULT: only the services below (Stripe sandbox, address lookup, flight data) are
+ * reachable; everything else - every email, WhatsApp/SMS, calendar, Ads or payment-provider API,
+ * including ones added in future - is answered locally with a "blocked" failure, so the normal
+ * code paths run but nothing leaves the Worker.
  */
-const BLOCKED_HOSTS = [
-  "formsubmit.co",
-  "api.web3forms.com",
-  "api.resend.com",
+const ALLOWED_HOSTS = [
+  "api.stripe.com",
+  "places.googleapis.com",
+  "maps.googleapis.com",
+  "routes.googleapis.com",
+  "api.getaddress.io",
+  "api.ideal-postcodes.co.uk",
+  "aerodatabox.p.rapidapi.com",
+];
+/** Hosts the self-test proves are blocked (the email, messaging and ads services the code uses). */
+export const MESSAGING_HOSTS = [
   "api.mailchannels.net",
-  "api.sendgrid.com",
-  "api.postmarkapp.com",
-  "api.brevo.com",
-  "api.mailgun.net",
+  "api.resend.com",
+  "api.web3forms.com",
+  "formsubmit.co",
   "graph.facebook.com",
   "waba-v2.360dialog.io",
   "waba.360dialog.io",
+  "api.twilio.com",
+  "www.googleapis.com",
+  "oauth2.googleapis.com",
   "googleads.googleapis.com",
   "www.googleadservices.com",
-  "api.twilio.com",
-  "www.googleapis.com/calendar",
+  "api.sumup.com",
+  "api.sendgrid.com",
+  "api.postmarkapp.com",
+  "api.mailgun.net",
+  "api.brevo.com",
 ];
 let messagingBlocked = false;
 export const blockedOutbound: string[] = [];
-function blockOutboundMessaging(): void {
+export function stagingOutboundAllowed(target: string): boolean {
+  try {
+    const url = new URL(target);
+    if (url.protocol !== "https:") return false;
+    return ALLOWED_HOSTS.includes(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+export function blockOutboundMessaging(): void {
   if (messagingBlocked) return;
   messagingBlocked = true;
   const realFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const target = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    const lower = target.toLowerCase();
-    const hit = BLOCKED_HOSTS.find((h) => lower.startsWith(`https://${h}`) || lower.startsWith(`http://${h}`));
-    if (hit) {
-      blockedOutbound.push(hit);
-      console.log(`[staging] blocked outbound message to ${hit}`);
+    if (!stagingOutboundAllowed(target)) {
+      let host = target;
+      try { host = new URL(target).hostname; } catch { /* keep raw */ }
+      blockedOutbound.push(host);
+      if (blockedOutbound.length > 200) blockedOutbound.splice(0, blockedOutbound.length - 200);
+      console.log(`[staging] blocked outbound request to ${host}`);
       return new Response(JSON.stringify({ success: false, error: "Blocked on staging" }), {
         status: 503,
         headers: { "content-type": "application/json" },
@@ -66,6 +92,19 @@ function blockOutboundMessaging(): void {
     }
     return realFetch(input, init);
   }) as typeof fetch;
+}
+
+/*
+ * Switch the block on as soon as this module loads in a staging build, so it also covers the
+ * Durable Objects (coordinators) and their alarms, which run without going through fetch().
+ * MATNI_STAGING_BUILD is defined only by wrangler.payment-staging.toml; the live Worker never
+ * imports this file.
+ */
+declare const MATNI_STAGING_BUILD: string | undefined;
+try {
+  if (typeof MATNI_STAGING_BUILD !== "undefined" && MATNI_STAGING_BUILD === "true") blockOutboundMessaging();
+} catch {
+  /* not a staging build */
 }
 
 /** True for the request the guard has already checked and handed to the normal Worker code. */
@@ -122,7 +161,7 @@ background:#b45309;color:#fff;font:700 12px/1 system-ui,sans-serif;letter-spacin
 html body{padding-top:26px!important}
 header[data-site-header]{top:26px!important}
 </style>`;
-const BROWSER_BLOCK = `<script id="matni-test-mode-block">(function(){var bad=/formsubmit\\.co|web3forms\\.com|googleadservices\\.com|googletagmanager\\.com|google-analytics\\.com|doubleclick\\.net/i;
+const BROWSER_BLOCK = `<script id="matni-test-mode-block">(function(){var bad=/formsubmit\\.co|web3forms\\.com|mailchannels\\.net|resend\\.com|sendgrid\\.com|emailjs\\.com|googleadservices\\.com|googletagmanager\\.com|google-analytics\\.com|doubleclick\\.net/i;
 var f=window.fetch;window.fetch=function(u,o){try{var s=String(u&&u.url||u);if(bad.test(s))return Promise.resolve(new Response('{"success":false,"blocked":"staging"}',{status:503,headers:{"content-type":"application/json"}}));}catch(e){}return f.apply(this,arguments);};
 if(navigator.sendBeacon){var sb=navigator.sendBeacon.bind(navigator);navigator.sendBeacon=function(u,d){return bad.test(String(u))?true:sb(u,d);};}
 document.addEventListener("submit",function(e){var a=e.target&&e.target.action||"";if(bad.test(a))e.preventDefault();},true);
@@ -213,6 +252,40 @@ export async function stagingGuardFetch(
     }
     const cookie = cookieValue(request, COOKIE);
     if (!cookie || (await sha256Hex(cookie)) !== expected) return lockedResponse(request);
+  }
+
+  // Staging self-test (behind the access cookie): proves no email or message can leave staging.
+  if (url.pathname === "/__staging/outbound-check" && request.method === "GET") {
+    blockOutboundMessaging();
+    const hostResults: Record<string, string> = {};
+    for (const host of MESSAGING_HOSTS) {
+      const res = await fetch(`https://${host}/`, { method: "POST", body: "{}" });
+      const text = await res.text();
+      hostResults[host] = res.status === 503 && text.includes("Blocked on staging") ? "blocked" : `NOT BLOCKED (${res.status})`;
+    }
+    const e = env as StagingGuardEnv & WorkerEmailEnv;
+    const probe = { to: "staging-block-test@example.invalid", subject: "[TEST] staging block test", body: "This must never be delivered.", ownerCopy: false };
+    const ownerPath = await trySendEmail(e, probe);
+    const customerPath = await trySendEmail(e, { ...probe, customerDelivery: true, htmlBody: "<p>test</p>" });
+    const workerPath = await trySendEmail(e, { ...probe, preferWorkerProviders: true });
+    const allBlocked = Object.values(hostResults).every((v) => v === "blocked") && !ownerPath.sent && !customerPath.sent && !workerPath.sent;
+    return new Response(JSON.stringify({
+      allBlocked,
+      buildFlagActive: typeof MATNI_STAGING_BUILD !== "undefined" && MATNI_STAGING_BUILD === "true",
+      emailConfig: {
+        cloudflareEmailBinding: Boolean(e.EMAIL),
+        resendKey: Boolean(e.RESEND_API_KEY?.trim()),
+        web3formsKey: Boolean(e.WEB3FORMS_ACCESS_KEY?.trim()),
+        ownerAddressOverride: Boolean(e.BOOKING_NOTIFICATION_EMAIL?.trim() || e.BOOKING_TO_EMAIL?.trim()),
+      },
+      hosts: hostResults,
+      sendAttempts: {
+        ownerPath: { sent: ownerPath.sent, provider: ownerPath.provider ?? null, error: ownerPath.error ?? null },
+        customerPath: { sent: customerPath.sent, provider: customerPath.provider ?? null, error: customerPath.error ?? null },
+        workerProvidersPath: { sent: workerPath.sent, provider: workerPath.provider ?? null, error: workerPath.error ?? null },
+      },
+      recentlyBlocked: blockedOutbound.slice(-30),
+    }, null, 2), { headers: { "content-type": "application/json", "cache-control": "no-store", "x-robots-tag": ROBOTS } });
   }
 
   if (env.ASSETS && (request.method === "GET" || request.method === "HEAD")) {
