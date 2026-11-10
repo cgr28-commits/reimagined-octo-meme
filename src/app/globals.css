@@ -5802,7 +5802,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] #homepage-booking-intro [data-d2-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: var(--d2-muted) !important; max-width: 22rem; }
   html[data-mobile-light] #homepage-booking-intro [data-d2-rating] { display: flex !important; margin-top: .75rem; }
   html[data-mobile-light] [data-reviews-compact] { display: inline-flex; align-items: center; gap: .45rem; background: #fff; border: 1px solid var(--d2-line); border-radius: 999px; padding: .3rem .625rem .3rem .5rem; font-size: .8125rem; font-weight: 700; color: #0f2340; text-decoration: none; }
-  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars] { color: #f5a623; letter-spacing: .05em; }
+  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars] { color: #fbbc04; letter-spacing: .05em; }
   html[data-mobile-light] [data-reviews-compact] strong { font-weight: 800; }
   html[data-mobile-light] section.homepage-hero .hero-benefits-row,
   html[data-mobile-light] section.homepage-hero [data-hero-reviews-badge],
@@ -6350,7 +6350,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 }
 @layer base {
 @media (max-width: 1199.98px) {
-  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706 !important; }
+  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
   /* Details & Payment: one "Back to your quote" (top); flight card reads "Flight number (optional)". */
   html[data-mobile-d3] [data-d2="details"] [data-back-to-quote="bottom"] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
@@ -6694,4 +6694,11 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important;
     padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important;
   }
+}
+
+/* Every Google review star (homepage badge and panel, page badges, footer link) on phones,
+   tablets and desktop uses Google's star yellow, whatever the surrounding text colour. */
+/* In @layer base with the other Design 3 rules: layered !important beats unlayered !important. */
+@layer base {
+  html:root:root [data-reviews-stars][data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
 }
