@@ -13,7 +13,7 @@ import {
   isPaymentReturnSearch,
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
-import { readPendingPayment } from "@/lib/pending-payment";
+import { readPendingPaymentForReturn } from "@/lib/pending-payment";
 import {
   formatCustomerPromoPricingLines,
   parseWebsitePromoPricingFields,
@@ -74,7 +74,7 @@ export default function BookingConfirmedClient() {
     // stable /booking-confirmed/. Until then the payment reference stays in the address, so Refresh
     // checks the same payment again instead of losing it.
 
-    const pending = readPendingPayment();
+    const pending = readPendingPaymentForReturn(search);
     if (pending?.booking) {
       setCustomerEmail(pending.booking.customerEmail?.trim() || undefined);
       setCustomerPhone(pending.booking.mobileNumber?.trim() || undefined);
