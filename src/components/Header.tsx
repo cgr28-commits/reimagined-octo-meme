@@ -309,7 +309,7 @@ export default function Header() {
               aria-controls={menuId}
               aria-label={menuOpen ? "Close menu" : "Open menu — all services"}
             >
-              <span className="text-[0.65rem] font-semibold tracking-wide text-white/88 sm:text-xs">Menu</span>
+              <span className="text-xs font-semibold tracking-wide text-white/90">Menu</span>
               <svg className="h-4 w-4 text-white sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                 {menuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

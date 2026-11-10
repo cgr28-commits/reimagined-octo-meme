@@ -384,7 +384,7 @@ export default function HomepageQuoteFields({
             <span className="text-sm font-semibold">Return</span>
             <span
               data-return-discount-note
-              className={`mt-0.5 text-[10px] font-bold tracking-[0.08em] ${
+              className={`mt-0.5 text-[11.5px] font-bold tracking-[0.06em] ${
                 journeyMode === "return" ? "text-[#071c38]" : "text-emerald"
               }`}
             >
