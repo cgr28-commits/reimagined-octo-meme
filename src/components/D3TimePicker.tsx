@@ -67,7 +67,10 @@ export default function D3TimePicker({
     if (!open) return;
     for (const list of [hourListRef.current, minuteListRef.current]) {
       const chosen = list?.querySelector<HTMLButtonElement>("[aria-pressed='true']");
-      if (list && chosen) list.scrollTop = chosen.offsetTop - list.clientHeight / 2 + chosen.offsetHeight / 2;
+      if (list && chosen) {
+        const offset = chosen.getBoundingClientRect().top - list.getBoundingClientRect().top;
+        list.scrollTop += offset - (list.clientHeight - chosen.offsetHeight) / 2;
+      }
     }
     (hourListRef.current?.querySelector<HTMLButtonElement>("[aria-pressed='true']") ??
       sheetRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)"))?.focus({ preventScroll: true });
