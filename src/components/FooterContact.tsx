@@ -29,7 +29,7 @@ export default function FooterContact() {
           rel="noopener noreferrer"
           className="transition-colors hover:text-emerald"
         >
-          <span className="block text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/55">
+          <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
             WhatsApp only
           </span>
           {SITE.landlineDisplay}
@@ -37,7 +37,7 @@ export default function FooterContact() {
       </li>
       <li>
         <a href={`tel:${SITE.officeLandline}`} className="transition-colors hover:text-emerald" data-footer-office-landline>
-          <span className="block text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-white/55">
+          <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
             Call
           </span>
           {SITE.officeLandlineDisplay}
