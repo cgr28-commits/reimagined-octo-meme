@@ -6149,7 +6149,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #475569 !important; color: #071c38 !important; }
   html[data-mobile-d3] [data-d2-stepper-btn="plus"] { background: #071c38 !important; border: 1.5px solid #071c38 !important; color: #fff !important; }
   /* At a limit: still clearly a button, but flat grey with a dashed edge (not colour alone). */
-  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px dashed #7d8da3 !important; color: #64748b !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px solid #94a3b8 !important; color: #64748b !important; }
   html[data-mobile-d3] [data-d2-stepper-btn]:focus-visible { outline: 3px solid #16803c !important; outline-offset: 2px; }
   html[data-mobile-d3] [data-d2-stepper-btn]:not(:disabled):active { transform: scale(.96); }
 
