@@ -24,6 +24,7 @@ import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDriverPaymentsPanel from "@/components/OwnerDriverPaymentsPanel";
 import DriverPayPanel from "@/components/DriverPayPanel";
+import { DEFAULT_WORKER_BASE, resolveWorkerBaseUrl } from "@/lib/worker-api";
 import OwnerMobileApp, { BottomNav, type OwnerMobileTab } from "@/components/owner-mobile/OwnerMobileApp";
 import ownerMobileStyles from "@/components/owner-mobile/OwnerMobile.module.css";
 import { BackIcon as OwnerMobileBackIcon } from "@/components/owner-mobile/OwnerMobileIcons";
@@ -3375,7 +3376,9 @@ export default function DriverPageClient({
             </h1>
             {isOwnerPortal && isOwnerPreviewHost ? (
               <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
-                Signed-in owner preview. Saving availability or jobs updates the live system.
+                {resolveWorkerBaseUrl() === DEFAULT_WORKER_BASE
+                  ? "Signed-in owner preview. Saving availability or jobs updates the live system."
+                  : "Staging copy with its own test data. Nothing here reaches real customers or the live site."}
               </p>
             ) : null}
             <p className="mt-3 text-white/70">
