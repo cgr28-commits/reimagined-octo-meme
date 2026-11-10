@@ -6664,3 +6664,8 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
     -webkit-text-fill-color: transparent;
   }
 }
+
+/* Design 3 on tablets (768-1199px): the homepage heading sits above the quote form, as on phones. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  html[data-mobile-d3] .homepage-hero-layout > .homepage-hero-copy { order: -1 !important; }
+}
