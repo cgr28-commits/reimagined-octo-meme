@@ -19,6 +19,8 @@ export type Tour = {
   eyebrow: string;
   image: string;
   imageAlt: string;
+  /** Extra photos shown on the tour page under "Places we take you". */
+  gallery?: readonly { src: string; alt: string; caption: string }[];
 };
 
 export const TOURS: readonly Tour[] = [
@@ -47,7 +49,14 @@ export const TOURS: readonly Tour[] = [
     whatsappMessage:
       "Hi, I'd like to enquire about a private day trip to the Giant's Causeway and Causeway Coast.",
     image: withBasePath("/images/tours/giants-causeway.webp"),
-    imageAlt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast",
+    imageAlt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast at sunset",
+    gallery: [
+      {
+        src: withBasePath("/images/tours/carrick-a-rede-rope-bridge.webp"),
+        alt: "Carrick-a-Rede Rope Bridge crossing to the island over turquoise sea on the Causeway Coast",
+        caption: "Carrick-a-Rede Rope Bridge",
+      },
+    ],
     faqs: [
       {
         question: "How much is a private Giant's Causeway tour from Belfast?",
@@ -97,6 +106,13 @@ export const TOURS: readonly Tour[] = [
       "Hi, I'd like to enquire about a private Belfast city highlights day trip.",
     image: withBasePath("/images/tours/belfast-city.webp"),
     imageAlt: "Belfast City Hall and city centre skyline",
+    gallery: [
+      {
+        src: withBasePath("/images/tours/titanic-belfast.webp"),
+        alt: "Titanic Belfast building and its Titanic Belfast sign in the Titanic Quarter at sunset",
+        caption: "Titanic Belfast, Titanic Quarter",
+      },
+    ],
     faqs: [
       {
         question: "How much is a private Belfast city tour?",
