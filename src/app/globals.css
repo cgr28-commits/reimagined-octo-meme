@@ -6714,7 +6714,7 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   }
   html:root[data-mobile-d3] section.homepage-hero .homepage-hero-quote { position: relative; }
   html:root[data-mobile-d3] section.homepage-hero .homepage-hero-quote::before {
-    content: ""; position: absolute; top: 0; left: -100vmax; right: -100vmax; height: 3rem;
+    content: ""; position: absolute; top: -2.5rem; left: -100vmax; right: -100vmax; height: 5.5rem;
     background: #071c38; z-index: -1; pointer-events: none;
   }
   html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1,
