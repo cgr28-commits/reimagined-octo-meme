@@ -1496,7 +1496,7 @@ function QuoteCard({
   }, [quoteStep]);
   function scrollDesktopCheckoutToSummary() {
     if (checkoutAutoScrolledRef.current || typeof window === "undefined") return;
-    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    if (!window.matchMedia("(min-width: 1200px)").matches) return;
     const target = step2JourneySummaryRef.current;
     if (!target) return;
     checkoutAutoScrolledRef.current = true;
