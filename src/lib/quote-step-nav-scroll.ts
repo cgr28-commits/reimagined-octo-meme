@@ -522,6 +522,23 @@ function measureQuoteReveal(): QuoteRevealMetrics | null {
         document.querySelector(":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]")
       ? ":is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-homepage-journey-summary]"
       : "[data-quote-vehicle-options-heading]");
+  // Mobile Design 3 (phones and tablets): stop with the progress line (Journey / Vehicle /
+  // Details & Payment) just under the header, so the navy journey summary stays in view
+  // above the vehicles.
+  const design3Steps = document.documentElement.hasAttribute("data-mobile-d3")
+    ? document.querySelector<HTMLElement>("[data-mobile-steps]")
+    : null;
+  if (design3Steps && design3Steps.getClientRects().length > 0) {
+    const visual = readVisualViewport();
+    const layoutClientHeight = document.documentElement.clientHeight || visual.height;
+    return {
+      scrollY: window.scrollY,
+      viewportHeight: visual.height,
+      headerBottom: Math.round(getHeaderBottomPx() - visual.offsetTop),
+      headingTop: design3Steps.getBoundingClientRect().top - visual.offsetTop,
+      maxScroll: Math.max(0, Math.round(document.documentElement.scrollHeight - Math.min(visual.height, layoutClientHeight))),
+    };
+  }
   if (!(heading instanceof HTMLElement) || heading.getClientRects().length === 0) return null;
   const visual = readVisualViewport();
   const headingRect = heading.getBoundingClientRect();
