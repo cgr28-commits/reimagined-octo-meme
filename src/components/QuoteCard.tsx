@@ -5695,17 +5695,24 @@ function QuoteCard({
             ? `ROI long-distance quote request — ${details.customerName}`
             : `New vehicle enquiry — ${details.customerName}`;
 
-        // Persist A2A personalised-quote requests into Owner dashboard (Awaiting Quote).
-        if (isVehiclePersonalQuote || (journeyKind === "address-to-address" && isManualQuoteJourney)) {
+        // Persist every manual-quote request into Owner dashboard (A2A Quotes → Awaiting),
+        // including out-of-area pickups to an airport (e.g. Downpatrick → Dublin Airport),
+        // so the Owner can enter a price and send the payment link.
+        let quoteRequestReference = "";
+        if (isVehiclePersonalQuote || isManualQuoteJourney) {
           try {
             const { createA2aQuoteRequest } = await import("@/lib/a2a-quote-api");
             const created = await createA2aQuoteRequest({
               ...details,
               estimatedPrice: null,
-              isAirportTrip: isVehiclePersonalQuote ? details.isAirportTrip : false,
+              isAirportTrip:
+                isVehiclePersonalQuote || journeyKind !== "address-to-address"
+                  ? details.isAirportTrip
+                  : false,
             });
             if (created.reference) {
               reference = created.reference;
+              quoteRequestReference = created.reference;
             }
           } catch (persistErr) {
             console.error("A2A quote request persist failed", persistErr);
@@ -5720,7 +5727,9 @@ function QuoteCard({
             customerName: details.customerName,
             message: enquiryMessage,
             subject,
-            booking: details,
+            booking: quoteRequestReference
+              ? { ...details, a2aQuoteReference: quoteRequestReference }
+              : details,
           });
           if (!reference) reference = emailRef;
         } else {

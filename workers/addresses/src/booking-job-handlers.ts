@@ -1,3 +1,4 @@
+import { getA2aQuoteByReference, saveA2aQuoteRequest } from "./a2a-quote-store";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import {
   bookingJobAssignmentLabel,
@@ -280,6 +281,24 @@ export async function createBookingJobFromSubmission(
   }
   if (typeof b.quoteTransactionId === "string" && b.quoteTransactionId.trim()) {
     job.quoteTransactionId = b.quoteTransactionId.trim();
+  }
+
+  // Manual-quote request already in A2A Quotes: link both ways so pricing it from
+  // either screen uses one quote, and paying it marks this enquiry paid.
+  const a2aReference =
+    typeof b.a2aQuoteReference === "string" ? b.a2aQuoteReference.trim() : "";
+  if (a2aReference) {
+    try {
+      const quote = await getA2aQuoteByReference(store, a2aReference);
+      if (quote) {
+        job.sentQuoteReference = quote.reference;
+        if (quote.bookingJobId !== job.id) {
+          await saveA2aQuoteRequest(store, { ...quote, bookingJobId: job.id });
+        }
+      }
+    } catch (error) {
+      console.error("Could not link enquiry to its quote request", error);
+    }
   }
 
   await saveBookingJob(store, job);

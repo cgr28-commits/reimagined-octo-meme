@@ -469,9 +469,9 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                 {job.status === "awaiting_payment" ? (
                   <div className="mt-4 rounded-xl border border-emerald/40 bg-emerald/[0.07] p-4">
                     <p className="text-sm font-bold text-white">
-                      {job.sentQuoteReference ? "Price sent" : "Send price to customer"}
+                      {job.sentQuoteAt ? "Price sent" : "Send price to customer"}
                     </p>
-                    {job.sentQuoteReference ? (
+                    {job.sentQuoteAt ? (
                       <p className="mt-1 text-xs text-white/65">
                         {job.sentQuotePriceLabel ?? "Price"} sent
                         {job.sentQuoteAt ? ` ${formatUkInstant(job.sentQuoteAt)}` : ""}
@@ -528,7 +528,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                         >
                           {busyId === job.id
                             ? "Sending…"
-                            : job.sentQuoteReference
+                            : job.sentQuoteAt
                               ? "Send new price"
                               : "Send price"}
                         </button>
