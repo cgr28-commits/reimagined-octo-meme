@@ -32,7 +32,7 @@ export default function TerminalAccessOptions(props: Props) {
     <header>
       {leg === "return" && <p className="mb-0.5 text-xs font-medium text-white/65">Return journey</p>}
       <h3 className="text-sm font-semibold leading-snug text-white">Airport {direction} — {name}</h3>
-      <p className="mt-1 text-xs text-white/70">{pickup ? "Choose how you’d like to meet your driver." : "Choose where you’d like your driver to drop you off."}</p>
+      <p className="mt-1 text-xs text-white/70">{pickup ? (meetGreet ? "Meet & Greet: your driver meets you inside Arrivals with a name board." : "Choose how you’d like to meet your driver.") : "Choose where you’d like your driver to drop you off."}</p>
     </header>
     {pickup && <label className={card(meetGreet)} data-access-option="meet-greet" data-offered-at-vehicle-step={meetGreetOfferedEarlier ? "true" : undefined}>
       <input type="checkbox" checked={meetGreet} disabled={meetGreetIncluded}
@@ -43,7 +43,8 @@ export default function TerminalAccessOptions(props: Props) {
       <span className="col-start-2 col-end-4 text-xs leading-relaxed text-white/70">Your driver meets you inside Arrivals with a name board and helps with your luggage. Parking and terminal access included.</span>
     </label>}
     <fieldset className="min-w-0 space-y-2" disabled={meetGreet}>
-      <legend className="mb-1.5 text-sm font-semibold text-white">Choose Your {direction} Location</legend>
+      {/* With Meet & Greet there is nothing to choose, so no "Choose…" heading over the note. */}
+      <legend className={meetGreet ? "sr-only" : "mb-1.5 text-sm font-semibold text-white"}>{meetGreet ? `${direction} location` : `Choose Your ${direction} Location`}</legend>
       {meetGreet ? <p className="rounded-xl border border-emerald/30 bg-emerald/5 px-3 py-2 text-xs leading-relaxed text-white/80" role="status">Terminal pickup and parking included with Meet &amp; Greet. No separate access charge.</p> : <>
         {freeAvailable && <label className={card(choice === "free")} data-access-option="free">
           <input type="radio" name={id} value="free" checked={choice === "free"} onChange={() => onChange("free")}

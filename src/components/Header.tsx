@@ -119,7 +119,10 @@ export default function Header() {
             >
               <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3">
                 <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
-                  <Logo className="h-14" />
+                  {/* The menu panel turns light under html[data-mobile-light]; swap to the
+                      navy-text logo there so the wordmark stays visible. */}
+                  <Logo className="menu-logo-dark h-14" />
+                  <Logo className="menu-logo-light hidden h-14" theme="light" />
                 </Link>
                 <button
                   type="button"
