@@ -85,7 +85,8 @@ export async function answerWhatsAppQuestion(
 ): Promise<WhatsAppAiAnswer | null> {
   const apiKey = env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) return null;
-  const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+  // Runs in the WhatsApp reply runner (no 30-second limit): thinking on, high effort (10 Nov 2026).
+  const client = new Anthropic({ apiKey, timeout: 150_000, maxRetries: 1 });
 
   const journey = context.journey;
   const userParts = [
@@ -111,8 +112,9 @@ export async function answerWhatsAppQuestion(
 
   const response = await client.beta.messages.create({
     model: "claude-opus-5-5",
-    max_tokens: 4000,
-    output_config: { effort: "low" },
+    max_tokens: 16000,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "high" },
     // Refusals are re-run on a fallback model chosen by the API.
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",

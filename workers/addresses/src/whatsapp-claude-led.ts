@@ -61,16 +61,20 @@ export const claudeLedClient = {
   async turn(env: ClaudeLedEnv, context: string): Promise<ClaudeLedTurn | null> {
     const apiKey = env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) return null;
-    const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+    // Replies run in the WhatsApp reply runner (no 30-second limit), so Claude can take its time:
+    // thinking on, high effort (owner's choice, 10 Nov 2026). Forced tool use is not allowed with
+    // thinking on Opus 5.5, so the tool is "auto" and the instructions say to always call it.
+    const client = new Anthropic({ apiKey, timeout: 150_000, maxRetries: 1 });
     const response = await client.beta.messages.create({
       model: "claude-opus-5-5",
-      max_tokens: 2000,
-      output_config: { effort: "low" },
+      max_tokens: 16000,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: [{ type: "text", text: INSTRUCTIONS + WHATSAPP_KNOWLEDGE, cache_control: { type: "ephemeral" } }],
       tools: [CLAUDE_LED_TOOL],
-      tool_choice: { type: "tool", name: CLAUDE_LED_TOOL.name },
+      tool_choice: { type: "auto" },
       messages: [{ role: "user", content: context }],
     });
     if (response.stop_reason === "refusal") return null;
