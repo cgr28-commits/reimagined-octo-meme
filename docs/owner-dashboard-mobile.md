@@ -5,7 +5,7 @@ Design reference: the approved canvas "Owner Dashboard — Mobile Redesign" (Nov
 
 ## How to try it
 
-- Staging preview: `https://claude-owner-dashboard-mobile.my-airport-taxi-ni-preview.pages.dev/owner/?ui=mobile`
+- Staging preview: `https://claude-owner-dashboard-mobil.my-airport-taxi-ni-preview.pages.dev/owner/?ui=mobile`
   (isolated preview Worker + KV; no Resend, WhatsApp or Stripe secrets, so no real customer can be emailed,
   messaged or charged). Sign in with the normal owner key.
 - The staging copy has little or no data. On a preview host, Home offers **Show sample data** — every
