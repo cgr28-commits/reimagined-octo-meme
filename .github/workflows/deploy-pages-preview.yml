@@ -92,7 +92,12 @@ jobs:
           if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ]; then
             # The preview Worker shares the live booking store (TRACKING_STORE), so it must NOT
             # hold the owner key: remove it so the staging dashboard can't read or change live data.
-            npx wrangler secret delete OWNER_ACCESS_KEY --env preview --force || true
+            echo "y" | npx wrangler secret delete OWNER_ACCESS_KEY --env preview || true
+            if npx wrangler secret list --env preview | grep -q '"OWNER_ACCESS_KEY"'; then
+              echo "::error::OWNER_ACCESS_KEY is still set on the preview Worker"
+              exit 1
+            fi
+            echo "::notice::OWNER_ACCESS_KEY is not set on the preview Worker."
           fi
           if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
             put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
