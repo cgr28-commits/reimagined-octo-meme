@@ -473,6 +473,17 @@ export default function HomepageQuoteFields({
         </p>
       ) : null}
 
+      {design3 ? (
+        <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>
+          <button type="button" aria-pressed={journeyMode !== "return"} onClick={() => onJourneyModeChange("one-way")}>
+            One way
+          </button>
+          <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
+            Return
+            <span data-return-discount-note>Save 5%</span>
+          </button>
+        </div>
+      ) : null}
       {scheduleFields}
 
       {design2 ? (

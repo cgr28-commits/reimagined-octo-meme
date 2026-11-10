@@ -6457,3 +6457,11 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     html[data-mobile-d3] #homepage-booking-intro [data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #475569 !important; max-width: 22rem; }
   }
 }
+
+/* Design 3: trip type + date/time on the home form. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] [data-d3-home-segment] { margin: .875rem 0 .25rem; }
+    html[data-mobile-d3] [data-homepage-quote-fields] [data-homepage-inline-schedule] { margin-top: .5rem; }
+  }
+}

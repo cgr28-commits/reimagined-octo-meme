@@ -683,6 +683,13 @@ function nowTimeInputValue(): string {
   return nowLondonTime();
 }
 
+function formatD3ChipDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return value;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
 function isTripDateOnOrAfterToday(tripDate: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
     return false;
@@ -3697,7 +3704,7 @@ function QuoteCard({
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
       return false;
     }
-    if (!isScheduleComplete && !design2Home) {
+    if (!isScheduleComplete && (!design2Home || mobileDesign3)) {
       validateTripForBooking();
       focusHomepageScheduleError();
       return false;
@@ -9508,8 +9515,15 @@ function QuoteCard({
                       {suitcases != null && suitcases >= 5 ? "5+ suitcases" : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
                     </li>
                     {journeyDurationLabel ? <li data-chip="time">≈ {journeyDurationLabel}</li> : null}
+                    {mobileDesign3 && tripDate && tripTime ? (
+                      <li data-chip="when">{formatD3ChipDate(tripDate)}, {tripTime}</li>
+                    ) : null}
+                    {mobileDesign3 && journeyMode === "return" && returnDate && returnTime ? (
+                      <li data-chip="return">Return {formatD3ChipDate(returnDate)}, {returnTime}</li>
+                    ) : null}
                   </ul>
                 </div>
+                {mobileDesign3 ? null : (<>
                 <div role="group" aria-label="Journey type" data-d2-segment>
                   <button
                     type="button"
@@ -9540,6 +9554,7 @@ function QuoteCard({
                     Add your pickup date and time{journeyMode === "return" ? ", and your return date and time," : ""} to see your fixed price for each vehicle.
                   </p>
                 ) : null}
+                </>)}
               </div>
             ) : presentation === "homepage" ? (
               <HomepageQuoteFields
@@ -9596,8 +9611,8 @@ function QuoteCard({
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
                 pickupNeedsHouseNumber={isIncompletePickupAddress}
-                scheduleFields={design2Home ? null : renderQuoteScheduleFields("quote", true)}
-                scheduleComplete={design2Home ? true : isScheduleComplete}
+                scheduleFields={design2Home && !mobileDesign3 ? null : renderQuoteScheduleFields("quote", true)}
+                scheduleComplete={design2Home && !mobileDesign3 ? true : isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
