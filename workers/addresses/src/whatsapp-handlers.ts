@@ -156,6 +156,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   GOOGLE_PLACES_API_KEY?: string;
   /** Set to "false" to stop automatic replies (webhook still verifies and dedupes). */
   WHATSAPP_BOT_ENABLED?: string;
+  /** Runs replies without the 30-second waitUntil limit, so the assistant can take its time. */
+  WHATSAPP_REPLY_RUNNER?: DurableObjectNamespace;
   /** Hours the assistant stays quiet after a handoff or an owner reply (default 0.5 = 30 minutes). */
   WHATSAPP_HANDOFF_HOURS?: string;
   /** "true" emails the owner a copy of every finished chat. Default off: handoff emails only. */
@@ -516,6 +518,19 @@ export async function handleWhatsAppWebhook(
     return new Response("Invalid JSON", { status: 400 });
   }
 
+  // Hand the work to the reply runner (no time limit), so the assistant can think before replying.
+  if (env.WHATSAPP_REPLY_RUNNER) {
+    try {
+      const runner = env.WHATSAPP_REPLY_RUNNER.get(env.WHATSAPP_REPLY_RUNNER.idFromName(whatsAppRunnerName(payload)));
+      const queued = await runner.fetch("https://whatsapp-runner/enqueue", { method: "POST", body: rawBody });
+      if (queued.ok) return new Response("EVENT_RECEIVED", { status: 200 });
+    } catch (err) {
+      console.error(
+        JSON.stringify({ event: "whatsapp_runner_enqueue_failed", error: err instanceof Error ? err.message : String(err) }),
+      );
+    }
+  }
+
   const work = processWhatsAppWebhook(payload, env).catch(async (err) => {
     const error = err instanceof Error ? err.message : String(err);
     console.error(JSON.stringify({ event: "whatsapp_webhook_error", error }));
@@ -525,6 +540,12 @@ export async function handleWhatsAppWebhook(
   if (ctx) ctx.waitUntil(work);
   else await work;
   return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+/** Which reply runner a webhook goes to: the customer's number, so their messages stay in order. */
+export function whatsAppRunnerName(payload: unknown): string {
+  const parsed = parseWhatsAppWebhook(payload);
+  return parsed.messages[0]?.from || parsed.echoes[0]?.to || parsed.failures[0]?.to || "other";
 }
 
 export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv): Promise<void> {
