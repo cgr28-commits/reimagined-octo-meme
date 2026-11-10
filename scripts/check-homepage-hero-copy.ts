@@ -51,7 +51,7 @@ assert.doesNotMatch(
 );
 assert.match(
   hero,
-  /Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price\./,
+  /Reliable, pre-booked airport transfers at a fixed price\. Travel with confidence across Northern Ireland and beyond\./,
   "hero supporting copy must name Belfast International, Belfast City and Dublin Airport",
 );
 assert.match(hero, /baseName="belfast-international-homepage"/);
