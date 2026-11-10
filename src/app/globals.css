@@ -6696,9 +6696,9 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   }
 }
 
-/* Phones and tablets: every Google review star (homepage badge, page badges, footer link)
-   uses Google's star yellow, whatever the surrounding text colour. */
+/* Every Google review star (homepage badge and panel, page badges, footer link) on phones,
+   tablets and desktop uses Google's star yellow, whatever the surrounding text colour. */
 /* In @layer base with the other Design 3 rules: layered !important beats unlayered !important. */
 @layer base {
-  html:root:root[data-mobile-light] [data-reviews-stars][data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
+  html:root:root [data-reviews-stars][data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
 }
