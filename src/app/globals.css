@@ -6637,3 +6637,30 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
     html:root:root:not([data-mobile-d3]) .quote-flow [data-schedule-control] span { color: #334155 !important; }
   }
 }
+
+/* Design 3 on tablets (768-1199px): the date and time boxes show the same "Select date" /
+   "Select time" text as on phones (the native picker text stays hidden underneath). */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  html[data-mobile-d3] [data-homepage-inline-schedule] [data-schedule-control] { position: relative; }
+  html[data-mobile-d3] [data-homepage-inline-schedule] .homepage-schedule-prompt {
+    display: flex;
+    align-items: center;
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 2.625rem;
+    inset-inline-end: 1.5rem;
+    pointer-events: none;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  html[data-mobile-d3] #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input {
+    -webkit-text-fill-color: transparent;
+  }
+  html[data-mobile-d3] #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-datetime-edit,
+  html[data-mobile-d3] #quoteForm [data-homepage-inline-schedule] input.quote-datetime-input::-webkit-date-and-time-value {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
