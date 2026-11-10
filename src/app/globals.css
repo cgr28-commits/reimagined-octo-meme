@@ -5820,7 +5820,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2] div:has(> .relative > .address-input:focus) { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; }
   html[data-mobile-light] [data-d2] [data-gps-location] { color: #2fbf4a !important; }
   html[data-mobile-light] [data-d2-swap-row] { position: relative; height: 0; z-index: 35; }
-  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -.3rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
+  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -.15rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
   html[data-mobile-light] [data-d2-party] { margin-top: .25rem; gap: .625rem !important; }
   html[data-mobile-light] [data-d2-fields]:has(.address-suggestions, .address-input:focus) [data-d2-swap] { display: none; }
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid var(--d2-field); border-radius: .75rem; padding: .5rem .5rem .5rem .75rem; background: #fff; }
