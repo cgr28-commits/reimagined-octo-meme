@@ -6558,3 +6558,11 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] { display: flex !important; }
 }
 
+/* Design 3 on portrait tablets (768-1023px): vehicle pictures stay inside their column. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] { column-gap: 0.75rem !important; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] { width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow: hidden; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] picture { display: block; width: 100% !important; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] img { width: 100% !important; height: auto !important; max-width: 100% !important; object-fit: contain; scale: 1 !important; translate: none !important; }
+}
+
