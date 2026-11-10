@@ -65,6 +65,8 @@ jobs:
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
           SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
         run: |
           set -euo pipefail
           node ../../scripts/sync-worker-shared.mjs
@@ -87,6 +89,9 @@ jobs:
           put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
           put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
           put_secret WEB3FORMS_ACCESS_KEY "${WEB3FORMS_ACCESS_KEY:-}"
+          # Owner Dashboard preview: accept the same owner key as the live dashboard.
+          put_secret DRIVER_ACCESS_KEY "${DRIVER_ACCESS_KEY:-}"
+          put_secret OWNER_ACCESS_KEY "${OWNER_ACCESS_KEY:-}"
           if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
             put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
             put_secret SUMUP_MERCHANT_CODE "$SUMUP_MERCHANT_CODE"
