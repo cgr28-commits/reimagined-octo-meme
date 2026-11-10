@@ -8050,6 +8050,7 @@ function QuoteCard({
               type="button"
               onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+              data-checkout-email-quote
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
               Email my quote

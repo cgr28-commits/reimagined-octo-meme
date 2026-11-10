@@ -6518,3 +6518,43 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     html[data-mobile-d3] .homepage-hero-media { display: none !important; }
   }
 }
+
+/* Desktop (1200px+) release fixes: vehicle rows never overlap on 1200-1365px laptops; on-request badge under the name. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] { grid-template-columns: minmax(0, 1fr) !important; min-width: 0; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] > [data-vehicle-name] { grid-column: 1 !important; grid-row: auto !important; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] > [data-vehicle-desktop-badge] { grid-column: 1 !important; grid-row: auto !important; justify-self: start; margin: 0.1rem 0 0.15rem; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] > :is(span.block:not([data-vehicle-name]), span.flex) { white-space: normal !important; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] > [data-vehicle-desktop-badge] ~ * { grid-column: 1 !important; }
+}
+@media (min-width: 1200px) and (max-width: 1365.98px) {
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-layout][data-vehicle-option-layout] { grid-template-columns: 8rem minmax(0, 1fr) auto 6rem !important; column-gap: 0.75rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-art-size="option"][data-vehicle-art-size="option"] { width: 8rem !important; height: 4.8rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] :is([data-vehicle-desktop-price], [data-vehicle-desktop-request]) { padding-right: 0.75rem !important; }
+}
+
+/* Desktop checkout panel: "Email my quote" and "Start over" as two clear outlined buttons. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > button[data-checkout-email-quote],
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] button {
+    display: inline-flex !important; align-items: center; justify-content: center; gap: 0.45rem;
+    width: 100% !important; min-height: 2.75rem !important; padding: 0 0.9rem !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.6); border-radius: 0.75rem; background: rgba(255, 255, 255, 0.06);
+    color: #fff !important; -webkit-text-fill-color: #fff; font-size: 0.9rem !important; font-weight: 700;
+    text-decoration: none !important; opacity: 1;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > button[data-checkout-email-quote]:hover,
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] button:hover {
+    background: rgba(255, 255, 255, 0.14); border-color: #fff;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > button[data-checkout-email-quote]:focus-visible,
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] button:focus-visible {
+    outline: 3px solid #2fbf4a; outline-offset: 2px;
+  }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > button[data-checkout-email-quote]::before { content: "✉"; font-size: 1rem; line-height: 1; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] button::before { content: "↺"; font-size: 1.05rem; line-height: 1; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > :is(button[data-checkout-email-quote], [data-start-new-quote-controls]) { flex: 1 1 0 !important; justify-self: stretch !important; margin-top: 0.5rem !important; }
+  :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] { display: flex !important; }
+}
+
