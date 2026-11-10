@@ -144,8 +144,10 @@ check("customer flow order: journey type → date/time → passengers → suitca
   assert.match(scheduleUi, /id="returnDate"/);
   assert.match(scheduleUi, /id="returnTime"/);
   assert.match(card, /showScheduleFields=/);
-  assert.match(card, /scheduleFields=\{renderQuoteScheduleFields\("quote", true\)\}/);
-  assert.match(card, /scheduleComplete=\{isScheduleComplete\}/);
+  // The homepage form always carries the schedule; only the Design 2 mobile preview moves it to the
+  // Vehicle step (mobile Design 3 keeps it on the form).
+  assert.match(card, /scheduleFields=\{design2Home && !mobileDesign3 \? null : renderQuoteScheduleFields\("quote", true\)\}/);
+  assert.match(card, /scheduleComplete=\{design2Home && !mobileDesign3 \? true : isScheduleComplete\}/);
   assert.match(homepageFields, /\{scheduleFields\}/);
   assert.doesNotMatch(homepageFields, /QuoteActionDialog|data-homepage-schedule-dialog|data-edit-quote-schedule/);
   assert.doesNotMatch(homepageFields, /data-homepage-schedule-before-vehicle/);
@@ -153,7 +155,8 @@ check("customer flow order: journey type → date/time → passengers → suitca
 
 check("vehicle cards / Book Now stay hidden until complete quote", () => {
   assert.match(card, /quoteResultsReady && quoteStep === 1 &&/);
-  assert.match(card, /presentation !== "homepage" && !isScheduleComplete/);
+  // Mobile Design 2/3 also gate the homepage form on the schedule.
+  assert.match(card, /\(presentation !== "homepage" \|\| design2Home\) && !isScheduleComplete/);
   assert.match(
     card,
     /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*\(presentation === "homepage" \? false : !isScheduleComplete\)/,
