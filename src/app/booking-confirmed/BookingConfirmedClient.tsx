@@ -70,10 +70,9 @@ export default function BookingConfirmedClient() {
       Boolean(params.get("checkout_id")) ||
       Boolean(params.get("checkoutId"));
 
-    // Clean tracking params from the address bar after first load, keep stable /booking-confirmed/
-    if (hasPaymentReturn) {
-      window.history.replaceState(null, "", "/booking-confirmed/");
-    }
+    // Clean tracking params from the address bar once the booking is confirmed (see below), keeping a
+    // stable /booking-confirmed/. Until then the payment reference stays in the address, so Refresh
+    // checks the same payment again instead of losing it.
 
     const pending = readPendingPayment();
     if (pending?.booking) {
@@ -180,6 +179,9 @@ export default function BookingConfirmedClient() {
         setDepositPaidGbp(null);
       } else {
         setCashDueGbp(null);
+      }
+      if (hasPaymentReturn && result.status === "confirmed") {
+        window.history.replaceState(null, "", "/booking-confirmed/");
       }
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && purchase) {
