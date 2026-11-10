@@ -6566,3 +6566,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] img { width: 100% !important; height: auto !important; max-width: 100% !important; object-fit: contain; scale: 1 !important; translate: none !important; }
 }
 
+
+/* Readability (all designs): footer secondary text and breadcrumbs meet 4.5:1. */
+footer .text-white\/50 { color: rgba(255, 255, 255, 0.64) !important; }
+html[data-mobile-d3] nav[aria-label="Breadcrumb"], html[data-mobile-d3] nav[aria-label="Breadcrumb"] a { color: #475569 !important; -webkit-text-fill-color: #475569; }
+html[data-mobile-d3] nav[aria-label="Breadcrumb"] a:hover { color: #16803c !important; -webkit-text-fill-color: #16803c; }

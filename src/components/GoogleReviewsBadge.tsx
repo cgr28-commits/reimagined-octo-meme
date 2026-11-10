@@ -85,7 +85,7 @@ export default function GoogleReviewsBadge({
       href={GOOGLE_BUSINESS_PROFILE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/85 transition-colors hover:border-emerald/40 hover:text-white ${className}`}
+      className={`inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm lg:min-h-0 text-white/85 transition-colors hover:border-emerald/40 hover:text-white ${className}`}
       aria-label={`Rated ${rating} out of 5 from ${count} Google reviews — read them on Google`}
     >
       <span className="tracking-tight text-amber-300" aria-hidden="true">

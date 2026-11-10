@@ -12,11 +12,12 @@ export default function Footer() {
     <footer className="relative border-t border-white/10 bg-navy-dark">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 lg:py-16 xl:px-12">
         <div
-          className={`grid gap-10 sm:grid-cols-2 ${
-            SERVICE_FLAGS.dayTrips ? "lg:grid-cols-6" : "lg:grid-cols-5"
+          className={`grid gap-10 sm:grid-cols-2 lg:grid-cols-3 ${
+            SERVICE_FLAGS.dayTrips ? "min-[1200px]:grid-cols-6" : "min-[1200px]:grid-cols-5"
           }`}
         >
-          <div className="sm:col-span-2 lg:col-span-1">
+          {/* 1024-1199px: brand on its own row, then three columns, so nothing is squeezed. */}
+          <div className="sm:col-span-2 lg:col-span-3 min-[1200px]:col-span-1">
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               {SITE_PUBLIC_SEO_BLURB}
@@ -35,7 +36,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Quick Links
             </h3>
             <ul className="mt-4 space-y-2">
@@ -80,7 +81,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Airports
             </h3>
             <ul className="mt-4 space-y-2">
@@ -99,7 +100,7 @@ export default function Footer() {
 
           {SERVICE_FLAGS.dayTrips ? (
             <div>
-              <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
                 Day Trips
               </h3>
               <ul className="mt-4 space-y-2">
@@ -123,14 +124,14 @@ export default function Footer() {
           ) : null}
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Contact
             </h3>
             <FooterContact />
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Service Hours
             </h3>
             <p className="mt-4 text-sm text-white/50">
@@ -145,7 +146,7 @@ export default function Footer() {
 
         {SERVICE_FLAGS.addressToAddress ? (
           <div className="mt-12 border-t border-white/10 pt-8">
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Airport taxi towns
             </h3>
             <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
@@ -205,7 +206,7 @@ export default function Footer() {
             </Link>
             <Link
               href="/contact/"
-              className="rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
+              className="inline-flex min-h-11 items-center rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/80 lg:min-h-0 transition-colors hover:border-emerald/40 hover:text-emerald"
             >
               Save to contacts
             </Link>
