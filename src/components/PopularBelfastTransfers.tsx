@@ -42,6 +42,13 @@ export default function PopularBelfastTransfers() {
           <Link href="/airports/belfast-city/" className="text-emerald underline underline-offset-4">Belfast City Airport taxi and pickup guide</Link>{" "}
           before getting a fixed-price quote for your city-centre or hotel journey.
         </p>
+        <p className="mt-6 text-sm leading-relaxed text-white/70">
+          Heading to Dublin city rather than the airport? Book a{" "}
+          <Link href="/transfers/belfast-to-dublin-city/" className="text-emerald underline underline-offset-4">Belfast to Dublin taxi, door to door in either direction</Link>
+          , or plan a{" "}
+          <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald underline underline-offset-4">Christmas shopping trip or night out between Belfast and Dublin</Link>
+          .
+        </p>
         <p className="mt-6 text-sm text-white/70">Arriving by train or coach? <Link href="/belfast-grand-central-station-taxi/" className="text-emerald underline underline-offset-4">Book a Belfast Grand Central Station taxi transfer</Link> to or from your home, hotel or airport.</p>
       </div>
     </section>

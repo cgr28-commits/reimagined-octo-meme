@@ -33,7 +33,7 @@ try {
     const reject = page.getByRole("button", { name: "Reject optional", exact: true });
     if (await reject.count()) await reject.first().click();
     assert.equal(await page.locator("h1").count(), 1);
-    assert.equal(await page.locator("h1").innerText(), "Belfast to Dublin City Taxi");
+    assert.equal(await page.locator("h1").innerText(), "Belfast to Dublin Taxi – and Dublin to Belfast");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "No horizontal scroll");
     const images = await page.locator("[data-landing-hero] img").evaluateAll((imgs) => imgs.map((img) => img.complete && img.naturalWidth > 0));
     assert.ok(images.length > 0 && images.every(Boolean), "Hero image must load");

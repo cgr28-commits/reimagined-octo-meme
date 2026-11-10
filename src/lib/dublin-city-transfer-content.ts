@@ -3,12 +3,14 @@ export const DUBLIN_CITY_TRANSFER_PATH = "/transfers/belfast-to-dublin-city/";
 
 export const DUBLIN_CITY_TRANSFER_PAGE = {
   title: "Belfast to Dublin City Taxi & Private Transfer",
-  h1: "Belfast to Dublin City Taxi",
+  /** Search-result title (no brand suffix, so the route words are not cut off). */
+  seoTitle: "Belfast to Dublin Taxi & Dublin to Belfast – Door to Door",
+  h1: "Belfast to Dublin Taxi – and Dublin to Belfast",
   description:
-    "Private taxi between Belfast and Dublin city, in either direction. Door-to-door to your hotel, home or office, with a fixed price agreed before you pay.",
+    "Private taxi from Belfast to Dublin city, or Dublin to Belfast, door to door in about two hours. Fixed price before you pay; free cancellation up to 24 hours.",
   eyebrow: "Belfast ⇄ Dublin city · Private taxi",
   intro:
-    "Travel between Belfast and Dublin city in one pre-booked private car, door to door. We collect from your Belfast home, hotel or office and drive you to your Dublin address, or collect you in Dublin and bring you home to Belfast. Your price is fixed and agreed before you pay, with no meter running and no change of bus or train on the way.",
+    "Yes, you can get a taxi all the way between Belfast and Dublin. Book one private car, door to door, in either direction. We collect from your Belfast home, hotel or office and drive you to your Dublin address, or collect you in Dublin and bring you home to Belfast. Your price is fixed and agreed before you pay, with no meter running and no change of bus or train on the way.",
   heroHighlights: [
     "Door to door, in either direction",
     "Fixed price agreed before you pay",
@@ -30,14 +32,19 @@ export const DUBLIN_CITY_TRANSFER_PAGE = {
     "Enter your pickup and drop-off addresses, then the number of passengers and suitcases. Where an instant fare is shown you can book and pay online in minutes. Otherwise send the request and we confirm a fixed price and availability before you pay.",
   faqs: [
     {
+      question: "Can I get a taxi from Belfast to Dublin?",
+      answer:
+        "Yes. Book a private taxi on this page and we drive you from your Belfast address straight to your Dublin hotel, home, office or venue in the same car. It usually takes around two hours, and the price is fixed before you pay.",
+    },
+    {
+      question: "Can I get a taxi from Dublin to Belfast?",
+      answer:
+        "Yes. Enter your Dublin pickup address and your Belfast drop-off in the quote form. Your pre-booked driver collects you at the time you choose and takes you straight to your Belfast door, with 10 minutes' complimentary waiting at the pickup.",
+    },
+    {
       question: "How much is a taxi from Belfast to Dublin city?",
       answer:
         "The price depends on the exact pickup and drop-off addresses, the vehicle and the journey time. Enter both addresses in the quote form to see your fixed price. The price is for the car, not per passenger, and it is agreed before you pay.",
-    },
-    {
-      question: "Can you collect me in Dublin and take me to Belfast?",
-      answer:
-        "Yes. Enter your Dublin hotel, home or office as the pickup and your Belfast address as the drop-off. We confirm the collection time and the fixed price before you book.",
     },
     {
       question: "How long is the journey between Belfast and Dublin?",
@@ -58,6 +65,16 @@ export const DUBLIN_CITY_TRANSFER_PAGE = {
       question: "What if my plans change?",
       answer:
         "You can cancel up to 24 hours before your pickup for a full refund. Contact us as early as possible if your times change and we will do our best to move the booking.",
+    },
+    {
+      question: "I'm going to Dublin Airport, not the city. Which page do I use?",
+      answer:
+        "Use our Belfast to Dublin Airport page for flights out, or Dublin Airport to Belfast if you are landing. Airport fares include the M1 tolls, and on airport pickups your driver meets you in Arrivals with up to 60 minutes' waiting included.",
+    },
+    {
+      question: "Can you take a group to Dublin for Christmas shopping or a night out?",
+      answer:
+        "Yes. Christmas shopping trips, work Christmas dinners and festive nights out in Dublin are popular in November and December. Book a return so the same fixed price covers the trip home, and see our Belfast and Dublin Christmas trips page for ideas. Book early for December weekends.",
     },
     {
       question: "Which vehicle should I choose?",
