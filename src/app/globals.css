@@ -6501,3 +6501,13 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { width: .6rem !important; }
   }
 }
+
+/* Design 3: progress line fits on the narrowest phones (320px). */
+@layer base {
+  @media (max-width: 374.98px) {
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .5rem !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { font-size: .75rem; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { display: none !important; }
+    html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li:last-child { white-space: normal; line-height: 1.15; min-width: 0; }
+  }
+}
