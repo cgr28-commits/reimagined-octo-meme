@@ -30,6 +30,9 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
+      # Mobile-first Owner Dashboard redesign (staging only; isolated preview Worker + KV,
+      # no email/WhatsApp/Stripe secrets, so nothing reaches a real customer).
+      - claude/owner-dashboard-mobile
 
 concurrency:
   group: pages-preview
@@ -64,6 +67,8 @@ jobs:
           WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           SUMUP_API_KEY: ${{ secrets.SUMUP_API_KEY }}
           SUMUP_MERCHANT_CODE: ${{ secrets.SUMUP_MERCHANT_CODE }}
+          # Lets the owner sign in to the preview Owner Dashboard. Preview Worker only.
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
         run: |
           set -euo pipefail
           node ../../scripts/sync-worker-shared.mjs
@@ -86,6 +91,9 @@ jobs:
           put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
           put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
           put_secret WEB3FORMS_ACCESS_KEY "${WEB3FORMS_ACCESS_KEY:-}"
+          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ]; then
+            put_secret OWNER_ACCESS_KEY "${OWNER_ACCESS_KEY:-}"
+          fi
           if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
             put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
             put_secret SUMUP_MERCHANT_CODE "$SUMUP_MERCHANT_CODE"
@@ -143,6 +151,10 @@ jobs:
           GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
+          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ]; then
+            # Owner dashboard staging: no Google Ads tracking on previews.
+            GOOGLE_ADS_ID=""
+          fi
           WORKER_PREVIEW="${{ needs.preview-worker.outputs.url }}"
           if [ -n "$WORKER_PREVIEW" ]; then
             BOOKINGS_API_URL="${WORKER_PREVIEW%/}/bookings"

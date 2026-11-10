@@ -1561,6 +1561,7 @@ export async function ownerReplyToWhatsAppChat(
   rawPhone: string,
   rawText: string,
   now: Date = new Date(),
+  sendId = "",
 ): Promise<OwnerWhatsAppReplyResult> {
   const store = env.TRACKING_STORE;
   if (!store || !whatsAppCloudConfigured(env)) return { error: "WhatsApp is not configured", status: 503 };
@@ -1580,8 +1581,20 @@ export async function ownerReplyToWhatsAppChat(
       status: 409,
     };
   }
+  // Duplicate-send guard (double tap / retry): one WhatsApp message per dashboard sendId.
+  const guardKey = sendId.trim() ? `whatsapp:owner-send:${sendId.trim().slice(0, 80)}` : "";
+  if (guardKey) {
+    const previous = await store.get(guardKey);
+    if (previous === "sending") return { error: "This message is already being sent.", status: 409 };
+    if (previous) return { ok: true, assistantPaused: true };
+    await store.put(guardKey, "sending", { expirationTtl: 60 * 60 * 24 });
+  }
   const sent = await sendWhatsAppText(env, phone, text);
   await appendWhatsAppChat(store, phone, { from: "team", text, failed: !sent.sent });
+  if (guardKey) {
+    if (sent.sent) await store.put(guardKey, "sent", { expirationTtl: 60 * 60 * 24 });
+    else await store.delete(guardKey);
+  }
   if (!sent.sent) {
     logEvent("whatsapp_owner_reply_failed", phone, { error: sent.error });
     return { error: `WhatsApp didn't accept the message: ${String(sent.error ?? "unknown error")}`, status: 502 };

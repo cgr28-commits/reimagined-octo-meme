@@ -5339,13 +5339,18 @@ export default {
       if (!ownerAuthorized(request, env)) {
         return json({ error: "Unauthorized — owner access required." }, 401, origin);
       }
-      const body = (await request.json().catch(() => ({}))) as { phone?: unknown; text?: unknown; action?: unknown };
+      const body = (await request.json().catch(() => ({}))) as {
+        phone?: unknown;
+        text?: unknown;
+        action?: unknown;
+        sendId?: unknown;
+      };
       const phone = String(body.phone ?? "");
       if (body.action === "resume") {
         await resumeWhatsAppAssistant(env, phone);
         return json({ ok: true, assistantPaused: false }, 200, origin);
       }
-      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""));
+      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""), new Date(), String(body.sendId ?? ""));
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
     }

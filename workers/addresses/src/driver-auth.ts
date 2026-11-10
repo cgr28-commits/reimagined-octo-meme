@@ -33,12 +33,27 @@ function normalizeKey(value: string): string {
   return value.replace(/^\uFEFF/, "").trim();
 }
 
+/**
+ * Access keys belong in the X-Driver-Key / X-Owner-Key headers. The ?key= web-address
+ * fallback is being retired (keys in addresses end up in logs and browser history):
+ * the dashboard no longer sends it, and any request that still relies on it is logged —
+ * path only, never the key — so we can confirm nothing uses it before switching it off.
+ */
 export function readProvidedDriverKey(request: Request): string {
   const headerKey = request.headers.get("X-Driver-Key") ?? "";
   const ownerKey = request.headers.get("X-Owner-Key") ?? "";
-  const urlKey = new URL(request.url).searchParams.get("key") ?? "";
-  return normalizeKey(headerKey || ownerKey || urlKey);
+  if (headerKey || ownerKey) return normalizeKey(headerKey || ownerKey);
+  const url = new URL(request.url);
+  const urlKey = url.searchParams.get("key") ?? "";
+  if (urlKey && !urlKeyFallbackDisabled) {
+    console.warn(JSON.stringify({ event: "access_key_in_url", path: url.pathname }));
+    return normalizeKey(urlKey);
+  }
+  return "";
 }
+
+/** Flip to true (step 4 of the migration) once the log shows no access_key_in_url events. */
+const urlKeyFallbackDisabled = false;
 
 function ownerKey(env: DriverAuthEnv): string {
   return env.OWNER_ACCESS_KEY ? normalizeKey(env.OWNER_ACCESS_KEY) : "";
