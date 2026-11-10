@@ -253,17 +253,31 @@ export function newWhatsAppConversation(now = new Date()): WhatsAppConversation 
   return { stage: "collecting", draft: {}, updatedAt: now.toISOString() };
 }
 
+/** Emoji, skin tones, variation selectors and joiners: "Yes 😊" and "Yes 👍🏻" read as "yes". */
+const EMOJI_CHARS = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\u{FE0F}\u{200D}\u{20E3}]+/gu;
+/** A message that is only one of these emoji is a yes (e.g. 👍 to "Reply YES to get your price"). */
+const YES_EMOJI = new Set(["👍", "👌", "✅", "✔", "🆗", "💯", "🤙", "🤟"]);
+
 function keywordText(text: string): string {
   return stripWhatsAppMarkdown(text)
     .toLowerCase()
-    .replace(/[!.?,👍🙏]+/gu, " ")
+    .replace(EMOJI_CHARS, " ")
+    .replace(/[!.?,]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+/** Only emoji, all of them a thumbs up / OK / tick (any skin tone). */
+function isYesEmojiOnly(text: string): boolean {
+  const parts = stripWhatsAppMarkdown(text)
+    .replace(/[\p{Emoji_Modifier}\u{FE0F}\u{200D}\s]+/gu, "")
+    .match(/\p{Extended_Pictographic}|\p{Regional_Indicator}|./gu);
+  return Boolean(parts?.length) && parts!.every((p) => YES_EMOJI.has(p));
+}
+
 export function detectWhatsAppIntent(text: string): "reset" | "agent" | "confirm" | null {
   const k = keywordText(text);
-  if (!k) return null;
+  if (!k) return isYesEmojiOnly(text) ? "confirm" : null;
   if ((WHATSAPP_BOT_KEYWORDS.reset as readonly string[]).includes(k)) return "reset";
   if ((WHATSAPP_BOT_KEYWORDS.agent as readonly string[]).includes(k)) return "agent";
   if (/\b(speak|talk|chat)\s+(to|with)\s+(a\s+)?(human|person|someone|agent|staff)\b/.test(k)) {

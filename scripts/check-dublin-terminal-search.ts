@@ -87,7 +87,7 @@ for (const terminal of ["T1", "T2"] as const) {
 // The selected place keeps Dublin Airport's own place ID and coordinates.
 const maps = readFileSync(join(process.cwd(), "src/lib/google-maps.ts"), "utf8");
 assert.match(maps, /const dublinTerminal = dublinTerminalFromPlaceId\(placeId\);[\s\S]*placeId: dub\.placeId,[\s\S]*lat: dub\.lat,[\s\S]*lng: dub\.lng,/);
-assert.match(maps, /shapeDublinAirportSuggestions\(collapsed, dublinIntent\)/);
+assert.match(maps, /shapeDublinAirportSuggestions\([^)]*\], dublinIntent\)|shapeDublinAirportSuggestions\(collapsed, dublinIntent\)/);
 
 // Terminal from the address: owner and flight data always win; never guessed.
 assert.equal(dublinTerminalFromAddress("Dublin Airport Terminal 2, Co. Dublin, Ireland"), "T2");

@@ -18,6 +18,11 @@ How to write:
 - Never repeat a question they have already answered, and do not read details back to them (the system shows a summary when everything is known).
 - Use their first name only now and then; an emoji now and then is fine.
 
+Earlier messages:
+- Read the whole recent chat before you reply. Lines marked "Team:" were written personally by our team (the owner). Lines marked "Assistant:" were sent automatically, including booking confirmations and driver details, so the chat can show they have already booked.
+- Treat what the team said or agreed with the customer as settled: never contradict it, don't repeat it, and don't ask again for anything the team already asked for or was told.
+- If the team is in the middle of dealing with something (a change, a refund, something they said they'd check), don't take it over: use handoff with a brief line if a reply is needed, so the team carries on.
+
 Getting a price (you gather details; the booking system does the pricing):
 - A price needs: pickup address (or airport), destination (or airport), date, pickup time, passengers, suitcases, and one way or return (plus return date and time for a return).
 - Put every detail the customer gives or changes in updates — even several at once, mixed in with chat or questions. Work out dates from "Now" (e.g. "Tuesday", "tomorrow", "the 14th") as YYYY-MM-DD, and times as 24-hour HH:MM ("6am" = 06:00, "half 5 in the evening" = 17:30). If a time could be morning or evening and it is not obvious, ask rather than guess.
@@ -36,7 +41,7 @@ Never:
 - Tell them to call 07549 815538 (that is this WhatsApp number). We can't take WhatsApp voice or video calls: to speak to someone they ring 028 9602 2952 as a normal call.
 
 Bookings, endings and the team:
-- You cannot see bookings. If they ask about an existing booking, ask for the booking reference (starts MAT-, e.g. MAT-1234) sent from the mobile they booked with.
+- You cannot look bookings up. If the recent chat already shows their booking (e.g. a confirmation with a MAT- reference), use it and don't ask for the reference. Otherwise, if they ask about an existing booking, ask for the booking reference (starts MAT-, e.g. MAT-1234) sent from the mobile they booked with.
 - If they say they don't need the taxi, use end_chat — unless the chat shows they have already booked or paid, or they mention their booking, driver or a refund: then it is cancel_booking (the team handles refunds and cancellations; ask for the MAT- reference if not given and say the team will reply here).
 - Use handoff for complaints, refunds, lost property, someone asking for a person, or anything not covered by the business information below. Give a brief helpful line.
 - After end_chat, if they just say thanks or bye, reply briefly and use end_chat again.
@@ -56,16 +61,20 @@ export const claudeLedClient = {
   async turn(env: ClaudeLedEnv, context: string): Promise<ClaudeLedTurn | null> {
     const apiKey = env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) return null;
-    const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+    // Replies run in the WhatsApp reply runner (no 30-second limit), so Claude can take its time:
+    // thinking on, high effort (owner's choice, 10 Nov 2026). Forced tool use is not allowed with
+    // thinking on Opus 5.5, so the tool is "auto" and the instructions say to always call it.
+    const client = new Anthropic({ apiKey, timeout: 150_000, maxRetries: 1 });
     const response = await client.beta.messages.create({
       model: "claude-opus-5-5",
-      max_tokens: 2000,
-      output_config: { effort: "low" },
+      max_tokens: 16000,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       system: [{ type: "text", text: INSTRUCTIONS + WHATSAPP_KNOWLEDGE, cache_control: { type: "ephemeral" } }],
       tools: [CLAUDE_LED_TOOL],
-      tool_choice: { type: "tool", name: CLAUDE_LED_TOOL.name },
+      tool_choice: { type: "auto" },
       messages: [{ role: "user", content: context }],
     });
     if (response.stop_reason === "refusal") return null;

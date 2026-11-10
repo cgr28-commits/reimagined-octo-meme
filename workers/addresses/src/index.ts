@@ -381,6 +381,7 @@ import {
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
   coordinatorPeek,

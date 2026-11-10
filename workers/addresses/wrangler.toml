@@ -45,6 +45,10 @@ class_name = "MeetGreetCoordinator"
 name = "CONSENT_LEDGER"
 class_name = "ConsentLedger"
 
+[[durable_objects.bindings]]
+name = "WHATSAPP_REPLY_RUNNER"
+class_name = "WhatsAppReplyRunner"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -62,6 +66,10 @@ new_sqlite_classes = ["MeetGreetCoordinator"]
 [[migrations]]
 tag = "v4-consent-ledger"
 new_sqlite_classes = ["ConsentLedger"]
+
+[[migrations]]
+tag = "v5-whatsapp-reply-runner"
+new_sqlite_classes = ["WhatsAppReplyRunner"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"

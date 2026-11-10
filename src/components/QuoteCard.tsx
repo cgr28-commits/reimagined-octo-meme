@@ -1,7 +1,6 @@
 "use client";
 
 import CallUsButton from "@/components/CallUsButton";
-import { clearPaymentGroupId } from "@/lib/payment-group";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
@@ -4717,15 +4716,6 @@ function QuoteCard({
         ? (liveQuote?.amount ?? null)
         : null);
   const paymentAmount = transferPaymentAmount == null ? null : Math.round((transferPaymentAmount + bookingMeetGreetCharge) * 100) / 100;
-  /** Desktop (1200px+) checkout only: whether the fare breakdown lines are unfolded. */
-  const checkoutBreakdownShown =
-    checkoutBreakdownOpen ??
-    (returnJourney ||
-      bookingMeetGreetCharge > 0 ||
-      airportAccessQuote.airportAccessChargeGbp > 0 ||
-      (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
-      (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
-
   // A saved payment link is only offered for the same journey and price (see openCheckoutForJourney).
   const openCheckoutJourneyKey = buildOpenCheckoutJourneyKey({
     pickupAddress,
@@ -4755,6 +4745,14 @@ function QuoteCard({
     },
   });
   const activeOpenCheckout = openCheckoutForJourney(openCheckout, openCheckoutJourneyKey);
+  /** Desktop (1200px+) checkout only: whether the fare breakdown lines are unfolded. */
+  const checkoutBreakdownShown =
+    checkoutBreakdownOpen ??
+    (returnJourney ||
+      bookingMeetGreetCharge > 0 ||
+      airportAccessQuote.airportAccessChargeGbp > 0 ||
+      (journeyFareParts.nightWeekendSurchargeGbp ?? 0) > 0 ||
+      (journeyFareParts.airportFixedCostsGbp ?? 0) > 0);
   useEffect(() => {
     setHomepageFareChangeAck(false);
   }, [paymentAmount]);
@@ -5327,7 +5325,6 @@ function QuoteCard({
    */
   function performStartNewQuote() {
     trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
-    clearPaymentGroupId();
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
     quoteFunnelAttemptIdRef.current = `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;

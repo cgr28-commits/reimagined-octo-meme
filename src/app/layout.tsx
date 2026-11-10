@@ -135,10 +135,12 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`} suppressHydrationWarning>
       <body className="overflow-x-clip antialiased">
-        {/* Mobile design previews: ?mobile=light (Design 2), ?mobile=d3 (Design 3), ?mobile=classic to leave.
-            Never switches on for the live domain until the new mobile design is approved. */}
+        {/* Mobile Design 3 is the default below 1200px (its CSS and hooks are scoped to that width).
+            ?mobile=classic switches back to the previous mobile design on this browser; ?mobile=d3 returns.
+            ?mobile=light (Design 2 preview) is only available away from the live domain.
+            Browsers without :has()/color-mix() keep the previous mobile design. */}
         <Script id="matni-mobile-design" strategy="beforeInteractive">
-          {`try{if(!/myairporttaxini\.co\.uk$/i.test(location.hostname)){var k="matni-mobile-design",q=new URLSearchParams(location.search).get("mobile");if(q==="light"||q==="classic"||q==="d3")localStorage.setItem(k,q);var m=localStorage.getItem(k);if((m==="light"||m==="d3")&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,on=function(){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","");if(m==="d3"&&!d.hasAttribute("data-mobile-d3"))d.setAttribute("data-mobile-d3","")};on();new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light","data-mobile-d3"]})}}}catch(e){}`}
+          {`try{var k="matni-mobile-design",live=/myairporttaxini\.co\.uk$/i.test(location.hostname),q=new URLSearchParams(location.search).get("mobile");if(q==="classic"||q==="d3"||(!live&&q==="light"))localStorage.setItem(k,q);var m=localStorage.getItem(k);if(m!=="classic"&&(live||m!=="light"))m="d3";if(m!=="classic"&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,on=function(){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","");if(m==="d3"&&!d.hasAttribute("data-mobile-d3"))d.setAttribute("data-mobile-d3","")};on();new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light","data-mobile-d3"]})}}catch(e){}`}
         </Script>
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}

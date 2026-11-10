@@ -156,6 +156,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   GOOGLE_PLACES_API_KEY?: string;
   /** Set to "false" to stop automatic replies (webhook still verifies and dedupes). */
   WHATSAPP_BOT_ENABLED?: string;
+  /** Runs replies without the 30-second waitUntil limit, so the assistant can take its time. */
+  WHATSAPP_REPLY_RUNNER?: DurableObjectNamespace;
   /** Hours the assistant stays quiet after a handoff or an owner reply (default 0.5 = 30 minutes). */
   WHATSAPP_HANDOFF_HOURS?: string;
   /** "true" emails the owner a copy of every finished chat. Default off: handoff emails only. */
@@ -516,6 +518,19 @@ export async function handleWhatsAppWebhook(
     return new Response("Invalid JSON", { status: 400 });
   }
 
+  // Hand the work to the reply runner (no time limit), so the assistant can think before replying.
+  if (env.WHATSAPP_REPLY_RUNNER) {
+    try {
+      const runner = env.WHATSAPP_REPLY_RUNNER.get(env.WHATSAPP_REPLY_RUNNER.idFromName(whatsAppRunnerName(payload)));
+      const queued = await runner.fetch("https://whatsapp-runner/enqueue", { method: "POST", body: rawBody });
+      if (queued.ok) return new Response("EVENT_RECEIVED", { status: 200 });
+    } catch (err) {
+      console.error(
+        JSON.stringify({ event: "whatsapp_runner_enqueue_failed", error: err instanceof Error ? err.message : String(err) }),
+      );
+    }
+  }
+
   const work = processWhatsAppWebhook(payload, env).catch(async (err) => {
     const error = err instanceof Error ? err.message : String(err);
     console.error(JSON.stringify({ event: "whatsapp_webhook_error", error }));
@@ -525,6 +540,12 @@ export async function handleWhatsAppWebhook(
   if (ctx) ctx.waitUntil(work);
   else await work;
   return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+/** Which reply runner a webhook goes to: the customer's number, so their messages stay in order. */
+export function whatsAppRunnerName(payload: unknown): string {
+  const parsed = parseWhatsAppWebhook(payload);
+  return parsed.messages[0]?.from || parsed.echoes[0]?.to || parsed.failures[0]?.to || "other";
 }
 
 export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv): Promise<void> {
@@ -543,11 +564,113 @@ export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv)
   for (const echo of echoes) {
     await store.put(pausedKey(echo.to), "owner", { expirationTtl: handoffTtlSeconds(env) });
     logEvent("whatsapp_bot_paused_owner_reply", echo.to);
+    // Keep what the owner wrote in the chat, so the assistant reads it before its next reply
+    // (it used to see only its own and the customer's messages, 10 Nov 2026).
+    if (await store.get(messageKey(echo.id))) continue;
+    await store.put(messageKey(echo.id), "1", { expirationTtl: 60 * 60 * 24 * 3 });
+    await appendWhatsAppChat(store, echo.to, { from: "team", text: echo.text || ownerEchoLabel(echo.type) });
   }
 
   for (const message of messages) {
     await handleInboundMessage(message, env, store);
   }
+}
+
+function ownerEchoLabel(type: string): string {
+  if (type === "reaction") return "[Reacted]";
+  if (type === "image") return "[Photo]";
+  if (type === "audio") return "[Voice note]";
+  if (type === "document") return "[File]";
+  return "[Message]";
+}
+
+/** How many earlier chat messages the assistant reads before replying. */
+const CHAT_HISTORY_FOR_AI = 25;
+
+/** One earlier chat message for the assistant: who sent it (the team is the owner) and what it said. */
+function chatLineForAi(m: { from: string; text: string }): string {
+  const who = m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant";
+  return `${who}: ${m.text.slice(0, 600)}`;
+}
+
+/** Chat-log line for a message that needs no reply, or null when it should be answered. */
+function silentWhatsAppMessageLog(message: WhatsAppInboundMessage): string | null {
+  if (message.type === "reaction") {
+    return message.reactionEmoji ? `[Reacted ${message.reactionEmoji}]` : "[Removed a reaction]";
+  }
+  if (message.type === "revoke") return "[Deleted a message]";
+  if (message.type === "sticker") return "[Sticker]";
+  return null;
+}
+
+function describeNonTextWhatsAppMessage(type: string): string {
+  if (type === "image") return "[Photo]";
+  if (type === "video") return "[Video]";
+  if (type === "document") return "[File]";
+  if (type === "audio") return "[Voice note]";
+  if (type === "location") return "[Location]";
+  if (type === "contacts") return "[Contact card]";
+  return "[Message the assistant can't read]";
+}
+
+export const WHATSAPP_PHOTO_REPLY =
+  "Thanks! I can't open photos or files here, so could you type the details instead? " +
+  "For example your pickup address, destination, date and time, or your flight number.";
+export const WHATSAPP_VOICE_NOTE_REPLY =
+  "Thanks! I can't listen to voice notes here, so could you type your message instead?";
+export const WHATSAPP_LOCATION_REPLY =
+  "Thanks! Could you type the address or postcode as well, so I can get it exactly right?";
+export const WHATSAPP_UNREADABLE_REPLY =
+  "Sorry, I can't open that type of message here. Could you type it instead?";
+export const WHATSAPP_MEDIA_HANDOFF_REPLY =
+  "Thanks, I've passed this to our team and they'll reply to you here shortly.";
+
+/**
+ * A photo, file, voice note or location with no words. A customer with a booking is
+ * usually sending something about it (a screenshot, a ticket), so the team takes it;
+ * anyone else is asked to type it.
+ */
+async function replyToNonTextMessage(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  message: WhatsAppInboundMessage,
+  isTeamPhone: boolean,
+): Promise<void> {
+  const phone = message.from;
+  const isMedia = message.type === "image" || message.type === "document" || message.type === "video";
+  if (isMedia && !isTeamPhone && (await customerHasUpcomingBooking(store, phone))) {
+    await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+    await cancelWhatsAppFollowUp(store, phone);
+    const conversation =
+      (await store.get<WhatsAppConversation>(conversationKey(phone), "json")) ?? newWhatsAppConversation(new Date());
+    await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+    logEvent("whatsapp_media_handoff", phone, { type: message.type });
+    await reply(env, phone, WHATSAPP_MEDIA_HANDOFF_REPLY);
+    return;
+  }
+  const text = isMedia
+    ? WHATSAPP_PHOTO_REPLY
+    : message.type === "audio"
+      ? WHATSAPP_VOICE_NOTE_REPLY
+      : message.type === "location"
+        ? WHATSAPP_LOCATION_REPLY
+        : WHATSAPP_UNREADABLE_REPLY;
+  await reply(env, phone, text);
+}
+
+/** Paid bookings still ahead (or just started) under this WhatsApp number, soonest first. */
+async function findCustomerUpcomingBookings(store: KVNamespace, phone: string): Promise<PaidBookingRecord[]> {
+  try {
+    const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 180, limit: 250 });
+    return upcomingCustomerBookings(upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone)));
+  } catch (err) {
+    logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return [];
+  }
+}
+
+async function customerHasUpcomingBooking(store: KVNamespace, phone: string): Promise<boolean> {
+  return (await findCustomerUpcomingBookings(store, phone)).length > 0;
 }
 
 async function handleInboundMessage(
@@ -559,13 +682,36 @@ async function handleInboundMessage(
   await store.put(messageKey(message.id), "1", { expirationTtl: DEDUPE_TTL_SECONDS });
 
   await recordDiag(store, { lastMessageAt: nowIso() });
+  const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
+
+  // Reactions, deleted messages and stickers need no reply: logged for the dashboard only.
+  // They used to get "Sorry, I can only read text messages" (customer chat, 7 Nov 2026).
+  const silent = silentWhatsAppMessageLog(message);
+  if (silent) {
+    await appendWhatsAppChat(store, message.from, { from: "customer", text: silent }, message.profileName);
+    return skip(`no reply needed (${message.type})`);
+  }
+  // An edited message: if the original was already answered, the edit is logged, not
+  // answered again (a second reply to the same message reads as broken).
+  if (message.type === "edit") {
+    const alreadyAnswered = message.editOf ? Boolean(await store.get(messageKey(message.editOf))) : false;
+    if (alreadyAnswered || !message.text) {
+      await appendWhatsAppChat(
+        store,
+        message.from,
+        { from: "customer", text: `[Edited a message${message.text ? `: ${message.text}` : ""}]` },
+        message.profileName,
+      );
+      return skip("edit of a message already answered");
+    }
+  }
+
   await appendWhatsAppChat(
     store,
     message.from,
-    { from: "customer", text: message.text || "[photo, voice note or other non-text message]" },
+    { from: "customer", text: message.text || describeNonTextWhatsAppMessage(message.type) },
     message.profileName,
   );
-  const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
   if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return skip("bot disabled");
   if (message.timestamp && Date.now() / 1000 - message.timestamp > MAX_MESSAGE_AGE_SECONDS) {
     return skip("message too old");
@@ -590,11 +736,7 @@ async function handleInboundMessage(
     }
   }
   if (!message.text) {
-    await reply(
-      env,
-      phone,
-      "Sorry, I can only read text messages. Please type your journey details, e.g. pickup postcode, destination, date and time.",
-    );
+    await replyToNonTextMessage(env, store, message, isTeamPhone);
     return;
   }
 
@@ -1137,6 +1279,17 @@ async function notifyOwnerOfHandoff(
   }
 }
 
+/** A short, private summary of the customer's next booking(s) for the assistant. */
+function summariseBookingsForAi(bookings: PaidBookingRecord[]): string | undefined {
+  const lines = bookings.slice(0, 2).map((b) => {
+    const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
+    const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
+    const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
+    return `- ${b.customerReference ?? "Booking"}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}`;
+  });
+  return lines.length ? lines.join("\n") : undefined;
+}
+
 /**
  * Claude-led reply (website FAQs/terms only): responds to whatever the customer said
  * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
@@ -1155,8 +1308,8 @@ async function decideWithClaude(
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-13, -1)
-      .map((m) => `${m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
       .join("\n");
     const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
     const turn = await claudeLedClient.turn(env, context);
@@ -1180,13 +1333,16 @@ async function answerCustomerQuestion(
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-11, -1)
-      .map((m) => `${m.from === "customer" ? "Customer" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
       .join("\n");
     const draft = conversation.draft;
     const collected = describeWhatsAppDraft(draft);
+    // Their booking, so a flight update is passed on without asking for a reference (7 Nov 2026).
+    const booking = summariseBookingsForAi(await findCustomerUpcomingBookings(store, phone));
     const answer = await answerWhatsAppQuestion(env, message, {
       recentChat,
+      booking,
       journey: collected
         ? {
             collected,
