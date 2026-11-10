@@ -231,6 +231,7 @@ export default function BookingConfirmedClient() {
                   : "Checking your payment"}
         </h1>
         <p
+          data-confirm-status={status}
           className={`mt-4 text-sm leading-relaxed sm:text-base ${
             status === "error"
               ? "text-red-100"

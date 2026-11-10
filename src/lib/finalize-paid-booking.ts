@@ -139,12 +139,15 @@ export async function finalizePaidBookingFromUrl(
       const message =
         error instanceof Error ? error.message : "Could not confirm your payment";
 
-      if (message.includes("not been completed") && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+      // "already being processed": Stripe's webhook is finalising the same payment right now.
+      // Wait and ask again; the next answer is the finished booking (never a second charge).
+      const stillFinalising = message.includes("not been completed") || message.includes("already being processed");
+      if (stillFinalising && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
         await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
         continue;
       }
 
-      if (message.includes("not been completed")) {
+      if (stillFinalising) {
         return {
           status: "pending",
           summary:
