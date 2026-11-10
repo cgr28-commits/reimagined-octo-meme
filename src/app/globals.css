@@ -6702,3 +6702,16 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
 @layer base {
   html:root:root [data-reviews-stars][data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
 }
+
+/* Design 3 (phones and tablets), vehicle step: the journey summary is a navy box, matching
+   the navy journey panel on desktop. */
+@layer base {
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop] strong { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop] span { color: #b8c4d3 !important; -webkit-text-fill-color: #b8c4d3 !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop]::before { background: #071c38 !important; border-color: #2fbf4a !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop="to"]::before { background: #ffffff !important; border-color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-journey-stops]::before { background: rgba(255, 255, 255, 0.35) !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-edit] { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li { background: rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-color: transparent !important; }
+}
