@@ -256,6 +256,7 @@ import QuoteResultShowcase, {
 } from "@/components/QuoteResultShowcase";
 import QuoteVehicleCategories from "@/components/QuoteVehicleCategories";
 import { useMobileDesign2 } from "@/lib/use-mobile-design2";
+import { useMobileDesign3 } from "@/lib/use-mobile-design3";
 import QuoteCheckoutSummary from "@/components/QuoteCheckoutSummary";
 import {
   BookWithConfidence,
@@ -688,6 +689,13 @@ function nowTimeInputValue(): string {
   return nowLondonTime();
 }
 
+function formatD3ChipDate(value: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return value;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
 function isTripDateOnOrAfterToday(tripDate: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
     return false;
@@ -988,6 +996,7 @@ function QuoteCard({
   // Design 2 (approved mobile reference): homepage asks for route and party first,
   // then journey type, date and time on the Vehicle step before any price is shown.
   const mobileDesign2 = useMobileDesign2();
+  const mobileDesign3 = useMobileDesign3();
   const design2Home = mobileDesign2 && presentation === "homepage";
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
@@ -1042,10 +1051,13 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
-  // Design 2 uses +/- steppers that start at 1 passenger and no suitcases.
+  // Design 2 uses +/- steppers that start at 1 passenger and no suitcases. Design 3 starts at
+  // 0 passengers: the count stays unset (shown as 0) until the customer taps +, so a quote
+  // can't be requested without a real passenger choice.
   useEffect(() => {
     if (!design2Home) return;
-    setPassengers((value) => (value == null ? 1 : value));
+    const design3 = typeof document !== "undefined" && document.documentElement.hasAttribute("data-mobile-d3");
+    if (!design3) setPassengers((value) => (value == null ? 1 : value));
     setSuitcases((value) => (value == null ? 0 : value));
   }, [design2Home]);
 
@@ -3698,7 +3710,7 @@ function QuoteCard({
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
       return false;
     }
-    if (!isScheduleComplete && !design2Home) {
+    if (!isScheduleComplete && (!design2Home || mobileDesign3)) {
       validateTripForBooking();
       focusHomepageScheduleError();
       return false;
@@ -5983,6 +5995,27 @@ function QuoteCard({
     }
   }
 
+  /** Mobile Design 3: completed stages in the top progress line go back to that stage. Same
+   * back-navigation as Edit / Back; nothing is cleared and no quote or payment is created. */
+  function scrollToD3Card() {
+    if (typeof window === "undefined") return;
+    window.setTimeout(() => {
+      cardRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+  }
+
+  function goToJourneyFromD3Steps() {
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(false);
+    scrollToD3Card();
+  }
+
+  function goToVehicleFromD3Steps() {
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(true);
+    scrollToD3Card();
+  }
+
   function goToVehicleFromProgress() {
     handleBackToQuote();
   }
@@ -6087,8 +6120,13 @@ function QuoteCard({
       const bookingHeading = cardRef.current?.querySelector<HTMLElement>(
         '[data-site-nav-heading="quote"]',
       );
+      // Mobile Design 3: stop with the progress line (Journey / Vehicle / Details & Payment) just
+      // below the fixed header, so it stays visible and tappable.
+      const design3Steps = mobileDesign3
+        ? cardRef.current?.querySelector<HTMLElement>("[data-mobile-steps]")
+        : null;
       return scheduleBookTransferGlide(
-        introduction ?? bookingHeading ?? cardRef.current ?? step2TravelDetailsRef.current ?? "step2-travel-details",
+        design3Steps ?? introduction ?? bookingHeading ?? cardRef.current ?? step2TravelDetailsRef.current ?? "step2-travel-details",
       );
     }
     const element =
@@ -6101,7 +6139,7 @@ function QuoteCard({
       focusHeading: true,
       correctAfterMs: 150,
     });
-  }, [quoteStep, presentation, homepagePolish]);
+  }, [quoteStep, presentation, homepagePolish, mobileDesign3]);
 
   // Availability-confirmation result: scroll once to the confirmation card.
   useEffect(() => {
@@ -7022,6 +7060,7 @@ function QuoteCard({
         returnTimeLabel={checkoutTimeLabel("return")}
         tripDateInputRef={tripDateInputRef}
         tripTimeInputRef={tripTimeInputRef}
+        d3TimePicker={mobileDesign3 && homepageInline}
         returnDateInputRef={returnDateInputRef}
         returnTimeInputRef={returnTimeInputRef}
         onTripDateChange={(value) => {
@@ -9262,8 +9301,22 @@ function QuoteCard({
           const state = index + 1 < current ? "done" : index + 1 === current ? "current" : "next";
           return (
             <li key={label} data-step-state={state} aria-current={state === "current" ? "step" : undefined}>
-              <span aria-hidden>{state === "done" ? "✓" : index + 1}</span>
-              {label}
+              {mobileDesign3 && state === "done" ? (
+                <button
+                  type="button"
+                  data-d3-step-link={index === 0 ? "journey" : "vehicle"}
+                  aria-label={`Go back to ${label}`}
+                  onClick={() => (index === 0 ? goToJourneyFromD3Steps() : goToVehicleFromD3Steps())}
+                >
+                  <span aria-hidden>✓</span>
+                  {label}
+                </button>
+              ) : (
+                <>
+                  <span aria-hidden>{state === "done" ? "✓" : index + 1}</span>
+                  {label}
+                </>
+              )}
             </li>
           );
         })}
@@ -9538,8 +9591,15 @@ function QuoteCard({
                       {suitcases != null && suitcases >= 5 ? "5+ suitcases" : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
                     </li>
                     {journeyDurationLabel ? <li data-chip="time">≈ {journeyDurationLabel}</li> : null}
+                    {mobileDesign3 && tripDate && tripTime ? (
+                      <li data-chip="when">{formatD3ChipDate(tripDate)}, {tripTime}</li>
+                    ) : null}
+                    {mobileDesign3 && journeyMode === "return" && returnDate && returnTime ? (
+                      <li data-chip="return">Return {formatD3ChipDate(returnDate)}, {returnTime}</li>
+                    ) : null}
                   </ul>
                 </div>
+                {mobileDesign3 ? null : (<>
                 <div role="group" aria-label="Journey type" data-d2-segment>
                   <button
                     type="button"
@@ -9570,10 +9630,12 @@ function QuoteCard({
                     Add your pickup date and time{journeyMode === "return" ? ", and your return date and time," : ""} to see your fixed price for each vehicle.
                   </p>
                 ) : null}
+                </>)}
               </div>
             ) : presentation === "homepage" ? (
               <HomepageQuoteFields
                 design2={design2Home}
+                design3={mobileDesign3}
                 homepagePolish={homepagePolish}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
@@ -9625,8 +9687,8 @@ function QuoteCard({
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
                 pickupNeedsHouseNumber={isIncompletePickupAddress}
-                scheduleFields={design2Home ? null : renderQuoteScheduleFields("quote", true)}
-                scheduleComplete={design2Home ? true : isScheduleComplete}
+                scheduleFields={design2Home && !mobileDesign3 ? null : renderQuoteScheduleFields("quote", true)}
+                scheduleComplete={design2Home && !mobileDesign3 ? true : isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
@@ -9895,6 +9957,18 @@ function QuoteCard({
                     ) : null}
                     {renderQuoteVehicleChoice()}
                     {renderDesktopMeetGreetUpgrades()}
+                    {design2Home ? (
+                      /* Design 3 (?mobile=d3) only, shown by its stylesheet: what the fare includes,
+                         with the waiting time that applies to this pickup. */
+                      <ul className="hidden" data-d3-included>
+                        <li>
+                          {isFromAirport
+                            ? "Up to 60 minutes’ free waiting from your flight’s landing time"
+                            : "10 minutes’ complimentary waiting at pickup"}
+                        </li>
+                        <li>Free cancellation up to 24 hours before pickup</li>
+                      </ul>
+                    ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
                         <PromotionalPriceBreakdown

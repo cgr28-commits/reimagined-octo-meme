@@ -1,6 +1,7 @@
 "use client";
 
 import { Calendar, Clock } from "lucide-react";
+import D3TimePicker from "@/components/D3TimePicker";
 import type { MouseEvent, RefObject } from "react";
 import {
   quoteDateTimeFieldShellClass,
@@ -60,6 +61,8 @@ export type QuoteScheduleFieldsProps = {
   returnTimeLabel: string;
   tripDateInputRef?: RefObject<HTMLInputElement | null>;
   tripTimeInputRef?: RefObject<HTMLInputElement | null>;
+  /** Design 3 (?mobile=d3): replace the iPhone time wheels with the button time selector. */
+  d3TimePicker?: boolean;
   returnDateInputRef?: RefObject<HTMLInputElement | null>;
   returnTimeInputRef?: RefObject<HTMLInputElement | null>;
   onTripDateChange: (value: string) => void;
@@ -88,6 +91,7 @@ export default function QuoteScheduleFields({
   returnTimeLabel,
   tripDateInputRef,
   tripTimeInputRef,
+  d3TimePicker = false,
   returnDateInputRef,
   returnTimeInputRef,
   onTripDateChange,
@@ -193,8 +197,19 @@ export default function QuoteScheduleFields({
               onChange={(e) => onTripTimeChange(e.target.value)}
               onInput={(e) => onTripTimeChange((e.target as HTMLInputElement).value)}
               onBlur={onTimeBlur}
+              tabIndex={d3TimePicker && homepageInline ? -1 : undefined}
               className={quoteDateTimeInputClass()}
             />
+            {d3TimePicker && homepageInline ? (
+              <D3TimePicker
+                idBase="d3-time-outbound"
+                value={tripTime}
+                label={outboundTimeLabel}
+                min={minTripTime}
+                onChange={onTripTimeChange}
+                onDone={onTimeBlur}
+              />
+            ) : null}
           </div>
         </div>
         <p
@@ -269,8 +284,19 @@ export default function QuoteScheduleFields({
                 onChange={(e) => onReturnTimeChange(e.target.value)}
                 onInput={(e) => onReturnTimeChange((e.target as HTMLInputElement).value)}
                 onBlur={onTimeBlur}
+                tabIndex={d3TimePicker && homepageInline ? -1 : undefined}
                 className={quoteDateTimeInputClass()}
               />
+              {d3TimePicker && homepageInline ? (
+                <D3TimePicker
+                  idBase="d3-time-return"
+                  value={returnTime}
+                  label={returnTimeLabel}
+                  min={minReturnTime}
+                  onChange={onReturnTimeChange}
+                  onDone={onTimeBlur}
+                />
+              ) : null}
             </div>
           </div>
           <p className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>

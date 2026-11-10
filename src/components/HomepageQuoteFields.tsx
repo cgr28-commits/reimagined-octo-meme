@@ -54,6 +54,8 @@ type HomepageQuoteFieldsProps = {
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
   quoteReady: boolean;
+  /** Design 3 mobile preview (?mobile=d3). */
+  design3?: boolean;
   /** Drop-off chosen as a street/area with no house number or building name. */
   dropoffNeedsHouseNumber?: boolean;
   /** Desktop (1200px+): show the house-number prompt directly under the pickup field. */
@@ -205,31 +207,35 @@ function Design2Stepper({
   onChange,
   format,
   error,
+  allowUnset = false,
 }: {
+  allowUnset?: boolean;
   id: string;
   label: string;
   value: number | null;
   choices: number[];
-  onChange: (value: number) => void;
+  onChange: (value: number | null) => void;
   format: (value: number) => string;
   error: string;
 }) {
+  // allowUnset (Design 3 passengers): no value yet shows 0; minus at the first choice clears it again.
+  const unset = allowUnset && value == null;
   const current = value ?? choices[0];
   const index = Math.max(0, choices.indexOf(current));
-  const atMin = index <= 0;
-  const atMax = index >= choices.length - 1;
+  const atMin = unset || (!allowUnset && index <= 0);
+  const atMax = !unset && index >= choices.length - 1;
   return (
     <div data-d2-stepper className="min-w-0">
       <span id={`${id}-label`} data-d2-stepper-label>{label}</span>
       <div data-d2-stepper-row>
         <output id={id} aria-labelledby={`${id}-label`} aria-live="polite" data-d2-stepper-value>
-          {format(current)}
+          {unset ? "0" : format(current)}
         </output>
         <button
           type="button"
           aria-label={`Fewer ${label.toLowerCase()}`}
           disabled={atMin}
-          onClick={() => onChange(choices[index - 1])}
+          onClick={() => onChange(allowUnset && index <= 0 ? null : choices[index - 1])}
           data-d2-stepper-btn="minus"
         >
           <Minus size={18} strokeWidth={2.4} aria-hidden="true" />
@@ -238,7 +244,7 @@ function Design2Stepper({
           type="button"
           aria-label={`More ${label.toLowerCase()}`}
           disabled={atMax}
-          onClick={() => onChange(choices[index + 1])}
+          onClick={() => onChange(unset ? choices[0] : choices[index + 1])}
           data-d2-stepper-btn="plus"
         >
           <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
@@ -288,6 +294,7 @@ export default function HomepageQuoteFields({
   publicMinibusEnabled,
   onRequestPrice,
   quoteReady,
+  design3 = false,
   dropoffNeedsHouseNumber = false,
   pickupNeedsHouseNumber = false,
   scheduleFields = null,
@@ -466,6 +473,17 @@ export default function HomepageQuoteFields({
         </p>
       ) : null}
 
+      {design3 ? (
+        <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>
+          <button type="button" aria-pressed={journeyMode !== "return"} onClick={() => onJourneyModeChange("one-way")}>
+            One way
+          </button>
+          <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
+            Return
+            <span data-return-discount-note>Save 5%</span>
+          </button>
+        </div>
+      ) : null}
       {scheduleFields}
 
       {design2 ? (
@@ -478,13 +496,14 @@ export default function HomepageQuoteFields({
             onChange={(value) => onPassengersChange(value)}
             format={(value) => String(value)}
             error={passengersError}
+            allowUnset={design3}
           />
           <Design2Stepper
             id="quote-section-suitcases"
             label="Suitcases"
             value={suitcases}
             choices={suitcaseChoices}
-            onChange={(value) => onSuitcasesChange(value)}
+            onChange={(value) => { if (value != null) onSuitcasesChange(value); }}
             format={(value) => (value >= 5 ? "5+" : String(value))}
             error={suitcasesError}
           />
