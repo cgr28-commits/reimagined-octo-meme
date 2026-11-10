@@ -6586,11 +6586,11 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
    Borders: one consistent 1.5px slate-grey (#94A3B8) on every booking-form field; rounded
    corners and the green focus state are unchanged (focused fields are excluded here). */
 @layer base {
-  html[data-mobile-d3] [data-d2-fields] div[class*="rounded"][class*="border"]:has(.address-input):not(:focus-within),
-  html[data-mobile-d3] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:not(:focus-within),
-  html[data-mobile-d3] .quote-flow [data-schedule-control]:not(:focus-within),
-  html[data-mobile-d3] [data-d2-fields] [data-d2-stepper],
-  html[data-mobile-d3] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="url"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only, :focus) {
+  html:root:root[data-mobile-d3] [data-d2-fields] div[class*="rounded"][class*="border"]:has(.address-input):not(:focus-within),
+  html:root:root[data-mobile-d3] [data-d2-fields] .relative > div[class*="rounded-[0.75rem]"]:not(:focus-within),
+  html:root:root[data-mobile-d3] .quote-flow [data-schedule-control]:not(:focus-within),
+  html:root:root[data-mobile-d3] [data-d2-fields] [data-d2-stepper],
+  html:root:root[data-mobile-d3] :is(main, [role="dialog"]) :is(input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], [type="url"], :not([type])), select, textarea):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only, :focus) {
     border-width: 1.5px !important;
     border-style: solid !important;
     border-color: #94a3b8 !important;
@@ -6610,5 +6610,23 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
   html[data-mobile-d3] header a[data-call-us-pill="compact"]::after { content: ""; position: absolute; inset: -4px 0; }
   @media (max-width: 359px) {
     html[data-mobile-d3] header a[data-call-us-pill="compact"] { width: 2.25rem !important; padding: 0 !important; }
+  }
+
+  /* Tablet landscape (1024-1199px) and desktop (1200px+): the same clearer 1.5px slate-grey
+     field borders; focused fields keep their green focus style. */
+  @media (min-width: 1024px) {
+    html:root:root:not([data-mobile-d3]) .quote-flow div[class*="rounded"][class*="border"]:has(.address-input):not(:focus-within),
+    html:root:root:not([data-mobile-d3]) .quote-flow [data-schedule-control]:not(:focus-within),
+    html:root:root:not([data-mobile-d3]) .quote-flow :is(select, textarea, input:is([type="text"], [type="email"], [type="tel"], [type="number"], [type="search"], :not([type]))):not(.address-input, .opacity-0, .quote-datetime-input, [data-schedule-control] input, .sr-only, :focus) {
+      border-width: 1.5px !important;
+      border-style: solid !important;
+      border-color: #94a3b8 !important;
+    }
+  }
+  /* Desktop (light design): darker labels, placeholders and helper text on the white form. */
+  @media (min-width: 1200px) {
+    html:root:root:not([data-mobile-d3]) .quote-flow label:not(:has(input[type="checkbox"], input[type="radio"])) { color: #071c38 !important; }
+    html:root:root:not([data-mobile-d3]) .quote-flow :is(input, textarea)::placeholder { color: #475569 !important; opacity: 1; }
+    html:root:root:not([data-mobile-d3]) .quote-flow [data-schedule-control] span { color: #334155 !important; }
   }
 }
