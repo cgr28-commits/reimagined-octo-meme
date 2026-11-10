@@ -175,6 +175,14 @@ export const DOCUMENT_OPTIONS: { kind: string; label: string }[] = [
   { kind: "dvla_licence", label: "DVA/DVLA driving licence" },
 ];
 
+/** "2026-11-30" → "30 Nov 2026" (also rewrites ISO dates inside sentences). */
+export function ukDate(text: string): string {
+  return text.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_m, y: string, mo: string, d: string) => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${Number(d)} ${months[Number(mo) - 1] ?? mo} ${y}`;
+  });
+}
+
 export function documentStateLabel(state: DocumentState, expiresOn: string | null): string {
   switch (state) {
     case "missing":
@@ -186,9 +194,9 @@ export function documentStateLabel(state: DocumentState, expiresOn: string | nul
     case "expired":
       return "Expired";
     case "expiring":
-      return `Expires ${expiresOn ?? ""}`.trim();
+      return `Expires ${ukDate(expiresOn ?? "")}`.trim();
     default:
-      return expiresOn ? `Valid to ${expiresOn}` : "Valid";
+      return expiresOn ? `Valid to ${ukDate(expiresOn)}` : "Valid";
   }
 }
 

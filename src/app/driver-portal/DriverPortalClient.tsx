@@ -77,31 +77,40 @@ export default function DriverPortalClient() {
   }, []);
 
   useEffect(() => {
-    const { invite, signin } = readFragment();
-    if (invite) {
-      clearFragment();
-      setPhase({ kind: "apply", token: invite });
-      return;
-    }
-    if (signin) {
-      clearFragment();
-      driverAccount
-        .signIn(signin)
-        .then(({ sessionToken }) => {
-          storeDriverSession(sessionToken);
-          setSession(sessionToken);
-          return loadMe(sessionToken);
-        })
-        .catch((e) => setPhase({ kind: "signed-out", message: e instanceof Error ? e.message : "This link did not work." }));
-      return;
-    }
-    const stored = readDriverSession();
-    if (stored) {
-      setSession(stored);
-      void loadMe(stored);
-    } else {
-      setPhase({ kind: "signed-out" });
-    }
+    const boot = (fromHashChange: boolean) => {
+      const { invite, signin } = readFragment();
+      if (invite) {
+        clearFragment();
+        setPhase({ kind: "apply", token: invite });
+        return;
+      }
+      if (signin) {
+        clearFragment();
+        setPhase({ kind: "loading" });
+        driverAccount
+          .signIn(signin)
+          .then(({ sessionToken }) => {
+            storeDriverSession(sessionToken);
+            setSession(sessionToken);
+            return loadMe(sessionToken);
+          })
+          .catch((e) => setPhase({ kind: "signed-out", message: e instanceof Error ? e.message : "This link did not work." }));
+        return;
+      }
+      if (fromHashChange) return;
+      const stored = readDriverSession();
+      if (stored) {
+        setSession(stored);
+        void loadMe(stored);
+      } else {
+        setPhase({ kind: "signed-out" });
+      }
+    };
+    boot(false);
+    // A link opened while the portal is already showing only changes the #fragment.
+    const onHash = () => boot(true);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, [loadMe]);
 
   useEffect(() => {

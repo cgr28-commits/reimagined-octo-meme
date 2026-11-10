@@ -16,6 +16,7 @@ import {
   documentStateTone,
   driverPortalLink,
   ownerDrivers,
+  ukDate,
   type OwnerDriver,
   type OwnerDriverDetail,
 } from "@/lib/driver-accounts-api";
@@ -161,7 +162,7 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
                       {d.name}
                     </span>
                     <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
-                      {d.attention && d.attention.length ? d.attention.slice(0, 2).join(" · ") : d.operatorName || d.email}
+                      {d.attention && d.attention.length ? ukDate(d.attention.slice(0, 2).join(" · ")) : d.operatorName || d.email}
                     </span>
                   </span>
                   {d.unreadMessages ? <span className={`${styles.chip} ${styles.blue}`}>{d.unreadMessages} new</span> : null}
@@ -398,7 +399,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
             </section>
 
             {detail.attention.length ? (
-              <div className={`${styles.notice} ${styles.amber}`}>{detail.attention.join(" · ")}</div>
+              <div className={`${styles.notice} ${styles.amber}`}>{ukDate(detail.attention.join(" · "))}</div>
             ) : null}
 
             {detail.messages.length ? (
@@ -437,7 +438,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
               <section key={doc.id} className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10 }}>
                 <h2 className={styles.sectionTitle}>Check: {doc.label}</h2>
                 <Kv label="Reference" value={doc.reference || "—"} />
-                <Kv label="Expires" value={doc.expiresOn} />
+                <Kv label="Expires" value={ukDate(doc.expiresOn)} />
                 <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>Check the original document with the driver before accepting.</p>
                 {rejecting === doc.id ? (
                   <>
@@ -564,7 +565,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                     <div key={a.seq} className={styles.row} style={{ cursor: "default" }}>
                       <span className={styles.rowBody}>
                         <span className={styles.rowTitle} style={{ fontWeight: 600 }}>
-                          {AUDIT_LABEL[a.action] ?? a.action}
+                          {a.action === "driver.approved" && a.detail.from === "suspended" ? "Reinstated" : AUDIT_LABEL[a.action] ?? a.action}
                           {typeof a.detail.reason === "string" && a.detail.reason ? ` — ${a.detail.reason}` : ""}
                         </span>
                         <span className={styles.rowDetail}>
