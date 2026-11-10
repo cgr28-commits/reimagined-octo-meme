@@ -43,6 +43,7 @@ import {
   pendingCheckoutStoreConfigured,
 } from "./pending-checkout-store";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
+import { getBookingJob, saveBookingJob } from "./booking-job-store";
 import { trySendResendOnlyCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 import {
   formatJourneyDistance,
@@ -837,4 +838,27 @@ export async function markA2aQuotePaid(
     ...(checkoutId ? { checkoutId } : {}),
   };
   await saveA2aQuoteRequest(store, next);
+
+  // Quote sent from an Owner Enquiries card: mark that enquiry paid as well.
+  // Calendar / paid-booking records come from the normal checkout finalize path.
+  const jobId = record.bookingJobId?.trim();
+  if (jobId) {
+    try {
+      const job = await getBookingJob(store, jobId);
+      if (job && job.status !== "paid") {
+        await saveBookingJob(store, {
+          ...job,
+          status: "paid",
+          paidAt: now,
+          paymentReference,
+          amountPaidLabel:
+            typeof record.quotedPrice === "number"
+              ? formatAmountLabel(record.quotedPrice)
+              : job.sentQuotePriceLabel,
+        });
+      }
+    } catch (err) {
+      console.error("Could not mark enquiry job paid from quote", err);
+    }
+  }
 }

@@ -147,7 +147,7 @@ export default function AdFraudPageClient() {
     <>
       <OwnerPortalHeader variant="admin" title="Ad Fraud" />
       <main data-staff-page className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 min-[64rem]:px-8">
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-amber-300">
               Owner tools · monitoring only
@@ -244,7 +244,7 @@ export default function AdFraudPageClient() {
               </div>
 
               {summary ? (
-                <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mb-8 grid gap-3 sm:grid-cols-2 min-[64rem]:grid-cols-4">
                   <SummaryCard label="Paid visits today" value={summary.paidVisitsToday} />
                   <SummaryCard label="Paid visits 7 days" value={summary.paidVisitsLast7Days} />
                   <SummaryCard label="Unique visitors" value={summary.uniqueVisitorHashes} />

@@ -310,7 +310,7 @@ export default function OwnerRefundTestClient() {
     <>
       <OwnerPortalHeader variant="owner" title="Refund Test" />
       <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 min-[64rem]:px-8">
           <div className="mb-6 rounded-2xl border border-amber-400/40 bg-amber-500/15 p-4">
             <p className="text-sm font-bold uppercase tracking-wider text-amber-200">
               LIVE SUMUP TEST — REAL £1 PAYMENT AND REAL REFUND
