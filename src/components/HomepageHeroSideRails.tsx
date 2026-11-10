@@ -165,18 +165,32 @@ export default function HomepageHeroSideRails() {
   const [tourPick, setTourPick] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
 
+  // Rotates on desktop (1200px+), including when the device asks for reduced motion: the cards then
+  // switch without the transition (see the reduced-motion CSS). Hover or keyboard focus pauses it, and
+  // it starts or stops when the window is resized across 1200px.
   useEffect(() => {
     if (paused) return;
     const desktop = window.matchMedia("(min-width: 1200px)");
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (!desktop.matches || reducedMotion.matches) return;
-    const interval = window.setInterval(() => {
-      setTick((t) => t + 1);
-      setBusinessPick(null);
-      setVehiclePick(null);
-      setTourPick(null);
-    }, ROTATE_MS);
-    return () => window.clearInterval(interval);
+    let interval: number | null = null;
+    const sync = () => {
+      if (interval != null) {
+        window.clearInterval(interval);
+        interval = null;
+      }
+      if (!desktop.matches) return;
+      interval = window.setInterval(() => {
+        setTick((t) => t + 1);
+        setBusinessPick(null);
+        setVehiclePick(null);
+        setTourPick(null);
+      }, ROTATE_MS);
+    };
+    sync();
+    desktop.addEventListener("change", sync);
+    return () => {
+      desktop.removeEventListener("change", sync);
+      if (interval != null) window.clearInterval(interval);
+    };
   }, [paused]);
 
   return (
