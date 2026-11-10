@@ -41,6 +41,9 @@ const ALLOWED_HOSTS = [
   "api.getaddress.io",
   "api.ideal-postcodes.co.uk",
   "aerodatabox.p.rapidapi.com",
+  // Road distance for fixed prices (public OpenStreetMap routing, read-only).
+  "router.project-osrm.org",
+  "routing.openstreetmap.de",
 ];
 /** Hosts the self-test proves are blocked (the email, messaging and ads services the code uses). */
 export const MESSAGING_HOSTS = [
