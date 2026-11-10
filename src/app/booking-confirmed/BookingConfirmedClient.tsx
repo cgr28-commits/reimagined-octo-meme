@@ -34,7 +34,9 @@ type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
 export default function BookingConfirmedClient() {
   const [status, setStatus] = useState<ViewStatus>("loading");
-  const [summary, setSummary] = useState("Confirming your payment…");
+  const [summary, setSummary] = useState(
+    "Please wait while we confirm your payment. This can take up to a minute. Please keep this page open and don’t pay again.",
+  );
   const [amountPaid, setAmountPaid] = useState<string | undefined>();
   const [paymentReference, setPaymentReference] = useState<string | undefined>();
   const [customerReference, setCustomerReference] = useState<string | undefined>();
@@ -226,7 +228,7 @@ export default function BookingConfirmedClient() {
               : status === "error"
                 ? "Payment check"
                 : status === "loading"
-                  ? "Confirming payment"
+                  ? "Confirming your payment…"
                   : "Checking your payment"}
         </h1>
         <p

@@ -157,7 +157,7 @@ export async function finalizePaidBookingFromUrl(
         return {
           status: "pending",
           summary:
-            "Payment isn’t showing as complete yet. Wait a few seconds and refresh this page, or open the payment link from your email again.",
+            "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh, or open the payment link from your email. If you need help, call 028 9602 2952.",
           checkoutId,
           error: message,
         };
@@ -174,7 +174,7 @@ export async function finalizePaidBookingFromUrl(
 
   return {
     status: "pending",
-    summary: "Payment is still processing. Please refresh this page in a moment.",
+    summary: "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh. If you need help, call 028 9602 2952.",
     checkoutId,
   };
 }
