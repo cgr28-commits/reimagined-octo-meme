@@ -8326,12 +8326,14 @@ function QuoteCard({
             ] as const
           ).map(([key, role, label]) => {
             const [name, ...rest] = label.split(", ");
+            // "Bangor, UK" leaves nothing after the country is dropped — don't show a dangling "·".
+            const detail = rest.filter((part) => part !== "UK").join(", ");
             return (
               <li key={key} data-results-stop={key}>
                 <strong>{name}</strong>
                 <span>
                   {role}
-                  {rest.length ? ` · ${rest.filter((part) => part !== "UK").join(", ")}` : ""}
+                  {detail ? ` · ${detail}` : ""}
                 </span>
                 {(key === "from" && isIncompletePickupAddress) || (key === "to" && isIncompleteDropoffAddress) ? (
                   <span data-results-stop-hint role="status">

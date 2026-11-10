@@ -5802,7 +5802,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] #homepage-booking-intro [data-d2-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: var(--d2-muted) !important; max-width: 22rem; }
   html[data-mobile-light] #homepage-booking-intro [data-d2-rating] { display: flex !important; margin-top: .75rem; }
   html[data-mobile-light] [data-reviews-compact] { display: inline-flex; align-items: center; gap: .45rem; background: #fff; border: 1px solid var(--d2-line); border-radius: 999px; padding: .3rem .625rem .3rem .5rem; font-size: .8125rem; font-weight: 700; color: #0f2340; text-decoration: none; }
-  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars] { color: #f5a623; letter-spacing: .05em; }
+  html[data-mobile-light] [data-reviews-compact] [data-reviews-stars] { color: #fbbc04; letter-spacing: .05em; }
   html[data-mobile-light] [data-reviews-compact] strong { font-weight: 800; }
   html[data-mobile-light] section.homepage-hero .hero-benefits-row,
   html[data-mobile-light] section.homepage-hero [data-hero-reviews-badge],
@@ -5820,7 +5820,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2] div:has(> .relative > .address-input:focus) { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; }
   html[data-mobile-light] [data-d2] [data-gps-location] { color: #2fbf4a !important; }
   html[data-mobile-light] [data-d2-swap-row] { position: relative; height: 0; z-index: 35; }
-  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -1.45rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
+  html[data-mobile-light] [data-d2-swap] { position: absolute; right: .75rem; top: -.15rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: #fff; border: 1.5px solid var(--d2-field); color: #071c38; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(7,28,56,.08); }
   html[data-mobile-light] [data-d2-party] { margin-top: .25rem; gap: .625rem !important; }
   html[data-mobile-light] [data-d2-fields]:has(.address-suggestions, .address-input:focus) [data-d2-swap] { display: none; }
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid var(--d2-field); border-radius: .75rem; padding: .5rem .5rem .5rem .75rem; background: #fff; }
@@ -6149,7 +6149,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #475569 !important; color: #071c38 !important; }
   html[data-mobile-d3] [data-d2-stepper-btn="plus"] { background: #071c38 !important; border: 1.5px solid #071c38 !important; color: #fff !important; }
   /* At a limit: still clearly a button, but flat grey with a dashed edge (not colour alone). */
-  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px dashed #7d8da3 !important; color: #64748b !important; }
+  html[data-mobile-d3] [data-d2-stepper-btn]:disabled { opacity: 1 !important; background: #f1f5f9 !important; border: 1.5px solid #94a3b8 !important; color: #64748b !important; }
   html[data-mobile-d3] [data-d2-stepper-btn]:focus-visible { outline: 3px solid #16803c !important; outline-offset: 2px; }
   html[data-mobile-d3] [data-d2-stepper-btn]:not(:disabled):active { transform: scale(.96); }
 
@@ -6340,7 +6340,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   /* Details & Payment */
   html[data-mobile-d3] [data-d2="details"] h2[data-site-nav-heading] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-journey-summary { display: none !important; }
-  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: "3  Payment" !important; }
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: counter(d2card) "  Payment" !important; white-space: pre; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details label[for="goingFlightNumber"],
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { text-transform: none !important; letter-spacing: 0 !important; font-size: .875rem !important; font-weight: 700 !important; color: #071c38 !important; }
   html[data-mobile-d3] [data-d2="details"] #step3-payment-actions > button.w-full.text-center,
@@ -6350,7 +6350,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 }
 @layer base {
 @media (max-width: 1199.98px) {
-  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #d97706 !important; -webkit-text-fill-color: #d97706 !important; }
+  html[data-mobile-d3] [data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
   /* Details & Payment: one "Back to your quote" (top); flight card reads "Flight number (optional)". */
   html[data-mobile-d3] [data-d2="details"] [data-back-to-quote="bottom"] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
@@ -6668,4 +6668,95 @@ html[data-mobile-light] p[data-confirm-status="confirmed"] { color: #16803c !imp
 /* Design 3 on tablets (768-1199px): the homepage heading sits above the quote form, as on phones. */
 @media (min-width: 768px) and (max-width: 1199.98px) {
   html[data-mobile-d3] .homepage-hero-layout > .homepage-hero-copy { order: -1 !important; }
+}
+
+/* Phones and tablets (light designs): the area above the header (iPhone status bar, and the
+   space shown when the page is pulled down) stays the site's navy, not white. The page itself
+   keeps its light background. */
+@layer base {
+  html:root:root[data-mobile-light] { background-color: #071c38 !important; }
+}
+
+/* Mobile menu logo: the menu panel is light under the mobile design, so show the
+   navy-text logo there (the white header logo disappears on a pale background). */
+html[data-mobile-light] [aria-label="Site menu"] .menu-logo-dark { display: none !important; }
+html[data-mobile-light] [aria-label="Site menu"] .menu-logo-light { display: block !important; }
+
+/* Details & Payment (phones and tablets): the floating WhatsApp bubble sat over the
+   Pay button; the header WhatsApp button stays available on this step. */
+html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launcher] { display: none !important; }
+
+/* Desktop/laptop booking screen: once date and time are set, the schedule boxes are
+   hidden (see above), so hide their "Pickup date & time" heading too instead of leaving
+   it above nothing. Visually hidden only, so it stays a keyboard/scroll target. */
+@media (min-width: 1024px) {
+  :where(html:not([data-mobile-d3])) #step2-travel-details:has(> [data-quote-schedule]:not([data-schedule-error]):not(:has(input:invalid))) > h2[data-booking-nav-heading]:first-child {
+    position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important;
+    padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important;
+  }
+}
+
+/* Every Google review star (homepage badge and panel, page badges, footer link) on phones,
+   tablets and desktop uses Google's star yellow, whatever the surrounding text colour. */
+/* In @layer base with the other Design 3 rules: layered !important beats unlayered !important. */
+@layer base {
+  html:root:root [data-reviews-stars][data-reviews-stars][data-reviews-stars] { color: #fbbc04 !important; -webkit-text-fill-color: #fbbc04 !important; }
+}
+
+/* Design 3 (phones and tablets), vehicle step: the journey summary is a navy box, matching
+   the navy journey panel on desktop. */
+@layer base {
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop] strong { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop] span { color: #b8c4d3 !important; -webkit-text-fill-color: #b8c4d3 !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop]::before { background: #071c38 !important; border-color: #2fbf4a !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-stop="to"]::before { background: #ffffff !important; border-color: #ffffff !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-journey-stops]::before { background: rgba(255, 255, 255, 0.35) !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-edit] { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li { background: rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-color: transparent !important; }
+}
+
+/* Design 3 pickup-time selector (compact): Hour and Minute columns side by side, a large
+   preview and one green Confirm button. Bottom sheet on phones, centred dialog on tablets. */
+@layer base {
+  html:root:root[data-mobile-d3] [data-d3-time-v2][data-d3-time-sheet] {
+    max-width: 560px; max-height: calc(100dvh - 1.5rem); overflow: hidden; display: flex; flex-direction: column;
+    padding: .9rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left, 0px)); padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-head] { margin: 0; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-head] p { font-size: 1.0625rem; font-weight: 800; color: #071c38; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-close] {
+    width: 44px; height: 44px; margin-right: -.4rem; display: grid; place-items: center; border-radius: 999px; color: #071c38; background: #f1f5f9;
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-close]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-readout] {
+    display: block; text-align: center; font-size: 2.75rem; line-height: 1.1; font-weight: 800; letter-spacing: .02em; color: #071c38;
+    font-variant-numeric: tabular-nums; margin: .15rem 0 .65rem;
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-readout] span { color: #2fbf4a; padding: 0 .1em; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-columns] { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; min-height: 0; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-column] { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-sub] { margin: 0 0 .35rem; text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] {
+    height: min(13.75rem, 34dvh); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: y proximity; border: 1.5px solid #94a3b8; border-radius: .9rem; background: #fff; padding: .25rem;
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] button {
+    display: block; width: 100%; min-height: 44px; border: 0; border-radius: .6rem; background: transparent; scroll-snap-align: center;
+    color: #071c38; font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] button[aria-pressed="true"] { background: #071c38; color: #fff; -webkit-text-fill-color: #fff; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] button:disabled { color: #cbd5e1; -webkit-text-fill-color: #cbd5e1; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] button:focus-visible { outline: 3px solid #16803c; outline-offset: -3px; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-done] {
+    flex: none; width: 100%; min-height: 54px; margin-top: .85rem; border: 0; border-radius: .9rem;
+    background: #2fbf4a; color: #071c38; font-size: 1.0625rem; font-weight: 800;
+  }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-done]:disabled { background: #e2e8f0; color: #475569; border: 0; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-done]:focus-visible { outline: 3px solid #071c38; outline-offset: 2px; }
+  @media (min-width: 768px) {
+    html:root:root[data-mobile-d3] [data-d3-time-backdrop]:has([data-d3-time-v2]) { align-items: center; padding: 1.5rem; }
+    html:root:root[data-mobile-d3] [data-d3-time-v2][data-d3-time-sheet] { max-width: 420px; border-radius: 1.25rem; padding-bottom: 1.1rem; box-shadow: 0 20px 50px rgba(7,28,56,.3); }
+  }
 }

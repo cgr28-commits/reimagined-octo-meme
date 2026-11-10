@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -47,6 +47,11 @@ const ogImage = {
   width: 1200,
   height: 1200,
   alt: `${SITE.name} — Premium Airport Transfers`,
+};
+
+/** Navy browser bar (iPhone Safari status bar and tab tint), matching the site header. */
+export const viewport: Viewport = {
+  themeColor: "#071C38",
 };
 
 export const metadata: Metadata = {
@@ -134,15 +139,16 @@ export default function RootLayout({
 
   return (
     <html lang="en-GB" className={`${manrope.variable} ${cormorant.variable}`} suppressHydrationWarning>
+<head>
+        {/* Runs before the page is first painted, so phones never flash the previous design. */}
+        <script id="matni-mobile-design" dangerouslySetInnerHTML={{ __html: `try{var k="matni-mobile-design",live=/myairporttaxini\.co\.uk$/i.test(location.hostname),q=new URLSearchParams(location.search).get("mobile");if(q==="classic"||q==="d3"||(!live&&q==="light"))localStorage.setItem(k,q);var m=localStorage.getItem(k);if(m!=="classic"&&(live||m!=="light"))m="d3";if(m!=="classic"&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,mq=window.matchMedia("(max-width: 1199.98px)"),on=function(){if(mq.matches){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","");if(m==="d3"&&!d.hasAttribute("data-mobile-d3"))d.setAttribute("data-mobile-d3","")}else{if(d.hasAttribute("data-mobile-light"))d.removeAttribute("data-mobile-light");if(d.hasAttribute("data-mobile-d3"))d.removeAttribute("data-mobile-d3")}};on();if(mq.addEventListener)mq.addEventListener("change",on);new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light","data-mobile-d3"]})}}catch(e){}` }} />
+      </head>
       <body className="overflow-x-clip antialiased">
-        {/* Mobile Design 3 is the default on phones and portrait tablets (below 1024px); 1024-1199px keeps the
+        {/* Mobile Design 3 is the default on phones and tablets (below 1200px); the switch script is in <head>. The
             existing tablet layout and 1200px+ is the desktop design. The switch follows window resizes.
             ?mobile=classic switches back to the previous mobile design on this browser; ?mobile=d3 returns.
             ?mobile=light (Design 2 preview) is only available away from the live domain.
             Browsers without :has()/color-mix() keep the previous mobile design. */}
-        <Script id="matni-mobile-design" strategy="beforeInteractive">
-          {`try{var k="matni-mobile-design",live=/myairporttaxini\.co\.uk$/i.test(location.hostname),q=new URLSearchParams(location.search).get("mobile");if(q==="classic"||q==="d3"||(!live&&q==="light"))localStorage.setItem(k,q);var m=localStorage.getItem(k);if(m!=="classic"&&(live||m!=="light"))m="d3";if(m!=="classic"&&window.CSS&&CSS.supports("color","color-mix(in oklab, red, red)")&&CSS.supports("selector(:has(a))")){var d=document.documentElement,mq=window.matchMedia("(max-width: 1199.98px)"),on=function(){if(mq.matches){if(!d.hasAttribute("data-mobile-light"))d.setAttribute("data-mobile-light","");if(m==="d3"&&!d.hasAttribute("data-mobile-d3"))d.setAttribute("data-mobile-d3","")}else{if(d.hasAttribute("data-mobile-light"))d.removeAttribute("data-mobile-light");if(d.hasAttribute("data-mobile-d3"))d.removeAttribute("data-mobile-d3")}};on();if(mq.addEventListener)mq.addEventListener("change",on);new MutationObserver(on).observe(d,{attributes:true,attributeFilter:["data-mobile-light","data-mobile-d3"]})}}catch(e){}`}
-        </Script>
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
         </Script>

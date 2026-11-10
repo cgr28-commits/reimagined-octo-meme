@@ -50,7 +50,7 @@ export default function FooterContact() {
           rel="noopener noreferrer"
           className="transition-colors hover:text-emerald"
         >
-          ★ Read our Google reviews
+          <span data-reviews-stars aria-hidden="true">★</span> Read our Google reviews
         </a>
         <span className="text-white/30"> · </span>
         <a
