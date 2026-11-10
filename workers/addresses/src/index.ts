@@ -1,3 +1,4 @@
+import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -5361,6 +5362,30 @@ export default {
         ...env,
         TRACKING_STORE: env.TRACKING_STORE,
       });
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/booking-jobs/send-quote" ||
+        url.pathname === "/api/booking-jobs/send-quote" ||
+        url.pathname.endsWith("/booking-jobs/send-quote")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleBookingJobSendQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
     }
