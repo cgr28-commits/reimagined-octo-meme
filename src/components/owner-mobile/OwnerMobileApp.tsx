@@ -64,6 +64,7 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { fetchOwnerAccountProfile } from "@/lib/tracking-api";
 import { isPreviewHost, sampleOwnerData } from "./owner-mobile-sample";
 import OwnerDriversScreen from "./OwnerDriversScreen";
+import { ownerDrivers, type DriversSummary } from "@/lib/driver-accounts-api";
 import type { OwnerDashboardToolTab } from "@/components/OwnerDashboardToolSwitcher";
 import { buildOwnerOutgoingEmail, type InboxMessage } from "../../../shared/owner-inbox";
 import {
@@ -209,6 +210,8 @@ export default function OwnerMobileApp({
   const [typing, setTyping] = useState(false);
   const [toast, setToast] = useState("");
   const [profileFirstName, setProfileFirstName] = useState("");
+  /** Stage 1 driver accounts (staging only). Null when not switched on. */
+  const [driversSummary, setDriversSummary] = useState<DriversSummary | null>(null);
   /** Staging preview only: show clearly-labelled sample data instead of the (empty) staging data. */
   const [sample, setSample] = useState(false);
   const [previewHost, setPreviewHost] = useState(false);
@@ -240,6 +243,10 @@ export default function OwnerMobileApp({
       setNow(new Date());
       return;
     }
+    void ownerDrivers
+      .summary(ownerKey)
+      .then(setDriversSummary)
+      .catch(() => setDriversSummary(null));
     const [b, sn, ib, wa] = await Promise.allSettled([
       fetchOwnerPaidBookings(ownerKey, { mode: "upcoming", pastDays: 1, futureDays: 120, limit: 250 }),
       fetchShortNoticeBookings(ownerKey),
@@ -398,7 +405,16 @@ export default function OwnerMobileApp({
       />
     );
   } else if (view.kind === "drivers") {
-    screen = <OwnerDriversScreen ownerKey={ownerKey} onBack={() => setView({ kind: "tab" })} onToast={setToast} />;
+    screen = (
+      <OwnerDriversScreen
+        ownerKey={ownerKey}
+        onBack={() => {
+          setView({ kind: "tab" });
+          void ownerDrivers.summary(ownerKey).then(setDriversSummary).catch(() => undefined);
+        }}
+        onToast={setToast}
+      />
+    );
   } else if (tab === "home") {
     screen = (
       <HomeScreen
@@ -412,6 +428,7 @@ export default function OwnerMobileApp({
         onOpenUrgent={openUrgent}
         onOpenTab={openTab}
         offerSample={previewHost && !sample && loaded && bookings.length === 0 && threads.length === 0 && chats.length === 0}
+        driverAlert={<DriverAlertBanner summary={driversSummary} onOpen={() => setView({ kind: "drivers" })} />}
         onShowSample={() => setSample(true)}
       />
     );
@@ -455,6 +472,7 @@ export default function OwnerMobileApp({
       <MoreScreen
         awaitingRequests={awaitingRequests}
         onOpenDrivers={() => setView({ kind: "drivers" })}
+        driversSummary={driversSummary}
         onOpenTool={(tool) => onOpenTool(tool, { returnTab: "more" })}
         onSwitchToClassic={onSwitchToClassic}
         onSignOut={onSignOut}
@@ -583,7 +601,9 @@ function HomeScreen({
   onOpenTab,
   offerSample,
   onShowSample,
+  driverAlert,
 }: {
+  driverAlert?: ReactNode;
   offerSample?: boolean;
   onShowSample?: () => void;
   now: Date;
@@ -653,6 +673,7 @@ function HomeScreen({
       </header>
 
       <main className={styles.main}>
+        {driverAlert}
         {offerSample ? (
           <div className={`${styles.notice} ${styles.blue}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span>This staging copy has no bookings or messages yet, so the screens are empty.</span>
@@ -2056,12 +2077,14 @@ const ADVANCED_TOOLS: Array<{ tool: OwnerDashboardToolTab; label: string }> = [
 function MoreScreen({
   awaitingRequests,
   onOpenDrivers,
+  driversSummary,
   onOpenTool,
   onSwitchToClassic,
   onSignOut,
 }: {
   awaitingRequests: number;
   onOpenDrivers?: () => void;
+  driversSummary?: DriversSummary | null;
   onOpenTool: (tool: OwnerDashboardToolTab) => void;
   onSwitchToClassic: () => void;
   onSignOut: () => void;
@@ -2086,6 +2109,11 @@ function MoreScreen({
                   Invite, check documents, approve or suspend · driver support number
                 </span>
               </span>
+              {driversSummary && (driversSummary.urgent.length || driversSummary.alerts.length) ? (
+                <span className={`${styles.chip} ${styles.red}`}>{driversSummary.urgent.length + driversSummary.alerts.length} urgent</span>
+              ) : driversSummary?.unreadMessages ? (
+                <span className={`${styles.chip} ${styles.blue}`}>{driversSummary.unreadMessages} new</span>
+              ) : null}
               <ChevronIcon size={18} />
             </button>
           </section>
@@ -2169,6 +2197,54 @@ function MoreScreen({
         </p>
       </main>
     </>
+  );
+}
+
+/** Home banner for driver reports and booking reviews. Urgent first; nothing shown when all clear. */
+function DriverAlertBanner({ summary, onOpen }: { summary: DriversSummary | null; onOpen: () => void }) {
+  if (!summary) return null;
+  const urgent = summary.urgent.length;
+  const reviews = summary.alerts.length;
+  const unread = summary.unreadMessages;
+  if (!urgent && !reviews && !unread) return null;
+  const critical = urgent > 0 || reviews > 0;
+  const first = summary.urgent[0];
+  const title = urgent
+    ? `${first.categoryLabel} — ${first.driverName}${urgent > 1 ? ` (+${urgent - 1} more)` : ""}`
+    : reviews
+      ? summary.alerts[0].title
+      : `${unread} new driver message${unread === 1 ? "" : "s"}`;
+  const detail = urgent
+    ? first.body
+    : reviews
+      ? "Upcoming bookings need checking by hand. Nothing has been cancelled or reassigned."
+      : "Open Drivers to read them.";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-driver-alert-banner={critical ? "urgent" : "info"}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        display: "grid",
+        gap: 4,
+        padding: "14px 16px",
+        minHeight: 64,
+        borderRadius: 18,
+        border: critical ? "2px solid #D92D20" : "1px solid #CFE0F5",
+        background: critical ? "#FEF3F2" : "#EEF4FC",
+        color: "#071C38",
+        cursor: "pointer",
+      }}
+    >
+      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: critical ? "#B42318" : "#1D4F91" }}>
+        {urgent ? "Urgent driver report" : reviews ? "Bookings to review" : "Drivers"}
+        {critical && unread ? ` · ${unread} unread` : ""}
+      </span>
+      <span style={{ fontSize: 16, fontWeight: 800 }}>{title}</span>
+      <span style={{ fontSize: 14, color: "#33445C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detail}</span>
+    </button>
   );
 }
 

@@ -1,6 +1,7 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
+import { londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -163,7 +164,7 @@ import {
   handleDriverAcceptConfirmRequest,
   handleDriverAcceptLookupRequest,
 } from "./booking-job-handlers";
-import { bookingJobStoreConfigured } from "./booking-job-store";
+import { bookingJobStoreConfigured, listAllBookingJobs } from "./booking-job-store";
 import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
@@ -4699,6 +4700,11 @@ export default {
     const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
       ownerAuthorized: (req) => ownerAuthorized(req, env),
       corsHeaders,
+      // Read-only booking lookup for the suspension review alert.
+      findUpcomingBookingsForDriver: async (driver) => {
+        if (!env.TRACKING_STORE) return [];
+        return upcomingBookingsForDriver(await listAllBookingJobs(env.TRACKING_STORE), driver, londonTodayYmd());
+      },
     });
     if (driverAccountsResponse) return driverAccountsResponse;
 

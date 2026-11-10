@@ -15,10 +15,13 @@ import {
   documentStateLabel,
   documentStateTone,
   driverPortalLink,
+  checkSupportPhone,
   ownerDrivers,
   ukDate,
+  type OwnerAlert,
   type OwnerDriver,
   type OwnerDriverDetail,
+  type UrgentReport,
 } from "@/lib/driver-accounts-api";
 
 type Props = { ownerKey: string; onBack: () => void; onToast: (text: string) => void };
@@ -52,6 +55,10 @@ const AUDIT_LABEL: Record<string, string> = {
   "driver.signed_out": "Signed out",
   "driver.sign_in_link_created": "Sign-in link created",
   "driver.office_message": "Messaged the office",
+  "driver.urgent_report": "Sent an urgent report",
+  "message.handled": "Urgent report marked handled",
+  "alert.raised": "Bookings flagged for your review",
+  "alert.reviewed": "Bookings review marked done",
   "document.submitted": "Document added",
   "document.accepted": "Document accepted",
   "document.rejected": "Document rejected",
@@ -73,6 +80,8 @@ async function copy(text: string): Promise<boolean> {
 
 export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props) {
   const [drivers, setDrivers] = useState<OwnerDriver[] | null>(null);
+  const [alerts, setAlerts] = useState<OwnerAlert[]>([]);
+  const [urgent, setUrgent] = useState<UrgentReport[]>([]);
   const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -81,8 +90,10 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
 
   const load = useCallback(async () => {
     try {
-      const res = await ownerDrivers.list(ownerKey);
+      const [res, summary] = await Promise.all([ownerDrivers.list(ownerKey), ownerDrivers.summary(ownerKey)]);
       setDrivers(res.drivers);
+      setAlerts(summary.alerts);
+      setUrgent(summary.urgent);
       setError("");
     } catch (e) {
       if (e instanceof DriverAccountsError && e.status === 404) setUnavailable(true);
@@ -150,6 +161,29 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
         ) : (
           <>
             {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
+            {alerts.map((a) => (
+              <AlertCard key={a.id} alert={a} ownerKey={ownerKey} onOpenDriver={a.driverId ? () => setSelected(a.driverId) : undefined} onDone={load} onToast={onToast} />
+            ))}
+            {urgent.length ? (
+              <section className={styles.card} style={{ overflow: "hidden", border: "2px solid #D92D20" }} data-urgent-reports>
+                <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 4px", color: "#B42318" }}>
+                  Urgent driver reports · {urgent.length}
+                </h2>
+                {urgent.map((u) => (
+                  <button key={u.id} type="button" className={styles.row} onClick={() => setSelected(u.driverId)}>
+                    <span className={styles.rowBody}>
+                      <span className={styles.rowTitle} style={{ fontWeight: 800 }}>
+                        {u.categoryLabel} · {u.driverName}
+                      </span>
+                      <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
+                        {when(u.createdAt)} — {u.body}
+                      </span>
+                    </span>
+                    <ChevronIcon size={18} />
+                  </button>
+                ))}
+              </section>
+            ) : null}
             <button type="button" className={styles.emeraldButton} onClick={() => setInviting(true)}>
               Invite a driver
             </button>
@@ -165,7 +199,11 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
                       {d.attention && d.attention.length ? ukDate(d.attention.slice(0, 2).join(" · ")) : d.operatorName || d.email}
                     </span>
                   </span>
-                  {d.unreadMessages ? <span className={`${styles.chip} ${styles.blue}`}>{d.unreadMessages} new</span> : null}
+                  {d.urgentMessages ? (
+                    <span className={`${styles.chip} ${styles.red}`}>Urgent</span>
+                  ) : d.unreadMessages ? (
+                    <span className={`${styles.chip} ${styles.blue}`}>{d.unreadMessages} new</span>
+                  ) : null}
                   <span className={`${styles.chip} ${statusTone(d)}`}>{d.status === "approved" ? (d.available ? "Available" : "Unavailable") : STATUS_LABEL[d.status]}</span>
                   <ChevronIcon size={18} />
                 </button>
@@ -184,13 +222,88 @@ export default function OwnerDriversScreen({ ownerKey, onBack, onToast }: Props)
                 <ChevronIcon size={18} />
               </button>
             </section>
-            <p style={{ margin: "0 4px", fontSize: 12, color: "#5B6B80" }}>
+            <p style={{ margin: "0 4px", fontSize: 13, color: "#5B6B80" }}>
               Stage 1: accounts and approvals only. No jobs, payments or notifications are sent.
             </p>
           </>
         )}
       </main>
     </>
+  );
+}
+
+function bookingLine(b: { tripDate: string; tripTime: string; reference: string; customerName: string; pickup: string; leg: string }): string {
+  const d = new Date(`${b.tripDate}T12:00:00Z`);
+  const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  return [`${day} ${b.tripTime}`.trim(), b.reference, b.customerName, b.leg === "return" ? "return" : b.pickup].filter(Boolean).join(" · ");
+}
+
+function AlertCard({
+  alert,
+  ownerKey,
+  onOpenDriver,
+  onDone,
+  onToast,
+}: {
+  alert: OwnerAlert;
+  ownerKey: string;
+  onOpenDriver?: () => void;
+  onDone: () => void;
+  onToast: (t: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const bookings = alert.detail.bookings ?? [];
+  return (
+    <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10, border: "2px solid #D92D20" }} data-owner-alert={alert.id}>
+      <span className={`${styles.chip} ${styles.red}`} style={{ justifySelf: "start" }}>
+        Review needed
+      </span>
+      <h2 className={styles.sectionTitle}>{alert.title}</h2>
+      {bookings.length ? (
+        <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 6, fontSize: 15, color: "#071C38", fontWeight: 600 }}>
+          {bookings.map((b) => (
+            <li key={`${b.reference}-${b.leg}`}>{bookingLine(b)}</li>
+          ))}
+        </ul>
+      ) : null}
+      <p style={{ margin: 0, fontSize: 13, color: "#33445C", lineHeight: 1.45 }}>
+        Nothing has been cancelled, reassigned or refunded. Check each booking and arrange cover yourself.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: onOpenDriver ? "1fr 1fr" : "1fr", gap: 10 }}>
+        {onOpenDriver ? (
+          <button type="button" className={styles.secondaryButton} onClick={onOpenDriver}>
+            Open driver
+          </button>
+        ) : null}
+        {confirming ? (
+          <button
+            type="button"
+            className={styles.primaryButton}
+            style={{ minHeight: 44, fontSize: 14 }}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await ownerDrivers.resolveAlert(ownerKey, alert.id, "Reviewed by owner");
+                onToast("Marked as reviewed");
+                onDone();
+              } catch (e) {
+                onToast(e instanceof Error ? e.message : "Could not update");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Confirm reviewed
+          </button>
+        ) : (
+          <button type="button" className={styles.secondaryButton} onClick={() => setConfirming(true)}>
+            Mark reviewed
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -222,7 +335,7 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
     <label style={{ display: "grid", gap: 6 }}>
       <span style={{ fontSize: 13, fontWeight: 800, color: "#071C38" }}>{label}</span>
       {children}
-      {hint ? <span style={{ fontSize: 12, color: "#5B6B80" }}>{hint}</span> : null}
+      {hint ? <span style={{ fontSize: 13, color: "#5B6B80" }}>{hint}</span> : null}
     </label>
   );
 }
@@ -307,7 +420,7 @@ function InviteDriver({ ownerKey, onBack, onToast }: Props) {
             <button type="submit" className={styles.primaryButton} disabled={busy || !name.trim() || !email.trim()}>
               {busy ? "Creating…" : "Create invitation link"}
             </button>
-            <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>Nothing is emailed or texted. You share the link yourself.</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Nothing is emailed or texted. You share the link yourself.</p>
           </form>
         )}
       </main>
@@ -340,7 +453,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
   }, [load]);
 
   useEffect(() => {
-    if (detail?.messages.some((m) => !m.readAt)) void ownerDrivers.markMessagesRead(ownerKey, driverId).catch(() => undefined);
+    if (detail?.messages.some((m) => !m.readAt && !m.urgent)) void ownerDrivers.markMessagesRead(ownerKey, driverId).catch(() => undefined);
   }, [detail, ownerKey, driverId]);
 
   if (link) {
@@ -396,7 +509,12 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
               <Kv label="Email" value={d.email} />
               <Kv label="Mobile" value={d.mobile || "—"} />
               {d.statusReason ? <Kv label="Reason" value={d.statusReason} /> : null}
+              <Kv label="New work offers" value={detail.canReceiveOffers ? "Allowed" : "Blocked"} />
             </section>
+
+            {detail.alerts.map((a) => (
+              <AlertCard key={a.id} alert={a} ownerKey={ownerKey} onDone={load} onToast={onToast} />
+            ))}
 
             {detail.attention.length ? (
               <div className={`${styles.notice} ${styles.amber}`}>{ukDate(detail.attention.join(" · "))}</div>
@@ -405,15 +523,38 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
             {detail.messages.length ? (
               <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10 }}>
                 <h2 className={styles.sectionTitle}>Messages to the office</h2>
-                {detail.messages.slice(0, 5).map((m) => (
-                  <div key={m.id} style={{ display: "grid", gap: 2 }}>
-                    <span style={{ fontSize: 12, color: "#5B6B80", fontWeight: 700 }}>
-                      {when(m.createdAt)}
-                      {!m.readAt ? " · new" : ""}
-                    </span>
-                    <span style={{ fontSize: 15, color: "#071C38", whiteSpace: "pre-wrap" }}>{m.body}</span>
-                  </div>
-                ))}
+                {detail.messages.slice(0, 8).map((m) => {
+                  const open = m.urgent && !m.handledAt;
+                  return (
+                    <div
+                      key={m.id}
+                      style={{ display: "grid", gap: 6, ...(open ? { border: "2px solid #D92D20", borderRadius: 14, padding: 12, background: "#FEF3F2" } : {}) }}
+                      data-driver-message={m.urgent ? "urgent" : "normal"}
+                    >
+                      <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        {m.urgent ? <span className={`${styles.chip} ${open ? styles.red : styles.grey}`}>{open ? `Urgent · ${m.categoryLabel}` : `Handled · ${m.categoryLabel}`}</span> : null}
+                        {!m.urgent && m.category !== "general" ? <span className={`${styles.chip} ${styles.amber}`}>{m.categoryLabel}</span> : null}
+                        <span style={{ fontSize: 13, color: "#5B6B80", fontWeight: 700 }}>
+                          {when(m.createdAt)}
+                          {!m.readAt && !m.urgent ? " · new" : ""}
+                        </span>
+                      </span>
+                      <span style={{ fontSize: 15, color: "#071C38", whiteSpace: "pre-wrap" }}>{m.body}</span>
+                      {open ? (
+                        <>
+                          {d.mobile ? (
+                            <a className={styles.primaryButton} href={`tel:${d.mobile}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+                              Call {d.name.split(" ")[0]}
+                            </a>
+                          ) : null}
+                          <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => run(() => ownerDrivers.markHandled(ownerKey, m.id), "Marked handled")}>
+                            Mark handled
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </section>
             ) : null}
 
@@ -426,8 +567,8 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                   <span className={styles.rowBody}>
                     <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
                       {item.label}
-                      {item.required ? "" : " (optional)"}
                     </span>
+                    {item.required ? null : <span className={styles.rowDetail}>Optional</span>}
                   </span>
                   <span className={`${styles.chip} ${styles[documentStateTone(item.state)]}`}>{documentStateLabel(item.state, item.expiresOn)}</span>
                 </div>
@@ -439,7 +580,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                 <h2 className={styles.sectionTitle}>Check: {doc.label}</h2>
                 <Kv label="Reference" value={doc.reference || "—"} />
                 <Kv label="Expires" value={ukDate(doc.expiresOn)} />
-                <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>Check the original document with the driver before accepting.</p>
+                <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Check the original document with the driver before accepting.</p>
                 {rejecting === doc.id ? (
                   <>
                     <textarea className={styles.composer} style={{ minHeight: 80 }} placeholder="What needs fixing?" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
@@ -480,7 +621,11 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                 ) : (
                   <>
                     <p style={{ margin: 0, fontSize: 14, color: "#33445C" }}>
-                      {action === "remove" ? "The driver is signed out everywhere and can no longer sign in. Their records and audit trail are kept." : "The driver is signed out everywhere straight away."}
+                      {action === "remove"
+                        ? "The driver is signed out everywhere and can no longer sign in. Their records and audit trail are kept."
+                        : action === "suspend"
+                          ? "The driver is signed out everywhere straight away and can't receive new work. Any upcoming bookings they're on will be listed for you to review — nothing is cancelled, reassigned or refunded."
+                          : "The driver is signed out everywhere straight away."}
                     </p>
                     <Field label="Reason (kept in the audit log)">
                       <input style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -492,7 +637,13 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast }: Props & { driverI
                   className={action === "approve" || action === "reinstate" ? styles.emeraldButton : styles.dangerButton}
                   disabled={busy || ((action !== "approve" && action !== "reinstate") && !reason.trim())}
                   onClick={async () => {
-                    if (await run(() => ownerDrivers.setStatus(ownerKey, d.id, action, reason), `${ACTION_LABEL[action]}: done`)) {
+                    let reviewCount = 0;
+                    const ok = await run(async () => {
+                      const res = await ownerDrivers.setStatus(ownerKey, d.id, action, reason);
+                      reviewCount = res.reviewBookings?.length ?? 0;
+                    }, `${ACTION_LABEL[action]}: done`);
+                    if (ok && reviewCount) onToast(`${reviewCount} booking${reviewCount === 1 ? "" : "s"} to review`);
+                    if (ok) {
                       setAction(null);
                       setReason("");
                     }
@@ -608,6 +759,9 @@ function SupportContactSettings({ ownerKey, onBack, onToast }: Props) {
       .catch((e) => setError(e instanceof Error ? e.message : "Could not load."));
   }, [ownerKey]);
 
+  const check = checkSupportPhone(phone);
+  const unchanged = check.ok && check.phone === (saved ?? "");
+
   async function save(value: string) {
     setBusy(true);
     setError("");
@@ -633,10 +787,26 @@ function SupportContactSettings({ ownerKey, onBack, onToast }: Props) {
             the customer line (028 9602 2952), which goes to the AI receptionist.
           </p>
           <Field label="Phone number" hint={saved === "" ? "Not set — drivers see a “Message the office” form instead." : undefined}>
-            <input style={inputStyle} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" />
+            <input
+              style={{ ...inputStyle, ...(phone.trim() && !check.ok ? { borderColor: "#D92D20", borderWidth: 2 } : {}) }}
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                setError("");
+              }}
+              autoComplete="off"
+              aria-invalid={!check.ok}
+            />
           </Field>
+          {!check.ok ? (
+            <div className={`${styles.notice} ${styles.red}`} role="alert">
+              {check.error}
+            </div>
+          ) : null}
           {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
-          <button type="button" className={styles.primaryButton} disabled={busy || saved === null || phone.trim() === (saved ?? "")} onClick={() => save(phone)}>
+          <button type="button" className={styles.primaryButton} disabled={busy || saved === null || !check.ok || !phone.trim() || unchanged} onClick={() => save(phone)}>
             Save
           </button>
           {saved ? (

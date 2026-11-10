@@ -5,8 +5,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+import { upcomingBookingsForDriver } from "../workers/addresses/src/driver-upcoming-bookings";
 import {
   AI_RECEPTIONIST_DIGITS,
+  type DriverUpcomingBooking,
   DRIVER_ACCOUNT_SESSION_HEADER,
   handleDriverAccountsRequest,
   normaliseUkPhone,
@@ -39,12 +41,20 @@ function d1(db: DatabaseSync): D1Like {
 }
 
 const sqlite = new DatabaseSync(":memory:");
-sqlite.exec(readFileSync("workers/addresses/migrations/driver-db/0001_stage1_driver_accounts.sql", "utf8"));
+for (const file of ["0001_stage1_driver_accounts.sql", "0002_stage1_alerts_priority.sql"]) {
+  sqlite.exec(readFileSync(`workers/addresses/migrations/driver-db/${file}`, "utf8"));
+}
 const env = { DRIVER_DB: d1(sqlite) };
 
 let clock = new Date("2026-11-10T12:00:00Z");
 let tokenN = 0;
+let bookingLookup: (d: { email: string }) => Promise<DriverUpcomingBooking[]> = async () => [];
+let lookupCalls = 0;
 const deps = {
+  findUpcomingBookingsForDriver: (d: { id: string; name: string; email: string; mobile: string }) => {
+    lookupCalls++;
+    return bookingLookup(d);
+  },
   ownerAuthorized: (r: Request) => r.headers.get("X-Owner-Key") === "staging-owner",
   corsHeaders: () => ({ "Access-Control-Allow-Origin": "https://matni-dashboard-staging.pages.dev", "Access-Control-Allow-Headers": "Content-Type" }),
   now: () => clock,
@@ -203,7 +213,136 @@ async function main() {
   assert.throws(() => sqlite.exec("DELETE FROM audit_log"), /append-only/);
   assert.throws(() => sqlite.exec("UPDATE audit_log SET action = 'x'"), /append-only/);
 
-  console.log(`check-driver-accounts: all checks passed (${audit.length} audit entries)`);
+  await refinements();
+  console.log(`check-driver-accounts: all checks passed (${audit.length}+ audit entries)`);
+}
+
+/** Stage 1 refinements (owner feedback 10 Nov 2026). */
+async function refinements() {
+  clock = new Date("2026-11-10T20:00:00Z");
+  // Helper: create an approved driver.
+  async function approvedDriver(name: string, email: string, mobile: string) {
+    const inv = await call("POST", "/owner/driver-accounts/invite", { name, email, mobile }, owner);
+    const acc = await call("POST", "/driver-portal/account/accept-invite", {
+      token: inv.body.inviteToken, operatorName: `${name} Cars`, operatorLicenceNumber: "OL-1", confirmOwnOperatorLicence: true,
+    });
+    const session = acc.body.sessionToken as string;
+    for (const kind of ["operator_licence", "phv_driver_licence", "vehicle_licence", "insurance"]) {
+      const r = await call("POST", "/driver-portal/account/documents", { kind, expiresOn: "2027-12-31" }, asDriver(session));
+      await call("POST", "/owner/driver-accounts/document-review", { documentId: r.body.documentId, decision: "accept" }, owner);
+    }
+    assert.equal((await call("POST", "/owner/driver-accounts/status", { driverId: inv.body.driverId, action: "approve" }, owner)).status, 200);
+    return { id: inv.body.driverId as string, session };
+  }
+  const a = await approvedDriver("Aine Able", "aine@example.com", "07700 900201");
+  const b = await approvedDriver("Brendan Bell", "brendan@example.com", "07700 900202");
+
+  // 1. Support number: server rejects invalid numbers and the receptionist line in any format.
+  for (const bad of ["12345", "not a number", "028 9602 295", "+44 28 9602 2952", "0044 28 96022952", "02896022952"]) {
+    assert.equal((await call("POST", "/owner/driver-accounts/support-contact", { phone: bad }, owner)).status, 400, bad);
+  }
+  assert.equal((await call("POST", "/owner/driver-accounts/support-contact", { phone: "+44 7700 900999" }, owner)).body.phone, "07700900999");
+
+  // 2. Support number only reaches approved, signed-in drivers.
+  assert.equal((await call("GET", "/driver-portal/account/me")).status, 401, "anonymous");
+  assert.equal((await call("GET", "/driver-portal/account/me", undefined, asDriver("dacc_forged"))).status, 401, "forged session");
+  assert.equal((await call("GET", "/owner/driver-accounts/support-contact", undefined, asDriver(a.session))).status, 401, "driver cannot read owner setting");
+  const inv3 = await call("POST", "/owner/driver-accounts/invite", { name: "Cara Applied", email: "cara@example.com" }, owner);
+  const cara = await call("POST", "/driver-portal/account/accept-invite", { token: inv3.body.inviteToken, mobile: "07700900203", operatorName: "C", operatorLicenceNumber: "X", confirmOwnOperatorLicence: true });
+  const caraMe = await call("GET", "/driver-portal/account/me", undefined, asDriver(cara.body.sessionToken));
+  assert.deepEqual(caraMe.body.contactOffice, { mode: "message" }, "applied driver gets no number");
+  assert.ok(!JSON.stringify(caraMe.body).includes("07700900999"));
+  assert.deepEqual((await call("GET", "/driver-portal/account/me", undefined, asDriver(a.session))).body.contactOffice, { mode: "phone", phone: "07700900999" });
+
+  // 3. Unread + urgent messages, urgent first.
+  assert.equal((await call("POST", "/driver-portal/account/contact-office", { message: "Free Friday", category: "general" }, asDriver(a.session))).body.priority, "normal");
+  assert.equal((await call("POST", "/driver-portal/account/contact-office", { message: "x", category: "bogus" }, asDriver(b.session))).status, 400);
+  const urgent = await call("POST", "/driver-portal/account/contact-office", { message: "Flat tyre on the M1, passenger on board", category: "breakdown" }, asDriver(b.session));
+  assert.equal(urgent.body.priority, "urgent");
+  let list = await call("GET", "/owner/driver-accounts", undefined, owner);
+  assert.equal(list.body.drivers[0].name, "Brendan Bell", "urgent report sorts first");
+  assert.equal(list.body.drivers[0].urgentMessages, 1);
+  assert.equal(list.body.drivers[1].unreadMessages, 1);
+  let summary = await call("GET", "/owner/driver-accounts/summary", undefined, owner);
+  assert.equal(summary.body.unreadMessages, 2);
+  assert.equal(summary.body.urgent.length, 1);
+  assert.equal(summary.body.urgent[0].categoryLabel, "Vehicle breakdown");
+  // Opening (mark read) does not clear an urgent report; marking handled does, and is audited.
+  await call("POST", "/owner/driver-accounts/messages/read", { driverId: b.id }, owner);
+  summary = await call("GET", "/owner/driver-accounts/summary", undefined, owner);
+  assert.equal(summary.body.urgent.length, 1, "urgent stays until handled");
+  const detailB = await call("GET", `/owner/driver-accounts/detail?id=${b.id}`, undefined, owner);
+  assert.equal(detailB.body.messages[0].urgent, true);
+  assert.equal((await call("POST", "/owner/driver-accounts/messages/handled", { messageId: urgent.body.messageId }, owner)).status, 200);
+  summary = await call("GET", "/owner/driver-accounts/summary", undefined, owner);
+  assert.equal(summary.body.urgent.length, 0);
+  // Urgent reports are never rate-limited.
+  for (let i = 0; i < 21; i++) await call("POST", "/driver-portal/account/contact-office", { message: `m${i}`, category: "general" }, asDriver(a.session));
+  assert.equal((await call("POST", "/driver-portal/account/contact-office", { message: "late", category: "general" }, asDriver(a.session))).status, 429);
+  assert.equal((await call("POST", "/driver-portal/account/contact-office", { message: "Accident at airport roundabout", category: "accident" }, asDriver(a.session))).status, 201);
+
+  // 5. Offers gate.
+  await call("POST", "/driver-portal/account/availability", { available: true }, asDriver(a.session));
+  let detailA = await call("GET", `/owner/driver-accounts/detail?id=${a.id}`, undefined, owner);
+  assert.equal(detailA.body.canReceiveOffers, true);
+
+  // 4 + 5 + 6 + 7. Suspension: reason required, audited with who/when, sessions revoked,
+  // offers blocked, upcoming bookings raised for manual review, bookings untouched.
+  const bookings: DriverUpcomingBooking[] = [
+    { reference: "MATNI-1201", tripDate: "2026-11-14", tripTime: "05:30", pickup: "Glengormley", customerName: "Niamh", leg: "outbound" },
+    { reference: "MATNI-1207", tripDate: "2026-11-20", tripTime: "14:10", pickup: "Return journey", customerName: "Paul", leg: "return" },
+  ];
+  const snapshot = JSON.stringify(bookings);
+  bookingLookup = async (d) => (d.email === "aine@example.com" ? bookings : []);
+  assert.equal((await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "suspend", reason: "" }, owner)).status, 400);
+  const before = lookupCalls;
+  const sus = await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "suspend", reason: "Insurance query" }, owner);
+  assert.equal(sus.status, 200);
+  assert.equal(lookupCalls, before + 1);
+  assert.equal(sus.body.reviewBookings.length, 2);
+  assert.equal(JSON.stringify(bookings), snapshot, "bookings are only read");
+  assert.equal((await call("GET", "/driver-portal/account/me", undefined, asDriver(a.session))).status, 401, "session revoked");
+  detailA = await call("GET", `/owner/driver-accounts/detail?id=${a.id}`, undefined, owner);
+  assert.equal(detailA.body.canReceiveOffers, false, "offers blocked");
+  assert.equal(detailA.body.driver.available, false);
+  const susAudit = detailA.body.audit.find((x: any) => x.action === "driver.suspended");
+  assert.equal(susAudit.actor_type, "owner");
+  assert.equal(susAudit.detail.reason, "Insurance query");
+  assert.equal(susAudit.detail.by, "Owner (owner sign-in)");
+  assert.equal(susAudit.at, clock.toISOString());
+  assert.equal(susAudit.detail.sessionsRevoked, true);
+  summary = await call("GET", "/owner/driver-accounts/summary", undefined, owner);
+  const alert = summary.body.alerts.find((x: any) => x.driverId === a.id);
+  assert.ok(alert, "alert raised");
+  assert.match(alert.title, /Aine Able was suspended with 2 upcoming bookings/);
+  assert.deepEqual(alert.detail.bookings.map((x: any) => x.reference), ["MATNI-1201", "MATNI-1207"]);
+  // Reinstating does not touch bookings or clear the alert; the owner marks it reviewed.
+  await call("POST", "/owner/driver-accounts/status", { driverId: a.id, action: "reinstate" }, owner);
+  assert.equal((await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts.length, 1);
+  assert.equal((await call("POST", "/owner/driver-accounts/alerts/resolve", { alertId: alert.id, note: "Moved to Brendan by hand" }, owner)).status, 200);
+  assert.equal((await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts.length, 0);
+  // Lookup failure still raises an alert (never silently skipped).
+  bookingLookup = async () => { throw new Error("KV down"); };
+  await call("POST", "/owner/driver-accounts/status", { driverId: b.id, action: "suspend", reason: "Test" }, owner);
+  const failAlert = (await call("GET", "/owner/driver-accounts/summary", undefined, owner)).body.alerts[0];
+  assert.match(failAlert.title, /check their upcoming bookings by hand/);
+  // No booking-changing calls exist in the module.
+  const src = readFileSync("workers/addresses/src/driver-accounts.ts", "utf8") + readFileSync("workers/addresses/src/driver-upcoming-bookings.ts", "utf8");
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  assert.ok(!/\.put\(|\.delete\(|TRACKING_STORE|BOOKING_COUNTER|stripe|refund|cancelBooking|assignDriver/i.test(code), "no booking writes");
+
+  // Booking matcher (read-only, by driver email or mobile; confirmed and upcoming only).
+  const jobs: any[] = [
+    { id: "j1", paymentReference: "MATNI-1", status: "paid", driverAssignmentStatus: "accepted", driverEmail: "AINE@example.com", tripDate: "2026-11-12", tripTime: "09:00", customerName: "Niamh Smith", pickupLabel: "BT36", returnJourney: false },
+    { id: "j2", paymentReference: "MATNI-2", status: "cancelled", driverAssignmentStatus: "accepted", driverEmail: "aine@example.com", tripDate: "2026-11-12", tripTime: "09:00", customerName: "X", pickupLabel: "", returnJourney: false },
+    { id: "j3", paymentReference: "MATNI-3", status: "paid", driverAssignmentStatus: "declined", driverEmail: "aine@example.com", tripDate: "2026-11-12", tripTime: "09:00", customerName: "X", pickupLabel: "", returnJourney: false },
+    { id: "j4", paymentReference: "MATNI-4", status: "paid", driverAssignmentStatus: "pending", driverMobile: "+44 7700 900201", tripDate: "2026-11-01", tripTime: "09:00", customerName: "Paul", pickupLabel: "", returnJourney: true, returnDate: "2026-11-15", returnTime: "18:00" },
+    { id: "j5", paymentReference: "MATNI-5", status: "paid", driverAssignmentStatus: "accepted", driverEmail: "other@example.com", tripDate: "2026-11-12", tripTime: "09:00", customerName: "X", pickupLabel: "", returnJourney: false },
+  ];
+  const frozen = JSON.stringify(jobs);
+  const found = upcomingBookingsForDriver(jobs, { email: "aine@example.com", mobile: "07700900201" }, "2026-11-10");
+  assert.deepEqual(found.map((f) => `${f.reference}:${f.leg}`), ["MATNI-1:outbound", "MATNI-4:return"]);
+  assert.equal(JSON.stringify(jobs), frozen);
 }
 
 main().catch((error) => {

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } 
 import styles from "@/components/owner-mobile/OwnerMobile.module.css";
 import {
   DOCUMENT_OPTIONS,
+  MESSAGE_OPTIONS,
   DriverAccountsError,
   documentStateLabel,
   documentStateTone,
@@ -40,7 +41,7 @@ function Field({ label, children, hint }: { label: string; children: ReactNode; 
     <label style={{ display: "grid", gap: 6 }}>
       <span style={{ fontSize: 13, fontWeight: 800, color: "#071C38" }}>{label}</span>
       {children}
-      {hint ? <span style={{ fontSize: 12, color: "#5B6B80" }}>{hint}</span> : null}
+      {hint ? <span style={{ fontSize: 13, color: "#5B6B80" }}>{hint}</span> : null}
     </label>
   );
 }
@@ -294,12 +295,12 @@ function Home({
               aria-label="Available for work"
               disabled={busy}
               onClick={toggleAvailable}
-              style={{ width: 64, height: 36, borderRadius: 999, border: 0, background: d.available ? "#2FBF4A" : "#C9D2DE", position: "relative", flexShrink: 0, cursor: "pointer" }}
+              style={{ width: 72, height: 44, borderRadius: 999, border: 0, background: d.available ? "#2FBF4A" : "#C9D2DE", position: "relative", flexShrink: 0, cursor: "pointer" }}
             >
-              <span style={{ position: "absolute", top: 4, left: d.available ? 32 : 4, width: 28, height: 28, borderRadius: 999, background: "#fff", transition: "left 150ms" }} />
+              <span style={{ position: "absolute", top: 4, left: d.available ? 32 : 4, width: 36, height: 36, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(7,28,56,0.25)", transition: "left 150ms" }} />
             </button>
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>Jobs and offers arrive in a later update.</p>
+          <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Jobs and offers arrive in a later update.</p>
         </section>
       )}
 
@@ -316,8 +317,8 @@ function Home({
               <span className={styles.rowBody}>
                 <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
                   {item.label}
-                  {item.required ? "" : " (optional)"}
                 </span>
+                {item.required ? null : <span className={styles.rowDetail}>Optional</span>}
                 {item.state === "rejected" && doc?.reviewNote ? (
                   <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
                     {doc.reviewNote}
@@ -355,7 +356,7 @@ function Home({
         <Row label="Vehicle" value={d.vehicleSummary || "—"} />
         <Row label="Mobile" value={d.mobile || "—"} />
         <Row label="Email" value={d.email} />
-        <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>To change these, contact the office.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>To change these, contact the office.</p>
       </section>
 
       <button
@@ -383,13 +384,15 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function ContactOffice({ me, session, onToast }: { me: DriverMe; session: string; onToast: (t: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState("general");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const contact = me.contactOffice;
+  const option = MESSAGE_OPTIONS.find((o) => o.category === category) ?? MESSAGE_OPTIONS[0];
 
   return (
-    <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10 }}>
+    <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 12 }}>
       <h2 className={styles.sectionTitle}>Contact office</h2>
       {contact.mode === "phone" ? (
         <a className={styles.primaryButton} href={`tel:${contact.phone}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
@@ -398,20 +401,61 @@ function ContactOffice({ me, session, onToast }: { me: DriverMe; session: string
       ) : null}
       {open ? (
         <>
-          <textarea className={styles.composer} style={{ minHeight: 100 }} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write to the office…" maxLength={1000} />
+          <div role="radiogroup" aria-label="What is it about?" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {MESSAGE_OPTIONS.map((o) => {
+              const active = o.category === category;
+              return (
+                <button
+                  key={o.category}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setCategory(o.category)}
+                  style={{
+                    minHeight: 44,
+                    padding: "0 14px",
+                    borderRadius: 999,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    border: active ? `2px solid ${o.urgent ? "#D92D20" : "#071C38"}` : "1px solid #dce3ec",
+                    background: active ? (o.urgent ? "#FEF3F2" : "#071C38") : "#fff",
+                    color: active ? (o.urgent ? "#B42318" : "#fff") : o.urgent ? "#B42318" : "#071C38",
+                  }}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          {option.urgent ? (
+            <div className={`${styles.notice} ${styles.red}`}>
+              If anyone is hurt or in danger, call 999 first. This report goes to the top of the office dashboard.
+            </div>
+          ) : null}
+          <textarea
+            className={styles.composer}
+            style={{ minHeight: 110 }}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={option.urgent ? "Where are you, which booking, and is the passenger with you?" : "Write to the office…"}
+            maxLength={1000}
+          />
           {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
           <button
             type="button"
-            className={styles.primaryButton}
+            className={option.urgent ? styles.dangerButton : styles.primaryButton}
+            style={option.urgent ? { background: "#D92D20", color: "#fff", border: 0, minHeight: 52, fontSize: 16, borderRadius: 14 } : undefined}
             disabled={busy || !message.trim()}
             onClick={async () => {
               setBusy(true);
               setError("");
               try {
-                await driverAccount.messageOffice(session, message);
+                const res = await driverAccount.messageOffice(session, message, category);
                 setMessage("");
                 setOpen(false);
-                onToast("Message sent to the office");
+                setCategory("general");
+                onToast(res.priority === "urgent" ? "Urgent report sent to the office" : "Message sent to the office");
               } catch (e) {
                 setError(e instanceof Error ? e.message : "Could not send.");
               } finally {
@@ -419,15 +463,18 @@ function ContactOffice({ me, session, onToast }: { me: DriverMe; session: string
               }
             }}
           >
-            {busy ? "Sending…" : "Send message"}
+            {busy ? "Sending…" : option.urgent ? "Send urgent report" : "Send message"}
+          </button>
+          <button type="button" className={styles.secondaryButton} onClick={() => setOpen(false)}>
+            Cancel
           </button>
         </>
       ) : (
         <button type="button" className={contact.mode === "phone" ? styles.secondaryButton : styles.primaryButton} onClick={() => setOpen(true)}>
-          Message the office
+          Message or report a problem
         </button>
       )}
-      <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>For an emergency on the road, call 999 first.</p>
+      <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>For an emergency on the road, call 999 first.</p>
     </section>
   );
 }
@@ -455,7 +502,7 @@ function AddDocument({ session, onDone }: { session: string; onDone: (added: boo
       <Field label="Expiry date">
         <input style={inputStyle} type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
       </Field>
-      <p style={{ margin: 0, fontSize: 12, color: "#5B6B80" }}>Photo upload is coming. For now, show the original to the office.</p>
+      <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Photo upload is coming. For now, show the original to the office.</p>
       {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
       <button
         type="button"

@@ -27,8 +27,23 @@ export type DriverAccountsEnv = {
   DRIVER_DB?: D1Like;
 };
 
+/** An upcoming confirmed booking the driver is assigned to (read-only view). */
+export type DriverUpcomingBooking = {
+  reference: string;
+  tripDate: string;
+  tripTime: string;
+  pickup: string;
+  customerName: string;
+  leg: "outbound" | "return";
+};
+
 export type DriverAccountsDeps = {
   ownerAuthorized: (request: Request) => boolean;
+  /**
+   * Read-only lookup of upcoming confirmed bookings assigned to this driver.
+   * Must never change a booking. Used to raise an owner alert on suspension.
+   */
+  findUpcomingBookingsForDriver?: (driver: { id: string; name: string; email: string; mobile: string }) => Promise<DriverUpcomingBooking[]>;
   corsHeaders: (origin: string | null) => HeadersInit;
   now?: () => Date;
   randomToken?: (prefix: string) => string;
@@ -71,6 +86,15 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SIGN_IN_TTL_MS = 30 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EXPIRY_WARNING_DAYS = 30;
+
+export const MESSAGE_CATEGORIES = {
+  general: { label: "Message", urgent: false },
+  running_late: { label: "Running late", urgent: false },
+  breakdown: { label: "Vehicle breakdown", urgent: true },
+  accident: { label: "Accident", urgent: true },
+  cant_complete: { label: "Can't complete a job", urgent: true },
+} as const;
+export type MessageCategory = keyof typeof MESSAGE_CATEGORIES;
 const MAX_OFFICE_MESSAGES_PER_DAY = 20;
 
 type DriverRow = {
@@ -209,6 +233,18 @@ export function missingForApproval(docs: DocumentRow[], today: string): Document
   });
 }
 
+/**
+ * Whether a driver may be sent new work offers (Stage 2 uses this as its gate).
+ * Suspended, declined, removed, unavailable or out-of-date drivers never qualify.
+ */
+export function canReceiveOffers(
+  driver: Pick<DriverRow, "status" | "available">,
+  docs: DocumentRow[],
+  today: string,
+): boolean {
+  return driver.status === "approved" && driver.available === 1 && missingForApproval(docs, today).length === 0;
+}
+
 function publicDocument(doc: DocumentRow, today: string) {
   return {
     id: doc.id,
@@ -345,6 +381,7 @@ export async function handleDriverAccountsRequest(
     cors,
     now: deps.now ?? (() => new Date()),
     token: deps.randomToken ?? defaultRandomToken,
+    findUpcomingBookingsForDriver: deps.findUpcomingBookingsForDriver,
   };
   try {
     if (url.pathname.startsWith("/owner/driver-accounts")) {
@@ -366,6 +403,7 @@ type Ctx = {
   cors: HeadersInit;
   now: () => Date;
   token: (prefix: string) => string;
+  findUpcomingBookingsForDriver?: DriverAccountsDeps["findUpcomingBookingsForDriver"];
 };
 
 // ---------- owner routes ----------
@@ -380,21 +418,52 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
     const drivers = (await db.prepare("SELECT * FROM drivers WHERE status <> 'removed' ORDER BY created_at DESC").all<DriverRow>()).results ?? [];
     const docs = (await db.prepare("SELECT * FROM driver_documents WHERE status <> 'superseded'").all<DocumentRow>()).results ?? [];
     const unread = (await db
-      .prepare("SELECT driver_id, COUNT(*) AS n FROM driver_office_messages WHERE read_at IS NULL GROUP BY driver_id")
-      .all<{ driver_id: string; n: number }>()).results ?? [];
-    const unreadBy = new Map(unread.map((r) => [r.driver_id, Number(r.n)]));
+      .prepare(
+        "SELECT driver_id, COUNT(*) AS n, SUM(CASE WHEN priority = 'urgent' AND handled_at IS NULL THEN 1 ELSE 0 END) AS urgent FROM driver_office_messages WHERE read_at IS NULL OR (priority = 'urgent' AND handled_at IS NULL) GROUP BY driver_id",
+      )
+      .all<{ driver_id: string; n: number; urgent: number }>()).results ?? [];
+    const unreadBy = new Map(unread.map((r) => [r.driver_id, { n: Number(r.n), urgent: Number(r.urgent ?? 0) }]));
+    const rows = drivers.map((d) => {
+      const mine = docs.filter((doc) => doc.driver_id === d.id);
+      const counts = unreadBy.get(d.id) ?? { n: 0, urgent: 0 };
+      return {
+        ...ownerDriverView(d),
+        documents: documentSummary(mine, today),
+        attention: attentionFor(d, mine, today),
+        unreadMessages: counts.n,
+        urgentMessages: counts.urgent,
+        canReceiveOffers: canReceiveOffers(d, mine, today),
+      };
+    });
+    // Urgent reports first, then unread messages, then anything needing attention.
+    const rank = (r: (typeof rows)[number]) => (r.urgentMessages ? 0 : r.unreadMessages ? 1 : r.attention.length ? 2 : 3);
+    rows.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    return json({ ok: true, drivers: rows, alerts: await openAlerts(db) }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/summary" && request.method === "GET") {
+    const urgent = (await db
+      .prepare(
+        "SELECT m.id, m.driver_id, d.name AS driver_name, m.category, m.body, m.created_at FROM driver_office_messages m JOIN drivers d ON d.id = m.driver_id WHERE m.priority = 'urgent' AND m.handled_at IS NULL AND d.status <> 'removed' ORDER BY m.created_at DESC LIMIT 20",
+      )
+      .all<{ id: string; driver_id: string; driver_name: string; category: string; body: string; created_at: string }>()).results ?? [];
+    const unread = await db
+      .prepare("SELECT COUNT(*) AS n FROM driver_office_messages m JOIN drivers d ON d.id = m.driver_id WHERE m.read_at IS NULL AND d.status <> 'removed'")
+      .first<{ n: number }>();
     return json(
       {
         ok: true,
-        drivers: drivers.map((d) => {
-          const mine = docs.filter((doc) => doc.driver_id === d.id);
-          return {
-            ...ownerDriverView(d),
-            documents: documentSummary(mine, today),
-            attention: attentionFor(d, mine, today),
-            unreadMessages: unreadBy.get(d.id) ?? 0,
-          };
-        }),
+        unreadMessages: Number(unread?.n ?? 0),
+        urgent: urgent.map((m) => ({
+          id: m.id,
+          driverId: m.driver_id,
+          driverName: m.driver_name,
+          category: m.category,
+          categoryLabel: categoryLabel(m.category),
+          body: m.body,
+          createdAt: m.created_at,
+        })),
+        alerts: await openAlerts(db),
       },
       200,
       cors,
@@ -411,9 +480,11 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
       .bind(id)
       .all<{ seq: number; at: string; actor_type: string; action: string; detail: string }>()).results ?? [];
     const messages = (await db
-      .prepare("SELECT id, body, created_at, read_at FROM driver_office_messages WHERE driver_id = ? ORDER BY created_at DESC LIMIT 50")
+      .prepare(
+        "SELECT id, body, created_at, read_at, priority, category, handled_at FROM driver_office_messages WHERE driver_id = ? ORDER BY CASE WHEN priority = 'urgent' AND handled_at IS NULL THEN 0 ELSE 1 END, created_at DESC LIMIT 50",
+      )
       .bind(id)
-      .all<{ id: string; body: string; created_at: string; read_at: string | null }>()).results ?? [];
+      .all<{ id: string; body: string; created_at: string; read_at: string | null; priority: string; category: string; handled_at: string | null }>()).results ?? [];
     return json(
       {
         ok: true,
@@ -423,7 +494,18 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
         attention: attentionFor(driver, docs, today),
         missingForApproval: missingForApproval(docs, today),
         audit: audit.map((a) => ({ ...a, detail: safeParse(a.detail) })),
-        messages: messages.map((m) => ({ id: m.id, body: m.body, createdAt: m.created_at, readAt: m.read_at })),
+        messages: messages.map((m) => ({
+          id: m.id,
+          body: m.body,
+          createdAt: m.created_at,
+          readAt: m.read_at,
+          urgent: m.priority === "urgent",
+          category: m.category,
+          categoryLabel: categoryLabel(m.category),
+          handledAt: m.handled_at,
+        })),
+        canReceiveOffers: canReceiveOffers(driver, docs, today),
+        alerts: (await openAlerts(db)).filter((a) => a.driverId === id),
       },
       200,
       cors,
@@ -539,6 +621,40 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
       .prepare("UPDATE driver_office_messages SET read_at = ? WHERE driver_id = ? AND read_at IS NULL")
       .bind(at, driverId)
       .run();
+    // Urgent reports stay at the top until marked handled.
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/messages/handled" && request.method === "POST") {
+    const body = await readJson(request);
+    const messageId = text(body.messageId, 64);
+    const msg = await db
+      .prepare("SELECT id, driver_id, priority, handled_at FROM driver_office_messages WHERE id = ?")
+      .bind(messageId)
+      .first<{ id: string; driver_id: string; priority: string; handled_at: string | null }>();
+    if (!msg) throw new HttpError(404, "Message not found.");
+    if (msg.handled_at) return json({ ok: true }, 200, cors);
+    await db.batch([
+      db.prepare("UPDATE driver_office_messages SET handled_at = ?, read_at = COALESCE(read_at, ?) WHERE id = ?").bind(at, at, msg.id),
+      auditStatement(db, at, "owner", "owner", "message.handled", msg.driver_id, { messageId: msg.id, priority: msg.priority }),
+    ]);
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/alerts/resolve" && request.method === "POST") {
+    const body = await readJson(request);
+    const alertId = text(body.alertId, 64);
+    const note = text(body.note, 300);
+    const alert = await db
+      .prepare("SELECT id, driver_id, kind, resolved_at FROM owner_alerts WHERE id = ?")
+      .bind(alertId)
+      .first<{ id: string; driver_id: string | null; kind: string; resolved_at: string | null }>();
+    if (!alert) throw new HttpError(404, "Alert not found.");
+    if (alert.resolved_at) return json({ ok: true }, 200, cors);
+    await db.batch([
+      db.prepare("UPDATE owner_alerts SET resolved_at = ?, resolution_note = ? WHERE id = ? AND resolved_at IS NULL").bind(at, note, alert.id),
+      auditStatement(db, at, "owner", "owner", "alert.reviewed", alert.driver_id, { alertId: alert.id, kind: alert.kind, note }),
+    ]);
     return json({ ok: true }, 200, cors);
   }
 
@@ -578,6 +694,19 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
   }
 
   throw new HttpError(404, "Not found.");
+}
+
+function categoryLabel(category: string): string {
+  return (MESSAGE_CATEGORIES as Record<string, { label: string }>)[category]?.label ?? "Message";
+}
+
+type AlertRow = { id: string; kind: string; driver_id: string | null; title: string; detail: string; created_at: string };
+
+async function openAlerts(db: D1Like) {
+  const rows = (await db
+    .prepare("SELECT id, kind, driver_id, title, detail, created_at FROM owner_alerts WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT 50")
+    .all<AlertRow>()).results ?? [];
+  return rows.map((r) => ({ id: r.id, kind: r.kind, driverId: r.driver_id, title: r.title, detail: safeParse(r.detail), createdAt: r.created_at }));
 }
 
 function ownerDriverView(d: DriverRow) {
@@ -636,13 +765,51 @@ async function changeStatus(ctx: Ctx, driver: DriverRow, action: string, reason:
         "UPDATE drivers SET status = ?, status_reason = ?, available = CASE WHEN ? = 'approved' THEN available ELSE 0 END, updated_at = ? WHERE id = ? AND status = ?",
       )
       .bind(rule.to, reason, rule.to, at, driver.id, driver.status),
-    auditStatement(db, at, "owner", "owner", `driver.${rule.to}`, driver.id, { from: driver.status, reason }),
+    auditStatement(db, at, "owner", "owner", `driver.${rule.to}`, driver.id, {
+      from: driver.status,
+      reason,
+      by: "Owner (owner sign-in)",
+      at,
+      ...(rule.revoke ? { sessionsRevoked: true, offersBlocked: true } : {}),
+    }),
   ];
   if (rule.revoke) {
     statements.push(revokeSessionsStatement(db, driver.id, at), expireLinksStatement(db, driver.id, at));
   }
   await db.batch(statements);
-  return { ok: true, status: rule.to };
+
+  // Suspending or removing an approved driver: list their upcoming confirmed bookings for manual
+  // review. Bookings are only read here — never cancelled, reassigned or refunded.
+  let reviewBookings: DriverUpcomingBooking[] = [];
+  if ((rule.to === "suspended" || rule.to === "removed") && driver.status === "approved") {
+    let lookupFailed = false;
+    try {
+      reviewBookings = ctx.findUpcomingBookingsForDriver
+        ? await ctx.findUpcomingBookingsForDriver({ id: driver.id, name: driver.name, email: driver.email, mobile: driver.mobile })
+        : [];
+    } catch (error) {
+      lookupFailed = true;
+      console.error("driver booking lookup failed", error instanceof Error ? error.message : error);
+    }
+    if (reviewBookings.length || lookupFailed) {
+      const alertId = newId("alr");
+      const verb = rule.to === "suspended" ? "suspended" : "removed";
+      const title = lookupFailed
+        ? `${driver.name} was ${verb} — check their upcoming bookings by hand`
+        : `${driver.name} was ${verb} with ${reviewBookings.length} upcoming booking${reviewBookings.length === 1 ? "" : "s"}`;
+      await db.batch([
+        db
+          .prepare("INSERT INTO owner_alerts (id, kind, driver_id, title, detail, created_at) VALUES (?, 'driver_bookings_review', ?, ?, ?, ?)")
+          .bind(alertId, driver.id, title, JSON.stringify({ bookings: reviewBookings, lookupFailed, reason }), at),
+        auditStatement(db, at, "system", "", "alert.raised", driver.id, {
+          alertId,
+          bookings: reviewBookings.map((b) => b.reference),
+          lookupFailed,
+        }),
+      ]);
+    }
+  }
+  return { ok: true, status: rule.to, reviewBookings };
 }
 
 // ---------- driver routes ----------
@@ -769,23 +936,30 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
     const body = await readJson(request);
     const message = text(body.message, 1000);
     if (!message) throw new HttpError(400, "Type a message.");
+    const category = (text(body.category, 30) || "general") as MessageCategory;
+    if (!(category in MESSAGE_CATEGORIES)) throw new HttpError(400, "Choose what the message is about.");
+    const priority = MESSAGE_CATEGORIES[category].urgent ? "urgent" : "normal";
     const since = new Date(ctx.now().getTime() - 86_400_000).toISOString();
     const count = await db
       .prepare("SELECT COUNT(*) AS n FROM driver_office_messages WHERE driver_id = ? AND created_at > ?")
       .bind(driver.id, since)
       .first<{ n: number }>();
-    if (Number(count?.n ?? 0) >= MAX_OFFICE_MESSAGES_PER_DAY) {
+    // Urgent reports are never blocked by the daily limit.
+    if (priority === "normal" && Number(count?.n ?? 0) >= MAX_OFFICE_MESSAGES_PER_DAY) {
       throw new HttpError(429, "Too many messages today. Please phone the office.");
     }
     const id = newId("msg");
     await db.batch([
       db
-        .prepare("INSERT INTO driver_office_messages (id, driver_id, body, created_at) VALUES (?, ?, ?, ?)")
-        .bind(id, driver.id, message, at),
-      auditStatement(db, at, "driver", driver.id, "driver.office_message", driver.id, { messageId: id }),
+        .prepare("INSERT INTO driver_office_messages (id, driver_id, body, created_at, priority, category) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(id, driver.id, message, at, priority, category),
+      auditStatement(db, at, "driver", driver.id, priority === "urgent" ? "driver.urgent_report" : "driver.office_message", driver.id, {
+        messageId: id,
+        category,
+      }),
     ]);
     // Stage 1: stored for the Owner Dashboard only. No notification is sent.
-    return json({ ok: true, messageId: id }, 201, cors);
+    return json({ ok: true, messageId: id, priority }, 201, cors);
   }
 
   if (path === "/driver-portal/account/sign-out" && request.method === "POST") {

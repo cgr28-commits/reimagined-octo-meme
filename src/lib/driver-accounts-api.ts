@@ -45,7 +45,50 @@ export type OwnerDriver = {
   documents?: DocumentSummaryItem[];
   attention?: string[];
   unreadMessages?: number;
+  urgentMessages?: number;
+  canReceiveOffers?: boolean;
 };
+
+export type ReviewBooking = {
+  reference: string;
+  tripDate: string;
+  tripTime: string;
+  pickup: string;
+  customerName: string;
+  leg: "outbound" | "return";
+};
+
+export type OwnerAlert = {
+  id: string;
+  kind: string;
+  driverId: string | null;
+  title: string;
+  detail: { bookings?: ReviewBooking[]; lookupFailed?: boolean; reason?: string };
+  createdAt: string;
+};
+
+export type DriverMessage = {
+  id: string;
+  body: string;
+  createdAt: string;
+  readAt: string | null;
+  urgent: boolean;
+  category: string;
+  categoryLabel: string;
+  handledAt: string | null;
+};
+
+export type UrgentReport = {
+  id: string;
+  driverId: string;
+  driverName: string;
+  category: string;
+  categoryLabel: string;
+  body: string;
+  createdAt: string;
+};
+
+export type DriversSummary = { unreadMessages: number; urgent: UrgentReport[]; alerts: OwnerAlert[] };
 
 export type OwnerDriverDetail = {
   driver: OwnerDriver;
@@ -54,7 +97,9 @@ export type OwnerDriverDetail = {
   attention: string[];
   missingForApproval: string[];
   audit: { seq: number; at: string; actor_type: string; action: string; detail: Record<string, unknown> }[];
-  messages: { id: string; body: string; createdAt: string; readAt: string | null }[];
+  messages: DriverMessage[];
+  canReceiveOffers: boolean;
+  alerts: OwnerAlert[];
 };
 
 export type DriverMe = {
@@ -102,7 +147,12 @@ async function request<T>(path: string, init: { method?: string; headers?: Recor
 const owner = (ownerKey: string) => ({ "X-Owner-Key": ownerKey.trim() });
 
 export const ownerDrivers = {
-  list: (key: string) => request<{ drivers: OwnerDriver[] }>("/owner/driver-accounts", { headers: owner(key) }),
+  list: (key: string) => request<{ drivers: OwnerDriver[]; alerts: OwnerAlert[] }>("/owner/driver-accounts", { headers: owner(key) }),
+  summary: (key: string) => request<DriversSummary>("/owner/driver-accounts/summary", { headers: owner(key) }),
+  markHandled: (key: string, messageId: string) =>
+    request<{ ok: true }>("/owner/driver-accounts/messages/handled", { headers: owner(key), body: { messageId } }),
+  resolveAlert: (key: string, alertId: string, note: string) =>
+    request<{ ok: true }>("/owner/driver-accounts/alerts/resolve", { headers: owner(key), body: { alertId, note } }),
   detail: (key: string, id: string) =>
     request<OwnerDriverDetail>(`/owner/driver-accounts/detail?id=${encodeURIComponent(id)}`, { headers: owner(key) }),
   invite: (key: string, body: { name: string; email: string; mobile: string }) =>
@@ -110,7 +160,10 @@ export const ownerDrivers = {
   signInLink: (key: string, driverId: string) =>
     request<{ signInToken: string; expiresAt: string }>("/owner/driver-accounts/sign-in-link", { headers: owner(key), body: { driverId } }),
   setStatus: (key: string, driverId: string, action: string, reason: string) =>
-    request<{ status: DriverAccountStatus }>("/owner/driver-accounts/status", { headers: owner(key), body: { driverId, action, reason } }),
+    request<{ status: DriverAccountStatus; reviewBookings: ReviewBooking[] }>("/owner/driver-accounts/status", {
+      headers: owner(key),
+      body: { driverId, action, reason },
+    }),
   reviewDocument: (key: string, documentId: string, decision: "accept" | "reject", note: string) =>
     request<{ ok: true }>("/owner/driver-accounts/document-review", { headers: owner(key), body: { documentId, decision, note } }),
   markMessagesRead: (key: string, driverId: string) =>
@@ -162,8 +215,11 @@ export const driverAccount = {
     request<{ available: boolean }>("/driver-portal/account/availability", { headers: driver(session), body: { available } }),
   submitDocument: (session: string, body: { kind: string; expiresOn: string; reference: string }) =>
     request<{ documentId: string }>("/driver-portal/account/documents", { headers: driver(session), body }),
-  messageOffice: (session: string, message: string) =>
-    request<{ messageId: string }>("/driver-portal/account/contact-office", { headers: driver(session), body: { message } }),
+  messageOffice: (session: string, message: string, category: string) =>
+    request<{ messageId: string; priority: "normal" | "urgent" }>("/driver-portal/account/contact-office", {
+      headers: driver(session),
+      body: { message, category },
+    }),
   signOut: (session: string) => request<{ ok: true }>("/driver-portal/account/sign-out", { headers: driver(session), body: {} }),
 };
 
@@ -215,3 +271,36 @@ export const STATUS_LABEL: Record<DriverAccountStatus, string> = {
   suspended: "Suspended",
   removed: "Removed",
 };
+
+/** What a driver can tell the office. Urgent ones go to the top of the Owner Dashboard. */
+export const MESSAGE_OPTIONS: { category: string; label: string; urgent: boolean }[] = [
+  { category: "general", label: "Message", urgent: false },
+  { category: "running_late", label: "Running late", urgent: false },
+  { category: "breakdown", label: "Breakdown", urgent: true },
+  { category: "accident", label: "Accident", urgent: true },
+  { category: "cant_complete", label: "Can't complete a job", urgent: true },
+];
+
+/** Public customer line (AI receptionist). Never allowed as the driver-support number. */
+export const AI_RECEPTIONIST_DIGITS = "02896022952";
+
+/** Same rules as the Worker: UK number, normalised to 0XXXXXXXXXX. */
+export function normaliseUkPhone(raw: string): string {
+  let digits = raw.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+44")) digits = `0${digits.slice(3)}`;
+  else if (digits.startsWith("0044")) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith("44") && digits.length === 12) digits = `0${digits.slice(2)}`;
+  digits = digits.replace(/\D/g, "");
+  return /^0\d{10}$/.test(digits) ? digits : "";
+}
+
+export function checkSupportPhone(raw: string): { ok: boolean; phone: string; error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: true, phone: "", error: "" };
+  const phone = normaliseUkPhone(trimmed);
+  if (!phone) return { ok: false, phone: "", error: "Enter a full UK number, e.g. 07700 900123." };
+  if (phone === AI_RECEPTIONIST_DIGITS) {
+    return { ok: false, phone, error: "That's the customer line that goes to the AI receptionist. Use a separate number." };
+  }
+  return { ok: true, phone, error: "" };
+}
