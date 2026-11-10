@@ -23,7 +23,7 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Airport Transfers');
       // The "Private airport transfers" eyebrow was removed from the hero (PR #699).
       assert.equal(await page.locator('.homepage-hero .section-eyebrow').count(), 0, 'hero has no eyebrow line');
-      assert.equal(await page.locator('h1 + p').innerText(),'Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price.');
+      assert.equal(await page.locator('h1 + p').innerText(),'Reliable, pre-booked airport transfers at a fixed price. Travel with confidence across Northern Ireland and beyond.');
       if (legacy) {
         assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
         assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
