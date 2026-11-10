@@ -38,6 +38,16 @@ export function previewMinibusQueryOverride(): boolean | null {
   return null;
 }
 
+/**
+ * Preview hosts only: ?previewMinibusRequest=1 shows the 7 Seater as request-only, as the
+ * owner's "7 Seater: request a personal quote" setting would, without changing live settings.
+ */
+export function previewMinibusRequestQuoteEnabled(): boolean {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) return false;
+  const value = new URLSearchParams(window.location.search).get("previewMinibusRequest");
+  return value === "1" || value === "on" || value === "true";
+}
+
 export function previewMinibusQueryEnabled(): boolean {
   return previewMinibusQueryOverride() === true;
 }

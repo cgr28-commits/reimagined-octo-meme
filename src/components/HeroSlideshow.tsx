@@ -1,4 +1,5 @@
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
+import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
 import HeroBenefitsRow from "./HeroBenefitsRow";
 import HomepageHeroSideRails from "./HomepageHeroSideRails";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
@@ -41,6 +42,11 @@ export default function HeroSlideshow() {
           <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             Pre-booked transfers to and from Belfast International, Belfast City and Dublin Airport at a fixed price.
           </p>
+          {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
+          <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
+          <div className="hidden" data-d2-rating>
+            <GoogleReviewsBadge variant="compact" />
+          </div>
         </div>
 
         <div
@@ -50,9 +56,10 @@ export default function HeroSlideshow() {
           <HeroBenefitsRow />
           <QuoteCard presentation="homepage" homepagePolish />
           <QuoteHelpContact />
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex justify-center" data-hero-reviews-badge>
             <GoogleReviewsBadge />
           </div>
+          <DesktopQuoteBenefits />
         </div>
       </div>
     </section>

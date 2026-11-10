@@ -3245,7 +3245,7 @@ export default function DriverPageClient({
         variant={isOwnerPortal ? "owner" : "driver"}
         title={isOwnerPortal ? "Owner Dashboard" : "My Jobs"}
       />
-      <main className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
+      <main data-staff-page className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
         <div className={`mx-auto w-full min-w-0 px-4 sm:px-6 lg:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
           <header className="mb-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">

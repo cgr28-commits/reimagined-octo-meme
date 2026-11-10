@@ -291,9 +291,18 @@ export function formatGbpFare(amount: number): string {
  * same amount payable.
  */
 export function customerFacingFareBreakdown(breakdown: WebsiteFareBreakdown): WebsiteFareBreakdown {
-  const surcharge = breakdown.nightWeekendSurchargeGbp;
-  if (!(surcharge > 0)) return breakdown;
-  const add = (value: number) => Math.round((value + surcharge) * 100) / 100;
+  const surcharge = breakdown.nightWeekendSurchargeGbp > 0 ? breakdown.nightWeekendSurchargeGbp : 0;
+  // The amount payable rounds the transfer fare to whole pounds (e.g. £60.50 → £61). Show that
+  // rounding inside the journey fare line too, so the rows a customer sees add up to the amount
+  // charged. Display only: the amount payable itself is unchanged.
+  const roundingGbp = Math.round(
+    (breakdown.finalAmountPayableGbp -
+      breakdown.transferFareAfterPromotionsGbp -
+      breakdown.airportAccessChargeGbp) * 100,
+  ) / 100;
+  const rounding = Number.isFinite(roundingGbp) && Math.abs(roundingGbp) < 1 ? roundingGbp : 0;
+  if (!(surcharge > 0) && rounding === 0) return breakdown;
+  const add = (value: number) => Math.round((value + surcharge + rounding) * 100) / 100;
   return {
     ...breakdown,
     journeyFareBeforePromotionsGbp: add(breakdown.journeyFareBeforePromotionsGbp),

@@ -19,7 +19,7 @@ export default function AreasSection() {
               eyebrow="Coverage"
               title="Areas We Cover"
               navId="areas"
-              description="Based in the Greater Belfast area, we provide pre-booked airport transfers across Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch; we cover the entire province."
+              description="Based in the Greater Belfast area, we provide pre-booked airport transfers across Northern Ireland — from city centres to rural towns. Don't see your area? Get in touch — we cover all of Northern Ireland, plus cross-border trips to Dublin."
             />
 
             <div className="mt-8 flex flex-wrap gap-4 lg:mt-10">

@@ -1,3 +1,4 @@
+import { assertPreviewNotificationsAllowed } from "@/lib/preview-notifications";
 import { saveQuoteAdsFields } from "@/lib/ads-attribution";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import type { AdsAttribution } from "../../shared/ads-attribution";
@@ -53,6 +54,7 @@ async function parseJson(response: Response): Promise<Record<string, unknown>> {
 
 /** Create a saved quote + send initial email (name + email only). */
 export async function saveQuote(input: SaveQuoteRequest): Promise<SaveQuoteResult> {
+  assertPreviewNotificationsAllowed();
   const ads = saveQuoteAdsFields();
   const response = await fetch(`${WORKER_BASE}/saved-quotes`, {
     method: "POST",

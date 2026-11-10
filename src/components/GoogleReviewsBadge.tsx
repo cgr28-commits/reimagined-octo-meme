@@ -14,7 +14,14 @@ const WORKER_BASE = resolveWorkerBaseUrl();
  * "★★★★★ 5.0 from N Google reviews" — links to the Business Profile.
  * Renders the saved fallback first, then the live rating and count from Google.
  */
-export default function GoogleReviewsBadge({ className = "" }: { className?: string }) {
+export default function GoogleReviewsBadge({
+  className = "",
+  variant = "pill",
+}: {
+  className?: string;
+  /** "panel": the desktop navy panel's larger strip. Same live numbers and link. */
+  variant?: "pill" | "panel" | "compact";
+}) {
   const [rating, setRating] = useState<string>(GOOGLE_REVIEW_RATING);
   const [count, setCount] = useState<number>(GOOGLE_REVIEW_COUNT);
 
@@ -32,6 +39,46 @@ export default function GoogleReviewsBadge({ className = "" }: { className?: str
       cancelled = true;
     };
   }, []);
+
+  if (variant === "compact") {
+    return (
+      <a
+        href={GOOGLE_BUSINESS_PROFILE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-reviews-compact
+        className={className}
+        aria-label={`Rated ${rating} out of 5 on Google from ${count} reviews`}
+      >
+        <span data-reviews-stars aria-hidden="true">★★★★★</span>
+        <span aria-hidden="true">
+          <strong>{rating}</strong> on Google · {count} reviews
+        </span>
+      </a>
+    );
+  }
+
+  if (variant === "panel") {
+    return (
+      <a
+        href={GOOGLE_BUSINESS_PROFILE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-reviews-panel
+        className={className}
+        aria-label={`Rated ${rating} out of 5 from ${count} Google reviews — read them on Google`}
+      >
+        <span data-reviews-score aria-hidden="true">
+          <strong>{rating}</strong>
+          <span data-reviews-stars>★★★★★</span>
+        </span>
+        <span data-reviews-meta aria-hidden="true">
+          <span>{count} Google reviews</span>
+          <span data-reviews-source>Read on Google ↗</span>
+        </span>
+      </a>
+    );
+  }
 
   return (
     <a

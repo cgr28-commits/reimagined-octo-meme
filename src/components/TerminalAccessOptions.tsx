@@ -13,11 +13,13 @@ type Props = {
   meetGreetIncluded: boolean;
   terminalFee: number;
   meetGreetFee: number;
+  /** Desktop: already offered under the vehicles, so the checkout copy is hidden by CSS (1200px+). */
+  meetGreetOfferedEarlier?: boolean;
 };
 
 export default function TerminalAccessOptions(props: Props) {
   const { leg, airportCode, service, choice, onChange, freeAvailable, meetGreetIncluded,
-    terminalFee, meetGreetFee } = props;
+    terminalFee, meetGreetFee, meetGreetOfferedEarlier = false } = props;
   const id = `${leg}-${airportCode}-${service}`;
   const meetGreet = choice === "meet-greet" || meetGreetIncluded;
   const pickup = service === "pick-up";
@@ -32,7 +34,7 @@ export default function TerminalAccessOptions(props: Props) {
       <h3 className="text-sm font-semibold leading-snug text-white">Airport {direction} — {name}</h3>
       <p className="mt-1 text-xs text-white/70">{pickup ? "Choose how you’d like to meet your driver." : "Choose where you’d like your driver to drop you off."}</p>
     </header>
-    {pickup && <label className={card(meetGreet)}>
+    {pickup && <label className={card(meetGreet)} data-access-option="meet-greet" data-offered-at-vehicle-step={meetGreetOfferedEarlier ? "true" : undefined}>
       <input type="checkbox" checked={meetGreet} disabled={meetGreetIncluded}
         onChange={(event) => onChange(event.target.checked ? "meet-greet" : freeAvailable ? "free" : "express")}
         className="mt-0.5 h-4 w-4 accent-emerald" />
@@ -43,7 +45,7 @@ export default function TerminalAccessOptions(props: Props) {
     <fieldset className="min-w-0 space-y-2" disabled={meetGreet}>
       <legend className="mb-1.5 text-sm font-semibold text-white">Choose Your {direction} Location</legend>
       {meetGreet ? <p className="rounded-xl border border-emerald/30 bg-emerald/5 px-3 py-2 text-xs leading-relaxed text-white/80" role="status">Terminal pickup and parking included with Meet &amp; Greet. No separate access charge.</p> : <>
-        {freeAvailable && <label className={card(choice === "free")}>
+        {freeAvailable && <label className={card(choice === "free")} data-access-option="free">
           <input type="radio" name={id} value="free" checked={choice === "free"} onChange={() => onChange("free")}
             className="mt-0.5 h-4 w-4 accent-emerald" />
           <span className="font-semibold">Free {direction}</span>
@@ -52,14 +54,14 @@ export default function TerminalAccessOptions(props: Props) {
             {pickup ? `Just a short walk to the Long Stay collection point (approximately ${walk}). Follow the airport signs to meet your driver.` : `Your driver drops you at the Long Stay car park. Follow the airport signs to the terminal (approximately ${walk} on foot).`}
           </span>
         </label>}
-        <label className={card(choice === "express")}>
+        <label className={card(choice === "express")} data-access-option="terminal">
           <input type="radio" name={id} value="express" checked={choice === "express"} onChange={() => onChange("express")}
             className="mt-0.5 h-4 w-4 accent-emerald" />
           <span className="font-semibold">Terminal {direction}</span>
           <span className="whitespace-nowrap font-semibold text-emerald">{price(terminalFee)}</span>
           <span className="col-start-2 col-end-4 text-xs leading-relaxed text-white/70">{pickup ? "Meet your driver at the designated paid pickup area, closer to the terminal." : "Your driver uses the designated paid drop-off area, closer to the terminal."}</span>
         </label>
-        {choice === "free" && airportCode === "BFS" && <p className="px-1 text-[11px] leading-snug text-white/60">Long Stay: 15-minute vehicle limit for free access.</p>}
+        {choice === "free" && airportCode === "BFS" && <p className="px-1 text-[11px] leading-snug text-white/60" data-access-note>Long Stay: 15-minute vehicle limit for free access.</p>}
       </>}
     </fieldset>
   </div>;
