@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -47,6 +47,11 @@ const ogImage = {
   width: 1200,
   height: 1200,
   alt: `${SITE.name} — Premium Airport Transfers`,
+};
+
+/** Navy browser bar (iPhone Safari status bar and tab tint), matching the site header. */
+export const viewport: Viewport = {
+  themeColor: "#071C38",
 };
 
 export const metadata: Metadata = {
