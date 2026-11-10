@@ -75,6 +75,9 @@ export type WhatsAppOwnerEcho = {
   /** Customer number the owner messaged from the WhatsApp Business app. */
   to: string;
   timestamp: number;
+  /** What the owner wrote (text, or a photo caption); empty for other kinds of message. */
+  text: string;
+  type: string;
 };
 
 /** A sent message WhatsApp later reported as undelivered (statuses[].status === "failed"). */
@@ -346,7 +349,13 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
         for (const echo of value.message_echoes ?? []) {
           const to = normalizeWhatsAppNumber(echo.to ?? "");
           if (!echo.id || !to) continue;
-          out.echoes.push({ id: echo.id, to, timestamp: Number(echo.timestamp) || 0 });
+          out.echoes.push({
+            id: echo.id,
+            to,
+            timestamp: Number(echo.timestamp) || 0,
+            text: messageText(echo).trim(),
+            type: echo.type ?? "unknown",
+          });
         }
       }
     }

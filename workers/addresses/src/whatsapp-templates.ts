@@ -39,6 +39,7 @@ import {
 } from "../shared/whatsapp-cloud";
 import { formatPartialRegistration } from "../shared/partial-registration";
 import { DEFAULT_GOOGLE_REVIEW_URL } from "../shared/google-business-profile";
+import { appendWhatsAppChat } from "./whatsapp-chat-log";
 
 export type WhatsAppTemplateEnv = WhatsAppCloudEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -548,6 +549,22 @@ export function buildTemplatePayload(
   return { type: "template", template: { name, language: { code: WHATSAPP_TEMPLATE_LANGUAGE }, components } };
 }
 
+/** The words of a sent template message, as the customer saw them (buttons in brackets). */
+export function templateChatText(name: WhatsAppTemplateName, bodyParams: string[]): string {
+  const def = whatsAppTemplateDefinitions().find((d) => d.name === name);
+  const parts: string[] = [];
+  for (const c of def?.components ?? []) {
+    const comp = c as { type?: string; text?: string; buttons?: Array<{ text?: string }> };
+    if ((comp.type === "HEADER" || comp.type === "BODY") && comp.text) {
+      parts.push(comp.text.replace(/\{\{(\d+)\}\}/g, (_, n) => bodyParams[Number(n) - 1] ?? ""));
+    }
+    if (comp.type === "BUTTONS") {
+      for (const b of comp.buttons ?? []) if (b.text) parts.push(`[Button: ${b.text}]`);
+    }
+  }
+  return parts.join("\n\n") || `[Automatic message: ${name}]`;
+}
+
 async function sendTemplate(
   env: WhatsAppTemplateEnv,
   input: {
@@ -590,6 +607,8 @@ async function sendTemplate(
   }
   await store.put(markerKey, new Date().toISOString(), { expirationTtl: SENT_MARKER_TTL_SECONDS });
   console.log(JSON.stringify({ event: "whatsapp_template_sent", template: input.name, phoneSuffix: to.slice(-4) }));
+  // In the chat too, so the assistant knows what the customer was sent (e.g. their booking confirmation).
+  await appendWhatsAppChat(store, to, { from: "assistant", text: templateChatText(input.name, input.bodyParams) });
   return { sent: true, messageId: result.messageId };
 }
 
