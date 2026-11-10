@@ -6502,9 +6502,9 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
 }
 
-/* Design 3: progress line fits on the narrowest phones (320px). */
+/* Design 3: progress line fits on phones up to 400px wide (320px, 375px iPhones). */
 @layer base {
-  @media (max-width: 374.98px) {
+  @media (max-width: 399.98px) {
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] { gap: .5rem !important; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li { font-size: .75rem; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li + li::before { display: none !important; }
@@ -6556,5 +6556,13 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] button::before { content: "↺"; font-size: 1.05rem; line-height: 1; }
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > :is(button[data-checkout-email-quote], [data-start-new-quote-controls]) { flex: 1 1 0 !important; justify-self: stretch !important; margin-top: 0.5rem !important; }
   :is(.homepage-hero, [data-hub-quote]) [data-checkout-aside] #step3-payment-actions#step3-payment-actions > [data-start-new-quote-controls] { display: flex !important; }
+}
+
+/* Design 3 on portrait tablets (768-1023px): vehicle pictures stay inside their column. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] { column-gap: 0.75rem !important; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] { width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow: hidden; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] picture { display: block; width: 100% !important; }
+  html[data-mobile-d3] [data-d2] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] img { width: 100% !important; height: auto !important; max-width: 100% !important; object-fit: contain; scale: 1 !important; translate: none !important; }
 }
 
