@@ -1051,6 +1051,13 @@ function QuoteCard({
   const [trackedPartyKey, setTrackedPartyKey] = useState("");
   const [passengers, setPassengers] = useState<number | null>(null);
   const [suitcases, setSuitcases] = useState<number | null>(null);
+  // Design 3 mobile form: party starts at 1 passenger (minimum 1) and 0 suitcases, so the
+  // customer only changes them when needed (also after Start over). Saved values are kept.
+  useEffect(() => {
+    if (!(mobileDesign3 && design2Home)) return;
+    if (passengers == null) setPassengers(1);
+    if (suitcases == null) setSuitcases(0);
+  }, [mobileDesign3, design2Home, passengers, suitcases]);
   // Design 2 uses +/- steppers that start at 1 passenger and no suitcases. Design 3 starts at
   // 0 passengers: the count stays unset (shown as 0) until the customer taps +, so a quote
   // can't be requested without a real passenger choice.
