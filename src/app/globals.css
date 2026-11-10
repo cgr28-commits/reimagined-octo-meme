@@ -6449,3 +6449,11 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-time-grid] button[aria-pressed="true"] { background: #071c38 !important; border-color: #071c38 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff; }
 }
 }
+
+/* Design 3: homepage intro wording (Design 3 only). */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { display: none !important; }
+    html[data-mobile-d3] #homepage-booking-intro [data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #475569 !important; max-width: 22rem; }
+  }
+}

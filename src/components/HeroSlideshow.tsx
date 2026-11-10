@@ -44,6 +44,8 @@ export default function HeroSlideshow() {
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
+          {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
+          <p className="hidden" data-d3-intro-sub>Reliable, pre-booked airport transfers at a fixed price. Travel with confidence across Northern Ireland and beyond.</p>
           <div className="hidden" data-d2-rating>
             <GoogleReviewsBadge variant="compact" />
           </div>
