@@ -6511,3 +6511,10 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     html[data-mobile-d3] [data-d2] ol[data-mobile-steps] li:last-child { white-space: normal; line-height: 1.15; min-width: 0; }
   }
 }
+
+/* Design 3 on tablets (768-1199px): no dark hero photo behind the light layout. */
+@layer base {
+  @media (max-width: 1199.98px) {
+    html[data-mobile-d3] .homepage-hero-media { display: none !important; }
+  }
+}
