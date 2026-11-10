@@ -6710,7 +6710,12 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy {
     background: #071c38;
     box-shadow: 0 0 0 100vmax #071c38;
-    clip-path: inset(-100vmax -100vmax -3.25rem -100vmax);
+    clip-path: inset(-100vmax -100vmax 0 -100vmax);
+  }
+  html:root[data-mobile-d3] section.homepage-hero .homepage-hero-quote { position: relative; }
+  html:root[data-mobile-d3] section.homepage-hero .homepage-hero-quote::before {
+    content: ""; position: absolute; top: 0; left: -100vmax; right: -100vmax; height: 3rem;
+    background: #071c38; z-index: -1; pointer-events: none;
   }
   html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1,
   html:root[data-mobile-d3] section.homepage-hero #homepage-booking-intro.homepage-hero-copy h1 > span:first-child { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
