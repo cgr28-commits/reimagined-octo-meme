@@ -1,3 +1,4 @@
+import { previewNotificationsDisabled } from "@/lib/preview-notifications";
 import type { BookingFunnelEvent } from "../../shared/booking-funnel";
 import {
   buildQuoteContactFingerprint,
@@ -87,6 +88,8 @@ async function postQuoteSessionToWorker(
   fingerprint: string,
   kind: QuoteLeadKind | BookingFunnelEvent,
 ): Promise<{ ok: boolean; emailed: boolean; recorded: boolean }> {
+  // Vercel design previews: never record leads or email the owner.
+  if (previewNotificationsDisabled()) return { ok: false, emailed: false, recorded: false };
   try {
     const response = await fetch(QUOTE_LEADS_API_URL, {
       method: "POST",

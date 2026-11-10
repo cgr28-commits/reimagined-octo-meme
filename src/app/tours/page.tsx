@@ -59,6 +59,7 @@ export default function ToursPage() {
 
             <div className="mt-8">
               <SectionHeading
+                as="h1"
                 align="left"
                 eyebrow="Private Day Trips"
                 title="Private Tours from Belfast"

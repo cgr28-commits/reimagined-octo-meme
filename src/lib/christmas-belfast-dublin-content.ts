@@ -43,6 +43,30 @@ export const CHRISTMAS_BELFAST_DUBLIN_PAGE = {
   galleryTitle: "Christmas in Belfast and Dublin",
   gallery: [
     {
+      base: "xmas-belfast-city-hall-market-taxi",
+      alt: "A black My Airport Taxi NI estate car parked by the Christmas Market at Belfast City Hall, with shoppers carrying gift bags",
+      caption: "Christmas shopping at the Belfast Christmas Market, City Hall",
+      author: "My Airport Taxi NI",
+    },
+    {
+      base: "xmas-belfast-market-estate-taxi",
+      alt: "Front of a black My Airport Taxi NI estate car beside lit Christmas market stalls",
+      caption: "Door to door to the Christmas markets",
+      author: "My Airport Taxi NI",
+    },
+    {
+      base: "xmas-belfast-merchant-hotel-taxi",
+      alt: "A black saloon car outside The Merchant Hotel in Belfast, decorated with Christmas wreaths and lights",
+      caption: "Christmas shopping in Belfast",
+      author: "My Airport Taxi NI",
+    },
+    {
+      base: "xmas-dublin-gresham-hotel-taxi",
+      alt: "A black My Airport Taxi NI saloon car outside The Gresham Hotel in Dublin, with a Christmas tree and festive lights",
+      caption: "Christmas in Dublin city centre",
+      author: "My Airport Taxi NI",
+    },
+    {
       base: "xmas-belfast-market",
       alt: "Shoppers walking between decorated wooden chalets at the Belfast Christmas Market at City Hall",
       caption: "Belfast Christmas Market at City Hall",

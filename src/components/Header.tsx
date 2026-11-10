@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
+import CallUsButton from "./CallUsButton";
 import SiteNavLink from "./SiteNavLink";
 import { NAV_LINKS, SITE } from "@/lib/data";
 
@@ -25,6 +26,15 @@ const DESKTOP_MORE_HREFS = new Set([
 const DESKTOP_MORE_LINKS = NAV_LINKS.filter((link) => DESKTOP_MORE_HREFS.has(link.href));
 // Shown in the bar from 1280px; under "More" on smaller laptops.
 const WIDE_BAR_HREFS = new Set(["/tours/"]);
+// Desktop (1200px+): no "More" menu and no phone number in the bar. These links sit in
+// the bar directly; the homepage shortcuts (Vehicles, Check Flights, Areas, Why Us) stay
+// in the footer Quick Links and on the homepage itself.
+const DESKTOP_WIDE_DIRECT_HREFS = new Set([
+  "/tours/",
+  "/belfast-grand-central-station-taxi/",
+  "/belfast-cruise-terminal-transfers/",
+  "/#faq",
+]);
 const WIDE_BAR_LINKS = NAV_LINKS.filter((link) => WIDE_BAR_HREFS.has(link.href));
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
@@ -230,14 +240,16 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={`whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald${
-                  DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : WIDE_BAR_HREFS.has(link.href) ? " lg:hidden xl:inline" : ""
+                  DESKTOP_WIDE_DIRECT_HREFS.has(link.href)
+                    ? " lg:hidden min-[75rem]:inline"
+                    : DESKTOP_MORE_HREFS.has(link.href) ? " lg:hidden" : ""
                 }`}
               >
                 {link.label}
               </SiteNavLink>
             ))}
             {DESKTOP_MORE_LINKS.length > 0 ? (
-              <details className="group relative hidden lg:block" data-desktop-nav-more>
+              <details className="group relative hidden lg:block min-[75rem]:hidden" data-desktop-nav-more>
                 <summary className="flex cursor-pointer list-none items-center gap-1 whitespace-nowrap text-sm font-medium text-white/70 transition-colors hover:text-emerald [&::-webkit-details-marker]:hidden">
                   More
                   <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -255,7 +267,7 @@ export default function Header() {
                         }
                       }}
                       className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-emerald${
-                        WIDE_BAR_HREFS.has(link.href) ? " xl:hidden" : ""
+                        ""
                       }`}
                     >
                       {link.label}
@@ -268,22 +280,7 @@ export default function Header() {
 
           {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
           <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-header-call
-              aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-base font-bold text-white transition-colors hover:text-emerald xl:text-lg"
-            >
-              <svg className="h-5 w-5 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
-              <span className="hidden xl:inline">{SITE.officeLandlineDisplay}</span>
-            </a>
-            <SiteNavLink
-              href="/manage-booking/"
-              prefetch={false}
-              className="whitespace-nowrap rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald/50 hover:text-emerald lg:px-5"
-            >
-              Manage Your Booking
-            </SiteNavLink>
+            <CallUsButton variant="header" />
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>
@@ -291,14 +288,7 @@ export default function Header() {
 
           {/* Mobile only (< md): logo + Call + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
           <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 lg:hidden">
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-mobile-header-call
-              aria-label={`Call us on ${SITE.officeLandlineDisplay}`}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/18 bg-white/[0.07] text-white transition-colors hover:bg-white/[0.12]"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.49a1 1 0 01-.5 1.21l-2.26 1.13a11.04 11.04 0 005.52 5.52l1.13-2.26a1 1 0 011.21-.5l4.49 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z" /></svg>
-            </a>
+            <CallUsButton variant="compact" />
             <a
               href={assistantWhatsAppHref}
               target="_blank"
@@ -319,7 +309,7 @@ export default function Header() {
               aria-controls={menuId}
               aria-label={menuOpen ? "Close menu" : "Open menu — all services"}
             >
-              <span className="text-[0.65rem] font-semibold tracking-wide text-white/88 sm:text-xs">Menu</span>
+              <span className="text-xs font-semibold tracking-wide text-white/90">Menu</span>
               <svg className="h-4 w-4 text-white sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
                 {menuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

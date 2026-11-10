@@ -123,3 +123,20 @@ export function resolveCheckoutIdFromUrl(search: string): string {
 export function resolveReturnTokenFromUrl(search: string): string {
   return new URLSearchParams(search).get("return_token")?.trim() ?? "";
 }
+
+/**
+ * The pending booking that belongs to THIS payment return. Prefers the copy saved under the
+ * return token, then the most recent pending booking only when it is for the same checkout.
+ * (With several checkouts open in one browser, "most recent" can be a different booking.)
+ */
+export function readPendingPaymentForReturn(search: string): PendingPayment | null {
+  const token = resolveReturnTokenFromUrl(search);
+  const checkoutId = resolveCheckoutIdFromUrl(search);
+  const byToken = token ? readPendingPaymentByToken(token) : null;
+  if (byToken && (!checkoutId || !byToken.checkoutId || byToken.checkoutId === checkoutId)) return byToken;
+  const latest = readPendingPayment();
+  if (!latest) return null;
+  if (checkoutId && latest.checkoutId && latest.checkoutId !== checkoutId) return null;
+  return latest;
+}
+

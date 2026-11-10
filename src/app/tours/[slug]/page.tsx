@@ -128,6 +128,26 @@ export default async function TourDetailPage({ params }: TourPageProps) {
             <p className="mt-6 text-sm text-white/45">{tour.priceNote}</p>
           </section>
 
+          {tour.gallery && tour.gallery.length > 0 ? (
+            <section className="mt-10" aria-label={`${tour.title} photos`}>
+              <div className={`grid gap-4 ${tour.gallery.length > 1 ? "sm:grid-cols-2" : ""}`}>
+                {tour.gallery.map((photo) => (
+                  <figure key={photo.src} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                    <Image
+                      src={photo.src}
+                      alt={photo.alt}
+                      width={960}
+                      height={540}
+                      className="aspect-video h-auto w-full object-cover"
+                      sizes="(min-width: 768px) 720px, 100vw"
+                    />
+                    <figcaption className="px-4 py-3 text-sm text-white/75">{photo.caption}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section className="mt-10 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">{tour.title} — questions</h2>
             <dl className="mt-6 space-y-5">

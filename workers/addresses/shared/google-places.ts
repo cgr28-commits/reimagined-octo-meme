@@ -587,6 +587,36 @@ export function rankAddressSuggestions<T extends RankableAddress>(
     .map((entry) => entry.item);
 }
 
+const AIRPORT_ONLY_NAMES = new Set([
+  "dublin airport",
+  "belfast international airport",
+  "george best belfast city airport",
+  "belfast city airport",
+  "city of derry airport",
+]);
+
+/**
+ * Google often returns the same airport several times ("Dublin Airport", "Dublin Airport
+ * (DUB)", "Dublin Airport, County Dublin"). Keep the first-ranked plain airport entry and
+ * drop the near-duplicates; terminals, car parks and coach bays stay because they name a
+ * different place.
+ */
+export function collapseDuplicateAirportSuggestions<T extends RankableAddress>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const name = (item.mainText || "")
+      .toLowerCase()
+      .replace(/\((bfs|bhd|dub|ldy)\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!AIRPORT_ONLY_NAMES.has(name)) return true;
+    const key = name === "belfast city airport" ? "george best belfast city airport" : name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export type AddressSuggestionTrace = {
   cacheHit: boolean;
   primaryLabels: string[];
@@ -726,7 +756,9 @@ export async function searchGoogleAddressSuggestions(
   };
 
   const finish = (trace: Omit<AddressSuggestionTrace, "cacheHit">) => {
-    const next = rankAddressSuggestions(collected, trimmed, airportCode).slice(0, 10);
+    const next = collapseDuplicateAirportSuggestions(
+      rankAddressSuggestions(collected, trimmed, airportCode),
+    ).slice(0, 10);
     writeSuggestionCache(cacheKey, next);
     lastAddressSuggestionTrace = { cacheHit: false, ...trace };
     return next;

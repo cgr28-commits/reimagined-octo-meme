@@ -8,6 +8,7 @@ import {
   geocodeAddress,
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
+  collapseDuplicateAirportSuggestions,
   rankAddressSuggestions,
   searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
@@ -106,7 +107,10 @@ function mergePredictions(
   const ranked = rankAddressSuggestions(remainder, query, airportCode);
   // Dublin Airport shows as exactly two entries: Terminal 1 and Terminal 2.
   const dublinIntent = merged.some((item) => item.placeId === getServedAirport("DUB")?.placeId);
-  return shapeDublinAirportSuggestions([...servedFirst, ...ranked], dublinIntent).slice(0, limit);
+  return shapeDublinAirportSuggestions(
+    collapseDuplicateAirportSuggestions([...servedFirst, ...ranked]),
+    dublinIntent,
+  ).slice(0, limit);
 }
 
 function toPrediction(suggestion: {

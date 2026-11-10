@@ -387,7 +387,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "These are longer inter-city runs; return bookings are popular for weekend trips.",
     ],
     fromPriceLabel: "Get your fixed price based on your journey.",
-    durationNote: "Belfast area ↔ Derry Airport (longer inter-city transfer)",
+    durationNote: "Belfast area to Derry Airport (longer inter-city transfer)",
     heroBase: getAirportHero("LDY").heroBase,
     heroAlt: getAirportHero("LDY").alt,
     areaServed: ["Belfast", "Bangor", "Lisburn", "Newtownabbey", "City of Derry Airport"],
