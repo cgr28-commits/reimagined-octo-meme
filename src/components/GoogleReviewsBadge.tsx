@@ -32,7 +32,11 @@ export default function GoogleReviewsBadge({
       .then((data: { rating?: number; count?: number } | null) => {
         if (cancelled || !data) return;
         if (typeof data.rating === "number" && data.rating >= 1 && data.rating <= 5) setRating(data.rating.toFixed(1));
-        if (Number.isInteger(data.count) && (data.count as number) > 0) setCount(data.count as number);
+        // Google's feed can lag a day or two behind new reviews: never show fewer than
+        // the saved count, but let a higher live count take over.
+        if (Number.isInteger(data.count) && (data.count as number) > 0) {
+          setCount(Math.max(GOOGLE_REVIEW_COUNT, data.count as number));
+        }
       })
       .catch(() => undefined);
     return () => {
