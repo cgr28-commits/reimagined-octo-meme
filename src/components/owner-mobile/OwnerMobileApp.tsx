@@ -63,6 +63,7 @@ import {
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { fetchOwnerAccountProfile } from "@/lib/tracking-api";
 import { isPreviewHost, sampleOwnerData } from "./owner-mobile-sample";
+import OwnerDriversScreen from "./OwnerDriversScreen";
 import type { OwnerDashboardToolTab } from "@/components/OwnerDashboardToolSwitcher";
 import { buildOwnerOutgoingEmail, type InboxMessage } from "../../../shared/owner-inbox";
 import {
@@ -85,7 +86,8 @@ type View =
   | { kind: "booking"; ref: string; leg: OwnerOpsLeg["leg"] }
   | { kind: "email"; threadKey: string }
   | { kind: "whatsapp"; phone: string }
-  | { kind: "customer"; id: string };
+  | { kind: "customer"; id: string }
+  | { kind: "drivers" };
 
 export type OwnerMobileAppProps = {
   ownerKey: string;
@@ -395,6 +397,8 @@ export default function OwnerMobileApp({
         onOpenBooking={(ref) => setView({ kind: "booking", ref, leg: "outbound" })}
       />
     );
+  } else if (view.kind === "drivers") {
+    screen = <OwnerDriversScreen ownerKey={ownerKey} onBack={() => setView({ kind: "tab" })} onToast={setToast} />;
   } else if (tab === "home") {
     screen = (
       <HomeScreen
@@ -450,6 +454,7 @@ export default function OwnerMobileApp({
     screen = (
       <MoreScreen
         awaitingRequests={awaitingRequests}
+        onOpenDrivers={() => setView({ kind: "drivers" })}
         onOpenTool={(tool) => onOpenTool(tool, { returnTab: "more" })}
         onSwitchToClassic={onSwitchToClassic}
         onSignOut={onSignOut}
@@ -2050,11 +2055,13 @@ const ADVANCED_TOOLS: Array<{ tool: OwnerDashboardToolTab; label: string }> = [
 
 function MoreScreen({
   awaitingRequests,
+  onOpenDrivers,
   onOpenTool,
   onSwitchToClassic,
   onSignOut,
 }: {
   awaitingRequests: number;
+  onOpenDrivers?: () => void;
   onOpenTool: (tool: OwnerDashboardToolTab) => void;
   onSwitchToClassic: () => void;
   onSignOut: () => void;
@@ -2068,6 +2075,21 @@ function MoreScreen({
         </div>
       </header>
       <main className={styles.main} style={{ gap: 14 }}>
+        {onOpenDrivers ? (
+          <section className={styles.card} style={{ overflow: "hidden" }}>
+            <button type="button" className={styles.row} onClick={onOpenDrivers} data-owner-more="drivers">
+              <span className={styles.rowBody}>
+                <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
+                  Drivers
+                </span>
+                <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
+                  Invite, check documents, approve or suspend · driver support number
+                </span>
+              </span>
+              <ChevronIcon size={18} />
+            </button>
+          </section>
+        ) : null}
         {MORE_GROUPS.map((group) => (
           <section key={group.title} className={styles.card} style={{ overflow: "hidden" }}>
             <h2 style={{ margin: 0, padding: "14px 16px 4px", fontSize: 12, fontWeight: 800, letterSpacing: 0.8, color: "#5B6B80", textTransform: "uppercase" }}>

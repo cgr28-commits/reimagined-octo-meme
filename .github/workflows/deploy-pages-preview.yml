@@ -30,9 +30,8 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
-      # Mobile-first Owner Dashboard redesign. NOTE: the preview Worker shares the live KV store,
-      # so it is NOT isolated; owner sign-in on it is disabled until isolated staging storage exists.
-      - claude/owner-dashboard-mobile
+      # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
+      # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
 concurrency:
   group: pages-preview

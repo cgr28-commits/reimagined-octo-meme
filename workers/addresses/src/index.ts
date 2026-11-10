@@ -1,3 +1,6 @@
+// Must stay first: disables all outbound requests on the dashboard staging build only.
+import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
+import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -663,6 +666,8 @@ type Env = {
   /** Minutes after journey completion before automated Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
+  /** Stage 1 driver accounts (D1). Bound on dashboard staging only. */
+  DRIVER_DB?: D1Like;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
@@ -4684,6 +4689,19 @@ export default {
     const url = new URL(request.url);
     const route = routePath(url.pathname);
 
+    if (url.pathname === "/staging/sandbox-status" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({ sandbox: STAGING_SANDBOX, recentBlocked: STAGING_SANDBOX ? recentBlockedOutbound() : [] }),
+        { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", ...corsHeaders(origin) } },
+      );
+    }
+    // Stage 1 driver accounts — answers 404 unless a DRIVER_DB binding exists (staging only).
+    const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
+      ownerAuthorized: (req) => ownerAuthorized(req, env),
+      corsHeaders,
+    });
+    if (driverAccountsResponse) return driverAccountsResponse;
+
     // Stripe webhook (server-to-server, signature-verified inside).
     if (
       (url.pathname === "/payments/stripe-webhook" || url.pathname === "/api/payments/stripe-webhook") &&
@@ -6456,6 +6474,8 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Dashboard staging has no crons; refuse to run scheduled jobs there even if one is added.
+    if (STAGING_SANDBOX) return;
     configureStripe(env);
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {

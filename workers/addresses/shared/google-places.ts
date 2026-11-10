@@ -1676,6 +1676,26 @@ export function isVercelProjectPreviewHost(hostname: string): boolean {
   return host.startsWith(`${VERCEL_PROJECT_HOST_PREFIX}-`);
 }
 
+/**
+ * Pages project for the isolated dashboard staging (separate Cloudflare account).
+ * Only the staging Worker build (which defines __MATNI_STAGING_SANDBOX__) accepts
+ * this origin; production and the existing preview Worker never do.
+ */
+export const DASHBOARD_STAGING_PAGES_HOST = "matni-dashboard-staging.pages.dev";
+
+declare const __MATNI_STAGING_SANDBOX__: boolean | undefined;
+
+/** matni-dashboard-staging.pages.dev, its branch previews, or a suffixed name Cloudflare may assign. */
+export function isDashboardStagingPagesHost(host: string): boolean {
+  if (!host.endsWith(".pages.dev")) return false;
+  const project = host.slice(0, -".pages.dev".length).split(".").pop() ?? "";
+  return project === "matni-dashboard-staging" || /^matni-dashboard-staging-[a-z0-9]+$/.test(project);
+}
+
+function isDashboardStagingBuild(): boolean {
+  return typeof __MATNI_STAGING_SANDBOX__ !== "undefined" && __MATNI_STAGING_SANDBOX__ === true;
+}
+
 export function isAllowedBrowserOrigin(origin: string | null | undefined): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
@@ -1683,6 +1703,9 @@ export function isAllowedBrowserOrigin(origin: string | null | undefined): boole
     const url = new URL(origin);
     if (url.protocol !== "https:") return false;
     const host = url.hostname.toLowerCase();
+    if (isDashboardStagingBuild() && isDashboardStagingPagesHost(host)) {
+      return true;
+    }
     if (
       host === PREVIEW_PAGES_PROJECT_HOST ||
       host.endsWith(`.${PREVIEW_PAGES_PROJECT_HOST}`)

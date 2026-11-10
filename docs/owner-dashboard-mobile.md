@@ -5,9 +5,13 @@ Design reference: the approved canvas "Owner Dashboard — Mobile Redesign" (Nov
 
 ## How to try it
 
-- Staging preview: `https://claude-owner-dashboard-mobil.my-airport-taxi-ni-preview.pages.dev/owner/?ui=mobile`
-  (isolated preview Worker + KV; no Resend, WhatsApp or Stripe secrets, so no real customer can be emailed,
-  messaged or charged). Sign in with the normal owner key.
+- Isolated staging: `https://matni-dashboard-staging.pages.dev/owner/?ui=mobile`, deployed by
+  `deploy-dashboard-staging.yml` to the separate "My Airport Taxi NI Staging" Cloudflare account — its own
+  KV, D1 and Durable Objects, no crons, and every outbound request blocked (see docs/dashboard-staging.md).
+  Sign in with the **staging** owner key (not the live one).
+- Correction (10 Nov 2026): the earlier preview at `claude-owner-dashboard-mobil.my-airport-taxi-ni-preview.pages.dev`
+  was **not** isolated — the shared preview Worker uses the live KV store and inherits the live crons. This
+  branch no longer deploys there, and the owner key was removed from that preview Worker.
 - The staging copy has little or no data. On a preview host, Home offers **Show sample data** — every
   screen then shows a "Sample data" banner and nothing can be sent.
 - `?ui=mobile` is remembered on that device; More › "Use the classic dashboard" switches back, and the
