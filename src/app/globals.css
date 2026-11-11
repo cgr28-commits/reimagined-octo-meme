@@ -7533,3 +7533,18 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     }
   }
 }
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.375rem !important;
+      left: 0.5rem !important;
+      right: 0.5rem !important;
+    }
+    html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.8125rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.5rem !important;
+    }
+  }
+}
