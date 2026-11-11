@@ -91,7 +91,8 @@ assert.match(customer.subject, /isn't finished/);
 assert.match(customer.text, /haven't been charged/);
 assert.match(customer.text, /fixed price of £89 is still available/);
 assert.match(customer.html, /Finish my booking/);
-assert.match(customer.text, /07549 815538/);
+assert.match(customer.text, /WhatsApp us at @belfasttaxi/);
+assert.doesNotMatch(customer.text, /07549 815538/, "WhatsApp number never shown (owner request, 11 Nov 2026)");
 assert.doesNotMatch(customer.text + customer.html, /surcharge/i);
 console.log("OK  owner alert has contact + reason; customer email has link, no charge, call/WhatsApp number");
 
