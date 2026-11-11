@@ -107,6 +107,7 @@ import {
   markWhatsAppChatEmailed,
 } from "./whatsapp-chat-log";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import { displayBookingReference, normalizeCustomerBookingReference } from "../shared/customer-booking-reference";
 import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
 import {
   WHATSAPP_BOOKING_NOT_FOUND_REPLY,
@@ -757,10 +758,19 @@ async function handleInboundMessage(
     await replyWithPickupInfo(env, store, phone, bookingRef);
     return;
   }
-  // "Can you check my booking?" or a booking reference: the booking's details.
+  // "Can you check my booking?" or a booking reference on its own: the booking's details.
+  // A reference sent with something to discuss (a change, a question) goes to Claude with the
+  // booking looked up, and so does one that isn't theirs or can't be found, so the customer
+  // is never asked again for the reference they just sent (11 Nov 2026).
   if (bookingRef || isWhatsAppBookingCheckQuestion(message.text)) {
-    await replyWithBookingDetails(env, store, phone, bookingRef);
-    return;
+    const discuss =
+      whatsAppClaudeLedEnabled(env, phone) &&
+      Boolean(bookingRef) &&
+      (!isBookingRefOnlyMessage(message.text) || !(await isOwnBookingRef(store, phone, bookingRef!)));
+    if (!discuss) {
+      await replyWithBookingDetails(env, store, phone, bookingRef);
+      return;
+    }
   }
 
   const stored = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
@@ -1278,14 +1288,90 @@ async function notifyOwnerOfHandoff(
   }
 }
 
-/** A short, private summary of the customer's next booking(s) for the assistant. */
-function summariseBookingsForAi(bookings: PaidBookingRecord[]): string | undefined {
-  const lines = bookings.slice(0, 2).map((b) => {
-    const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
-    const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
-    const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
-    return `- ${b.customerReference ?? "Booking"}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}`;
-  });
+/** One booking line for the assistant (the customer's own booking: full journey details). */
+function bookingLineForAi(b: PaidBookingRecord): string {
+  const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
+  const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
+  const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
+  const who = b.customerName ? `, booked by ${b.customerName}` : "";
+  const people = b.passengers ? `, ${b.passengers} passenger${b.passengers === 1 ? "" : "s"}` : "";
+  const status =
+    b.status === "cancelled" || b.status === "refunded" ? " (CANCELLED)" : b.status === "partially_refunded" ? " (part refunded)" : "";
+  return `- ${displayBookingReference(b)}${status}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}${people}${who}`;
+}
+
+/** Customer booking references (MAT-1234) in these texts, newest text first, no repeats. */
+export function bookingRefsIn(texts: Array<string | undefined>): string[] {
+  const refs: string[] = [];
+  for (const text of texts) {
+    for (const m of String(text ?? "").matchAll(/\bMAT\s*-?\s*(\d{4})\b/gi)) {
+      const ref = normalizeCustomerBookingReference(`MAT-${m[1]}`);
+      if (ref && !refs.includes(ref)) refs.push(ref);
+    }
+  }
+  return refs.slice(0, 3);
+}
+
+/** A message that is just a booking reference (maybe with hi / thanks), nothing to discuss. */
+export function isBookingRefOnlyMessage(text: string): boolean {
+  const rest = text
+    .replace(/\bMAT\s*-?\s*\d{4}\b/gi, " ")
+    .toLowerCase()
+    .replace(/\b(hi|hello|hey|thanks|thank you|cheers|please|my|booking|ref|reference|is|it's|its|here|number|no)\b/g, " ")
+    .replace(/[^a-z]+/g, "");
+  return rest.length === 0 || isWhatsAppBookingCheckQuestion(text);
+}
+
+async function isOwnBookingRef(store: KVNamespace, phone: string, ref: string): Promise<boolean> {
+  try {
+    const paid = await getPaidBookingRecordByCustomerReference(store, ref);
+    return Boolean(paid && sameCustomerPhone(paid.mobileNumber, phone));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What the assistant knows about the customer's bookings: their upcoming bookings on this
+ * WhatsApp number, plus any MAT- reference they have sent, looked up (11 Nov 2026 — the
+ * bot used to say it couldn't find a booking even after being given the reference).
+ * A reference booked under another mobile is confirmed without personal details: the
+ * references are short, so details are only shared with the number that booked.
+ */
+export async function describeBookingsForAi(
+  store: KVNamespace,
+  phone: string,
+  texts: Array<string | undefined>,
+): Promise<string | undefined> {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const b of (await findCustomerUpcomingBookings(store, phone)).slice(0, 3)) {
+    seen.add(displayBookingReference(b));
+    lines.push(bookingLineForAi(b));
+  }
+  for (const ref of bookingRefsIn(texts)) {
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    let paid: PaidBookingRecord | null = null;
+    try {
+      paid = await getPaidBookingRecordByCustomerReference(store, ref);
+    } catch (err) {
+      logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    }
+    if (paid && sameCustomerPhone(paid.mobileNumber, phone)) {
+      lines.push(bookingLineForAi(paid));
+    } else if (paid) {
+      const when = paid.tripDate ? ` for ${paid.tripDate}` : "";
+      lines.push(
+        `- ${ref}: a real booking${when}, but made with a different mobile number. Tell them you've found it, but don't share its addresses, name or other details. Changes or questions about it go to the team (handoff), who will check it with them.`,
+      );
+    } else {
+      lines.push(
+        `- ${ref}: no booking found with this reference (it may be mistyped, or booked another way). Don't ask for the reference again: say you couldn't find it and the team will check it for them (handoff).`,
+      );
+    }
+  }
+  logEvent("whatsapp_booking_context", phone, { lines: lines.length });
   return lines.length ? lines.join("\n") : undefined;
 }
 
@@ -1310,7 +1396,8 @@ async function decideWithClaude(
       .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
       .map(chatLineForAi)
       .join("\n");
-    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
+    const bookingInfo = await describeBookingsForAi(store, phone, [said, recentChat]);
+    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName, bookingInfo });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
     return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
@@ -1338,7 +1425,7 @@ async function answerCustomerQuestion(
     const draft = conversation.draft;
     const collected = describeWhatsAppDraft(draft);
     // Their booking, so a flight update is passed on without asking for a reference (7 Nov 2026).
-    const booking = summariseBookingsForAi(await findCustomerUpcomingBookings(store, phone));
+    const booking = await describeBookingsForAi(store, phone, [message, recentChat]);
     const answer = await answerWhatsAppQuestion(env, message, {
       recentChat,
       booking,

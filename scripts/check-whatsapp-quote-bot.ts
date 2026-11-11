@@ -250,7 +250,7 @@ async function main() {
       async get() { return null; },
       async put() {},
       async list() { return { keys: [], list_complete: true, cursor: "" }; },
-    } as unknown as KVNamespace;
+    } as never;
     const tooSoon = await checkWhatsAppAvailability(
       { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "10:30" },
       emptyKv,
@@ -457,7 +457,7 @@ async function main() {
     async delete(key: string) {
       kv.delete(key);
     },
-  } as unknown as KVNamespace;
+  } as never;
   const sent: Array<{ to: string; body: string }> = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -714,7 +714,7 @@ async function main() {
       async delete(key: string) {
         listKv.delete(key);
       },
-    } as unknown as KVNamespace;
+    } as never;
     const out: Array<Record<string, any>> = [];
     let refuseLists = false;
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -857,7 +857,7 @@ async function main() {
       async delete(key: string) {
         akv.delete(key);
       },
-    } as unknown as KVNamespace;
+    } as never;
     const sentMsgs: Array<Record<string, any>> = [];
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
       if (String(url).startsWith("https://graph.facebook.com/")) {
@@ -1253,3 +1253,45 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(echoed.to, "447700900123");
   console.log("OK  owner's own WhatsApp replies are read into the chat");
 }
+
+// A booking reference sent on WhatsApp is looked up for the assistant (11 Nov 2026).
+void (async () => {
+  const { bookingRefsIn, isBookingRefOnlyMessage, describeBookingsForAi } = await import(
+    "../workers/addresses/src/whatsapp-handlers"
+  );
+  assert.deepEqual(bookingRefsIn(["Can I change MAT-0042 to 6pm?", "Customer: my ref is mat 1234"]), ["MAT-0042", "MAT-1234"]);
+  assert.equal(isBookingRefOnlyMessage("MAT-1234"), true);
+  assert.equal(isBookingRefOnlyMessage("Hi, my booking ref is MAT-1234 thanks"), true);
+  assert.equal(isBookingRefOnlyMessage("MAT-1234 can we move the pickup to 6pm instead?"), false);
+
+  const kv = new Map<string, string>();
+  const fakeStore = {
+    async get(key: string, type?: string) {
+      const v = kv.get(key);
+      if (v == null) return null;
+      return type === "json" ? JSON.parse(v) : v;
+    },
+    async put(key: string, value: string) { kv.set(key, value); },
+    async delete(key: string) { kv.delete(key); },
+    async list() { return { keys: [], list_complete: true }; },
+  } as never;
+  const booking = {
+    paymentReference: "pay_1", customerReference: "MAT-0042", status: "confirmed", mobileNumber: "07700 900123",
+    customerName: "Sam Test", pickupLabel: "Glengormley", dropoffLabel: "Belfast International Airport",
+    tripDate: "2026-12-01", tripTime: "06:00", passengers: 2,
+  };
+  kv.set("booking:ref:pay_1", JSON.stringify(booking));
+  kv.set("booking:customer-ref:MAT-0042", "pay_1");
+
+  const own = await describeBookingsForAi(fakeStore, "447700900123", ["Can I change MAT-0042 to 6pm?"]);
+  assert.match(own!, /MAT-0042: Glengormley to Belfast International Airport, 2026-12-01 at 06:00/);
+  const other = await describeBookingsForAi(fakeStore, "447700900999", ["MAT-0042 change please"]);
+  assert.match(other!, /different mobile number/);
+  assert.doesNotMatch(other!, /Glengormley|Sam Test/);
+  const missing = await describeBookingsForAi(fakeStore, "447700900123", ["it's MAT-9999"]);
+  assert.match(missing!, /MAT-9999: no booking found/);
+  console.log("OK  booking references sent on WhatsApp are looked up for the assistant");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
