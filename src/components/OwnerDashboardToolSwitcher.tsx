@@ -10,6 +10,7 @@ export type OwnerDashboardToolTab =
   | "a2a-quotes"
   | "personal-quotes"
   | "bespoke-requests"
+  | "belfast-events"
   | "same-fare"
   | "admin"
   | "money"
@@ -65,6 +66,11 @@ export const OWNER_MORE_DESTINATIONS: {
     id: "bespoke-requests",
     label: "Event & Business Class",
     hint: "Event transfer and bespoke Business Class requests — manual quotations",
+  },
+  {
+    id: "belfast-events",
+    label: "Belfast events",
+    hint: "Add, approve and publish Belfast event listings — nothing is public until you publish it",
   },
   { id: "a2a-quotes", label: "A2A Quotes", hint: "Address-to-address quote queue" },
   { id: "personal-quotes", label: "Personal Quotes", hint: "Personal quote codes" },

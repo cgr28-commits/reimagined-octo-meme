@@ -9,6 +9,8 @@ const DAY_TRIPS_ENABLED = true;
 const ADDRESS_TO_ADDRESS_ENABLED = true;
 const TRACKING_DEMO_ENABLED = false;
 const BELFAST_CITY_AIRPORT_ENABLED = true;
+// Keep in sync with src/lib/bespoke-public.ts (OFF unless explicitly enabled at build time).
+const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1";
 
 /** Europe/London civil date YYYY-MM-DD — matches shared/uk-time todayLondonDate. */
 function todayLondonDate(now = new Date()) {
@@ -279,6 +281,15 @@ const pages = [
   // EMERGE landing stays at the same URL year to year — omit from sitemap when expired (no 301).
   ...(EMERGE_CAMPAIGN_ACTIVE
     ? [{ path: emergeConfig.path, source: "src/lib/emerge-belfast-config.json" }]
+    : []),
+  // Belfast events hub + bespoke request pages: listed only when the site is built with
+  // NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1 (owner-approved launch). Off → the pages 404.
+  ...(BESPOKE_PUBLIC_PAGES_ENABLED
+    ? [
+        { path: "/events/", source: "src/app/events/page.tsx" },
+        { path: "/events/transfer-request/", source: "src/app/events/transfer-request/page.tsx" },
+        { path: "/business-class-request/", source: "src/app/business-class-request/page.tsx" },
+      ]
     : []),
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap
   ...(TRACKING_DEMO_ENABLED

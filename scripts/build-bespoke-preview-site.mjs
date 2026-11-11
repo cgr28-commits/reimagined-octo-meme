@@ -41,6 +41,10 @@ const env = {
   GITHUB_PAGES: "true",
   NEXT_PUBLIC_BOOKINGS_API_URL: `${worker}/bookings`,
   NEXT_PUBLIC_ADDRESSES_API_URL: `${worker}/addresses`,
+  // Preview only: show the Belfast events hub and request pages (OFF on the live site).
+  NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES: "1",
+  // Cloudflare's public always-pass TEST site key unless a real preview widget key is given.
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.PREVIEW_TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
 };
 console.log(`Preview Worker: ${worker}`);
 if (process.argv.includes("--check-only")) {

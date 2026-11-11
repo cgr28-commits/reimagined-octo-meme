@@ -54,6 +54,7 @@ import type { BespokeDeliveryEvent, BespokeNotificationEntry, CoordinatorApplyRe
 import { verifyResendWebhookSignature } from "./owner-inbox-store";
 import { listBespokeIndex, writeBespokeIndexEntry } from "./bespoke-quote-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { getBelfastEvent } from "./belfast-events-handlers";
 import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   bespokeOnlinePaymentAvailable,
@@ -690,6 +691,25 @@ async function publicRequest(
 
   const validated = validateBespokeQuoteRequest(body);
   if (!validated.ok) return respond({ error: "Please check the highlighted fields.", errors: validated.errors }, 400, origin);
+
+  // A request for a LISTED event takes the event details from the approved listing
+  // (never from the browser), and is refused while the event is postponed/cancelled.
+  // An unknown id is dropped: the customer's typed event details are kept.
+  const listedId = validated.value.event?.eventId;
+  if (listedId && validated.value.event && env.TRACKING_STORE) {
+    const listed = await getBelfastEvent(env.TRACKING_STORE, listedId).catch(() => null);
+    if (!listed || listed.status === "draft") {
+      delete validated.value.event.eventId;
+    } else if (listed.status !== "published") {
+      return respond(
+        { error: `This event is ${listed.status}. Please contact us about your plans.`, errors: { eventId: `Event ${listed.status}.` } },
+        400,
+        origin,
+      );
+    } else {
+      validated.value.event = { eventId: listed.id, title: listed.title, venue: listed.venueName, date: listed.date };
+    }
+  }
 
   if (
     !(await rateAllowed(

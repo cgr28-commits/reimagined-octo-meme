@@ -791,6 +791,33 @@ async function main(): Promise<void> {
   for (let i = 0; i < 31; i++) lastStatus = (await call("/bespoke-quotes/view", { ip: "192.0.2.77", body: { token: forged } })).status;
   assert.equal(lastStatus, 429);
 
+  console.log("=== Requests for listed Belfast events ===");
+  {
+    const listedDate = isoDate(33);
+    const base = { schemaVersion: 1, version: 2, venueId: "the-o2-belfast", venueName: "The O2 Belfast", venueArea: "Titanic Quarter, Belfast BT3", summary: "s", ownWordsConfirmed: true, createdAt: "x", updatedAt: "x", category: "concert" };
+    await fakeKv.put("bevt:listed-show-" + listedDate, JSON.stringify({ ...base, id: "listed-show-" + listedDate, status: "published", title: "Listed Show", date: listedDate }));
+    await fakeKv.put("bevt:off-show-" + listedDate, JSON.stringify({ ...base, id: "off-show-" + listedDate, status: "cancelled", title: "Off Show", date: listedDate }));
+    await fakeKv.put("bevt:draft-show-" + listedDate, JSON.stringify({ ...base, id: "draft-show-" + listedDate, status: "draft", title: "Draft Show", date: listedDate }));
+    const dates = { date: listedDate, returnDate: listedDate, eventDate: listedDate };
+    // Browser-sent event details are replaced by the approved listing.
+    const spoof = await call("/bespoke-quotes/request", { body: { ...eventInput({ ...dates, customerEmail: "listed@example.com", eventId: "listed-show-" + listedDate, eventTitle: "Spoofed title", eventVenue: "Elsewhere" }), turnstileToken: "x" } });
+    assert.equal(spoof.status, 201, spoof.text);
+    const spoofed = (await detailOf(spoof.json.reference)).request;
+    assert.equal(spoofed.event.title, "Listed Show");
+    assert.equal(spoofed.event.venue, "The O2 Belfast");
+    assert.equal(spoofed.event.eventId, "listed-show-" + listedDate);
+    // Cancelled/postponed listings refuse requests.
+    const off = await call("/bespoke-quotes/request", { body: { ...eventInput({ ...dates, customerEmail: "off@listed.example.com", eventId: "off-show-" + listedDate }), turnstileToken: "x" } });
+    assert.equal(off.status, 400);
+    assert.match(off.json.error, /cancelled/);
+    // Unknown or draft ids are dropped; the typed event details are kept.
+    const draftReq = await call("/bespoke-quotes/request", { body: { ...eventInput({ ...dates, customerEmail: "draft@listed.example.com", eventId: "draft-show-" + listedDate, eventTitle: "Typed Show" }), turnstileToken: "x" } });
+    assert.equal(draftReq.status, 201, draftReq.text);
+    const typed = (await detailOf(draftReq.json.reference)).request;
+    assert.equal(typed.event.title, "Typed Show");
+    assert.equal(typed.event.eventId, undefined, "a draft listing id is never attached");
+  }
+
   console.log("=== Concurrent owner actions ===");
   const conc = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "conc@example.com" }), turnstileToken: "x" } });
   const concRef: string = conc.json.reference;

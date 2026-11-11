@@ -389,6 +389,7 @@ import {
   isBespokeQuotePath,
   runBespokeExpirySweep,
 } from "./bespoke-quote-handlers";
+import { handleBelfastEventsRoute, isBelfastEventsPath } from "./belfast-events-handlers";
 export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
@@ -4825,6 +4826,9 @@ export default {
     }
     if (isBespokeDeliveryWebhookPath(url.pathname)) {
       return handleBespokeDeliveryWebhook(request, env);
+    }
+    if (isBelfastEventsPath(url.pathname)) {
+      return handleBelfastEventsRoute(request, env, origin);
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
