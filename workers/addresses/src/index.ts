@@ -6066,7 +6066,7 @@ export default {
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
         booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
         booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
-      const digest = await paymentOperationHash({...body, redirectUrl:undefined,
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined, supersedesCheckoutId:undefined,
         booking:{...booking,termsAcceptedAt:Boolean(String(booking.termsAcceptedAt ?? "").trim())}});
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
@@ -6075,6 +6075,14 @@ export default {
           // A definite validation rejection made no provider request. Never retry
           // an ambiguous 5xx automatically (the provider may have accepted it).
           retrySafe:result=>result.body.code === "route_service_unavailable" || (result.status < 500 && !(result.status === 200 && result.body.checkoutId)),
+          // The customer went back to an option they chose earlier: that earlier payment
+          // page was closed unpaid when they changed the booking, so make a fresh one.
+          closedUnpaid:async result=>{
+            const id=String(result.body?.checkoutId ?? "").trim();
+            if(!id || !pendingCheckoutStoreConfigured(env.TRACKING_STORE)) return false;
+            const earlier=await getPendingCheckout(env.TRACKING_STORE,id);
+            return Boolean(earlier?.supersededAt && !earlier.finalizedAt);
+          },
         });
         return timedResponse(json(result.body,result.status,origin));
       } catch(error) {

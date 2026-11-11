@@ -16,11 +16,18 @@ export class QuoteLeadCoordinator implements DurableObject {
 
     // Payment operations use their own hashed object IDs. Claims are persistent:
     // an interrupted external operation is never automatically repeated.
-    if (action === "operation-begin" || action === "operation-finish") {
+    if (action === "operation-begin" || action === "operation-finish" || action === "operation-release") {
       const body = await request.json() as {token:string; digest:string; result?:unknown; retrySafe?:boolean};
       return this.ctx.blockConcurrencyWhile(async () => {
         type Operation = {token:string; digest:string; result?:unknown; complete?:boolean};
         const existing = await this.ctx.storage.get<Operation>("operation");
+        if (action === "operation-release") {
+          // Only a finished claim whose stored digest still matches what the caller
+          // just inspected is released (its payment page was closed unpaid).
+          const released = Boolean(existing?.complete && existing.digest === body.digest);
+          if (released) await this.ctx.storage.delete("operation");
+          return Response.json({released});
+        }
         if (action === "operation-begin") {
           if (existing) return Response.json(existing.complete
             ? {state:"complete", digest:existing.digest, result:existing.result}

@@ -9,6 +9,9 @@ export async function paymentOperationHash(value: unknown): Promise<string> {
 export async function runPaymentOperation<T>(input: {
   namespace?:DurableObjectNamespace; key:string; digest?:string;
   run:()=>Promise<T>; retrySafe:(result:T)=>boolean;
+  /** True only when the finished result's payment page was closed unpaid (replaced by a
+   * newer payment), so a fresh payment page may safely be made for the same booking. */
+  closedUnpaid?:(result:T)=>Promise<boolean>;
 }):Promise<{result:T; reused:boolean}> {
   // Existing local/test installations can omit coordinators; production release
   // preflight explicitly requires this binding. Never fall back after a DO error.
@@ -18,9 +21,13 @@ export async function runPaymentOperation<T>(input: {
   const call=async(action:string,body:unknown)=>{
     const response=await stub.fetch(`https://payment-operation/${action}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(!response.ok) throw new Error("Payment coordination unavailable");
-    return response.json() as Promise<{state?:string;digest?:string;result?:T}>;
+    return response.json() as Promise<{state?:string;digest?:string;result?:T;released?:boolean}>;
   };
-  const claim=await call("operation-begin",{token,digest});
+  let claim=await call("operation-begin",{token,digest});
+  if(claim.state === "complete" && input.closedUnpaid && await input.closedUnpaid(claim.result as T)) {
+    await call("operation-release",{token,digest:claim.digest});
+    claim=await call("operation-begin",{token,digest});
+  }
   if(claim.state === "complete") {
     if(claim.digest !== digest) throw new PaymentOperationBusy("Payment details changed after checkout started. Please complete or contact us about the existing payment.");
     return {result:claim.result as T,reused:true};
