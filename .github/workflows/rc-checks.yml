@@ -1,0 +1,40 @@
+# Release-candidate check run: the repo's own non-browser review scripts, type check and lint,
+# on the release candidate and on live main (to tell new failures from existing ones). No deploy, no secrets.
+name: RC checks
+"on":
+  push:
+    branches: [rc-checks]
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [rc, main]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.ref == 'main' && 'main' || github.sha }}
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: rcref
+          sparse-checkout: .rc-check-list.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run checks
+        run: |
+          pass=0; fail=0; : > "$RUNNER_TEMP/results.txt"
+          while read -r s; do
+            [ -f "$s" ] || { echo "MISSING $s" >> "$RUNNER_TEMP/results.txt"; continue; }
+            if timeout 300 node --import tsx "$s" > "$RUNNER_TEMP/out.txt" 2>&1; then echo "PASS $s" >> "$RUNNER_TEMP/results.txt"; pass=$((pass+1));
+            else echo "FAIL $s :: $(tail -3 "$RUNNER_TEMP/out.txt" | tr '\n' ' ' | cut -c1-300)" >> "$RUNNER_TEMP/results.txt"; fail=$((fail+1)); fi
+          done < rcref/.rc-check-list.txt
+          if npx tsc --noEmit -p . > "$RUNNER_TEMP/tsc.txt" 2>&1; then echo "PASS tsc" >> "$RUNNER_TEMP/results.txt"; else echo "FAIL tsc :: $(head -5 "$RUNNER_TEMP/tsc.txt" | tr '\n' ' ' | cut -c1-400)" >> "$RUNNER_TEMP/results.txt"; fi
+          if npm run lint > "$RUNNER_TEMP/lint.txt" 2>&1; then echo "PASS lint" >> "$RUNNER_TEMP/results.txt"; else echo "FAIL lint :: $(grep -i error "$RUNNER_TEMP/lint.txt" | head -5 | tr '\n' ' ' | cut -c1-400)" >> "$RUNNER_TEMP/results.txt"; fi
+          echo "== ${{ matrix.ref }}: $pass passed, $fail failed"
+          cat "$RUNNER_TEMP/results.txt"
