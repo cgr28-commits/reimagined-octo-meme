@@ -1,81 +1,49 @@
-# Preview set-up: owner guide
+# Private preview: owner guide
 
-This sets up a **private test copy** of the Event / Business Class booking system.
-- It cannot take real money.
-- It cannot email real customers or your bookings mailbox.
-- It cannot touch your live bookings.
+The preview is a **private test copy** of the Belfast events hub and the Event / Business Class request service.
+- It runs in your separate **"My Airport Taxi NI Staging"** Cloudflare account, with its own storage.
+- It cannot take real money, email real customers or your bookings mailbox, or touch live bookings.
+- The live website, live Worker and live storage are not involved. Migration v6 is not applied to live.
 
-Nothing is deployed until you approve Phase 4B.
+It is deployed automatically from the development branch by the GitHub workflow
+**Deploy Bespoke Preview (isolated account)**. You do not need to run any commands.
 
-**Never paste a secret key into chat, email, a commit or a document.** Keys are typed only into Cloudflare's own prompts (`wrangler secret put …`), which hide them.
+**Never paste a secret key into chat, email, a commit or a document.** Keys go only into
+GitHub → repository → **Settings → Secrets and variables → Actions → New repository secret**.
 
-Steps marked **MANDATORY** are needed for the preview. **Optional** steps can be skipped.
+## What works straight away (no set-up)
+- The private preview website, opened with your private link.
+- Both request forms, with real Google address suggestions and the Design 3 date and time pickers.
+- Sending a request and getting a reference number.
 
----
+Preview emails are **blocked** until you add a tester inbox (below), and the Owner Dashboard on the
+preview cannot be signed in to until you add a preview owner key (below).
 
-## 1. Create the two preview storage areas (KV): MANDATORY
-1. On your computer, in the repository folder `workers/addresses`, run `npx wrangler login` and sign in to your Cloudflare account.
-2. Run:
-   ```bash
-   npx wrangler kv namespace create BESPOKE_PREVIEW_TRACKING_STORE --config wrangler.bespoke-preview.toml
-   npx wrangler kv namespace create BESPOKE_PREVIEW_BOOKING_COUNTER --config wrangler.bespoke-preview.toml
-   ```
-3. Each command prints an `id`. These ids are **not secret**. Send them to me, or paste them into `wrangler.bespoke-preview.toml` in place of the two `REPLACE_WITH_BESPOKE_PREVIEW_…` placeholders.
-4. I will then run the safety test that proves no production id was used.
+## Optional secrets (add any you want, then re-run the workflow)
+| GitHub secret name | What it does | Value |
+|---|---|---|
+| `BESPOKE_PREVIEW_OWNER_KEY` | Lets you sign in to the preview Owner Dashboard to see requests, send quotations and approve events | A **new** password of 24+ characters. Not your live owner key (the deploy refuses the live key). |
+| `BESPOKE_PREVIEW_TESTER_EMAIL` | The only inbox preview emails may go to | An address you can read. Not `bookings@myairporttaxini.co.uk`. |
+| `BESPOKE_PREVIEW_RESEND_API_KEY` | Sends real test emails to the tester inbox | A separate Resend key with **Sending access** only |
+| `BESPOKE_PREVIEW_STRIPE_SECRET_KEY` | Test payments | Stripe **Test mode** secret key (`sk_test_…`). Live keys are refused. |
+| `BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY` | Test payments | `pk_test_…` |
+| `BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET` | Test payment confirmations | Signing secret (`whsec_…`) of a **Test mode** webhook endpoint (see below) |
 
-## 2. Create the private preview website: MANDATORY
-1. Run (from the repository root): `npx wrangler pages project create matni-bespoke-preview --production-branch=preview`
-2. If Cloudflare says the name is taken, tell me the name you chose. Three settings must then change together.
+To re-run: GitHub → **Actions** → **Deploy Bespoke Preview (isolated account)** → open the latest run → **Re-run all jobs**.
 
-## 3. Make the preview website private (Cloudflare Access): MANDATORY
-Cloudflare's "Enable access policy" switch alone protects only the extra preview copies, **not** the main `matni-bespoke-preview.pages.dev` address. Follow Cloudflare's documented steps:
-1. Cloudflare dashboard → **Workers & Pages** → `matni-bespoke-preview` → **Settings** → **Enable access policy**.
-2. Select **Manage** on the Access policy it created.
-3. Under **Access → Applications**, select the project → **Configure**.
-4. Under **Public hostname**, in the **Subdomain** field, **delete the `*`** → **Save**.
-5. Go back to the Pages project → **Settings → General** → **Enable access policy** again.
-6. Check there are now **two** Access policies: one for `matni-bespoke-preview.pages.dev`, one for preview copies.
-7. In each policy, allow only your tester email address(es).
-8. Test: open `https://matni-bespoke-preview.pages.dev` in a private browser window. You should see a Cloudflare login page, not the site.
+### Stripe test webhook (only if you want to test payments)
+In Stripe **Test mode** → Developers → Webhooks → Add endpoint:
+- URL: the preview Worker address shown in the workflow run, followed by `/payments/stripe-webhook`
+- Events: `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
 
-(The test Worker itself stays reachable on the internet, because Stripe must be able to send it payment notifications. It protects itself: test-mode Stripe only, emails only to your testers, owner pages need a preview-only key, no live data. Step 9 adds bot protection.)
+## Things to know
+- **Private link:** the website only opens through your private link. The link sets a cookie on that
+  browser for 30 days. Open quotation emails in the same browser (Safari on your iPhone).
+- **Bot check:** the preview uses Cloudflare's always-pass test widget, so it shows "Success" without a challenge. The live site will need a real Turnstile widget before launch.
+- **Address suggestions** use your existing Google Places key, stored as a secret on the preview Worker.
+- **To remove the preview:** delete the Worker `reimagined-octo-meme-bespoke-preview`, the Pages project
+  `matni-bespoke-preview` and the two KV namespaces named `matni-bespoke-preview-…` in the Staging account.
 
-## 4. Stripe TEST mode: MANDATORY
-1. Stripe Dashboard → switch **Test mode** on (top right).
-2. **Developers → API keys**: you will need the test **publishable key** (`pk_test_…`) and test **secret key** (`sk_test_…`).
-   - Don't copy them anywhere yet; you'll type them into Cloudflare's prompt in Phase 4B.
-   - Never use a key that starts `sk_live_` or `pk_live_`: the preview refuses to run with live keys.
-3. **Developers → Webhooks → Add endpoint** (still in test mode):
-   - Endpoint URL: `https://reimagined-octo-meme-bespoke-preview.cgr28.workers.dev/payments/stripe-webhook`
-   - Events: `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
-   - Save, then note that a **signing secret** (`whsec_…`) exists. You'll type it into Cloudflare's prompt in Phase 4B.
-
-## 5. Tester inbox(es): MANDATORY
-1. Choose 1–3 email addresses you can read. Not `bookings@myairporttaxini.co.uk`, and not a customer's.
-2. Tell me the address(es). They are not secret. I'll put them in the six "tester" settings. The preview will **block every email** addressed to anyone else.
-
-## 6. Owner key for the preview: MANDATORY
-Think of a new, long password for the preview Owner Dashboard (different from your live one). In Phase 4B you'll type it into the `OWNER_ACCESS_KEY` prompt.
-
-## 7. Separate Google test calendar: optional (recommended)
-1. In Google Calendar, create a **new** calendar called "MATNI preview tests". Never use your live calendar.
-2. In Google Cloud Console, create a **new** service account just for the preview and create a JSON key for it. Do **not** reuse the live one: the live account could reach the live calendar if a setting were mistyped.
-3. In the new calendar's settings → **Share with specific people**, add the service account's email with **Make changes to events**.
-4. Note the calendar's **Calendar ID** (Settings → Integrate calendar). In Phase 4B you'll enter the ID and paste the JSON key into Cloudflare's prompts.
-
-Without this step, bookings simply aren't added to a calendar on the preview.
-
-## 8. Test email sending: optional
-For real test emails, create a **separate** Resend API key with **Sending access** only (Resend → API keys). You'll type it into Cloudflare's prompt in Phase 4B. Without it, emails show as "failed" on the preview, which is fine.
-
-## 9. Bot protection for the preview: optional (recommended)
-Cloudflare Turnstile is free. Create a widget for hostname `matni-bespoke-preview.pages.dev` (Cloudflare dashboard → Turnstile → Add widget, Managed mode). Without it, the preview uses Cloudflare's always-pass test keys, so anyone who finds the test Worker could submit test requests. That would be harmless, but untidy.
-
-## 10. Check Cloudflare builds: MANDATORY (2 minutes)
-Cloudflare dashboard → **Workers & Pages** → `reimagined-octo-meme` → **Settings → Builds**:
-- Confirm the production branch is `main`.
-- Tell me whether **non-production branch builds** are switched on. If they are, pushes to the development branch may have uploaded preview *versions* of the live Worker. Those versions are not live, but we should know.
-
----
-
-When steps 1–6 and 10 are done (plus any optional ones you want), tell me. I'll prepare the exact Phase 4B commands for your approval.
+## Going live is separate
+Nothing here switches the new pages on for the public. That needs your explicit approval:
+both switches on, a live Worker deploy (which applies migration v6) and a real Turnstile widget.
