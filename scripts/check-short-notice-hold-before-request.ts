@@ -7,7 +7,10 @@
  */
 import assert from "node:assert/strict";
 import { configureStripe } from "../workers/addresses/shared/stripe-payments";
-import type { ShortNoticeBookingRecord } from "../workers/addresses/shared/short-notice-booking";
+import {
+  shortNoticeResponseExpiresAtIso,
+  type ShortNoticeBookingRecord,
+} from "../workers/addresses/shared/short-notice-booking";
 import {
   noteShortNoticeHoldAuthorised,
   sweepShortNoticeCardHolds,
@@ -260,6 +263,39 @@ async function main() {
     assert.equal(owner.length, 0);
     assert.ok(stripeCalls.some((c) => c.includes("/payment_intents/pi_test_hold/cancel")));
     console.log("ok 5. Late authorisation after the deadline is released");
+  }
+
+  // 6. Respond-by never lands after pickup.
+  {
+    const pickup = { tripDate: "2026-11-11", tripTime: "20:00" }; // GMT, so 20:00Z
+    // Tonight's case: sent 17:08, 4-hour window → was 21:08; now 19:00 (1 hour before pickup).
+    assert.equal(
+      shortNoticeResponseExpiresAtIso("2026-11-11T17:08:00Z", 4, pickup),
+      "2026-11-11T19:00:00.000Z",
+    );
+    // Plenty of time: the normal window applies.
+    assert.equal(
+      shortNoticeResponseExpiresAtIso("2026-11-11T12:00:00Z", 4, pickup),
+      "2026-11-11T16:00:00.000Z",
+    );
+    // Pickup 70 min away: 15 minutes to answer, not "already expired".
+    assert.equal(
+      shortNoticeResponseExpiresAtIso("2026-11-11T18:50:00Z", 4, pickup),
+      "2026-11-11T19:05:00.000Z",
+    );
+    // Pickup 10 min away: never past pickup.
+    assert.equal(
+      shortNoticeResponseExpiresAtIso("2026-11-11T19:50:00Z", 4, pickup),
+      "2026-11-11T20:00:00.000Z",
+    );
+    // Summer time: 20:00 BST = 19:00Z.
+    assert.equal(
+      shortNoticeResponseExpiresAtIso("2026-07-01T16:00:00Z", 4, { tripDate: "2026-07-01", tripTime: "20:00" }),
+      "2026-07-01T18:00:00.000Z",
+    );
+    // No pickup given: unchanged behaviour.
+    assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T17:08:00Z", 4), "2026-11-11T21:08:00.000Z");
+    console.log("ok 6. Respond-by is capped at 1 hour before pickup");
   }
 
   console.log("\nshort-notice hold-before-request checks passed");

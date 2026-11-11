@@ -150,7 +150,7 @@ export async function noteShortNoticeHoldAuthorised(input: {
     // Response window runs from when the card was held, not when the form was sent.
     const shortNoticeExpiresAt =
       record.underMinimumNotice && record.shortNoticeExpiresAt
-        ? shortNoticeResponseExpiresAtIso(now, record.shortNoticeConfirmationWindowHours)
+        ? shortNoticeResponseExpiresAtIso(now, record.shortNoticeConfirmationWindowHours, record.booking)
         : record.shortNoticeExpiresAt;
     const released: ShortNoticeBookingRecord = {
       ...record,

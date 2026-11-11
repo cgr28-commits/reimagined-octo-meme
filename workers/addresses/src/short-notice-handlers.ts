@@ -789,7 +789,7 @@ async function createMinibusNoticeRequest(
   const createdAt = now.toISOString();
   const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
   const shortNoticeExpiresAt = underMinimumNotice
-    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours, options.booking)
     : undefined;
   const record: ShortNoticeBookingRecord = {
     reference,
@@ -924,7 +924,7 @@ export async function createShortNoticeRequest(options: {
   const createdAt = now.toISOString();
   const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
   const shortNoticeExpiresAt = underMinimumNotice
-    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours, options.booking)
     : undefined;
 
   const record: ShortNoticeBookingRecord = {
