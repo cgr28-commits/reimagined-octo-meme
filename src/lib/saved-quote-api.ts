@@ -15,7 +15,10 @@ const WORKER_BASE = resolveWorkerBaseUrl();
 export type { SavedQuotePublicSummary, SavedQuoteJourneySnapshot, SavedQuotePricingSnapshot };
 
 export type SaveQuoteRequest = {
-  channel?: "email" | "whatsapp";
+  /** "whatsapp_send": we message the link to `mobile`. "whatsapp": customer shares it themselves. */
+  channel?: "email" | "whatsapp" | "whatsapp_send";
+  /** Mobile to message the quote link to (channel "whatsapp_send"). */
+  mobile?: string;
   customerName: string;
   customerEmail: string;
   journey: SavedQuoteJourneySnapshot;
@@ -37,6 +40,9 @@ export type SaveQuoteResult = {
   email: string;
   emailSent: boolean;
   emailError?: string;
+  /** Channel "whatsapp_send": whether our WhatsApp message was accepted for sending. */
+  whatsappSent?: boolean;
+  whatsappToSuffix?: string;
   quoteUrl: string;
   /** True when a fixed-price booking link is held (journey had a pickup date and time). */
   priceHeld?: boolean;
