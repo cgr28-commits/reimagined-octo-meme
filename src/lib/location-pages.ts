@@ -79,11 +79,11 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Belfast International Airport",
     shortName: "Belfast International",
     title: "Belfast International Airport Taxi & Transfers",
-    seoTitle: "Belfast International Airport Taxi & Transfers (Aldergrove) | 5★",
+    seoTitle: "Belfast Airport Taxi | Belfast International (Aldergrove) | 5★",
     metaDescription:
-      "Belfast International Airport taxi to or from Aldergrove, pre-booked at a fixed price from Belfast and across NI. Flight tracking, 60 mins free waiting. 5★ on Google.",
+      "Belfast Airport taxi to or from Belfast International (Aldergrove), pre-booked at a fixed price. Flight tracking, 60 mins free waiting. Rated 5★ on Google.",
     intro:
-      `Book a taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
+      `Book a Belfast Airport taxi to or from Belfast International Airport (BFS), also known as Aldergrove. We collect from homes and hotels in Belfast, Newtownabbey, Antrim, Lisburn and the surrounding towns, and provide airport pickups for the journey home. Enter your addresses, passengers and suitcases for a fixed-price online quote, then add your travel date and time when booking. Applicable airport access charges are included in the quoted total. Choose a car or 7 Seater Minibus when available. ${FLIGHT_MONITORING_SHORT}`,
     highlights: [
       "Fixed online prices for cars and 7 Seater Minibus when available",
       "Up to 60 minutes complimentary waiting time on airport pickups",
