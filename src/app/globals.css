@@ -6773,7 +6773,8 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
 /* Design 3 (phones and tablets): "Send me my quote" — opens the box that sends the quote link
    to the customer's WhatsApp or email so they can finish booking later. */
 @layer base {
-  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote] {
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote],
+  html:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions button[data-d3-send-quote][data-d3-send-quote] {
     display: flex !important; align-items: center; justify-content: center; gap: .5rem;
     width: 100%; min-height: 48px; margin-top: .75rem; padding: .5rem 1rem;
     border: 1.5px solid #94a3b8 !important; border-radius: .9rem; background: #fff !important;
