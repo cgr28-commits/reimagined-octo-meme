@@ -45,7 +45,23 @@ const stamp = Date.now();
 const email = `cloud-test-${stamp}@example.com`;
 const inYears = (n: number) => `${new Date().getUTCFullYear() + n}-06-30`;
 
+/**
+ * A freshly set Worker secret takes a short while to reach every Cloudflare location.
+ * Wait until the owner key is accepted 10 times in a row before testing.
+ */
+async function waitForOwnerKey(): Promise<void> {
+  let streak = 0;
+  for (let i = 0; i < 120 && streak < 10; i++) {
+    const r = await call("GET", "/owner/driver-accounts", undefined, owner);
+    streak = r.status === 200 ? streak + 1 : 0;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  if (streak < 10) throw new Error("Staging owner key was not accepted consistently after 4 minutes.");
+  console.log("Staging owner key active everywhere; starting tests.");
+}
+
 async function main() {
+  await waitForOwnerKey();
   let driverId = "";
   let invite = "";
   let session = "";
