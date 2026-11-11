@@ -58,6 +58,8 @@ export type ShortNoticeRequestReceivedEmailDetails = {
   noticeHours?: number;
   holdReasons?: PaymentHoldReason[];
   minibusNotice?: boolean;
+  /** Card already held for the fare (Stripe short-notice hold). */
+  cardHeld?: boolean;
 };
 
 export function buildShortNoticeRequestReceivedEmail(
@@ -67,26 +69,36 @@ export function buildShortNoticeRequestReceivedEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = details.minibusNotice
     ? MINIBUS_NOTICE_HEADING
-    : "We’ve received your booking request";
+    : details.cardHeld
+      ? "We’ve received your booking — we’ll confirm shortly"
+      : "We’ve received your booking request";
   const noticeHours = details.noticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
   const luggageHold = hasLuggageCapacityHold(details.holdReasons);
   const reasonParagraph = luggageHold
     ? LUGGAGE_CAPACITY_RECEIVED_BODY
     : details.minibusNotice
       ? MINIBUS_NOTICE_BODY
-      : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
+      : details.cardHeld
+        ? `Your journey is within our ${noticeHours}-hour short-notice period, so we’re just checking a driver is free. We’ll confirm your booking shortly.`
+        : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
+  const paymentLine = details.cardHeld
+    ? `Your card is held for ${details.amountLabel} — nothing is charged until we confirm. If we’re unable to complete your booking, the funds are released right away.`
+    : "No payment has been taken.";
+  const nextLine = details.cardHeld
+    ? "You’ll get your booking confirmation by email as soon as we confirm."
+    : "We’ll email you once your request has been reviewed.";
 
   const text =
     `Hi ${firstName},\n\n` +
-    `Thanks for your booking request.\n\n` +
+    `${details.cardHeld ? "Thanks for your booking." : "Thanks for your booking request."}\n\n` +
     `${reasonParagraph}\n\n` +
     `Journey\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
     `${journeyWhen(details.tripDate, details.tripTime)}\n` +
     `Quoted price: ${details.amountLabel}\n` +
     `Request reference: ${details.reference}\n\n` +
-    `We’ll email you once your request has been reviewed.\n\n` +
-    `No payment has been taken.\n\n` +
+    `${nextLine}\n\n` +
+    `${paymentLine}\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
     `Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_WHATSAPP_TEXT_ROUTE}\n` +
@@ -109,20 +121,20 @@ ${businessEmailClientMeta()}
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">We’ve received your booking request</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(subject)}</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
-              <p style="margin:0 0 16px;">Thanks for your booking request.</p>
+              <p style="margin:0 0 16px;">${details.cardHeld ? "Thanks for your booking." : "Thanks for your booking request."}</p>
               <p style="margin:0 0 16px;">${escapeHtml(reasonParagraph)}</p>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
               <p style="margin:0 0 8px;">${escapeHtml(journeyWhen(details.tripDate, details.tripTime))}</p>
               <p style="margin:0 0 8px;"><strong style="color:${NAVY};">Quoted price:</strong> ${escapeHtml(details.amountLabel)}</p>
               <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
-              <p style="margin:0 0 16px;">We’ll email you once your request has been reviewed.</p>
-              <p style="margin:0;">No payment has been taken.</p>
+              <p style="margin:0 0 16px;">${escapeHtml(nextLine)}</p>
+              <p style="margin:0;">${escapeHtml(paymentLine)}</p>
               <p style="margin:20px 0 0;"><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>

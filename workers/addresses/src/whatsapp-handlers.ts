@@ -90,7 +90,8 @@ import {
 import { claudeLedClient } from "./whatsapp-claude-led";
 import { voiceAddressMatchScore } from "../shared/voice-address-search";
 import { collectVoiceAddressSuggestions } from "./voice-address";
-import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
+import { isBelowMinimumShortNoticeLead, isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { isPickupTooSoonForOwnerOvernight } from "../shared/owner-quiet-hours";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { formatExpressDropOffGbp, resolveExpressDropOff } from "../shared/express-drop-off";
 import { getBookingSettings } from "./booking-settings-store";
@@ -1120,7 +1121,7 @@ type AvailabilityResult =
   | {
       ok: false;
       leg: WhatsAppJourneyLeg;
-      reason: "booked" | "closed" | "notice";
+      reason: "booked" | "closed" | "notice" | "overnight";
       text: string;
       buttons?: WhatsAppReplyButton[];
     };
@@ -1158,6 +1159,25 @@ export async function checkWhatsAppAvailability(
             reason: "notice",
             noticeHours: settings.minimumShortNoticeLeadHours,
             hasAlternatives: false,
+          }),
+        };
+      }
+      // Overnight (22:00–07:00) the owner can't confirm an early short-notice pickup in time.
+      if (
+        leg === "outbound" &&
+        isWithinMinimumBookingNotice(date, time, now, settings.minimumBookingNoticeHours) &&
+        isPickupTooSoonForOwnerOvernight(date, time, now)
+      ) {
+        return {
+          ok: false,
+          leg,
+          reason: "overnight",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "overnight",
+            hasAlternatives: false,
+            now,
           }),
         };
       }

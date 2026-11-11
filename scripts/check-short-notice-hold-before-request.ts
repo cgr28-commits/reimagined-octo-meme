@@ -95,7 +95,7 @@ function makeRecord(reference: string, now: Date, expiresInMin: number): ShortNo
       customerPhone: "07000000000",
       pickupLabel: "Portstewart",
       dropoffLabel: "Belfast International Airport",
-      tripDate: "2026-11-11",
+      tripDate: "2027-06-01",
       tripTime: "20:00",
       passengers: 1,
       suitcases: 0,
@@ -143,7 +143,8 @@ async function main() {
   // 1. Card not held yet → hidden, cannot approve, no owner email.
   {
     const store = new MemoryKV();
-    const now = new Date();
+    // Fixed daytime clock (owner awake) so the result doesn't depend on when this runs.
+    const now = new Date("2027-06-01T09:00:00Z");
     const record = makeRecord("SN-A", now, 60);
     await saveShortNoticeBooking(store as never, record);
     await savePendingCheckout(store as never, pending("SN-A"));

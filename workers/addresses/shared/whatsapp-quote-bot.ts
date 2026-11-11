@@ -7,6 +7,7 @@
  * Never invents a fare: prices only come from the Worker's authoritative quote.
  */
 
+import { earliestOvernightPickup } from "./owner-quiet-hours";
 import {
   airportLabel,
   parseAirportCode,
@@ -1149,15 +1150,24 @@ export function buildWhatsAppAlternativeTimeButtons(
 export function buildWhatsAppUnavailableReply(input: {
   leg: WhatsAppJourneyLeg;
   draft: WhatsAppQuoteDraft;
-  reason: "booked" | "closed" | "notice";
+  reason: "booked" | "closed" | "notice" | "overnight";
   message?: string | null;
   noticeHours?: number;
   hasAlternatives: boolean;
+  now?: Date;
 }): string {
   const date = input.leg === "return" ? input.draft.returnDate : input.draft.outboundDate;
   const time = input.leg === "return" ? input.draft.returnTime : input.draft.outboundTime;
   const when = `${time ?? ""}${date ? ` on ${displayDate(date)}` : ""}`.trim();
   const legLabel = input.leg === "return" ? "return pickup" : "pickup";
+  if (input.reason === "overnight") {
+    const earliest = earliestOvernightPickup(input.now ?? new Date());
+    return (
+      `Sorry, we can't confirm a ${legLabel} at ${when} as we're closed overnight (10pm–7am).\n\n` +
+      `The earliest pickup we can take is ${earliest.time}${earliest.tomorrow ? " tomorrow" : ""}. ` +
+      `Please send me that time or later.`
+    );
+  }
   if (input.reason === "notice") {
     return (
       `Sorry, we need at least ${input.noticeHours ?? 24} hours' notice to book online, so we can't confirm a ${legLabel} at ${when}.\n\n` +
