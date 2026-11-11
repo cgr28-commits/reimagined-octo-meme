@@ -3899,7 +3899,6 @@ function QuoteCard({
     if (presentation === "homepage") setHomepagePriceRequested(false);
     handlePickupChange("");
     setPickupPlaceError(TOWN_GUIDE_PICKUP_MESSAGE);
-    setSubmitError(TOWN_GUIDE_PICKUP_MESSAGE);
     window.setTimeout(() => {
       focusFirstInvalidField(cardRef.current ?? document);
     }, 60);
@@ -9607,7 +9606,17 @@ function QuoteCard({
             invoice email.
           </div>
         )}
-        {routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
+        {pickupPlaceError === TOWN_GUIDE_PICKUP_MESSAGE && !routeReconfirmationRequired ? (
+          <p
+            role="alert"
+            data-field-error
+            data-town-guide-address-prompt
+            className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-50"
+          >
+            Nearly there — enter your full pickup address, including the house number, to get your
+            exact price and book.
+          </p>
+        ) : routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
           <div className="space-y-3">
             <p
               role="alert"
