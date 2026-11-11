@@ -8,7 +8,7 @@ import {
   normalizeShortNoticeConfirmationWindowHours,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
 } from "./booking-notice";
-import { formatLondonClockTime } from "./uk-time";
+import { formatLondonClockTime, parseLondonLocalDateTime } from "./uk-time";
 import type { PaymentHoldReason } from "./vehicle-capacity";
 
 export const SHORT_NOTICE_STATUSES = [
@@ -148,6 +148,17 @@ export type ShortNoticeBookingRecord = {
    * charged). Approve → charged and confirmed; decline / expiry → released.
    */
   cardHold?: ShortNoticeCardHold;
+  /**
+   * True while the customer has been sent to the card-hold page but has not
+   * authorised yet. The request is hidden from the Owner Dashboard, cannot be
+   * approved, and the owner is not emailed until the card is held.
+   */
+  awaitingCardHold?: boolean;
+  /**
+   * Owner request email saved at submission and sent once the card is held.
+   * `{{RESPOND_BY}}` is replaced with the response deadline at send time.
+   */
+  deferredOwnerEmail?: { subject: string; body: string };
   /** Set when SumUp checkout is created after approval. */
   checkoutId?: string;
   checkoutReference?: string;
@@ -255,14 +266,35 @@ export const SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE =
 export const SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE =
   "This booking request has expired. No payment has been taken and your journey has not been booked.";
 
+/** Owner must answer at least this long before pickup, so there is time to get there. */
+export const SHORT_NOTICE_RESPONSE_BEFORE_PICKUP_MS = 60 * 60 * 1000;
+/** If pickup is very close, still allow this long to answer (never past pickup). */
+export const SHORT_NOTICE_MIN_RESPONSE_MS = 15 * 60 * 1000;
+
+/**
+ * Response deadline: the confirmation window from `requestedAt`, but never
+ * later than 1 hour before pickup (or, if pickup is very close, 15 minutes
+ * from now — and never after pickup itself).
+ */
 export function shortNoticeResponseExpiresAtIso(
   requestedAt: string | Date,
   windowHours: number = SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+  pickup?: { tripDate: string; tripTime: string },
 ): string {
   const hours = normalizeShortNoticeConfirmationWindowHours(windowHours);
   const requested = requestedAt instanceof Date ? requestedAt : new Date(requestedAt);
   const start = Number.isNaN(requested.getTime()) ? Date.now() : requested.getTime();
-  return new Date(start + hours * SHORT_NOTICE_RESPONSE_WINDOW_MS).toISOString();
+  let deadline = start + hours * SHORT_NOTICE_RESPONSE_WINDOW_MS;
+  const pickupAt = pickup ? parseLondonLocalDateTime(pickup.tripDate, pickup.tripTime) : null;
+  if (pickupAt && !Number.isNaN(pickupAt.getTime())) {
+    const pickupMs = pickupAt.getTime();
+    const latest = Math.max(
+      pickupMs - SHORT_NOTICE_RESPONSE_BEFORE_PICKUP_MS,
+      Math.min(start + SHORT_NOTICE_MIN_RESPONSE_MS, pickupMs),
+    );
+    deadline = Math.min(deadline, latest);
+  }
+  return new Date(deadline).toISOString();
 }
 
 /** Remaining time until the stored deadline. Uses shortNoticeExpiresAt, not the live setting. */
