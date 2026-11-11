@@ -247,21 +247,26 @@ export default function OwnerMobileApp({
       .summary(ownerKey)
       .then(setDriversSummary)
       .catch(() => setDriversSummary(null));
-    const [b, sn, ib, wa] = await Promise.allSettled([
-      fetchOwnerPaidBookings(ownerKey, { mode: "upcoming", pastDays: 1, futureDays: 120, limit: 250 }),
-      fetchShortNoticeBookings(ownerKey),
-      ownerInboxFetch<InboxListResponse>(ownerKey, "/owner/inbox"),
-      fetchWhatsAppChats(ownerKey),
-    ]);
+    // Each part shows as soon as it arrives: bookings never wait for emails or WhatsApp.
     const errors: string[] = [];
-    if (b.status === "fulfilled") setBookings(b.value);
-    else errors.push("bookings");
-    if (sn.status === "fulfilled") setShortNotice(sn.value);
-    else errors.push("short-notice requests");
-    if (ib.status === "fulfilled") setInbox(ib.value);
-    else errors.push("emails");
-    if (wa.status === "fulfilled") setChats(wa.value);
-    else errors.push("WhatsApp chats");
+    const part = <T,>(promise: Promise<T>, apply: (value: T) => void, label: string) =>
+      promise.then(apply).catch(() => {
+        errors.push(label);
+      });
+    const bookingsPart = part(
+      fetchOwnerPaidBookings(ownerKey, { mode: "upcoming", pastDays: 1, futureDays: 120, limit: 250 }),
+      setBookings,
+      "bookings",
+    ).then(() => {
+      setLoaded(true);
+      setNow(new Date());
+    });
+    await Promise.all([
+      bookingsPart,
+      part(fetchShortNoticeBookings(ownerKey), setShortNotice, "short-notice requests"),
+      part(ownerInboxFetch<InboxListResponse>(ownerKey, "/owner/inbox"), setInbox, "emails"),
+      part(fetchWhatsAppChats(ownerKey), setChats, "WhatsApp chats"),
+    ]);
     setLoadErrors(errors);
     setLoaded(true);
     setNow(new Date());
@@ -633,7 +638,7 @@ function HomeScreen({
 
   return (
     <>
-      <header className={styles.heroHeader}>
+      <div data-owner-mobile-header className={styles.heroHeader}>
         <div className={styles.heroTop}>
           <div>
             <p className={styles.heroDate}>{londonLongDate(now)}</p>
@@ -672,7 +677,7 @@ function HomeScreen({
             <span className={styles.nextMeta}>{loaded ? "No upcoming pickups booked." : "Loading…"}</span>
           </div>
         )}
-      </header>
+      </div>
 
       <main className={styles.main}>
         {driverAlert}
@@ -891,7 +896,7 @@ function BookingsScreen({
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.pageTitleRow}>
           <h1 className={styles.pageTitle}>Bookings</h1>
           <div style={{ display: "flex", gap: 8 }}>
@@ -941,7 +946,7 @@ function BookingsScreen({
             ))}
           </div>
         ) : null}
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 10 }}>
         {!loaded ? <p className={styles.empty}>Loading bookings…</p> : null}
         {loaded && shown.length === 0 ? (
@@ -1002,14 +1007,14 @@ function BookingDetail({
   if (!booking || !leg) {
     return (
       <>
-        <header className={styles.pageHeader}>
+        <div data-owner-mobile-header className={styles.pageHeader}>
           <div className={styles.backRow}>
             <button type="button" className={styles.backButton} onClick={onBack}>
               <BackIcon size={24} />
               Back
             </button>
           </div>
-        </header>
+        </div>
         <p className={styles.empty}>This booking is no longer in the list. It may have been cancelled or moved.</p>
       </>
     );
@@ -1029,7 +1034,7 @@ function BookingDetail({
 
   return (
     <>
-      <header className={styles.detailHeader}>
+      <div data-owner-mobile-header className={styles.detailHeader}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <button type="button" className={`${styles.backButton} ${styles.detailBack}`} onClick={onBack}>
             <BackIcon size={24} />
@@ -1087,7 +1092,7 @@ function BookingDetail({
             Navigate
           </a>
         </div>
-      </header>
+      </div>
 
       <main className={styles.main} style={{ gap: 12, paddingBottom: 140 }}>
         <section aria-label="Journey" className={`${styles.card} ${styles.cardPad}`} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1227,7 +1232,8 @@ function InboxScreen({
   onOpenEmailSetup: () => void;
 }) {
   const [channel, setChannel] = useState<Channel>("all");
-  const [filter, setFilter] = useState<"none" | "unread" | "reply">("none");
+  const [filter, setFilter] = useState<"none" | "unread" | "reply" | "system">("none");
+  const systemCount = messages.filter((m) => m.system).length;
   const [query, setQuery] = useState("");
   const unreadBy = (c: Channel) => messages.filter((m) => m.unread && (c === "all" || m.channel === c)).length;
   const shown = messages.filter((m) => {
@@ -1235,13 +1241,15 @@ function InboxScreen({
     if (filter === "unread" && !m.unread) return false;
     if (filter === "reply" && !m.needsReply) return false;
     const q = query.trim().toLowerCase();
+    // Automatic emails live under their own filter (and still turn up in search).
+    if (filter === "system" ? !m.system : m.system && !q) return false;
     if (q && ![m.name, m.subject, m.preview, m.bookingRef].filter(Boolean).join(" ").toLowerCase().includes(q)) return false;
     return true;
   });
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.pageTitleRow}>
           <div>
             <h1 className={styles.pageTitle}>Inbox</h1>
@@ -1280,6 +1288,7 @@ function InboxScreen({
             [
               ["unread", "Unread"],
               ["reply", "Needs reply"],
+              ["system", systemCount ? `Automatic (${systemCount})` : "Automatic"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -1296,7 +1305,7 @@ function InboxScreen({
             Archive &amp; email settings
           </button>
         </div>
-      </header>
+      </div>
 
       {inbox && !inbox.connected ? (
         <button type="button" className={`${styles.notice} ${styles.amber}`} style={{ margin: "12px 16px 0", border: 0, textAlign: "left", width: "calc(100% - 32px)", cursor: "pointer" }} onClick={onOpenEmailSetup}>
@@ -1467,7 +1476,7 @@ function EmailThread({
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.backRow}>
           <button type="button" className={styles.backButton} onClick={onBack}>
             <BackIcon size={24} />
@@ -1487,7 +1496,7 @@ function EmailThread({
             </span>
           ) : null}
         </div>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 10 }}>
         {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
         {!data && !error ? <p className={styles.empty}>Loading…</p> : null}
@@ -1671,7 +1680,7 @@ function WhatsAppThread({
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.backRow} style={{ justifyContent: "space-between" }}>
           <button type="button" className={styles.backButton} onClick={onBack}>
             <BackIcon size={24} />
@@ -1694,7 +1703,7 @@ function WhatsAppThread({
             </span>
           ) : null}
         </div>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 10, paddingBottom: 200 }}>
         {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
         {!chat && !error ? <p className={styles.empty}>Loading…</p> : null}
@@ -1846,7 +1855,7 @@ function CustomersScreen({
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.pageTitleRow}>
           <div>
             <h1 className={styles.pageTitle}>Customers</h1>
@@ -1858,7 +1867,7 @@ function CustomersScreen({
           <span className={styles.srOnly}>Search customers</span>
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, email, phone or reference" enterKeyHint="search" />
         </label>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 0, padding: 0 }}>
         {error ? <div className={`${styles.notice} ${styles.red}`} style={{ margin: 16 }}>{error}</div> : null}
         {all && shown.length === 0 ? <p className={styles.empty}>No customers match that.</p> : null}
@@ -1930,7 +1939,7 @@ function CustomerProfile({
 
   return (
     <>
-      <header className={styles.pageHeader} style={{ borderRadius: "0 0 28px 28px" }}>
+      <div data-owner-mobile-header className={styles.pageHeader} style={{ borderRadius: "0 0 28px 28px" }}>
         <div className={styles.backRow}>
           <button type="button" className={styles.backButton} onClick={onBack}>
             <BackIcon size={24} />
@@ -1969,7 +1978,7 @@ function CustomerProfile({
             </a>
           )}
         </div>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 12 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
           <div className={styles.stat}>
@@ -2094,11 +2103,11 @@ function MoreScreen({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.pageTitleRow}>
           <h1 className={styles.pageTitle}>More</h1>
         </div>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 14 }}>
         {onOpenDrivers ? (
           <section className={styles.card} style={{ overflow: "hidden" }}>

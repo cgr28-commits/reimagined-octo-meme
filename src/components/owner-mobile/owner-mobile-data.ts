@@ -83,6 +83,8 @@ export type MobileMessageItem = {
   unread: boolean;
   /** The customer spoke last and nobody has answered yet. */
   needsReply: boolean;
+  /** Automatic email from our own systems (reports, confirmations, alerts) — never counted as waiting. */
+  system?: boolean;
   bookingRef?: string;
   /** WhatsApp only: when the free-reply window closes (ISO), or null if it already has. */
   replyWindowClosesAt?: string | null;
@@ -178,6 +180,26 @@ export function whatsAppReplyWindowClosesAt(chat: MobileWhatsAppChat, now: Date)
   return closes > now.getTime() ? new Date(closes).toISOString() : null;
 }
 
+const OWN_EMAIL_DOMAIN = "myairporttaxini.co.uk";
+/** Automated senders whose alerts still deserve attention (e.g. a missed phone call). */
+const ATTENTION_SENDER_DOMAINS = ["fonio.ai"];
+
+/**
+ * True for automatic emails: anything sent by our own website/mailbox (quote reports, "quote viewed",
+ * booking confirmations copied to the office) and no-reply senders. A customer's contact-form
+ * message arrives with the customer's address, so it is not a system email.
+ */
+export function isSystemEmailSender(email: string): boolean {
+  const address = email.trim().toLowerCase();
+  const at = address.lastIndexOf("@");
+  if (at < 1) return false;
+  const local = address.slice(0, at);
+  const domain = address.slice(at + 1);
+  if (ATTENTION_SENDER_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) return false;
+  if (domain === OWN_EMAIL_DOMAIN || domain.endsWith(`.${OWN_EMAIL_DOMAIN}`)) return true;
+  return /^(no-?reply|do-?not-?reply|donotreply|notifications?|mailer-daemon|postmaster|bounces?)([+._-].*)?$/.test(local);
+}
+
 export function buildMessageItems(
   threads: MobileInboxThread[],
   chats: MobileWhatsAppChat[],
@@ -185,18 +207,23 @@ export function buildMessageItems(
 ): MobileMessageItem[] {
   const email: MobileMessageItem[] = threads
     .filter((thread) => !thread.archived)
-    .map((thread) => ({
-      id: `email:${thread.threadKey}`,
-      channel: "email",
-      name: thread.counterpartName?.trim() || thread.counterpartEmail,
-      subject: thread.subject,
-      preview: thread.lastSnippet,
-      at: thread.lastAt,
-      unread: thread.unread > 0,
-      needsReply: thread.lastDirection === "in",
-      bookingRef: thread.bookingRef,
-      threadKey: thread.threadKey,
-    }));
+    .map((thread) => {
+      const system = isSystemEmailSender(thread.counterpartEmail);
+      return {
+        id: `email:${thread.threadKey}`,
+        channel: "email" as const,
+        name: thread.counterpartName?.trim() || thread.counterpartEmail,
+        subject: thread.subject,
+        preview: thread.lastSnippet,
+        at: thread.lastAt,
+        // System emails never count as unread or waiting for a reply.
+        unread: !system && thread.unread > 0,
+        needsReply: !system && thread.lastDirection === "in",
+        ...(system ? { system: true } : {}),
+        bookingRef: thread.bookingRef,
+        threadKey: thread.threadKey,
+      };
+    });
   const whatsapp: MobileMessageItem[] = chats.map((chat) => {
     const closes = whatsAppReplyWindowClosesAt(chat, now);
     return {
