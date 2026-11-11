@@ -45,6 +45,10 @@ class_name = "MeetGreetCoordinator"
 name = "CONSENT_LEDGER"
 class_name = "ConsentLedger"
 
+[[durable_objects.bindings]]
+name = "WHATSAPP_REPLY_RUNNER"
+class_name = "WhatsAppReplyRunner"
+
 # Bespoke Event / Business Class quotes (manual pricing). Added in Phase 1 —
 # public routes stay OFF unless BESPOKE_QUOTES_ENABLED = "1".
 [[durable_objects.bindings]]
@@ -69,10 +73,14 @@ new_sqlite_classes = ["MeetGreetCoordinator"]
 tag = "v4-consent-ledger"
 new_sqlite_classes = ["ConsentLedger"]
 
+[[migrations]]
+tag = "v5-whatsapp-reply-runner"
+new_sqlite_classes = ["WhatsAppReplyRunner"]
+
 # Additive: creates the new class only. Applied by the NEXT production Worker
 # deploy (deploy-worker.yml runs on merge to main) — owner approval required first.
 [[migrations]]
-tag = "v5-bespoke-quote-coordinator"
+tag = "v6-bespoke-quote-coordinator"
 new_sqlite_classes = ["BespokeQuoteCoordinator"]
 
 [build]
@@ -119,6 +127,9 @@ DAILY_QUOTE_REPORT_LONDON_HOUR = "19"
 WHATSAPP_QUICK_CHOICES = "all"
 # WhatsApp: confirm addresses typed without a postcode via Google (full address + postcode). "off" to disable.
 WHATSAPP_ADDRESS_CHECK = "all"
+# WhatsApp: Claude runs the chat (reads every message; prices still only from the quote engine;
+# falls back to the fixed flow if Claude is unavailable). "off" to switch back.
+WHATSAPP_CLAUDE_LED = "all"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
 # 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.

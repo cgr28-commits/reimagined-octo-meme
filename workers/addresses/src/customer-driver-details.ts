@@ -1,6 +1,9 @@
 /**
- * Customer "Your driver details" email, sent once when an ASSIGNED driver
- * (anyone other than the owner) accepts a job.
+ * Customer "Your driver details" email, sent once when an assigned driver
+ * accepts a job, or when the owner assigns the job to himself. When the owner
+ * is the driver, missing details are filled from the owner profile.
+ * Meet & Greet customers also get the "driver waits in arrivals with a name
+ * board" line.
  *
  * Contents: driver first name, driver mobile, vehicle and PARTIAL registration
  * ("CR66 ***"). Never driver pay, surname, driver email or full registration.
@@ -14,6 +17,9 @@
 
 import { buildCustomerDriverDetailsEmail, type BookingJobRecord } from "../shared/booking-job";
 import { getOwnerAccountProfile } from "./owner-profile-store";
+import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
+import { legPickupAirportAccessOption } from "../shared/meet-greet";
+import { matchServedAirportCode } from "../shared/served-airports";
 import { sendDriverDetailsWhatsApp, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { BUSINESS_NAME, trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
 
@@ -35,6 +41,14 @@ export type CustomerDriverDetailsInput = {
   carModel?: string | null;
   carColour?: string | null;
   registration?: string | null;
+  /** Customer bought Meet & Greet for this pick-up. Looked up from the paid booking when omitted. */
+  meetGreet?: boolean;
+  paymentReference?: string | null;
+  /** "any" when the leg is unknown (booking-job accept link). */
+  journeyLeg?: "outbound" | "return" | "any" | null;
+  airportCode?: string | null;
+  /** Owner assigned the job to himself (roster self-assign, no driver email). */
+  ownerIsDriver?: boolean;
 };
 
 export type CustomerDriverDetailsResult =
@@ -77,17 +91,48 @@ export function customerDriverDetailsMarkerKey(jobKey: string, driver: { email?:
   return `customer-driver-details:${jobKey}:${who}`;
 }
 
+/** True when this leg's airport pick-up was booked with Meet & Greet. */
+async function customerBoughtMeetGreet(
+  store: KVNamespace,
+  input: CustomerDriverDetailsInput,
+): Promise<boolean> {
+  // Only airport pick-ups (the pick-up itself must be an airport).
+  const airportCode = matchServedAirportCode(input.pickupLabel ?? "");
+  if (!airportCode) return false;
+  const reference = input.paymentReference?.trim();
+  if (!reference || !paidBookingStoreConfigured(store)) return false;
+  const paid = await getPaidBookingRecord(store, reference).catch(() => null);
+  return legPickupAirportAccessOption(paid, input.journeyLeg, airportCode) === "meet-greet";
+}
+
 export async function sendCustomerDriverDetailsOnAccept(
   env: Env,
   input: CustomerDriverDetailsInput,
 ): Promise<CustomerDriverDetailsResult> {
   const store = env.TRACKING_STORE;
   if (!store) return { sent: false, reason: "no_store" };
+
+  // Owner driving the job himself: fill any blanks from the owner profile.
+  const owner = await getOwnerAccountProfile(store).catch(() => null);
+  const ownerDriving =
+    input.ownerIsDriver === true ||
+    assignedDriverIsOwner({ email: input.driverEmail, mobile: input.driverMobile }, owner);
+  if (ownerDriving && owner) {
+    input = {
+      ...input,
+      driverName: input.driverName?.trim() || owner.displayName,
+      driverEmail: input.driverEmail?.trim() || owner.email,
+      driverMobile: input.driverMobile?.trim() || owner.mobile,
+      carMake: input.carMake?.trim() || owner.make,
+      carModel: input.carModel?.trim() || owner.model,
+      carColour: input.carColour?.trim() || owner.colour,
+      registration: input.registration?.trim() || owner.registration,
+    };
+  }
   if (!input.driverName?.trim() && !input.driverMobile?.trim()) return { sent: false, reason: "no_driver" };
 
-  const owner = await getOwnerAccountProfile(store).catch(() => null);
-  if (assignedDriverIsOwner({ email: input.driverEmail, mobile: input.driverMobile }, owner)) {
-    return { sent: false, reason: "owner" };
+  if (input.meetGreet === undefined) {
+    input = { ...input, meetGreet: await customerBoughtMeetGreet(store, input) };
   }
 
   // WhatsApp copy (independent of email; idempotent per job + driver).
@@ -134,6 +179,7 @@ export async function sendCustomerDriverDetailsOnAccept(
       driverReg: input.registration ?? undefined,
     } as BookingJobRecord,
     businessName: BUSINESS_NAME,
+    meetGreet: input.meetGreet === true,
   });
 
   const result = await trySendBrandedCustomerEmail(env, {

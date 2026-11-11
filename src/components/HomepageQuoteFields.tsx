@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { UserRound, BriefcaseBusiness } from "lucide-react";
+import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/google-maps";
 import {
   INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
+  INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isIncompleteAddressPlace,
   isQuoteReadyPlace,
   venueNameForPlace,
@@ -25,6 +26,8 @@ import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 type JourneyMode = "one-way" | "return";
 
 type HomepageQuoteFieldsProps = {
+  /** Approved mobile Design 2: steppers, swap button, no journey type or schedule on this step. */
+  design2?: boolean;
   homepagePolish?: boolean;
   journeyMode: JourneyMode;
   onJourneyModeChange: (mode: JourneyMode) => void;
@@ -51,8 +54,12 @@ type HomepageQuoteFieldsProps = {
   publicMinibusEnabled: boolean;
   onRequestPrice: () => void;
   quoteReady: boolean;
+  /** Design 3 mobile preview (?mobile=d3). */
+  design3?: boolean;
   /** Drop-off chosen as a street/area with no house number or building name. */
   dropoffNeedsHouseNumber?: boolean;
+  /** Desktop (1200px+): show the house-number prompt directly under the pickup field. */
+  pickupNeedsHouseNumber?: boolean;
   scheduleFields?: ReactNode;
   scheduleComplete?: boolean;
   actionLabel?: string;
@@ -192,7 +199,75 @@ function selectClass(hasError: boolean) {
     : `${base} border-white/32 focus:border-emerald/70 focus:ring-1 focus:ring-inset focus:ring-emerald/35`;
 }
 
+function Design2Stepper({
+  id,
+  label,
+  value,
+  choices,
+  onChange,
+  format,
+  error,
+  allowUnset = false,
+}: {
+  allowUnset?: boolean;
+  id: string;
+  label: string;
+  value: number | null;
+  choices: number[];
+  onChange: (value: number | null) => void;
+  format: (value: number) => string;
+  error: string;
+}) {
+  // allowUnset (Design 3 passengers): no value yet shows 0; minus at the first choice clears it again.
+  const unset = allowUnset && value == null;
+  const current = value ?? choices[0];
+  const index = Math.max(0, choices.indexOf(current));
+  const atMin = unset || (!allowUnset && index <= 0);
+  const atMax = !unset && index >= choices.length - 1;
+  return (
+    <div data-d2-stepper className="min-w-0">
+      <span id={`${id}-label`} data-d2-stepper-label>{label}</span>
+      <div data-d2-stepper-row>
+        <output id={id} aria-labelledby={`${id}-label`} aria-live="polite" data-d2-stepper-value>
+          {unset ? "0" : format(current)}
+        </output>
+        <button
+          type="button"
+          aria-label={`Fewer ${label.toLowerCase()}`}
+          disabled={atMin}
+          onClick={() => onChange(allowUnset && index <= 0 ? null : choices[index - 1])}
+          data-d2-stepper-btn="minus"
+        >
+          <Minus size={18} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label={`More ${label.toLowerCase()}`}
+          disabled={atMax}
+          onClick={() => onChange(unset ? choices[0] : choices[index + 1])}
+          data-d2-stepper-btn="plus"
+        >
+          <Plus size={18} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </div>
+      {error ? (
+        <p className="mt-1 text-xs text-red-600" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+const DESIGN2_BENEFITS = [
+  "Fixed price, no meter",
+  "Flight monitoring",
+  "60 mins free airport waiting",
+  "Free cancellation up to 24 hrs",
+];
+
 export default function HomepageQuoteFields({
+  design2 = false,
   homepagePolish = false,
   journeyMode,
   onJourneyModeChange,
@@ -209,6 +284,7 @@ export default function HomepageQuoteFields({
   onClearPickup,
   onClearDropoff,
   addressLookupCode,
+  onSwap,
   passengers,
   suitcases,
   onPassengersChange,
@@ -218,7 +294,9 @@ export default function HomepageQuoteFields({
   publicMinibusEnabled,
   onRequestPrice,
   quoteReady,
+  design3 = false,
   dropoffNeedsHouseNumber = false,
+  pickupNeedsHouseNumber = false,
   scheduleFields = null,
   scheduleComplete = false,
   actionLabel = "Get My Fixed Price →",
@@ -272,9 +350,9 @@ export default function HomepageQuoteFields({
   }
 
   return (
-    <div data-homepage-quote-fields>
+    <div data-homepage-quote-fields data-d2-fields={design2 ? "" : undefined}>
       <div className="space-y-1" data-homepage-quote-scroll>
-      <div>
+      <div hidden={design2}>
         <p className="form-label mb-1">Journey type</p>
         <div
           role="group"
@@ -306,7 +384,7 @@ export default function HomepageQuoteFields({
             <span className="text-sm font-semibold">Return</span>
             <span
               data-return-discount-note
-              className={`mt-0.5 text-[10px] font-bold tracking-[0.08em] ${
+              className={`mt-0.5 text-[11.5px] font-bold tracking-[0.06em] ${
                 journeyMode === "return" ? "text-[#071c38]" : "text-emerald"
               }`}
             >
@@ -320,8 +398,8 @@ export default function HomepageQuoteFields({
         key={`homepage-pickup-${formResetKey}`}
         id="pickup"
         name="pickup"
-        label="Pickup location"
-        placeholder="Enter pickup address or airport"
+        label={design2 ? "Pickup" : "Pickup location"}
+        placeholder={design2 ? "Address, postcode or airport" : "Enter pickup address or airport"}
         value={pickupAddress}
         onChange={onPickupChange}
         onSelectPlace={onPickupPlaceSelect}
@@ -350,18 +428,32 @@ export default function HomepageQuoteFields({
           </button>
         }
       />
+      {/* Desktop (1200px+) only: address clarification beside its field (hidden below 1200px,
+          where the existing message under the form is unchanged). */}
+      {pickupNeedsHouseNumber ? (
+        <p className="hidden" role="status" data-desktop-address-hint="pickup">
+          {INCOMPLETE_PICKUP_ADDRESS_MESSAGE}
+        </p>
+      ) : null}
       {gpsMessage ? (
         <p className="-mt-1 text-xs leading-snug text-emerald" role="status" data-gps-message>
           {gpsMessage}
         </p>
       ) : null}
 
+      {design2 ? (
+        <div data-d2-swap-row>
+          <button type="button" data-d2-swap aria-label="Swap pickup and drop-off" onClick={onSwap}>
+            <ArrowDownUp size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
       <AddressInput
         key={`homepage-dropoff-${formResetKey}`}
         id="dropoff"
         name="dropoff"
-        label="Drop-off location"
-        placeholder="Enter destination address or airport"
+        label={design2 ? "Drop-off" : "Drop-off location"}
+        placeholder={design2 ? "Where are you going?" : "Enter destination address or airport"}
         value={dropoffAddress}
         onChange={onDropoffChange}
         onSelectPlace={onDropoffPlaceSelect}
@@ -375,9 +467,48 @@ export default function HomepageQuoteFields({
         compactHomepage
         airportCode={addressLookupCode}
       />
+      {dropoffNeedsHouseNumber ? (
+        <p className="hidden" role="status" data-desktop-address-hint="dropoff">
+          {INCOMPLETE_DROPOFF_ADDRESS_MESSAGE}
+        </p>
+      ) : null}
 
+      {design3 ? (
+        <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>
+          <button type="button" aria-pressed={journeyMode !== "return"} onClick={() => onJourneyModeChange("one-way")}>
+            One way
+          </button>
+          <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
+            Return
+            <span data-return-discount-note>Save 5%</span>
+          </button>
+        </div>
+      ) : null}
       {scheduleFields}
 
+      {design2 ? (
+        <div className="grid grid-cols-2 gap-2" id="passenger-luggage-section" data-d2-party>
+          <Design2Stepper
+            id="quote-section-passengers"
+            label="Passengers"
+            value={passengers}
+            choices={passengerChoices}
+            onChange={(value) => onPassengersChange(value)}
+            format={(value) => String(value)}
+            error={passengersError}
+          />
+          <Design2Stepper
+            id="quote-section-suitcases"
+            label="Suitcases"
+            value={suitcases}
+            choices={suitcaseChoices}
+            onChange={(value) => { if (value != null) onSuitcasesChange(value); }}
+            format={(value) => (value >= 5 ? "5+" : String(value))}
+            error={suitcasesError}
+          />
+        </div>
+      ) : null}
+      {!design2 ? (
       <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section">
         <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-passengers" className="form-label mb-1">
@@ -436,6 +567,7 @@ export default function HomepageQuoteFields({
           ) : null}
         </div>
       </div>
+      ) : null}
       {suitcases === 5 && publicMinibusEnabled && capacityConfirmationRequired ? (
         <div className="rounded-xl border border-white/20 p-3 text-xs text-white/85" data-homepage-capacity-check>
           <p>5+ means five or more suitcases. Contact us to confirm that the available 7-Seater can carry your full party and luggage before requesting a price.</p>
@@ -446,7 +578,7 @@ export default function HomepageQuoteFields({
           </label>
         </div>
       ) : null}
-      <p id="homepage-quote-requirements" role="status" className="text-xs leading-snug text-white/75">
+      <p id="homepage-quote-requirements" role="status" className={design2 ? "sr-only" : "text-xs leading-snug text-white/75"}>
         {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)
           ? "The 7-Seater is unavailable. Online quotes currently support up to 4 passengers and 4 suitcases."
           : !pickupConfirmedPlace || !dropoffConfirmedPlace
@@ -474,9 +606,23 @@ export default function HomepageQuoteFields({
             onClick={onRequestPrice}
             className="btn-primary min-h-12 w-full rounded-xl text-base"
           >
-            {actionLabel}
+            {design2 ? "Get My Fixed Price" : actionLabel}
           </button>
-          <QuoteHelpContact className="sm:hidden" />
+          {design2 ? (
+            <>
+              <p data-d2-caption>No payment needed for a quote · Instant price</p>
+              <ul data-d2-benefits>
+                {DESIGN2_BENEFITS.map((item) => (
+                  <li key={item}>
+                    <Check size={16} strokeWidth={2.6} aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <QuoteHelpContact className="sm:hidden" />
+          )}
         </div>
       ) : null}
     </div>

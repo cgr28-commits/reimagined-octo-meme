@@ -1,3 +1,4 @@
+import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -388,6 +389,7 @@ import {
   isBespokeQuotePath,
   runBespokeExpirySweep,
 } from "./bespoke-quote-handlers";
+export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
   coordinatorPeek,
@@ -680,7 +682,7 @@ type Env = {
   REFUND_COORDINATOR?: DurableObjectNamespace;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
-  /** Bespoke Event / Business Class quote records (Durable Object, migration v5). */
+  /** Bespoke Event / Business Class quote records (Durable Object, migration v6). */
   BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
   /** "1" turns on PUBLIC bespoke quote routes. Unset/anything else = off (default). */
   BESPOKE_QUOTES_ENABLED?: string;
@@ -5394,6 +5396,30 @@ export default {
         ...env,
         TRACKING_STORE: env.TRACKING_STORE,
       });
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
+      (url.pathname === "/booking-jobs/send-quote" ||
+        url.pathname === "/api/booking-jobs/send-quote" ||
+        url.pathname.endsWith("/booking-jobs/send-quote")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleBookingJobSendQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
     }

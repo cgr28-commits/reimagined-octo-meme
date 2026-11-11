@@ -4,7 +4,7 @@
  */
 
 import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp, sendTipRequestWhatsApp } from "./whatsapp-templates";
-import { airportPickupContext, airportPickupReminderInput } from "./airport-pickup-reminder-handlers";
+import { airportPickupContext, airportPickupReminderInput, arrivalsMeetingPlace } from "./airport-pickup-reminder-handlers";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
   applyJourneyAction,
@@ -27,6 +27,7 @@ import {
   customerFirstName,
 } from "../shared/booking-notifications";
 import { corsHeaders } from "../shared/google-places";
+import { legPickupAirportAccessOption } from "../shared/meet-greet";
 import { oweDriverPayOnCompletion, mutateDriverPayFields } from "../shared/driver-pay-ledger";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
@@ -135,10 +136,12 @@ export async function sendArrivalNotificationIfNeeded(
       jobKey: job.token,
       customerName: job.customerName || paid?.customerName,
       mobile: job.customerMobile || paid?.mobileNumber,
-      pickupLabel: job.pickupLabel,
-      airport: pickup
-        ? { airportName: pickup.airportName, directions: pickup.directions, linkPath: pickup.linkPath }
-        : null,
+      // Met inside Arrivals (Meet & Greet, Dublin): no map button — plain "arrived" template.
+      pickupLabel: pickup?.meetInArrivals ? arrivalsMeetingPlace(pickup) : job.pickupLabel,
+      airport:
+        pickup && !pickup.meetInArrivals
+          ? { airportName: pickup.airportName, directions: pickup.directions, linkPath: pickup.linkPath }
+          : null,
     });
   }
 
@@ -177,7 +180,9 @@ export async function sendArrivalNotificationIfNeeded(
       pickupLabel: job.pickupLabel,
       isAirportPickup: isAirportPickupJob(job),
       airportCode: job.airportCode ?? paidBooking?.airportCode,
-      airportAccessOption: paidBooking?.airportAccessOption,
+      airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
       expressDropOffSelected: paidBooking?.expressDropOffSelected,
       expressDropOffAirport: paidBooking?.expressDropOffAirport,
       expressDropOffFee: paidBooking?.expressDropOffFee,
@@ -259,7 +264,9 @@ export async function sendOnTheWayNotificationIfNeeded(
       pickupLabel: job.pickupLabel,
       isAirportPickup: isAirportPickupJob(job),
       airportCode: job.airportCode ?? paidBooking?.airportCode,
-      airportAccessOption: paidBooking?.airportAccessOption,
+      airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
     },
     BUSINESS_NAME,
   );
@@ -323,7 +330,9 @@ async function manualCustomerWhatsAppMessage(
     isAirportPickup: isAirportPickupJob(job) || isAirportPickupLabel(job.pickupLabel || ""),
     pickupLabel: job.pickupLabel,
     airportCode,
-    airportAccessOption: paidBooking?.airportAccessOption,
+    airportAccessOption:
+        legPickupAirportAccessOption(paidBooking, job.journeyLeg, job.airportCode ?? paidBooking?.airportCode) ??
+        paidBooking?.airportAccessOption,
     expressDropOffSelected: paidBooking?.expressDropOffSelected,
     expressDropOffAirport: paidBooking?.expressDropOffAirport,
     expressDropOffFee: paidBooking?.expressDropOffFee,

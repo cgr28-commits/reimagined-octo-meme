@@ -41,6 +41,17 @@ const TRANSFER_TITLES_WITHOUT_BRAND_SUFFIX = new Set([
   "whiteabbey-to-belfast-international",
 ]);
 
+/**
+ * Google Ads landing pages: the quote form sits directly under the heading so a
+ * visitor on a phone sees it without scrolling. The long intro moves below it.
+ */
+const QUOTE_FIRST_LEDE: Record<string, string> = {
+  "belfast-to-dublin-airport":
+    "Door to door from your Belfast address to Dublin Airport in around 2 hours. Fixed price before you pay, M1 tolls included.",
+  "dublin-airport-to-belfast":
+    "Met in Arrivals at Dublin Airport and driven door to door to Belfast in around 2 hours. Fixed price, flight tracked, M1 tolls included and up to 60 minutes’ free waiting.",
+};
+
 function transferDocumentTitle(page: { slug: string; title: string }) {
   if (TRANSFER_TITLES_WITHOUT_BRAND_SUFFIX.has(page.slug)) return page.title;
   return `${page.title} | ${SITE.name}`;
@@ -122,6 +133,57 @@ export default async function TransferRoutePage({ params }: Props) {
     areaServed: [page.town.name, page.airport.name, "Northern Ireland"],
   });
   const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
+  const quoteFirstLede = QUOTE_FIRST_LEDE[page.slug];
+  const introDetails = (
+    <>
+      <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
+      {page.airport.code === "DUB" && page.town.slug === "belfast" ? (
+        <p className="mt-4 text-sm leading-relaxed text-white/70">
+          {isFromAirport
+            ? "This is your arrival transfer from Dublin Airport to Belfast. "
+            : "This is your departure transfer from Belfast to Dublin Airport. "}
+          For Terminal 1 and Terminal 2 collection guidance, luggage and booking steps, see our{" "}
+          <Link href="/airports/dublin/" className="text-emerald underline underline-offset-4">Dublin Airport transfer guide</Link>.
+        </p>
+      ) : null}
+      {page.slug === "belfast-to-dublin-airport" || page.slug === "dublin-airport-to-belfast" ? (
+        <div className="mt-5 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-4">
+          <p className="text-sm font-semibold text-white">Travelling for business?</p>
+          <p className="mt-1 text-sm leading-relaxed text-white/75">
+            Upgrade to{" "}
+            <Link href="/transfers/business-class-dublin-airport/" className="font-semibold text-emerald underline underline-offset-4">
+              Business Class between Belfast and Dublin Airport
+            </Link>
+            : a premium executive vehicle, luggage assistance, bottled water and phone charging, with Meet &amp; Greet and a name board when we collect you from Dublin Airport.
+          </p>
+        </div>
+      ) : null}
+      {page.airport.code === "BFS" ? (
+        <p className="mt-4 text-sm leading-relaxed text-white/70">
+          Planning your {page.town.name} journey? Our{" "}
+          <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport transfer guide</Link>{" "}
+          explains departures, Aldergrove pickups and how airport access charges appear in your quote.
+        </p>
+      ) : null}
+      {page.airport.code === "BHD" ? (
+        <p className="mt-4 text-sm leading-relaxed text-white/70">
+          This page covers your {page.town.name} route. For George Best Belfast City Airport (BHD)
+          collection options and help booking an arrival or departure, read our{" "}
+          <Link href="/airports/belfast-city/" className="text-emerald underline underline-offset-4">Belfast City Airport taxi and transfer guide</Link>.
+        </p>
+      ) : null}
+      {isLanding ? (
+        <LandingCtaRow
+          quoteLabel="Get Your Fixed Quote"
+          whatsappMessage={whatsappMessage}
+        />
+      ) : (
+        <div className="mt-6">
+          <LandingPageQuoteCta />
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -141,10 +203,13 @@ export default async function TransferRoutePage({ params }: Props) {
       ) : null}
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS}>
-        <LandingHeroMedia
-          baseName={page.airport.heroBase}
-          alt={page.airport.heroAlt}
-        />
+        {quoteFirstLede ? (
+          <div className="hidden sm:block">
+            <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} />
+          </div>
+        ) : (
+          <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} />
+        )}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {isLanding && page.hubSlug ? (
@@ -187,51 +252,15 @@ export default async function TransferRoutePage({ params }: Props) {
                 : `${page.town.name} · ${page.airport.code}`}
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
-            <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
-            {page.airport.code === "DUB" && page.town.slug === "belfast" ? (
-              <p className="mt-4 text-sm leading-relaxed text-white/70">
-                {isFromAirport
-                  ? "This is your arrival transfer from Dublin Airport to Belfast. "
-                  : "This is your departure transfer from Belfast to Dublin Airport. "}
-                For Terminal 1 and Terminal 2 collection guidance, luggage and booking steps, see our{" "}
-                <Link href="/airports/dublin/" className="text-emerald underline underline-offset-4">Dublin Airport transfer guide</Link>.
-              </p>
-            ) : null}
-            {page.slug === "belfast-to-dublin-airport" || page.slug === "dublin-airport-to-belfast" ? (
-              <div className="mt-5 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-4">
-                <p className="text-sm font-semibold text-white">Travelling for business?</p>
-                <p className="mt-1 text-sm leading-relaxed text-white/75">
-                  Upgrade to{" "}
-                  <Link href="/transfers/business-class-dublin-airport/" className="font-semibold text-emerald underline underline-offset-4">
-                    Business Class between Belfast and Dublin Airport
-                  </Link>
-                  : a premium executive vehicle, luggage assistance, bottled water and phone charging, with Meet &amp; Greet and a name board when we collect you from Dublin Airport.
+            {quoteFirstLede ? (
+              <>
+                <p className="mt-4 text-lg leading-relaxed text-white/80">{quoteFirstLede}</p>
+                <p className="mt-3 text-base font-semibold text-emerald">
+                  From £241. Enter your address below for your exact fixed price.
                 </p>
-              </div>
-            ) : null}
-            {page.airport.code === "BFS" ? (
-              <p className="mt-4 text-sm leading-relaxed text-white/70">
-                Planning your {page.town.name} journey? Our{" "}
-                <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport transfer guide</Link>{" "}
-                explains departures, Aldergrove pickups and how airport access charges appear in your quote.
-              </p>
-            ) : null}
-            {page.airport.code === "BHD" ? (
-              <p className="mt-4 text-sm leading-relaxed text-white/70">
-                This page covers your {page.town.name} route. For George Best Belfast City Airport (BHD)
-                collection options and help booking an arrival or departure, read our{" "}
-                <Link href="/airports/belfast-city/" className="text-emerald underline underline-offset-4">Belfast City Airport taxi and transfer guide</Link>.
-              </p>
-            ) : null}
-            {isLanding ? (
-              <LandingCtaRow
-                quoteLabel="Get Your Fixed Quote"
-                whatsappMessage={whatsappMessage}
-              />
+              </>
             ) : (
-              <div className="mt-6">
-                <LandingPageQuoteCta />
-              </div>
+              introDetails
             )}
             <div className="mt-5">
               <GoogleReviewsBadge />
@@ -245,6 +274,10 @@ export default async function TransferRoutePage({ params }: Props) {
           addressHint={page.town.addressHint}
           heading={quoteHeading}
         />
+
+        {quoteFirstLede ? (
+          <div className="mx-auto mb-8 max-w-3xl px-4 sm:px-6 lg:px-8">{introDetails}</div>
+        ) : null}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <section className="mb-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">

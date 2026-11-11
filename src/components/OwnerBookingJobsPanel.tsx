@@ -11,6 +11,7 @@ import {
   fetchOwnerBookingJobs,
   fetchOwnerQuoteStats,
   markBookingJobPaid,
+  sendBookingJobQuote,
   type OwnerQuoteStats,
 } from "@/lib/booking-jobs-api";
 import { buildWhatsAppDriverDetailsLink } from "@/lib/tracking-api";
@@ -55,6 +56,17 @@ function statusBadge(job: BookingJobRecord): { label: string; className: string 
   };
 }
 
+const QUOTE_VALIDITY_OPTIONS_MINUTES = [60, 120, 720, 1440] as const;
+const QUOTE_VALIDITY_DEFAULT_MINUTES = 1440;
+
+function quoteValidityLabel(minutes: number): string {
+  if (minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return hours === 1 ? "1 hour" : `${hours} hours`;
+  }
+  return `${minutes} min`;
+}
+
 export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPanelProps) {
   const [funnelDay, setFunnelDay] = useState("");
   const [jobs, setJobs] = useState<BookingJobRecord[]>([]);
@@ -65,6 +77,11 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
   const [paidAmountById, setPaidAmountById] = useState<Record<string, string>>({});
   const [paymentRefById, setPaymentRefById] = useState<Record<string, string>>({});
   const [awaitingOpen, setAwaitingOpen] = useState(false);
+  const [quotePriceById, setQuotePriceById] = useState<Record<string, string>>({});
+  const [quoteValidityById, setQuoteValidityById] = useState<Record<string, number>>({});
+  const [quoteNoticeById, setQuoteNoticeById] = useState<
+    Record<string, { tone: "ok" | "warn" | "error"; text: string; payUrl?: string }>
+  >({});
   const [assignDraftById, setAssignDraftById] = useState<
     Record<
       string,
@@ -178,6 +195,66 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
       setJobs((prev) => prev.map((item) => (item.id === job.id ? updated : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark paid");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function handleSendQuote(job: BookingJobRecord) {
+    const raw = (quotePriceById[job.id] ?? "").replace(/[£,\s]/g, "");
+    const price = Number(raw);
+    if (!raw || !Number.isFinite(price) || price < 1) {
+      setQuoteNoticeById((prev) => ({
+        ...prev,
+        [job.id]: { tone: "error", text: "Enter the fare in pounds, e.g. 185" },
+      }));
+      return;
+    }
+    const validityMinutes = quoteValidityById[job.id] ?? QUOTE_VALIDITY_DEFAULT_MINUTES;
+    const priceLabel = `£${price.toFixed(2)}`;
+    const ok = window.confirm(
+      `Email ${job.customerName} a price of ${priceLabel} with a card payment link` +
+        ` (valid ${quoteValidityLabel(validityMinutes)})?\n\nSends to ${job.customerEmail}`,
+    );
+    if (!ok) return;
+
+    setBusyId(job.id);
+    setQuoteNoticeById((prev) => {
+      const next = { ...prev };
+      delete next[job.id];
+      return next;
+    });
+    try {
+      const result = await sendBookingJobQuote(ownerKey, {
+        id: job.id,
+        quotedPrice: price,
+        validityMinutes,
+      });
+      setJobs((prev) => prev.map((item) => (item.id === job.id ? result.job : item)));
+      setQuoteNoticeById((prev) => ({
+        ...prev,
+        [job.id]: result.paymentEmailSent
+          ? {
+              tone: "ok",
+              text: `Price ${priceLabel} emailed to ${job.customerEmail}. It moves to Paid by itself when they pay.`,
+              payUrl: result.payUrl,
+            }
+          : {
+              tone: "warn",
+              text: `Price saved, but the email did not send${
+                result.paymentEmailError ? ` (${result.paymentEmailError})` : ""
+              }. Copy the payment link below and send it by WhatsApp.`,
+              payUrl: result.payUrl,
+            },
+      }));
+    } catch (err) {
+      setQuoteNoticeById((prev) => ({
+        ...prev,
+        [job.id]: {
+          tone: "error",
+          text: err instanceof Error ? err.message : "Could not send the price",
+        },
+      }));
     } finally {
       setBusyId("");
     }
@@ -388,6 +465,104 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                     <dd>{bookingJobAssignmentLabel(job.driverAssignmentStatus)}</dd>
                   </div>
                 </dl>
+
+                {job.status === "awaiting_payment" ? (
+                  <div className="mt-4 rounded-xl border border-emerald/40 bg-emerald/[0.07] p-4">
+                    <p className="text-sm font-bold text-white">
+                      {job.sentQuoteAt ? "Price sent" : "Send price to customer"}
+                    </p>
+                    {job.sentQuoteAt ? (
+                      <p className="mt-1 text-xs text-white/65">
+                        {job.sentQuotePriceLabel ?? "Price"} sent
+                        {job.sentQuoteAt ? ` ${formatUkInstant(job.sentQuoteAt)}` : ""}
+                        {job.sentQuoteExpiresAt
+                          ? ` · valid until ${formatUkInstant(job.sentQuoteExpiresAt)}`
+                          : ""}
+                        {" "}· Ref {job.sentQuoteReference}. Send again to change the price or give
+                        them more time.
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-white/65">
+                        Type your fare. We email {job.customerEmail || "the customer"} the price and a
+                        card payment link.
+                      </p>
+                    )}
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <label className="text-xs text-white/50">
+                        Price (£)
+                        <input
+                          inputMode="decimal"
+                          value={quotePriceById[job.id] ?? ""}
+                          onChange={(event) =>
+                            setQuotePriceById((prev) => ({ ...prev, [job.id]: event.target.value }))
+                          }
+                          placeholder="185"
+                          className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-base text-white outline-none focus:border-emerald"
+                        />
+                      </label>
+                      <label className="text-xs text-white/50">
+                        Price held for
+                        <select
+                          value={quoteValidityById[job.id] ?? QUOTE_VALIDITY_DEFAULT_MINUTES}
+                          onChange={(event) =>
+                            setQuoteValidityById((prev) => ({
+                              ...prev,
+                              [job.id]: Number(event.target.value),
+                            }))
+                          }
+                          className="mt-1 min-h-11 w-full rounded-xl border border-white/15 bg-navy px-3 py-2 text-base text-white outline-none focus:border-emerald"
+                        >
+                          {QUOTE_VALIDITY_OPTIONS_MINUTES.map((minutes) => (
+                            <option key={minutes} value={minutes}>
+                              {quoteValidityLabel(minutes)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          disabled={busyId === job.id}
+                          onClick={() => void handleSendQuote(job)}
+                          className="min-h-11 w-full rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light disabled:opacity-60"
+                        >
+                          {busyId === job.id
+                            ? "Sending…"
+                            : job.sentQuoteAt
+                              ? "Send new price"
+                              : "Send price"}
+                        </button>
+                      </div>
+                    </div>
+                    {quoteNoticeById[job.id] ? (
+                      <div
+                        role="status"
+                        className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                          quoteNoticeById[job.id].tone === "ok"
+                            ? "bg-emerald/15 text-emerald"
+                            : quoteNoticeById[job.id].tone === "warn"
+                              ? "bg-amber-400/15 text-amber-200"
+                              : "bg-red-500/15 text-red-200"
+                        }`}
+                      >
+                        <p>{quoteNoticeById[job.id].text}</p>
+                        {quoteNoticeById[job.id].payUrl ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void navigator.clipboard
+                                ?.writeText(quoteNoticeById[job.id].payUrl ?? "")
+                                .catch(() => undefined)
+                            }
+                            className="mt-2 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white"
+                          >
+                            Copy payment link
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {job.status === "awaiting_payment" ? (
                   <div className="mt-4 grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-3">

@@ -37,11 +37,11 @@ try {
     await page.locator('#quote-section-passengers').selectOption('2');
     await page.locator('#quote-section-suitcases').selectOption('0');
     await page.getByRole('button',{name:'Get My Fixed Price →',exact:true}).last().click();
-    await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+    await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(),/£[\d,]+/);
     await page.locator('[data-quote-results="ready"]').scrollIntoViewIfNeeded();
     await page.screenshot({path:`test-results/greater-belfast-ireland/${engine}/${width}-${destination}.png`});
-    await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+    await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
     await page.locator('#name').waitFor({state:'visible'});
     assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
     assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);

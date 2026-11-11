@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import BookQuoteCustomerClient from "./BookQuoteCustomerClient";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
   title: "Confirm your quote | My Airport Taxi NI",
@@ -15,7 +16,9 @@ export const metadata: Metadata = {
  */
 export default function BookQuotePage() {
   return (
-    <main className="min-h-screen min-w-0 max-w-[100%] overflow-x-clip bg-navy px-3 py-8 text-white sm:px-6 sm:py-10">
+    <>
+    <StandaloneBrandBar />
+    <main data-customer-standalone className="min-h-screen min-w-0 max-w-[100%] overflow-x-clip bg-navy px-3 py-8 text-white sm:px-6 sm:py-10">
       <div className="mx-auto mb-6 w-full min-w-0 max-w-lg px-0 text-center sm:mb-8">
         <Link href="/" aria-label="My Airport Taxi NI — home" className="inline-block">
           <Logo className="mx-auto h-20 w-auto" priority />
@@ -25,5 +28,6 @@ export default function BookQuotePage() {
       </div>
       <BookQuoteCustomerClient />
     </main>
+    </>
   );
 }

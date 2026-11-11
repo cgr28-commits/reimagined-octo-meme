@@ -162,7 +162,9 @@
     "check:owner-key-not-in-url": "npx tsx scripts/check-owner-key-not-in-url.ts",
     "check:bespoke-payment": "npx tsx scripts/check-bespoke-payment.ts",
     "check:bespoke-isolation": "npx tsx scripts/check-bespoke-isolation.ts",
-    "check:bespoke-preview": "npx tsx scripts/check-bespoke-preview.ts"
+    "check:bespoke-preview": "npx tsx scripts/check-bespoke-preview.ts",
+    "check:owner-name-board": "npx tsx scripts/check-owner-name-board.ts",
+    "check:owner-name-board-browser": "npx tsx scripts/check-owner-name-board-browser.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

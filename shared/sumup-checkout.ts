@@ -13,6 +13,8 @@ export type SumUpCheckoutRequest = {
   redirectUrl: string;
   /** Server webhook URL SumUp POSTs when checkout status changes. */
   returnUrl?: string;
+  /** Extra labels shown on the payment in Stripe (ignored by SumUp). */
+  metadata?: Record<string, string>;
 };
 
 export type SumUpCheckoutResult = {

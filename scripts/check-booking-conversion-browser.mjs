@@ -71,7 +71,7 @@ async function quote(url,width,total=68,enabled=true,collection=false,returnTrip
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  if(returnTrip) { await page.locator('#returnDate').fill(new Date(Date.now()+9*86400000).toISOString().slice(0,10));await page.locator('#returnTime').fill('12:00'); }
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
- await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+ await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
  // WebKit can expose the ready text before its final font/layout paint.
  // Use the same resource + rendering-frame barrier as the vehicle stability test.
@@ -93,14 +93,18 @@ try {
   assert.match(await card.innerText(),/£68/);
   const visible=card.locator('[data-quote-changing-info]');
   assert.doesNotMatch(await visible.innerText(),/Cancel 24\+ hours before pickup for a 100% refund/);
-  assert.match(await visible.innerText(),/Fixed Fares · Secure Booking/);
+  // Desktop (1200px+) shows these assurances in the summary panel's "included" list instead.
+  if(width<1200) assert.match(await visible.innerText(),/Fixed Fares · Secure Booking/);
+  else assert.match(await card.innerText(),/Fixed price, confirmed before you pay/);
   assert.doesNotMatch(await visible.innerText(),/Complimentary Waiting Time/);
   assert.doesNotMatch(await visible.innerText(),/Terminal pick-up included|60 Minutes Airport Waiting|Your own pre-booked transfer/);
   const positions=await visible.evaluate(el=>({reassurance:el.querySelector('[data-quote-reassurance]').getBoundingClientRect().bottom,fare:el.querySelector('[data-quote-result-price]').getBoundingClientRect().top}));
   assert.ok(positions.reassurance<=positions.fare);
-  if(beforeDimensions) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
+  // Phones and tablets must match the baseline exactly. From 1200px the unified desktop
+  // journey restyles the price panel on purpose, so only its behaviour is checked there.
+  if(beforeDimensions && width<1200) assert.deepEqual(q.dimensions,beforeDimensions,"existing fare, button and vehicle sizes/styles must remain unchanged");
   await card.screenshot({path:`${output}/${width}-quote.png`});
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
   await page.locator('#name').waitFor();
   const options=page.locator('[data-booking-payment-options]');await options.waitFor();
   assert.match(await options.innerText(),/£15.00 today/);assert.match(await options.innerText(),/£53.00 cash on the day/);
@@ -156,7 +160,9 @@ try {
  for(const width of [320,390,1280]) {
   const q=await quote(base,width,68,true,true);
   const visible=q.card.locator('[data-quote-changing-info]');
-  assert.match(await visible.innerText(),/60 Minutes Complimentary Waiting Time/);
+  // Desktop (1200px+) lists the airport waiting time in the summary panel's included list.
+  if(width<1200) assert.match(await visible.innerText(),/60 Minutes Complimentary Waiting Time/);
+  else assert.match(await q.card.innerText(),/Up to 60 minutes’ complimentary waiting/);
   assert.doesNotMatch(await visible.innerText(),/airport pickups/i);
   assert.equal(await visible.locator('[data-quote-reassurance]').count(),1);
   assert.ok(await q.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -171,7 +177,7 @@ try {
   assert.match(await card.innerText(),new RegExp(`£${total}`));
   const eligible=publicDepositCashOffer(total,{enabled,percent:20,minimumGbp:15}).eligible;
   assert.match(await card.locator('[data-quote-changing-info]').innerText(), /Book with Confidence/);
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();await page.locator('#name').waitFor();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();await page.locator('#name').waitFor();
   if(eligible)assert.match(await page.locator('[data-booking-payment-options]').innerText(),/£20.00 today[\s\S]*£80.00 cash/);
   else {assert.equal(await page.locator('[data-booking-payment-options]').count(),0);assert.equal(await page.getByRole('button',{name:`Pay £${total} & Confirm Booking`,exact:true}).count(),1);}
   await q.context.close();console.log('PASS eligibility',total,enabled);

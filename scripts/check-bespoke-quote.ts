@@ -996,10 +996,10 @@ async function main(): Promise<void> {
     assert.ok(!/bespoke/i.test(read(file)), `${file} must not reference bespoke quotes`);
   }
   const wrangler = read("workers/addresses/wrangler.toml");
-  for (const tag of ["v1-refund-coordinator", "v2-quote-lead-coordinator", "v3-meet-greet-coordinator", "v4-consent-ledger", "v5-bespoke-quote-coordinator"]) {
+  for (const tag of ["v1-refund-coordinator", "v2-quote-lead-coordinator", "v3-meet-greet-coordinator", "v4-consent-ledger", "v5-whatsapp-reply-runner", "v6-bespoke-quote-coordinator"]) {
     assert.ok(wrangler.includes(`tag = "${tag}"`), `migration ${tag} present`);
   }
-  assert.ok(wrangler.indexOf("v4-consent-ledger") < wrangler.indexOf("v5-bespoke-quote-coordinator"), "v5 appended after v4");
+  assert.ok(wrangler.indexOf("v5-whatsapp-reply-runner") < wrangler.indexOf("v6-bespoke-quote-coordinator"), "bespoke migration (v6) appended after the existing v5");
   assert.match(wrangler, /new_sqlite_classes = \["BespokeQuoteCoordinator"\]/);
   assert.ok(!/^\s*BESPOKE_QUOTES_ENABLED\s*=/m.test(wrangler), "public flag is not switched on in config");
   // Phase 3-prep guards: isolated preview config.

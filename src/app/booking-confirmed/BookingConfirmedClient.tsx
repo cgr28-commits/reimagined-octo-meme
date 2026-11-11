@@ -4,6 +4,7 @@ import { readCachedCustomerProfile, requestCustomerLoginCode } from "@/lib/custo
 import Link from "next/link";
 import { CHECKOUT_CANCELLATION_SUMMARY, CANCELLATION_POLICY_PATH } from "../../../shared/cancellation-policy";
 import { useEffect, useState } from "react";
+import { clearPaymentHandoff } from "@/lib/booking-draft-storage";
 import GoogleAdsConversion from "@/components/GoogleAdsConversion";
 import { saveToContactsHref } from "@/lib/contact-card";
 import { SITE } from "@/lib/data";
@@ -12,7 +13,7 @@ import {
   isPaymentReturnSearch,
   type FinalizePaidBookingResult,
 } from "@/lib/finalize-paid-booking";
-import { readPendingPayment } from "@/lib/pending-payment";
+import { readPendingPaymentForReturn } from "@/lib/pending-payment";
 import {
   formatCustomerPromoPricingLines,
   parseWebsitePromoPricingFields,
@@ -33,7 +34,9 @@ type ViewStatus = "loading" | "confirmed" | "pending" | "missing" | "error";
 
 export default function BookingConfirmedClient() {
   const [status, setStatus] = useState<ViewStatus>("loading");
-  const [summary, setSummary] = useState("Confirming your payment…");
+  const [summary, setSummary] = useState(
+    "Please wait while we confirm your payment. This can take up to a minute. Please keep this page open and don’t pay again.",
+  );
   const [amountPaid, setAmountPaid] = useState<string | undefined>();
   const [paymentReference, setPaymentReference] = useState<string | undefined>();
   const [customerReference, setCustomerReference] = useState<string | undefined>();
@@ -51,6 +54,11 @@ export default function BookingConfirmedClient() {
   const [depositPaidGbp, setDepositPaidGbp] = useState<number | null>(null);
   const [cardBalanceGbp, setCardBalanceGbp] = useState<number | null>(null);
 
+  // Paid: a later visit to the quote must not restore this journey.
+  useEffect(() => {
+    clearPaymentHandoff();
+  }, []);
+
   useEffect(() => {
     setContactsHref(saveToContactsHref());
   }, []);
@@ -64,12 +72,11 @@ export default function BookingConfirmedClient() {
       Boolean(params.get("checkout_id")) ||
       Boolean(params.get("checkoutId"));
 
-    // Clean tracking params from the address bar after first load, keep stable /booking-confirmed/
-    if (hasPaymentReturn) {
-      window.history.replaceState(null, "", "/booking-confirmed/");
-    }
+    // Clean tracking params from the address bar once the booking is confirmed (see below), keeping a
+    // stable /booking-confirmed/. Until then the payment reference stays in the address, so Refresh
+    // checks the same payment again instead of losing it.
 
-    const pending = readPendingPayment();
+    const pending = readPendingPaymentForReturn(search);
     if (pending?.booking) {
       setCustomerEmail(pending.booking.customerEmail?.trim() || undefined);
       setCustomerPhone(pending.booking.mobileNumber?.trim() || undefined);
@@ -175,6 +182,9 @@ export default function BookingConfirmedClient() {
       } else {
         setCashDueGbp(null);
       }
+      if (hasPaymentReturn && result.status === "confirmed") {
+        window.history.replaceState(null, "", "/booking-confirmed/");
+      }
       setStatus(result.status === "confirmed" ? "confirmed" : result.status);
       if (result.status === "confirmed" && purchase) {
         setFireConversion(true);
@@ -218,10 +228,11 @@ export default function BookingConfirmedClient() {
               : status === "error"
                 ? "Payment check"
                 : status === "loading"
-                  ? "Confirming payment"
+                  ? "Confirming your payment…"
                   : "Checking your payment"}
         </h1>
         <p
+          data-confirm-status={status}
           className={`mt-4 text-sm leading-relaxed sm:text-base ${
             status === "error"
               ? "text-red-100"

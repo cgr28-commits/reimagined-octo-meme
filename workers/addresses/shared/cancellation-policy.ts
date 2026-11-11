@@ -41,7 +41,7 @@ export const FLIGHT_MONITORING_FAQ_ANSWER =
   "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time for an early or delayed arrival. Airport pickups include up to 60 minutes complimentary waiting from the actual landing time. If a significant delay means we cannot provide your booked transfer, we cancel that journey and refund in full the amount paid for it. This will not be treated as a customer cancellation or no-show.";
 
 export const FLIGHT_MONITORING_SHORT =
-  "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time. Airport pickups include 60 minutes complimentary waiting from the actual landing time.";
+  "Where a valid flight number has been provided, we monitor your flight and make reasonable efforts to adjust the collection time. Airport pickups include up to 60 minutes’ complimentary waiting from the actual landing time.";
 
 export const CONFIRMATION_EMAIL_CANCELLATION_POLICY = [
   CHECKOUT_CANCELLATION_SUMMARY,

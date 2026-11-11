@@ -297,7 +297,7 @@ export default function OwnerJourneyEvidenceClient({
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl overflow-x-clip px-4 py-6 text-white sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:bg-white print:text-black">
+    <main className="mx-auto min-h-screen max-w-6xl overflow-x-clip px-4 py-6 text-white sm:px-6 sm:py-8 min-[64rem]:px-8 print:max-w-none print:bg-white print:text-black">
       <div className="print:hidden mb-4 flex flex-wrap items-center justify-between gap-3">
         <Link href="/owner/" className="text-sm text-emerald underline">
           ← Owner dashboard
@@ -380,8 +380,8 @@ export default function OwnerJourneyEvidenceClient({
 
           {/* Mobile: summary → map → journey → booking → payment → timeline → notes → PDF
               Desktop: map + details side-by-side */}
-          <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start">
-            <section className="order-1 min-w-0 print:break-inside-avoid lg:order-2 lg:sticky lg:top-24">
+          <div className="flex flex-col gap-8 min-[64rem]:grid min-[64rem]:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] min-[64rem]:items-start">
+            <section className="order-1 min-w-0 print:break-inside-avoid min-[64rem]:order-2 min-[64rem]:sticky min-[64rem]:top-24">
               <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
                 Historical route map
               </h2>
@@ -395,7 +395,7 @@ export default function OwnerJourneyEvidenceClient({
                   <LiveTrackMap
                     markers={markers}
                     route={route}
-                    className="h-72 w-full max-w-full sm:h-96 lg:h-[32rem]"
+                    className="h-72 w-full max-w-full sm:h-96 min-[64rem]:h-[32rem]"
                   />
                 </div>
               ) : (
@@ -409,7 +409,7 @@ export default function OwnerJourneyEvidenceClient({
               </p>
             </section>
 
-            <div className="order-2 min-w-0 space-y-6 lg:order-1">
+            <div className="order-2 min-w-0 space-y-6 min-[64rem]:order-1">
               <section>
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white/50 print:text-black/70">
                   Journey record

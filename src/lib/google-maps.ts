@@ -8,6 +8,7 @@ import {
   geocodeAddress,
   isPlacesQuotaError,
   resolveGooglePlaceDetails,
+  collapseDuplicateAirportSuggestions,
   rankAddressSuggestions,
   searchGoogleAddressSuggestions,
 } from "../../shared/google-places";
@@ -17,7 +18,16 @@ import {
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
 } from "../../shared/address-validation";
-import { matchServedAirportSuggestions, servedAirportFromPlaceId } from "../../shared/served-airports";
+import {
+  getServedAirport,
+  matchServedAirportSuggestions,
+  servedAirportFromPlaceId,
+} from "../../shared/served-airports";
+import {
+  dublinTerminalAddress,
+  dublinTerminalFromPlaceId,
+  shapeDublinAirportSuggestions,
+} from "@/lib/dublin-terminal-suggestions";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
@@ -70,7 +80,14 @@ function mergePredictions(
   const seen = new Set<string>();
   const merged: AddressPrediction[] = [];
 
-  const served = matchServedAirportSuggestions(query).map((item) => ({
+  // "Belfast City Airport" also loosely matches Belfast International ("belfast" + "air"),
+  // which then sat first in the list. When the customer names the City airport, only
+  // offer the City airport from the catalogue.
+  const namesCityAirport = /\bcity\b|george\s*best|\bbhd\b/i.test(query);
+  const bfsPlaceId = getServedAirport("BFS")?.placeId;
+  const served = matchServedAirportSuggestions(query)
+    .filter((item) => !(namesCityAirport && item.id === bfsPlaceId))
+    .map((item) => ({
     placeId: item.id,
     description: item.label,
     mainText: item.mainText,
@@ -95,7 +112,12 @@ function mergePredictions(
   const servedFirst = merged.filter((item) => servedIds.has(item.placeId));
   const remainder = merged.filter((item) => !servedIds.has(item.placeId));
   const ranked = rankAddressSuggestions(remainder, query, airportCode);
-  return [...servedFirst, ...ranked].slice(0, limit);
+  // Dublin Airport shows as exactly two entries: Terminal 1 and Terminal 2.
+  const dublinIntent = merged.some((item) => item.placeId === getServedAirport("DUB")?.placeId);
+  return shapeDublinAirportSuggestions(
+    collapseDuplicateAirportSuggestions([...servedFirst, ...ranked]),
+    dublinIntent,
+  ).slice(0, limit);
 }
 
 function toPrediction(suggestion: {
@@ -319,6 +341,27 @@ export async function fetchSelectedPlaceDetails(
   userInput?: string,
   suggestionName?: string,
 ): Promise<SelectedPlace | null> {
+  const dublinTerminal = dublinTerminalFromPlaceId(placeId);
+  if (dublinTerminal) {
+    // Same Dublin Airport place and coordinates as before (fares unchanged); the label names the terminal.
+    const dub = getServedAirport("DUB")!;
+    const label = dublinTerminalAddress(dublinTerminal);
+    return {
+      placeId: dub.placeId,
+      formattedAddress: label,
+      displayAddress: label,
+      placeName: label.split(",")[0],
+      lat: dub.lat,
+      lng: dub.lng,
+      countryCode: dub.countryCode,
+      postalCode: dub.postalCode,
+      streetNumber: null,
+      route: null,
+      locality: null,
+      administrativeArea: null,
+    };
+  }
+
   const served = servedAirportFromPlaceId(placeId);
   if (served) {
     return {

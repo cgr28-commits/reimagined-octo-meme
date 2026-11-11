@@ -68,4 +68,5 @@ jobs:
       - run: node --import tsx scripts/check-google-review-count.ts
       - run: node --import tsx scripts/check-whatsapp-chat-log.ts
       - run: node --import tsx scripts/check-whatsapp-follow-up.ts
+      - run: node --import tsx scripts/check-whatsapp-not-needed.ts
       - run: npm --prefix workers/addresses run typecheck

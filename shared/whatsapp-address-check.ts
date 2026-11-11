@@ -30,14 +30,18 @@ const placeIdField = (field: WhatsAppAddressField) =>
  * The address (if any) that still needs looking up: not the airport end, not already
  * confirmed, no full postcode, and not looked up before.
  */
-export function whatsAppAddressFieldToCheck(conversation: WhatsAppConversation): WhatsAppAddressField | null {
+export function whatsAppAddressFieldToCheck(
+  conversation: WhatsAppConversation,
+  options: { includePostcoded?: boolean } = {},
+): WhatsAppAddressField | null {
   const draft = conversation.draft;
   for (const field of ["pickupAddress", "dropoffAddress"] as const) {
     const value = draft[field]?.trim();
     if (!value) continue;
     if (draft.airportCode && (field === "pickupAddress") === Boolean(draft.fromAirport)) continue;
     if (draft[placeIdField(field)]) continue;
-    if (hasFullPostcode(value)) continue;
+    // Claude-led chat confirms every typed address (town + postcode shown), postcode or not.
+    if (!options.includePostcoded && hasFullPostcode(value)) continue;
     if (conversation.addressChecked?.includes(value)) continue;
     return field;
   }

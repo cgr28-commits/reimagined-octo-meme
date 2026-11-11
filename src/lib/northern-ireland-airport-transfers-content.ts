@@ -13,7 +13,7 @@ export const NI_TRANSFERS_INTRO =
 
 export const NI_TRANSFERS_INCLUDED: Array<{ title: string; text: string }> = [
   { title: "Fixed price", text: "The price you book is the price you pay — it won't change with traffic or delays." },
-  { title: "Pre-booked driver", text: "Your driver is arranged in advance, in a modern, high-spec saloon, estate or 7-seater." },
+  { title: "Pre-booked driver", text: "Your driver is arranged in advance, in a modern saloon or estate, with a 7-seater available on request." },
   { title: "Flight monitoring", text: "Add your flight number and we track your landing. Airport pickups include up to 60 minutes' waiting." },
   { title: "Free cancellation", text: "Cancel at least 24 hours before pickup for a full refund, so you can book with confidence." },
 ];

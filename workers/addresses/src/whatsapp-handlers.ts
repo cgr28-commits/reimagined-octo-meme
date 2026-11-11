@@ -51,10 +51,12 @@ import {
   buildWhatsAppPriceValueReply,
   buildWhatsAppQuoteReply,
   WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
+  WHATSAPP_BOOKED_NOT_NEEDED_REPLY,
   decideWhatsAppReply,
   describeWhatsAppDraft,
   describeWhatsAppField,
   detectWhatsAppIntent,
+  isWhatsAppSendQuoteMessage,
   newWhatsAppConversation,
   nextMissingField,
   parseWhatsAppMenuChoice,
@@ -79,6 +81,13 @@ import {
   whatsAppFullAddress,
 } from "../shared/whatsapp-address-check";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
+import {
+  applyClaudeLedTurn,
+  buildClaudeLedContext,
+  isWhatsAppMachineReply,
+  type ClaudeLedDecision,
+} from "../shared/whatsapp-claude-led";
+import { claudeLedClient } from "./whatsapp-claude-led";
 import { voiceAddressMatchScore } from "../shared/voice-address-search";
 import { collectVoiceAddressSuggestions } from "./voice-address";
 import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
@@ -147,6 +156,8 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   GOOGLE_PLACES_API_KEY?: string;
   /** Set to "false" to stop automatic replies (webhook still verifies and dedupes). */
   WHATSAPP_BOT_ENABLED?: string;
+  /** Runs replies without the 30-second waitUntil limit, so the assistant can take its time. */
+  WHATSAPP_REPLY_RUNNER?: DurableObjectNamespace;
   /** Hours the assistant stays quiet after a handoff or an owner reply (default 0.5 = 30 minutes). */
   WHATSAPP_HANDOFF_HOURS?: string;
   /** "true" emails the owner a copy of every finished chat. Default off: handoff emails only. */
@@ -172,6 +183,11 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * confirms the full address. Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
    */
   WHATSAPP_ADDRESS_CHECK?: string;
+  /**
+   * Claude-led chat: Claude reads every message and runs the conversation (prices still only
+   * from the quote engine). Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
+   */
+  WHATSAPP_CLAUDE_LED?: string;
 };
 
 /** Pilot switch: unset/"off" nobody, "all" everyone, else comma-separated numbers. */
@@ -191,6 +207,11 @@ function pilotSettingLabel(setting: string | undefined): "off" | "all" | "pilot"
 /** Whether this customer gets the quick-tap choices (see WHATSAPP_QUICK_CHOICES). */
 export function whatsAppQuickChoicesEnabled(env: WhatsAppEnv, phone: string): boolean {
   return whatsAppPilotEnabled(env.WHATSAPP_QUICK_CHOICES, phone);
+}
+
+/** Whether Claude runs this customer's chat (see WHATSAPP_CLAUDE_LED); needs ANTHROPIC_API_KEY. */
+export function whatsAppClaudeLedEnabled(env: WhatsAppEnv, phone: string): boolean {
+  return Boolean(env.ANTHROPIC_API_KEY?.trim()) && whatsAppPilotEnabled(env.WHATSAPP_CLAUDE_LED, phone);
 }
 
 /** Whether typed addresses are checked on Google for this customer (see WHATSAPP_ADDRESS_CHECK). */
@@ -324,6 +345,8 @@ export async function handleWhatsAppStatus(env: WhatsAppEnv): Promise<Response> 
         // "off" | "all" | "pilot" — never lists the pilot numbers.
         quickChoices: pilotSettingLabel(env.WHATSAPP_QUICK_CHOICES),
         addressCheck: pilotSettingLabel(env.WHATSAPP_ADDRESS_CHECK),
+        claudeLed: pilotSettingLabel(env.WHATSAPP_CLAUDE_LED),
+        claudeKeySet: Boolean(env.ANTHROPIC_API_KEY?.trim()),
         ...(diag ?? {}),
       },
       null,
@@ -495,6 +518,19 @@ export async function handleWhatsAppWebhook(
     return new Response("Invalid JSON", { status: 400 });
   }
 
+  // Hand the work to the reply runner (no time limit), so the assistant can think before replying.
+  if (env.WHATSAPP_REPLY_RUNNER) {
+    try {
+      const runner = env.WHATSAPP_REPLY_RUNNER.get(env.WHATSAPP_REPLY_RUNNER.idFromName(whatsAppRunnerName(payload)));
+      const queued = await runner.fetch("https://whatsapp-runner/enqueue", { method: "POST", body: rawBody });
+      if (queued.ok) return new Response("EVENT_RECEIVED", { status: 200 });
+    } catch (err) {
+      console.error(
+        JSON.stringify({ event: "whatsapp_runner_enqueue_failed", error: err instanceof Error ? err.message : String(err) }),
+      );
+    }
+  }
+
   const work = processWhatsAppWebhook(payload, env).catch(async (err) => {
     const error = err instanceof Error ? err.message : String(err);
     console.error(JSON.stringify({ event: "whatsapp_webhook_error", error }));
@@ -504,6 +540,12 @@ export async function handleWhatsAppWebhook(
   if (ctx) ctx.waitUntil(work);
   else await work;
   return new Response("EVENT_RECEIVED", { status: 200 });
+}
+
+/** Which reply runner a webhook goes to: the customer's number, so their messages stay in order. */
+export function whatsAppRunnerName(payload: unknown): string {
+  const parsed = parseWhatsAppWebhook(payload);
+  return parsed.messages[0]?.from || parsed.echoes[0]?.to || parsed.failures[0]?.to || "other";
 }
 
 export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv): Promise<void> {
@@ -522,11 +564,113 @@ export async function processWhatsAppWebhook(payload: unknown, env: WhatsAppEnv)
   for (const echo of echoes) {
     await store.put(pausedKey(echo.to), "owner", { expirationTtl: handoffTtlSeconds(env) });
     logEvent("whatsapp_bot_paused_owner_reply", echo.to);
+    // Keep what the owner wrote in the chat, so the assistant reads it before its next reply
+    // (it used to see only its own and the customer's messages, 10 Nov 2026).
+    if (await store.get(messageKey(echo.id))) continue;
+    await store.put(messageKey(echo.id), "1", { expirationTtl: 60 * 60 * 24 * 3 });
+    await appendWhatsAppChat(store, echo.to, { from: "team", text: echo.text || ownerEchoLabel(echo.type) });
   }
 
   for (const message of messages) {
     await handleInboundMessage(message, env, store);
   }
+}
+
+function ownerEchoLabel(type: string): string {
+  if (type === "reaction") return "[Reacted]";
+  if (type === "image") return "[Photo]";
+  if (type === "audio") return "[Voice note]";
+  if (type === "document") return "[File]";
+  return "[Message]";
+}
+
+/** How many earlier chat messages the assistant reads before replying. */
+const CHAT_HISTORY_FOR_AI = 25;
+
+/** One earlier chat message for the assistant: who sent it (the team is the owner) and what it said. */
+function chatLineForAi(m: { from: string; text: string }): string {
+  const who = m.from === "customer" ? "Customer" : m.from === "team" ? "Team" : "Assistant";
+  return `${who}: ${m.text.slice(0, 600)}`;
+}
+
+/** Chat-log line for a message that needs no reply, or null when it should be answered. */
+function silentWhatsAppMessageLog(message: WhatsAppInboundMessage): string | null {
+  if (message.type === "reaction") {
+    return message.reactionEmoji ? `[Reacted ${message.reactionEmoji}]` : "[Removed a reaction]";
+  }
+  if (message.type === "revoke") return "[Deleted a message]";
+  if (message.type === "sticker") return "[Sticker]";
+  return null;
+}
+
+function describeNonTextWhatsAppMessage(type: string): string {
+  if (type === "image") return "[Photo]";
+  if (type === "video") return "[Video]";
+  if (type === "document") return "[File]";
+  if (type === "audio") return "[Voice note]";
+  if (type === "location") return "[Location]";
+  if (type === "contacts") return "[Contact card]";
+  return "[Message the assistant can't read]";
+}
+
+export const WHATSAPP_PHOTO_REPLY =
+  "Thanks! I can't open photos or files here, so could you type the details instead? " +
+  "For example your pickup address, destination, date and time, or your flight number.";
+export const WHATSAPP_VOICE_NOTE_REPLY =
+  "Thanks! I can't listen to voice notes here, so could you type your message instead?";
+export const WHATSAPP_LOCATION_REPLY =
+  "Thanks! Could you type the address or postcode as well, so I can get it exactly right?";
+export const WHATSAPP_UNREADABLE_REPLY =
+  "Sorry, I can't open that type of message here. Could you type it instead?";
+export const WHATSAPP_MEDIA_HANDOFF_REPLY =
+  "Thanks, I've passed this to our team and they'll reply to you here shortly.";
+
+/**
+ * A photo, file, voice note or location with no words. A customer with a booking is
+ * usually sending something about it (a screenshot, a ticket), so the team takes it;
+ * anyone else is asked to type it.
+ */
+async function replyToNonTextMessage(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  message: WhatsAppInboundMessage,
+  isTeamPhone: boolean,
+): Promise<void> {
+  const phone = message.from;
+  const isMedia = message.type === "image" || message.type === "document" || message.type === "video";
+  if (isMedia && !isTeamPhone && (await customerHasUpcomingBooking(store, phone))) {
+    await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+    await cancelWhatsAppFollowUp(store, phone);
+    const conversation =
+      (await store.get<WhatsAppConversation>(conversationKey(phone), "json")) ?? newWhatsAppConversation(new Date());
+    await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+    logEvent("whatsapp_media_handoff", phone, { type: message.type });
+    await reply(env, phone, WHATSAPP_MEDIA_HANDOFF_REPLY);
+    return;
+  }
+  const text = isMedia
+    ? WHATSAPP_PHOTO_REPLY
+    : message.type === "audio"
+      ? WHATSAPP_VOICE_NOTE_REPLY
+      : message.type === "location"
+        ? WHATSAPP_LOCATION_REPLY
+        : WHATSAPP_UNREADABLE_REPLY;
+  await reply(env, phone, text);
+}
+
+/** Paid bookings still ahead (or just started) under this WhatsApp number, soonest first. */
+async function findCustomerUpcomingBookings(store: KVNamespace, phone: string): Promise<PaidBookingRecord[]> {
+  try {
+    const upcoming = await listUpcomingPaidBookings(store, { pastDays: 1, futureDays: 180, limit: 250 });
+    return upcomingCustomerBookings(upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone)));
+  } catch (err) {
+    logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return [];
+  }
+}
+
+async function customerHasUpcomingBooking(store: KVNamespace, phone: string): Promise<boolean> {
+  return (await findCustomerUpcomingBookings(store, phone)).length > 0;
 }
 
 async function handleInboundMessage(
@@ -538,13 +682,36 @@ async function handleInboundMessage(
   await store.put(messageKey(message.id), "1", { expirationTtl: DEDUPE_TTL_SECONDS });
 
   await recordDiag(store, { lastMessageAt: nowIso() });
+  const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
+
+  // Reactions, deleted messages and stickers need no reply: logged for the dashboard only.
+  // They used to get "Sorry, I can only read text messages" (customer chat, 7 Nov 2026).
+  const silent = silentWhatsAppMessageLog(message);
+  if (silent) {
+    await appendWhatsAppChat(store, message.from, { from: "customer", text: silent }, message.profileName);
+    return skip(`no reply needed (${message.type})`);
+  }
+  // An edited message: if the original was already answered, the edit is logged, not
+  // answered again (a second reply to the same message reads as broken).
+  if (message.type === "edit") {
+    const alreadyAnswered = message.editOf ? Boolean(await store.get(messageKey(message.editOf))) : false;
+    if (alreadyAnswered || !message.text) {
+      await appendWhatsAppChat(
+        store,
+        message.from,
+        { from: "customer", text: `[Edited a message${message.text ? `: ${message.text}` : ""}]` },
+        message.profileName,
+      );
+      return skip("edit of a message already answered");
+    }
+  }
+
   await appendWhatsAppChat(
     store,
     message.from,
-    { from: "customer", text: message.text || "[photo, voice note or other non-text message]" },
+    { from: "customer", text: message.text || describeNonTextWhatsAppMessage(message.type) },
     message.profileName,
   );
-  const skip = (reason: string) => recordDiag(store, { lastSkip: { at: nowIso(), reason } });
   if (env.WHATSAPP_BOT_ENABLED?.trim().toLowerCase() === "false") return skip("bot disabled");
   if (message.timestamp && Date.now() / 1000 - message.timestamp > MAX_MESSAGE_AGE_SECONDS) {
     return skip("message too old");
@@ -569,11 +736,7 @@ async function handleInboundMessage(
     }
   }
   if (!message.text) {
-    await reply(
-      env,
-      phone,
-      "Sorry, I can only read text messages. Please type your journey details, e.g. pickup postcode, destination, date and time.",
-    );
+    await replyToNonTextMessage(env, store, message, isTeamPhone);
     return;
   }
 
@@ -631,12 +794,33 @@ async function handleInboundMessage(
       }
     }
   }
-  const decision = decideWhatsAppReply(existing, message.text, {
-    profileName: message.profileName,
-    quickChoices: whatsAppQuickChoicesEnabled(env, phone),
-    addressPick,
-  });
-  const conversation = decision.conversation;
+  // Claude-led chat: Claude reads the message and decides; the rules flow is the fallback.
+  const claudeLed =
+    whatsAppClaudeLedEnabled(env, phone) &&
+    !isWhatsAppSendQuoteMessage(message.text) &&
+    !isWhatsAppMachineReply(message.text);
+  let decision: ClaudeLedDecision | null = null;
+  if (claudeLed) {
+    let base = existing;
+    let said = message.text;
+    if (addressPick) {
+      // The customer tapped "Yes" on the Google address: it goes on the quote as confirmed.
+      base = base ? { ...base, draft: { ...base.draft } } : newWhatsAppConversation(new Date());
+      base.draft[addressPick.field] = addressPick.address;
+      base.draft[addressPick.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"] = addressPick.placeId;
+      said = `[The customer tapped to confirm the ${addressPick.field === "pickupAddress" ? "pickup" : "destination"} address: ${addressPick.address}]`;
+    }
+    decision = await decideWithClaude(env, store, phone, base, said, message.profileName);
+    if (decision) logEvent("whatsapp_claude_led", phone, { action: decision.action, endChat: Boolean(decision.endChat) });
+  }
+  if (!decision) {
+    decision = decideWhatsAppReply(existing, message.text, {
+      profileName: message.profileName,
+      quickChoices: whatsAppQuickChoicesEnabled(env, phone),
+      addressPick,
+    });
+  }
+  let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
 
   // A pickup / destination typed without a postcode: confirm the full Google address
@@ -645,7 +829,7 @@ async function handleInboundMessage(
     (decision.action === "answer" || decision.action === "none" || decision.action === "quote") &&
     whatsAppAddressCheckEnabled(env, phone)
   ) {
-    const field = whatsAppAddressFieldToCheck(conversation);
+    const field = whatsAppAddressFieldToCheck(conversation, { includePostcoded: claudeLed });
     if (field) {
       const check = await lookUpWhatsAppAddress(env, store, phone, conversation, field);
       if (check) {
@@ -681,6 +865,35 @@ async function handleInboundMessage(
     if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
   }
 
+  if (decision.endChat) {
+    // Claude-led: the customer no longer needs a taxi — no chaser for the old quote.
+    await cancelWhatsAppFollowUp(store, phone);
+    logEvent("whatsapp_quote_declined", phone);
+  }
+
+  if (((decision.action === "answer" && decision.ai?.declined) || decision.endChat) && !isTeamPhone) {
+    // "Don't need the taxi" from someone with a paid booking is a cancellation, which
+    // needs a person (refund terms), not a cheery goodbye (6 Nov 2026).
+    let hasBooking = false;
+    try {
+      const upcoming = await listUpcomingPaidBookings(store, { pastDays: 0, futureDays: 180, limit: 250 });
+      hasBooking = upcomingCustomerBookings(upcoming.filter((b) => sameCustomerPhone(b.mobileNumber, phone))).length > 0;
+    } catch (err) {
+      logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    }
+    if (hasBooking) {
+      await store.put(pausedKey(phone), "customer", { expirationTtl: handoffTtlSeconds(env) });
+      await cancelWhatsAppFollowUp(store, phone);
+      await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, true);
+      logEvent("whatsapp_booking_cancel_handoff", phone);
+      await store.put(conversationKey(phone), JSON.stringify(conversation), {
+        expirationTtl: CONVERSATION_TTL_SECONDS,
+      });
+      await reply(env, phone, WHATSAPP_BOOKED_NOT_NEEDED_REPLY);
+      return;
+    }
+  }
+
   if (decision.action === "answer") {
     const answered = await answerCustomerQuestion(env, store, phone, message.text, conversation, decision.ai ?? {});
     if (answered) {
@@ -688,6 +901,14 @@ async function handleInboundMessage(
       // The AI asked for journey details to start a quote: bare replies now fill them.
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
         conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+      }
+      if (answered.endChat) {
+        // No longer needed: close the quote, no "Today / Tomorrow" choices, no chaser.
+        buttons = undefined;
+        list = undefined;
+        conversation = newWhatsAppConversation(new Date());
+        await cancelWhatsAppFollowUp(store, phone);
+        logEvent("whatsapp_quote_declined", phone);
       }
       if (answered.handoff) {
         // Handing over to the team: no "choose" options under that message.
@@ -1058,11 +1279,48 @@ async function notifyOwnerOfHandoff(
   }
 }
 
+/** A short, private summary of the customer's next booking(s) for the assistant. */
+function summariseBookingsForAi(bookings: PaidBookingRecord[]): string | undefined {
+  const lines = bookings.slice(0, 2).map((b) => {
+    const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
+    const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
+    const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
+    return `- ${b.customerReference ?? "Booking"}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}`;
+  });
+  return lines.length ? lines.join("\n") : undefined;
+}
+
 /**
  * Claude-led reply (website FAQs/terms only): responds to whatever the customer said
  * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
  * fixed fallback reply.
  */
+/** One Claude-led turn; null when Claude is unavailable (the rules flow then answers). */
+async function decideWithClaude(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  existing: WhatsAppConversation | null,
+  said: string,
+  profileName: string | undefined,
+): Promise<ClaudeLedDecision | null> {
+  try {
+    const chat = await getWhatsAppChat(store, phone);
+    // The message itself was just logged; send the turns before it for context.
+    const recentChat = (chat?.messages ?? [])
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
+      .join("\n");
+    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
+    const turn = await claudeLedClient.turn(env, context);
+    if (!turn) return null;
+    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
+  } catch (err) {
+    logEvent("whatsapp_claude_led_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
+}
+
 async function answerCustomerQuestion(
   env: WhatsAppEnv,
   store: KVNamespace,
@@ -1070,18 +1328,21 @@ async function answerCustomerQuestion(
   message: string,
   conversation: WhatsAppConversation,
   task: WhatsAppAiTask,
-): Promise<{ text: string; handoff: boolean; startQuote: boolean } | null> {
+): Promise<{ text: string; handoff: boolean; startQuote: boolean; endChat: boolean } | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
     // The message itself was just logged; send the turns before it for context.
     const recentChat = (chat?.messages ?? [])
-      .slice(-11, -1)
-      .map((m) => `${m.from === "customer" ? "Customer" : "Assistant"}: ${m.text.slice(0, 500)}`)
+      .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
+      .map(chatLineForAi)
       .join("\n");
     const draft = conversation.draft;
     const collected = describeWhatsAppDraft(draft);
+    // Their booking, so a flight update is passed on without asking for a reference (7 Nov 2026).
+    const booking = summariseBookingsForAi(await findCustomerUpcomingBookings(store, phone));
     const answer = await answerWhatsAppQuestion(env, message, {
       recentChat,
+      booking,
       journey: collected
         ? {
             collected,
@@ -1089,8 +1350,9 @@ async function answerCustomerQuestion(
             quotedPrice: conversation.lastQuoteAmountLabel,
           }
         : undefined,
+      declined: Boolean(task.declined),
       askFor:
-        task.askFor && conversation.stage === "collecting"
+        !task.declined && task.askFor && conversation.stage === "collecting"
           ? {
               detail: describeWhatsAppField(task.askFor),
               example: buildWhatsAppQuestion(task.askFor),
@@ -1101,16 +1363,19 @@ async function answerCustomerQuestion(
       discountOffered: Boolean(conversation.discountOffered),
     });
     if (!answer) return null;
-    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null });
+    const endChat = Boolean(task.declined || answer.endChat) && !answer.handoff;
+    logEvent("whatsapp_ai_answer", phone, { handoff: answer.handoff, askFor: task.askFor ?? null, endChat });
 
     let text = answer.text;
-    if (answer.handoff) {
+    if (endChat) {
+      // The customer is done: never tack a journey question onto a goodbye.
+    } else if (answer.handoff) {
       text += `\n\nI've passed this to our team and they'll reply to you here shortly.`;
     } else if (task.askFor && task.justUpdated && conversation.stage === "collecting" && !text.includes("?")) {
       // Safety net: the quote must keep moving when the customer is giving details.
       text += `\n\n${buildWhatsAppQuestion(task.askFor)}`;
     }
-    return { text, handoff: answer.handoff, startQuote: answer.startQuote };
+    return { text, handoff: answer.handoff, startQuote: answer.startQuote && !endChat, endChat };
   } catch (err) {
     logEvent("whatsapp_ai_answer_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;

@@ -88,6 +88,8 @@ export type A2aQuoteRequestRecord = {
   isCounterOffer?: boolean;
   expiredAt?: string;
   cancelledAt?: string;
+  /** Owner Enquiries job this quote was sent from (marked paid when the quote is paid). */
+  bookingJobId?: string;
 };
 
 /** Material journey fields Owner may amend before approval. */

@@ -13,6 +13,7 @@ import {
   type AdsQuotePageType,
 } from "@/lib/google-ads";
 import { hasMarketingCookieConsent } from "@/lib/cookie-consent";
+import { previewTrackingDisabled } from "@/lib/preview-tracking";
 
 declare global {
   interface Window {
@@ -168,7 +169,7 @@ function fireTrackedEvent(options: {
   dedupeStorage: DedupeStorage;
   delivery?: TrackedEventDelivery;
 }): boolean {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || previewTrackingDisabled()) {
     options.delivery?.onComplete();
     return false;
   }

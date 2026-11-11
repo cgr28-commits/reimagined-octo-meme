@@ -12,7 +12,7 @@
  * owner cancel, a customer checkout and a payment callback can never interleave.
  * No external I/O (email, payment provider, KV) ever runs inside the lock.
  *
- * Requires wrangler migration "v5-bespoke-quote-coordinator" (new_sqlite_classes).
+ * Requires wrangler migration "v6-bespoke-quote-coordinator" (new_sqlite_classes).
  */
 
 import {

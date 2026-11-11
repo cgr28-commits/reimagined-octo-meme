@@ -30,14 +30,14 @@ main = "src/index.ts"
 compatibility_date = "2025-08-01"
 account_id = "36c5c88df4c1f0259413d555f2679f3c"
 
-# Replace REPLACE_WITH_STAGING_* after creating isolated KV namespaces (owner approval first).
+# Isolated staging KV namespaces (created 7 Nov 2026 by the staging workflow; never production ids).
 [[kv_namespaces]]
 binding = "TRACKING_STORE"
-id = "REPLACE_WITH_STAGING_TRACKING_STORE_ID"
+id = "e61c2d98a5b04332abc31de1d86b75d1" # reimagined-octo-meme-matni-whatsapp-staging-tracking (isolated)
 
 [[kv_namespaces]]
 binding = "BOOKING_COUNTER"
-id = "REPLACE_WITH_STAGING_BOOKING_COUNTER_ID"
+id = "7b3462c619c449ceb2f48c9125bccac3" # reimagined-octo-meme-matni-whatsapp-staging-booking-counter (isolated)
 
 # Minimal Durable Object bindings so the Worker boots; staging WhatsApp tests should not
 # exercise production booking/payment flows against real customers.
@@ -57,6 +57,10 @@ class_name = "MeetGreetCoordinator"
 name = "CONSENT_LEDGER"
 class_name = "ConsentLedger"
 
+[[durable_objects.bindings]]
+name = "WHATSAPP_REPLY_RUNNER"
+class_name = "WhatsAppReplyRunner"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -73,6 +77,10 @@ new_sqlite_classes = ["MeetGreetCoordinator"]
 tag = "v4-consent-ledger"
 new_sqlite_classes = ["ConsentLedger"]
 
+[[migrations]]
+tag = "v5-whatsapp-reply-runner"
+new_sqlite_classes = ["WhatsAppReplyRunner"]
+
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
 
@@ -86,3 +94,8 @@ WHATSAPP_TEMPLATES_ENABLED = "true"
 WHATSAPP_GRAPH_VERSION = "v23.0"
 # Site origin for profile/links in staging replies (public marketing site is fine).
 SITE_ORIGIN = "https://www.myairporttaxini.co.uk"
+# Test number only: Claude runs the chat, every typed address is confirmed with Google,
+# quick-tap choices on (only for the detail Claude asks for).
+WHATSAPP_CLAUDE_LED = "all"
+WHATSAPP_ADDRESS_CHECK = "all"
+WHATSAPP_QUICK_CHOICES = "all"

@@ -10,6 +10,7 @@ import {
   shouldStoreGpsPoint,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { legPickupAirportAccessOption } from "../shared/meet-greet";
 import { driverPayAmountLabel } from "../shared/driver-pay-ledger";
 import { driverPayAmountVisibleForJob } from "./driver-pay-sync";
 import { lookupFlight, type VerifiedFlight } from "../shared/flight-lookup";
@@ -668,7 +669,10 @@ export async function handleDriverJobsRequest(
             cashBalanceDue: paidRecord?.cashBalanceDue,
             cashCollected: paidRecord?.cashCollected === true,
             cashCollectedAt: paidRecord?.cashCollectedAt,
-            airportAccessOption: paidRecord?.airportAccessOption ?? null,
+            airportAccessOption:
+              legPickupAirportAccessOption(paidRecord, job.journeyLeg, job.airportCode ?? paidRecord?.airportCode) ??
+              paidRecord?.airportAccessOption ??
+              null,
             dublinArrivalTerminal: paidRecord?.dublinArrivalTerminal ?? null,
           },
           { accepted: jobAssignmentStatus(job) === "accepted" },

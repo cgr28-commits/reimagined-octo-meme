@@ -66,11 +66,11 @@ try {
   await page.locator('#time').fill('12:00');
   if(returning) { await page.locator('#returnDate').fill('2026-12-21'); await page.locator('#returnTime').fill('12:00'); }
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
-  await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
   assert.equal(await page.locator('[data-terminal-access]').count(),0,'No optional service controls in instant quote');
   const initial=Number((await page.locator('[data-quote-result-price]').innerText()).match(/£([0-9.]+)/)[1]);
   assert.ok(initial>0);
-  await tapSettled(page.getByRole('button',{name:/BOOK THIS TRANSFER/i}));
+  await tapSettled(page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}));
   const childSeats=page.getByRole('group',{name:'Child / booster seats',exact:true});
   const seatBounds=await childSeats.boundingBox();
   assert.ok(seatBounds.width<=208.5,'Child-seat options stay compact on mobile');

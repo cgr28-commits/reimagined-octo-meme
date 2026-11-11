@@ -16,6 +16,8 @@ import {
 } from "../../shared/express-drop-off";
 
 export type BookingDetails = {
+  /** Personalised-quote record (A2A Quotes) created for this manual-quote request. */
+  a2aQuoteReference?: string;
   customerName: string;
   customerEmail: string;
   mobileNumber: string;

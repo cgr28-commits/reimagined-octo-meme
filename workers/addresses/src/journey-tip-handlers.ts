@@ -1,4 +1,5 @@
 import { getPaidBookingRecord } from "./paid-booking-store";
+import { resolveAssignedDriverLabel } from "../shared/paid-booking-record";
 import { cardPaymentsConfigured, createHostedCheckout, providerKeyFor } from "./payment-provider";
 /**
  * Optional post-journey tips.
@@ -337,6 +338,29 @@ async function tipStatusResponse(
   return tipJson(publicTipState(record, paymentNotCompleted), 200, origin);
 }
 
+/** Customer's surname: last word of the name on the booking. */
+export function customerSurname(name?: string | null): string {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+/** Description + metadata so a tip in Stripe shows booking ref, surname and driver. */
+export function tipPaymentLabels(input: {
+  bookingReference?: string | null;
+  customerName?: string | null;
+  driverName?: string | null;
+}): { description: string; metadata: Record<string, string> } {
+  const ref = input.bookingReference?.trim() ?? "";
+  const surname = customerSurname(input.customerName);
+  const driver = resolveAssignedDriverLabel(input.driverName);
+  const parts = ["Driver tip", ref, surname].filter(Boolean);
+  const description = `${parts.join(" – ")} (driver: ${driver})`;
+  const metadata: Record<string, string> = { payment_type: "driver_tip", driver };
+  if (ref) metadata.booking_reference = ref;
+  if (surname) metadata.customer_surname = surname;
+  return { description, metadata };
+}
+
 async function tipCheckoutResponse(
   request: Request,
   env: JourneyTipEnv,
@@ -424,9 +448,17 @@ async function tipCheckoutResponse(
   }
 
   const checkoutReference = tipCheckoutReferenceForAttempt(record);
+  // Owner request: show which booking, customer and driver each tip belongs to in Stripe.
+  const tipJob = await getTrackingJob(env.TRACKING_STORE, record.trackingJobToken).catch(() => null);
+  const tipLabels = tipPaymentLabels({
+    bookingReference: tipBooking?.customerReference,
+    customerName: tipBooking?.customerName ?? tipJob?.customerName,
+    driverName: tipJob?.assignedDriverName,
+  });
   const opened = await claimTipSumUpCheckout(env, customerEmail, {
     amount: amount.amountGbp,
-    description: "Optional driver tip",
+    description: tipLabels.description,
+    metadata: tipLabels.metadata,
     checkoutReference,
     redirectUrl: buildTipPageUrl(record.tipToken),
     returnUrl: new URL("/payments/webhook", request.url).toString(),

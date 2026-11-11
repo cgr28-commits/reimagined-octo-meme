@@ -66,7 +66,10 @@ export function readPreviewCustomerQuoteSeed(): PreviewCustomerQuoteSeed | null 
     formattedAddress: selected[0], displayAddress: selected[0], placeName: selected[0].split(",")[0],
     lat: selected[1], lng: selected[2], countryCode: selected[3], postalCode: null,
     route: null, locality: null, administrativeArea: null,
-  } : quickSelectToPlace("BFS");
+  } : quickSelectToPlace(
+    // Preview hosts only: ?previewAirport=BHD|DUB seeds Belfast City or Dublin instead of Belfast International.
+    params.get("previewAirport") === "BHD" ? "BHD" : params.get("previewAirport") === "DUB" ? "DUB" : "BFS",
+  );
   if (!airportOrIreland) return null;
   const party = previewPartyFromQuery();
   // Homepage no longer exposes a swap control; ?previewCollection=1 seeds airport→city.

@@ -17,6 +17,7 @@ import {
 import { SITE } from "@/lib/data";
 import { useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 function ActionIcon({
   children,
@@ -62,7 +63,9 @@ export default function ContactCardClient() {
   const iosInAppBrowser = chromeIos || googleApp || restrictedIos;
 
   return (
-    <main className="relative min-h-dvh w-full max-w-full overflow-x-clip bg-navy">
+    <>
+    <StandaloneBrandBar />
+    <main data-customer-standalone className="relative min-h-dvh w-full max-w-full overflow-x-clip bg-navy">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_top,_rgba(47,191,74,0.14),_transparent_55%),radial-gradient(ellipse_at_bottom,_rgba(12,42,82,0.9),_transparent_60%)]"
@@ -294,5 +297,6 @@ export default function ContactCardClient() {
         </div>
       </div>
     </main>
+    </>
   );
 }

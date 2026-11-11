@@ -23,7 +23,7 @@ This is separate from the instant airport calculator and its automatically price
 
 Wiring added to existing files:
 - `workers/addresses/src/index.ts`: one class export, four optional `Env` fields, one route dispatch.
-- `wrangler.toml`: one binding plus the additive `v5-bespoke-quote-coordinator` migration.
+- `wrangler.toml`: one binding plus the additive `v6-bespoke-quote-coordinator` migration.
 - `wrangler.local.toml`: the same, for local development.
 
 ## Storage
@@ -104,4 +104,4 @@ Accessibility: Managed mode supports keyboard and screen readers. If the widget 
 
 ## Deploying (later, separate approval)
 
-Merging to `main` triggers `deploy-worker.yml`, which deploys the Worker and **applies the v5 migration** (creating the new Durable Object class). That deploy needs your approval first. With `BESPOKE_QUOTES_ENABLED` unset, the public routes stay at 404 after deploy.
+Merging to `main` triggers `deploy-worker.yml`, which deploys the Worker and **applies the v6 migration** (creating the new Durable Object class). That deploy needs your approval first. With `BESPOKE_QUOTES_ENABLED` unset, the public routes stay at 404 after deploy.
