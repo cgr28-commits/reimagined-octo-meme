@@ -226,13 +226,81 @@ export function readOpenCheckoutSession(): OpenCheckoutSession | null {
   }
 }
 
+const REPLACED_CHECKOUT_KEY = "matni-replaced-checkout-v1";
+
+/**
+ * The unpaid payment page this tab most recently walked away from ("Back to booking",
+ * "start a fresh payment"). Sent with the next payment so the server can close it — an old
+ * payment page must not stay payable after the booking changes.
+ */
+export function readReplacedCheckoutId(): string {
+  if (!canUseStorage()) {
+    return "";
+  }
+  try {
+    return sessionStorage.getItem(REPLACED_CHECKOUT_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function clearOpenCheckoutSession(): void {
   if (!canUseStorage()) {
     return;
   }
   try {
+    const leaving = readOpenCheckoutSession()?.checkoutId?.trim();
+    if (leaving) sessionStorage.setItem(REPLACED_CHECKOUT_KEY, leaving);
     sessionStorage.removeItem(OPEN_CHECKOUT_KEY);
   } catch {
     // ignore
+  }
+}
+
+/**
+ * Same-tab marker set just before the customer leaves for the payment page. When they come
+ * back (browser Back or "Back to booking"), the quote restores their journey from the saved
+ * draft instead of applying the fresh-visit address reset. sessionStorage is per tab, so a
+ * later visit in a new tab still starts empty. Expires after two hours.
+ */
+const PAYMENT_HANDOFF_KEY = "matni-payment-handoff";
+const PAYMENT_HANDOFF_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
+export function markPaymentHandoff(): void {
+  try {
+    window.sessionStorage.setItem(PAYMENT_HANDOFF_KEY, String(Date.now()));
+  } catch {
+    /* storage unavailable: the fresh-visit reset applies as before */
+  }
+}
+
+export function clearPaymentHandoff(): void {
+  try {
+    window.sessionStorage.removeItem(PAYMENT_HANDOFF_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True once per return from the payment page (the marker is removed when read). */
+export function consumePaymentHandoff(now = Date.now()): boolean {
+  try {
+    const raw = window.sessionStorage.getItem(PAYMENT_HANDOFF_KEY);
+    if (!raw) return false;
+    window.sessionStorage.removeItem(PAYMENT_HANDOFF_KEY);
+    const at = Number(raw);
+    return Number.isFinite(at) && now - at >= 0 && now - at <= PAYMENT_HANDOFF_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+/** Peek without consuming (used by the browser back-forward cache path). */
+export function hasPaymentHandoff(now = Date.now()): boolean {
+  try {
+    const at = Number(window.sessionStorage.getItem(PAYMENT_HANDOFF_KEY));
+    return Number.isFinite(at) && at > 0 && now - at <= PAYMENT_HANDOFF_MAX_AGE_MS;
+  } catch {
+    return false;
   }
 }

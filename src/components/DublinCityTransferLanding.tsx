@@ -26,15 +26,18 @@ const hero = {
 
 type LandingFaq = { readonly question: string; readonly answer: string };
 
-/** A freely licensed photo with the attribution its licence requires. */
+/**
+ * A photo with its credit. Freely licensed photos carry the source and licence their
+ * licence requires; the business's own images leave those out.
+ */
 export type CreditedPhoto = {
   readonly base: string;
   readonly alt: string;
   readonly caption?: string;
   readonly author: string;
-  readonly source: string;
-  readonly license: string;
-  readonly licenseUrl: string;
+  readonly source?: string;
+  readonly license?: string;
+  readonly licenseUrl?: string;
 };
 
 export type BelfastDublinLandingContent = {
@@ -232,13 +235,15 @@ export default function DublinCityTransferLanding({
             </nav>
           </div>
           <div className="mt-8 space-y-1 text-xs leading-relaxed text-white/45">
-            {[heroImage, ...(page.gallery ?? [])].map((photo) => (
-              <p key={photo.base}>
-                Photo{photo.caption ? ` (${photo.caption})` : ""}:{" "}
-                <a href={photo.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.author}</a>{" · "}
-                <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.license}</a>. Resized and cropped for display.
-              </p>
-            ))}
+            {[heroImage, ...(page.gallery ?? [])]
+              .filter((photo) => photo.source && photo.license && photo.licenseUrl)
+              .map((photo) => (
+                <p key={photo.base}>
+                  Photo{photo.caption ? ` (${photo.caption})` : ""}:{" "}
+                  <a href={photo.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.author}</a>{" · "}
+                  <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{photo.license}</a>. Resized and cropped for display.
+                </p>
+              ))}
           </div>
         </div>
         <LocationQuoteSection heading={page.quoteHeading ?? "Get your Belfast–Dublin city fixed quote"} eyebrow="Your journey" description={page.quoteText} />

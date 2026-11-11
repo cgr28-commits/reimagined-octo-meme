@@ -1,4 +1,5 @@
 import { hasUncertainPayment, markPaymentPending, clearPaymentPending, PaymentOutcomeUncertainError } from "./payment-attempt-guard";
+import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import { SITE } from "@/lib/data";
 import type { BookingDetails } from "@/lib/booking-message";
 import {
@@ -38,6 +39,11 @@ export type PaymentCheckoutRequest = {
   redirectUrl?: string;
   /** Full booking with customer email + mobile — stored server-side before SumUp redirect. */
   booking?: BookingDetails;
+  /**
+   * This tab's earlier unpaid payment page for a booking the customer has since changed.
+   * The server closes it so the old link can no longer be paid.
+   */
+  supersedesCheckoutId?: string;
   /** After Owner approval — pay the locked short-notice booking (no re-entry). */
   shortNoticeToken?: string;
   /** After Owner A2A quote approval — pay the locked personalised quote. */
@@ -287,6 +293,10 @@ export function buildPaymentRedirectUrl(returnToken?: string): string {
 export async function createPaymentCheckout(
   request: PaymentCheckoutRequest,
 ): Promise<PaymentCheckoutResult> {
+  // Vercel preview sites must never start a live payment or booking (see preview-payments.ts).
+  if (previewPaymentsDisabled()) {
+    throw new Error(PREVIEW_PAYMENTS_DISABLED_MESSAGE);
+  }
   if (!PAYMENTS_API_URL) {
     throw new Error("Online payment is not configured");
   }
@@ -357,6 +367,7 @@ export async function createPaymentCheckout(
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       measurementConsent: currentMeasurementConsent(),
       ...(booking ? { booking } : {}),
+      ...(request.supersedesCheckoutId ? { supersedesCheckoutId: request.supersedesCheckoutId } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.a2aQuoteToken ? { a2aQuoteToken: request.a2aQuoteToken } : {}),
       ...(request.a2aQuoteToken && request.quoteFlightDetails ? { quoteFlightDetails: request.quoteFlightDetails } : {}),

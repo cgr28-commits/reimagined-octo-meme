@@ -21,7 +21,7 @@ export default function LandingBreadcrumbs({ items }: { items: LandingCrumb[] })
               {last || !item.href ? (
                 <span className={last ? "text-white/80" : undefined}>{item.name}</span>
               ) : (
-                <Link href={item.href} className="transition-colors hover:text-emerald">
+                <Link href={item.href} className="inline-flex min-h-11 items-center transition-colors hover:text-emerald lg:min-h-0">
                   {item.name}
                 </Link>
               )}

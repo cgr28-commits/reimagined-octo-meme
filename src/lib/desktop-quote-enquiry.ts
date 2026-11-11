@@ -1,3 +1,4 @@
+import { assertPreviewNotificationsAllowed } from "@/lib/preview-notifications";
 import { resolveBookingsApiUrl } from "@/lib/worker-api";
 
 export type DesktopEnquiry = { name: string; email: string; message: string; journey: string };
@@ -14,6 +15,7 @@ export function validateDesktopEnquiry(input: DesktopEnquiry): string | null {
 export async function sendDesktopQuoteEnquiry(input: DesktopEnquiry, request: typeof fetch = fetch): Promise<string> {
   const error = validateDesktopEnquiry(input);
   if (error) throw new Error(error);
+  assertPreviewNotificationsAllowed();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
   try {

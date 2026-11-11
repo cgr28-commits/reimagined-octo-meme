@@ -12,19 +12,31 @@ export default function Footer() {
     <footer className="relative border-t border-white/10 bg-navy-dark">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 desktop-shell lg:max-w-[1400px] lg:px-10 lg:py-16 xl:px-12">
         <div
-          className={`grid gap-10 sm:grid-cols-2 ${
-            SERVICE_FLAGS.dayTrips ? "lg:grid-cols-6" : "lg:grid-cols-5"
+          className={`grid gap-10 sm:grid-cols-2 lg:grid-cols-3 ${
+            SERVICE_FLAGS.dayTrips ? "min-[1200px]:grid-cols-6" : "min-[1200px]:grid-cols-5"
           }`}
         >
-          <div className="sm:col-span-2 lg:col-span-1">
+          {/* 1024-1199px: brand on its own row, then three columns, so nothing is squeezed. */}
+          <div className="sm:col-span-2 lg:col-span-3 min-[1200px]:col-span-1">
             <Logo className="h-16" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               {SITE_PUBLIC_SEO_BLURB}
             </p>
+            <Link
+              href="/manage-booking/"
+              prefetch={false}
+              data-footer-manage-booking
+              className="mt-6 inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-5 lg:hidden text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10"
+            >
+              <svg className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+              </svg>
+              Manage Your Booking
+            </Link>
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Quick Links
             </h3>
             <ul className="mt-4 space-y-2">
@@ -56,7 +68,7 @@ export default function Footer() {
                   My Bookings
                 </Link>
               </li>
-              <li><Link href="/belfast-grand-central-station-taxi/" className="inline-flex min-h-11 items-center text-sm text-white/70 hover:text-emerald">Grand Central Station taxis</Link></li>
+              <li><Link href="/belfast-grand-central-station-taxi/" className="text-sm text-white/50 transition-colors hover:text-emerald">Grand Central Station taxis</Link></li>
               <li>
                 <Link
                   href="/belfast-cruise-terminal-transfers/"
@@ -69,7 +81,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Airports
             </h3>
             <ul className="mt-4 space-y-2">
@@ -88,7 +100,7 @@ export default function Footer() {
 
           {SERVICE_FLAGS.dayTrips ? (
             <div>
-              <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
                 Day Trips
               </h3>
               <ul className="mt-4 space-y-2">
@@ -112,14 +124,14 @@ export default function Footer() {
           ) : null}
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Contact
             </h3>
             <FooterContact />
           </div>
 
           <div>
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Service Hours
             </h3>
             <p className="mt-4 text-sm text-white/50">
@@ -134,7 +146,7 @@ export default function Footer() {
 
         {SERVICE_FLAGS.addressToAddress ? (
           <div className="mt-12 border-t border-white/10 pt-8">
-            <h3 className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-white/70">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
               Airport taxi towns
             </h3>
             <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
@@ -182,8 +194,19 @@ export default function Footer() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-white/70">
             <Link
+              href="/manage-booking/"
+              prefetch={false}
+              data-footer-manage-booking="desktop"
+              className="hidden min-h-10 items-center gap-2 whitespace-nowrap rounded-full border border-emerald/50 px-4 text-sm font-semibold text-white transition-colors hover:border-emerald hover:bg-emerald/10 lg:inline-flex"
+            >
+              <svg className="h-4 w-4 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />
+              </svg>
+              Manage Your Booking
+            </Link>
+            <Link
               href="/contact/"
-              className="rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/75 transition-colors hover:border-emerald/40 hover:text-emerald"
+              className="inline-flex min-h-11 items-center rounded-[0.55rem] border border-white/18 px-3 py-1.5 text-xs font-semibold text-white/80 lg:min-h-0 transition-colors hover:border-emerald/40 hover:text-emerald"
             >
               Save to contacts
             </Link>
@@ -198,6 +221,10 @@ export default function Footer() {
             <span className="text-white/20">|</span>
             <Link href="/privacy/" className="transition-colors hover:text-emerald">
               Privacy Policy
+            </Link>
+            <span className="text-white/20">|</span>
+            <Link href="/photo-credits/" className="transition-colors hover:text-emerald">
+              Photo credits
             </Link>
             <span className="hidden text-white/20 sm:inline">|</span>
             <span className="text-white/65">Fully licensed &amp; insured private hire operator</span>

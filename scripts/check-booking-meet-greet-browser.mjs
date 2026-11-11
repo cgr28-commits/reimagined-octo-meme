@@ -79,7 +79,7 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
- await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).waitFor();
+ await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
  await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
  await page.evaluate(()=>document.fonts.ready);
  const card=page.locator('[data-quote-result-card]');
@@ -91,7 +91,37 @@ try {
   for(const collection of [false,true]) {
    const q=await quote(base,width,68,true,collection),{page}=q;
    assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0);
-   await page.getByRole('button',{name:/BOOK THIS TRANSFER/i}).click();
+   if(width>=1200) {
+    // Desktop (1200px+): Meet & Greet is offered once, under the vehicle choices; checkout does not repeat it.
+    const upgrade=page.locator('[data-results-upgrades]');
+    assert.equal(await upgrade.isVisible(),collection,'Desktop offers Meet & Greet under the vehicles for airport pickups only');
+    if(collection) {
+     assert.match(await upgrade.innerText(),/Meet & Greet[\s\S]*£18.25/);
+     const total=async()=>Number((await page.locator('[data-quote-result-card]').innerText()).match(/Your current total\s*£([\d.]+)/)[1]);
+     const box=upgrade.getByRole('checkbox');assert.equal(await box.isChecked(),false);
+     // Customers click the whole card (the checkbox sits inside the label).
+     const card=upgrade.locator('[data-results-upgrade]').first();
+     const toggle=async()=>{await card.evaluate(el=>el.scrollIntoView({block:'center'}));await card.click();};
+     const before=await total();
+     await toggle();assert.equal(await box.isChecked(),true);assert.equal(Math.round((await total()-before)*100),1825);
+     await toggle();assert.equal(await box.isChecked(),false);assert.equal(await total(),before);
+     await toggle();
+     await page.getByRole('button',{name:/Continue to booking/i}).first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.getByRole('button',{name:/Continue to booking/i}).first().click();
+     await page.locator('#name').waitFor();
+     assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0,'Checkout does not repeat the offer');
+     const options=page.locator('form').filter({has:page.locator('#name')});
+     const full=options.getByRole('button',{name:/Pay in Full Online/});
+     if(await full.count()){await full.evaluate(el=>el.scrollIntoView({block:'center'}));await full.click();}
+     const pay=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
+     assert.equal(Math.round(Number(pay.match(/£([\d.]+)/)[1])*100),Math.round((before+18.25)*100),'Pay amount includes the selected upgrade');
+     await page.locator('[data-back-to-quote]:visible').first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.locator('[data-back-to-quote]:visible').first().click();
+     await upgrade.waitFor();assert.equal(await upgrade.getByRole('checkbox').isChecked(),true,'Choice kept when returning to the vehicles');
+    }
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await q.context.close();console.log('PASS',width,collection?'desktop vehicle-step upgrade toggles total, carried to Pay, kept on return':'airport dropoff omitted');
+    continue;
+   }
+   await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
    await page.locator('#name').waitFor();
    const section=page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})});
    assert.equal(await section.count(),collection?1:0);

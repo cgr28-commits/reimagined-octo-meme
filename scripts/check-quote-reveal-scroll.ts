@@ -206,7 +206,9 @@ check("Book This Transfer uses the booking heading for the longer homepage hero 
   assert.doesNotMatch(glide, /correctAfterMs|behavior:\s*"smooth"|vibrate|quote-result-reveal/);
   const card = fs.readFileSync(path.join(root, "src/components/QuoteCard.tsx"), "utf8");
   assert.match(card, /bookTransferGlideRef\.current = true/);
-  assert.match(card, /scheduleBookTransferGlide\(\s*introduction \?\? bookingHeading \?\? cardRef\.current \?\? step2TravelDetailsRef\.current \?\? "step2-travel-details"/);
+  // Mobile Design 3 stops at its progress line first; everything else keeps the original order.
+  assert.match(card, /scheduleBookTransferGlide\(\s*design3Steps \?\? introduction \?\? bookingHeading \?\? cardRef\.current \?\? step2TravelDetailsRef\.current \?\? "step2-travel-details"/);
+  assert.match(card, /const design3Steps = mobileDesign3\s*\?/);
   assert.match(card, /presentation === "homepage" && !homepagePolish && window\.matchMedia\("\(max-width: 767px\)"\)\.matches/);
   assert.match(card, /document\.getElementById\("homepage-booking-intro"\)/);
   const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");

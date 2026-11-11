@@ -54,6 +54,13 @@ export type BookingJobRecord = {
   /** Consented campaign attribution, visible only in the owner booking record. */
   attribution?: AdsAttribution;
   amountPaidLabel?: string;
+  /** Personalised quote (MATNI-AQ-…) linked to this enquiry: created by the website for a
+   * manual-quote request, or by Owner "Send price". */
+  sentQuoteReference?: string;
+  /** Price the Owner sent to the customer, e.g. "£185.00". */
+  sentQuotePriceLabel?: string;
+  sentQuoteAt?: string;
+  sentQuoteExpiresAt?: string;
   paymentReference?: string;
   paidAt?: string;
   calendarEventIds?: string[];

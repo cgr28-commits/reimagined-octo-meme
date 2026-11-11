@@ -277,7 +277,7 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-empty-legs-summary>
+      <div className="grid gap-3 sm:grid-cols-2 min-[64rem]:grid-cols-3" data-empty-legs-summary>
         <SummaryCard
           label="Upcoming potential empty legs"
           value={totals ? String(totals.upcomingPotential) : "—"}
@@ -425,7 +425,7 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
                     {open ? (
                       <tr className="border-t border-white/5 bg-black/20">
                         <td colSpan={10} className="px-4 py-4">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm text-white/75">
+                          <div className="grid gap-3 sm:grid-cols-2 min-[64rem]:grid-cols-3 text-sm text-white/75">
                             <div>
                               <p className="text-xs text-white/45">Parent booking reference</p>
                               <p className="font-mono text-xs">{item.parentBookingId}</p>
@@ -523,7 +523,7 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
                               </p>
                               <p>{money(item.economics.loadedOneWayOpCostReferenceGbp)}</p>
                             </div>
-                            <div className="sm:col-span-2 lg:col-span-3">
+                            <div className="sm:col-span-2 min-[64rem]:col-span-3">
                               <p className="text-xs text-white/45">Operational notes / risks</p>
                               <p>{item.notes}</p>
                               <p className="mt-1 text-xs text-white/45">

@@ -2,6 +2,7 @@
 
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteCard from "@/components/QuoteCard";
+import type { TownGuidePickup } from "@/lib/selected-place";
 
 type Props = {
   bookingIntroduction?: string;
@@ -9,6 +10,8 @@ type Props = {
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
+  /** Town pages: pre-confirmed town-centre pickup for an instant guide price. */
+  guidePickup?: TownGuidePickup | null;
   heading?: string;
   eyebrow?: string;
   description?: string;
@@ -26,6 +29,7 @@ export default function LocationQuoteSection({
   airportCode = "",
   direction = "to-airport",
   addressHint = "",
+  guidePickup = null,
   heading = "Get your fixed quote",
   eyebrow = "Instant quote",
   description = "Fixed prices. No surge pricing. Airport pickups include up to 60 minutes complimentary waiting time.",
@@ -44,7 +48,7 @@ export default function LocationQuoteSection({
       </span>
       <div className="absolute inset-0 bg-gradient-to-b from-navy via-navy-light/25 to-navy" />
       <div className="relative mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 text-center">
+        <div data-landing-quote-header className="mb-8 text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{eyebrow}</p>
           <h2
             data-booking-nav-heading
@@ -57,15 +61,19 @@ export default function LocationQuoteSection({
           </p>
         </div>
         {pickupNotice ? <p className="mb-6 rounded-xl border border-emerald/30 bg-emerald/5 p-4 text-sm leading-relaxed text-white/85"><strong>Station pickup:</strong> {pickupNotice}</p> : null}
+        {/* data-hub-quote: desktop (>=1200px) uses the homepage quote, vehicle and checkout presentation. */}
+        <div data-hub-quote>
         <QuoteCard
           bookingIntroduction={bookingIntroduction}
           presentation="homepage"
           initialAirportCode={airportCode}
           initialDirection={direction}
           initialAddressHint={addressHint}
+          initialGuidePickup={guidePickup}
           preferMinibus={preferMinibus}
           businessClassAnyRoute={businessClassAnyRoute}
         />
+        </div>
       </div>
       {showStickyQuote ? <LandingPageStickyQuoteCta /> : null}
     </section>

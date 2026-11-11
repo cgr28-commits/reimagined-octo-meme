@@ -12,6 +12,7 @@ import {
   TIP_TOKEN_STORAGE_KEY,
 } from "../../../shared/journey-tip";
 import { createTipCheckout, fetchTipStatus } from "@/lib/journey-tip-api";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 type View =
   | { kind: "loading" }
@@ -137,7 +138,9 @@ export default function TipPageClient() {
   }
 
   return (
-    <main className="min-h-screen bg-navy text-white">
+    <>
+    <StandaloneBrandBar />
+    <main data-customer-standalone className="min-h-screen bg-navy text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-8 sm:py-12">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-emerald">
           My Airport Taxi NI
@@ -275,5 +278,6 @@ export default function TipPageClient() {
         </div>
       </div>
     </main>
+    </>
   );
 }

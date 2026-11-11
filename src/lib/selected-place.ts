@@ -925,3 +925,28 @@ export function selectedPlaceFromParts(options: {
     administrativeArea: options.administrativeArea?.trim() || null,
   };
 }
+
+/** Town-centre "guide" pickup used on town pages: prices instantly, but cannot be booked. */
+export const TOWN_GUIDE_PLACE_PREFIX = "town-guide:";
+
+export const TOWN_GUIDE_PICKUP_MESSAGE =
+  "This is a guide price from the town centre. Enter your full pickup address, including the house number, to get your exact price and book.";
+
+export type TownGuidePickup = { label: string; lat: number; lng: number };
+
+export function townGuidePlace(guide: TownGuidePickup): SelectedPlace {
+  return {
+    ...emptySelectedPlace(),
+    placeId: `${TOWN_GUIDE_PLACE_PREFIX}${guide.label}`,
+    formattedAddress: guide.label,
+    displayAddress: guide.label,
+    placeName: guide.label,
+    lat: guide.lat,
+    lng: guide.lng,
+    countryCode: "GB",
+  };
+}
+
+export function isTownGuidePlace(place: SelectedPlace | null | undefined): boolean {
+  return Boolean(place?.placeId?.startsWith(TOWN_GUIDE_PLACE_PREFIX));
+}

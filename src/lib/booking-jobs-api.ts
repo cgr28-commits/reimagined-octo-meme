@@ -118,6 +118,47 @@ export async function markBookingJobPaid(
   return payload.job as BookingJobRecord;
 }
 
+export type SendBookingJobQuoteResult = {
+  job: BookingJobRecord;
+  quoteReference: string;
+  payUrl: string;
+  paymentEmailSent: boolean;
+  paymentEmailError?: string;
+};
+
+/** Owner Enquiries → Send price: approve a fare and email the customer a payment link. */
+export async function sendBookingJobQuote(
+  ownerKey: string,
+  input: { id: string; quotedPrice: number; validityMinutes: number },
+): Promise<SendBookingJobQuoteResult> {
+  const base = workerBaseUrl();
+  if (!base) {
+    throw new Error("Bookings API is not configured");
+  }
+
+  const response = await fetch(`${base}/booking-jobs/send-quote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Driver-Key": ownerKey.trim(),
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify(input),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok || !payload.job || typeof payload.payUrl !== "string") {
+    throw new Error(String(payload.error ?? "Could not send the price"));
+  }
+  return {
+    job: payload.job as BookingJobRecord,
+    quoteReference: String(payload.quoteReference ?? ""),
+    payUrl: payload.payUrl,
+    paymentEmailSent: Boolean(payload.paymentEmailSent),
+    ...(payload.paymentEmailError ? { paymentEmailError: String(payload.paymentEmailError) } : {}),
+  };
+}
+
 export async function assignBookingJobDriver(
   ownerKey: string,
   input: {

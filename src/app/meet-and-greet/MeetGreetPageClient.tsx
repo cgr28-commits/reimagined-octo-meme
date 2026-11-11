@@ -3,6 +3,7 @@ import { useLayoutEffect, useState } from "react";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { MEET_GREET_AIRPORT_NAMES, MEET_GREET_BENEFITS } from "../../../shared/meet-greet-upgrade";
 import { formatUkDate, formatUkTime } from "@/lib/format-datetime";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 type Offer = { state: "open" | "paid"; bookingReference: string; amount: number; airport: "BFS" | "BHD" | "DUB"; leg: "outbound" | "return"; pickupDate: string; pickupTime: string; pickupLabel: string; dropoffLabel: string; warning?: string; confirmationSent?: boolean };
 const base = resolveWorkerBaseUrl();
 export default function MeetGreetPageClient() {
@@ -32,7 +33,7 @@ export default function MeetGreetPageClient() {
     } catch (err) { setError(err instanceof Error ? err.message : "Please try again."); }
     finally { setBusy(false); }
   }
-  return <main className="mx-auto max-w-xl px-4 py-12 text-white">
+  return <><StandaloneBrandBar /><main data-customer-standalone className="mx-auto max-w-xl px-4 py-12 text-white">
     <section className="rounded-2xl border border-white/15 bg-navy p-6 sm:p-8">
       <p className="text-sm font-semibold text-emerald">My Airport Taxi NI</p>
       <h1 className="mt-3 text-3xl font-semibold">{offer?.state === "paid" ? offer.warning ? "Payment recorded" : "Meet & Greet added" : "A warm welcome at arrivals"}</h1>
@@ -52,5 +53,5 @@ export default function MeetGreetPageClient() {
         <p className="mt-6 text-sm"><a href="mailto:bookings@myairporttaxini.co.uk" className="underline">Questions? Contact us</a></p>
       </> : null}
     </section>
-  </main>;
+  </main></>;
 }

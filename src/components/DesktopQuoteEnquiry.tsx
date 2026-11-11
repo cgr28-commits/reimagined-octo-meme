@@ -17,14 +17,14 @@ export default function DesktopQuoteEnquiry({ journey, className }: { journey: s
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
+    const desktop = window.matchMedia("(min-width: 1200px)");
     const closeOnMobile = () => { if (!desktop.matches) setOpen(false); };
     desktop.addEventListener("change", closeOnMobile);
     return () => desktop.removeEventListener("change", closeOnMobile);
   }, []);
   return <>
     <button type="button" className={`${className} desktop-enquiry-trigger`} aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => { if (window.matchMedia("(min-width: 1024px)").matches) { setOpen(true); setSent(false); setError(""); } }}>
+      onClick={() => { if (window.matchMedia("(min-width: 1200px)").matches) { setOpen(true); setSent(false); setError(""); } }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-[1.15rem] w-[1.15rem]" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 6 9 7 9-7" /></svg>
       <span>Email Enquiry</span>
     </button>

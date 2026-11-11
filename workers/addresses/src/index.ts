@@ -2,6 +2,8 @@
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
+import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
+import { supersedeEarlierCheckouts } from "./supersede-checkout";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -3969,6 +3971,15 @@ async function handlePaymentRequest(
             }),
     });
 
+    // A newer payment for a changed booking closes the customer's earlier unpaid payment
+    // page, so an old link can never be paid at the old price (plain website bookings only).
+    if (stripePaymentsActive(env, booking ?? null)) {
+      await supersedeEarlierCheckouts(env.TRACKING_STORE, {
+        newCheckoutId: checkout.checkoutId,
+        clientPreviousCheckoutId: String(body.supersedesCheckoutId ?? "").trim() || null,
+      });
+    }
+
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
         checkoutId: checkout.checkoutId,
@@ -5404,6 +5415,30 @@ export default {
     }
 
     if (
+      (url.pathname === "/booking-jobs/send-quote" ||
+        url.pathname === "/api/booking-jobs/send-quote" ||
+        url.pathname.endsWith("/booking-jobs/send-quote")) &&
+      request.method === "POST"
+    ) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const result = await handleBookingJobSendQuote(
+        request,
+        { ...env, TRACKING_STORE: env.TRACKING_STORE },
+        body,
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
+    if (
       (url.pathname === "/owner/a2a-quotes/approve" ||
         url.pathname === "/api/owner/a2a-quotes/approve" ||
         url.pathname.endsWith("/a2a-quotes/approve")) &&
@@ -6038,7 +6073,7 @@ export default {
       const identity = [booking.customerEmail, booking.pickupLabel, booking.dropoffLabel,
         booking.tripDate, booking.tripTime, booking.returnJourney, booking.returnDate,
         booking.returnTime, booking.vehicle, booking.passengers, booking.suitcases];
-      const digest = await paymentOperationHash({...body, redirectUrl:undefined,
+      const digest = await paymentOperationHash({...body, redirectUrl:undefined, supersedesCheckoutId:undefined,
         booking:{...booking,termsAcceptedAt:Boolean(String(booking.termsAcceptedAt ?? "").trim())}});
       try {
         const {result} = await runPaymentOperation({namespace:env.QUOTE_LEAD_COORDINATOR,
@@ -6047,6 +6082,14 @@ export default {
           // A definite validation rejection made no provider request. Never retry
           // an ambiguous 5xx automatically (the provider may have accepted it).
           retrySafe:result=>result.body.code === "route_service_unavailable" || (result.status < 500 && !(result.status === 200 && result.body.checkoutId)),
+          // The customer went back to an option they chose earlier: that earlier payment
+          // page was closed unpaid when they changed the booking, so make a fresh one.
+          closedUnpaid:async result=>{
+            const id=String(result.body?.checkoutId ?? "").trim();
+            if(!id || !pendingCheckoutStoreConfigured(env.TRACKING_STORE)) return false;
+            const earlier=await getPendingCheckout(env.TRACKING_STORE,id);
+            return Boolean(earlier?.supersededAt && !earlier.finalizedAt);
+          },
         });
         return timedResponse(json(result.body,result.status,origin));
       } catch(error) {

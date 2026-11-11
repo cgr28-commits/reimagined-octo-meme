@@ -31,7 +31,7 @@ function CourseGrid({ courses }: { courses: readonly GolfCourse[] }) {
       {courses.map((course) => (
         <li key={course.name} className="rounded-xl border border-[#e3e9f1] bg-[#f7f9fb] p-3">
           <p className="text-sm font-bold text-navy">{course.name}</p>
-          <p className="text-xs font-semibold text-emerald-dark">{course.area}</p>
+          <p className="text-xs font-semibold text-[#16803c]">{course.area}</p>
           <p className="mt-1 text-sm leading-snug text-[#1a2a3d]">{course.note}</p>
         </li>
       ))}

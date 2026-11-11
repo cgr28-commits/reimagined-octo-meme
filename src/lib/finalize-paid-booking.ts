@@ -11,6 +11,7 @@ import {
   readPaymentConfirmationSummary,
   readPendingPayment,
   readPendingPaymentByToken,
+  readPendingPaymentForReturn,
   resolveCheckoutIdFromUrl,
   resolveReturnTokenFromUrl,
 } from "@/lib/pending-payment";
@@ -22,8 +23,11 @@ import {
   isDepositCashPaymentMethod,
 } from "../../shared/deposit-cash";
 
-const PAYMENT_CONFIRM_RETRY_MS = 2000;
-const PAYMENT_CONFIRM_MAX_ATTEMPTS = 5;
+const PAYMENT_CONFIRM_RETRY_MS = 2500;
+// About 30 seconds: Stripe can take a little while to mark a payment complete after the redirect.
+const PAYMENT_CONFIRM_MAX_ATTEMPTS = 12;
+/** After the payment is confirmed, re-check only briefly for follow-up details (emails, calendar). */
+const PAYMENT_FOLLOW_UP_MAX_RETRIES = 4;
 
 export type FinalizePaidBookingResult = {
   status: "confirmed" | "pending" | "missing" | "error";
@@ -35,6 +39,42 @@ export type FinalizePaidBookingResult = {
   result?: PaymentConfirmationResult;
   error?: string;
 };
+
+type BrowserEmailFallback = { customerEmailSent: boolean; ownerEmailSent: boolean };
+const browserEmailFallbackKey = (paymentReference: string) =>
+  `matni-paid-email-fallback:${paymentReference}`;
+
+/** Outcome of the browser backup emails already sent for this booking, if any. */
+function readBrowserEmailFallback(paymentReference: string | undefined): BrowserEmailFallback | null {
+  const reference = paymentReference?.trim();
+  if (!reference) return null;
+  try {
+    const raw = window.localStorage.getItem(browserEmailFallbackKey(reference));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<BrowserEmailFallback>;
+    return {
+      customerEmailSent: parsed.customerEmailSent === true,
+      ownerEmailSent: parsed.ownerEmailSent === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberBrowserEmailFallback(
+  paymentReference: string | undefined,
+  outcome: BrowserEmailFallback,
+): BrowserEmailFallback {
+  const reference = paymentReference?.trim();
+  if (reference) {
+    try {
+      window.localStorage.setItem(browserEmailFallbackKey(reference), JSON.stringify(outcome));
+    } catch {
+      // Storage unavailable: the emails were still sent this once.
+    }
+  }
+  return outcome;
+}
 
 function buildPaymentConfirmationSummary(
   result: PaymentConfirmationResult,
@@ -64,7 +104,7 @@ export async function finalizePaidBookingFromUrl(
   const checkoutIdFromUrl = resolveCheckoutIdFromUrl(search);
   const returnToken = resolveReturnTokenFromUrl(search);
   const pending =
-    readPendingPayment() || (returnToken ? readPendingPaymentByToken(returnToken) : null);
+    readPendingPaymentForReturn(search);
   const checkoutId = checkoutIdFromUrl || pending?.checkoutId || "";
 
   if (checkoutId && hasConfirmedPayment(checkoutId)) {
@@ -95,13 +135,20 @@ export async function finalizePaidBookingFromUrl(
   // when the customer returns without localStorage (new device / cleared storage).
   const booking: BookingDetails | null = pending?.booking ?? null;
 
+  let followUps = 0;
   for (let attempt = 0; attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS; attempt += 1) {
     try {
       let result = await confirmPaidBooking(checkoutId, booking);
 
       if (booking && (result.customerEmailSent !== true || result.ownerEmailSent !== true)) {
         try {
-          const fallback = await sendPaidBookingEmailsFromBrowser(booking, result);
+          // Send the browser backup emails once per booking: a refresh reuses the first outcome.
+          const fallback =
+            readBrowserEmailFallback(result.paymentReference) ??
+            rememberBrowserEmailFallback(
+              result.paymentReference,
+              await sendPaidBookingEmailsFromBrowser(booking, result),
+            );
           result = {
             ...result,
             customerEmailSent: result.customerEmailSent === true || fallback.customerEmailSent,
@@ -121,7 +168,8 @@ export async function finalizePaidBookingFromUrl(
       );
       markPaymentConfirmed(checkoutId, summary, returnToken || undefined, result);
 
-      if (paymentNeedsFollowUp(result) && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+      if (paymentNeedsFollowUp(result) && followUps < PAYMENT_FOLLOW_UP_MAX_RETRIES && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+        followUps += 1;
         await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
         continue;
       }
@@ -139,16 +187,19 @@ export async function finalizePaidBookingFromUrl(
       const message =
         error instanceof Error ? error.message : "Could not confirm your payment";
 
-      if (message.includes("not been completed") && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
+      // "already being processed": Stripe's webhook is finalising the same payment right now.
+      // Wait and ask again; the next answer is the finished booking (never a second charge).
+      const stillFinalising = message.includes("not been completed") || message.includes("already being processed");
+      if (stillFinalising && attempt < PAYMENT_CONFIRM_MAX_ATTEMPTS - 1) {
         await new Promise((resolve) => window.setTimeout(resolve, PAYMENT_CONFIRM_RETRY_MS));
         continue;
       }
 
-      if (message.includes("not been completed")) {
+      if (stillFinalising) {
         return {
           status: "pending",
           summary:
-            "Payment isn’t showing as complete yet. Wait a few seconds and refresh this page, or open the payment link from your email again.",
+            "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh, or open the payment link from your email. If you need help, call 028 9602 2952.",
           checkoutId,
           error: message,
         };
@@ -165,7 +216,7 @@ export async function finalizePaidBookingFromUrl(
 
   return {
     status: "pending",
-    summary: "Payment is still processing. Please refresh this page in a moment.",
+    summary: "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh. If you need help, call 028 9602 2952.",
     checkoutId,
   };
 }
