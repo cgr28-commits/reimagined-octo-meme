@@ -3598,27 +3598,36 @@ async function handlePaymentRequest(
               : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
-        const respondBy = created.record.shortNoticeExpiresAt
-          ? formatLondonClockTime(created.record.shortNoticeExpiresAt)
-          : "";
-        const shortNoticeUrgency =
-          created.record.underMinimumNotice && respondBy
-            ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
-            : "";
-        const ownerSubject = minibusRequest
-          ? `7-Seater availability request — ${created.record.reference}`
-          : luggageCapacity && !notice.shortNotice
-            ? `New luggage capacity confirmation request — ${created.record.reference}`
-            : created.record.underMinimumNotice && respondBy
-              ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
-              : pickupRemaining && pickupRemaining !== "pickup time has passed"
-                ? `New short-notice booking request — pickup in ${pickupRemaining}`
-                : `New short-notice booking request — ${created.record.reference}`;
-        await trySendOwnerOperationalEmail(env, {
-          to: ownerInbox(env),
-          subject: ownerSubject,
-          body:
-            `${shortNoticeUrgency}${attemptEmail.body}\n\n` +
+        // Card hold started: the owner is only told once the card is actually held
+        // (noteShortNoticeHoldAuthorised), so every request he sees is already paid for.
+        const deferUntilHeld = Boolean(cardHoldUrl);
+        const composeOwnerEmail = (respondBy: string, cardHeldNote: string) => {
+          const shortNoticeUrgency =
+            created.record.underMinimumNotice && respondBy
+              ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
+              : "";
+          const subject = minibusRequest
+            ? `7-Seater availability request — ${created.record.reference}`
+            : luggageCapacity && !notice.shortNotice
+              ? `New luggage capacity confirmation request — ${created.record.reference}`
+              : created.record.underMinimumNotice && respondBy
+                ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
+                : pickupRemaining && pickupRemaining !== "pickup time has passed"
+                  ? `New short-notice booking request — pickup in ${pickupRemaining}`
+                  : `New short-notice booking request — ${created.record.reference}`;
+          const detailsBody = deferUntilHeld
+            ? attemptEmail.body
+                .replace(
+                  /^A customer entered their details and started online card payment[^\n]*\n/,
+                  "A customer sent a short-notice request and their card is now held for the quoted fare.\n",
+                )
+                .replace(
+                  /^Payment is NOT confirmed yet[^\n]*\n/m,
+                  "Nothing is charged until you approve. Decline or no answer releases the hold.\n",
+                )
+            : attemptEmail.body;
+          const body =
+            `${shortNoticeUrgency}${cardHeldNote}${detailsBody}\n\n` +
             `Action required: ${
               luggageCapacity && !created.record.underMinimumNotice
                 ? LUGGAGE_CAPACITY_OWNER_REASON
@@ -3649,14 +3658,44 @@ async function handlePaymentRequest(
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
             `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
             `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.` +
-            (cardHoldUrl
-              ? `\n\nCard hold: the customer has been asked to authorise ${amountLabel} on their card. ` +
-                `You'll get a "Card held" email when they do. Approve → charged and confirmed automatically. ` +
+            (deferUntilHeld
+              ? `\n\nCard held: ${amountLabel} is authorised on the customer's card (not charged yet). ` +
+                `Approve → charged and confirmed automatically. ` +
                 `Decline or no answer → released, customer pays nothing.`
-              : ""),
-        });
-        if (created.record.underMinimumNotice || luggageCapacity) {
-          await sendShortNoticeRequestReceivedEmail(env, created.record);
+              : "");
+          return { subject, body };
+        };
+        if (deferUntilHeld) {
+          const latest =
+            (await getShortNoticeByReference(env.TRACKING_STORE, created.record.reference)) ??
+            created.record;
+          await saveShortNoticeBooking(env.TRACKING_STORE, {
+            ...latest,
+            awaitingCardHold: true,
+            deferredOwnerEmail: composeOwnerEmail(
+              created.record.underMinimumNotice ? "{{RESPOND_BY}}" : "",
+              `CARD HELD — ${amountLabel} authorised, not charged yet.\n\n`,
+            ),
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          const respondBy = created.record.shortNoticeExpiresAt
+            ? formatLondonClockTime(created.record.shortNoticeExpiresAt)
+            : "";
+          const ownerEmail = composeOwnerEmail(
+            respondBy,
+            stripePaymentsActive(env, booking ?? null)
+              ? `NO CARD HOLD — the card could not be held, so approving sends the customer a payment link.\n\n`
+              : "",
+          );
+          await trySendOwnerOperationalEmail(env, {
+            to: ownerInbox(env),
+            subject: ownerEmail.subject,
+            body: ownerEmail.body,
+          });
+          if (created.record.underMinimumNotice || luggageCapacity) {
+            await sendShortNoticeRequestReceivedEmail(env, created.record);
+          }
         }
         return json(
           {
@@ -4143,6 +4182,11 @@ async function handlePaymentWebhookRequest(
           pending: pendingHold,
           emailOwner: async (subject, body) => {
             await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+          },
+          sendCustomerRequestReceived: async (record) => {
+            if (record.underMinimumNotice || hasLuggageCapacityHold(record.holdReasons)) {
+              await sendShortNoticeRequestReceivedEmail(env, record);
+            }
           },
         });
       } catch (error) {
@@ -6555,9 +6599,18 @@ export default {
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
       ctx.waitUntil(
-        sweepShortNoticeCardHolds(env.TRACKING_STORE)
+        sweepShortNoticeCardHolds(env.TRACKING_STORE, {
+          emailOwner: async (subject, body) => {
+            await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+          },
+          sendCustomerRequestReceived: async (record) => {
+            if (record.underMinimumNotice || hasLuggageCapacityHold(record.holdReasons)) {
+              await sendShortNoticeRequestReceivedEmail(env, record);
+            }
+          },
+        })
           .then((r) => {
-            if (r.released) console.log("Short-notice hold sweep", JSON.stringify(r));
+            if (r.released || r.authorised) console.log("Short-notice hold sweep", JSON.stringify(r));
           })
           .catch((error) => console.error("Short-notice hold sweep failed", error)),
       );

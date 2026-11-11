@@ -7,18 +7,22 @@
  *    (index.ts: captureShortNoticeHoldAndConfirm).
  * 3. Decline, no answer in time, or an alternative time → the hold is released.
  *
- * Only used when Stripe is active for the booking. If the customer never
- * finishes authorising, approval falls back to the normal payment link.
+ * Only used when Stripe is active for the booking. While the customer has not
+ * authorised yet (`awaitingCardHold`), the request is hidden from the owner and
+ * cannot be approved; the owner request email is sent once the card is held.
+ * Older requests made before this (no `awaitingCardHold`) still fall back to
+ * the normal payment link if the hold was never authorised.
  */
 import {
   createStripeCheckoutSession,
   stripeConfigured,
 } from "../shared/stripe-payments";
-import type { ShortNoticeBookingRecord } from "../shared/short-notice-booking";
+import { shortNoticeResponseExpiresAtIso, type ShortNoticeBookingRecord } from "../shared/short-notice-booking";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { getShortNoticeByReference, saveShortNoticeBooking } from "./short-notice-store";
-import { savePendingCheckout, type PendingCheckoutRecord } from "./pending-checkout-store";
+import { getPendingCheckout, savePendingCheckout, type PendingCheckoutRecord } from "./pending-checkout-store";
 import { getCheckoutHoldState, releaseCheckoutHold } from "./stripe-holds";
+import { formatLondonClockTime } from "../shared/uk-time";
 
 const INDEX_PREFIX = "sn-card-hold:";
 const INDEX_TTL_SECONDS = 9 * 24 * 3600;
@@ -90,6 +94,7 @@ export async function startShortNoticeCardHold(input: {
 }
 
 type OwnerEmailFn = (subject: string, body: string) => Promise<void>;
+type CustomerReceivedFn = (record: ShortNoticeBookingRecord) => Promise<void>;
 
 function holdIsReleasable(record: ShortNoticeBookingRecord): boolean {
   return (
@@ -102,14 +107,27 @@ function holdIsReleasable(record: ShortNoticeBookingRecord): boolean {
   );
 }
 
+/** A request whose card was never held and whose response deadline has passed. */
+function awaitingHoldIsStale(record: ShortNoticeBookingRecord, now: Date): boolean {
+  if (!record.awaitingCardHold || !record.shortNoticeExpiresAt) return false;
+  const deadline = new Date(record.shortNoticeExpiresAt).getTime();
+  return Number.isFinite(deadline) && deadline <= now.getTime();
+}
+
 /**
  * Stripe says the customer finished the hold page. Record it, tell the owner,
  * or release it straight away if the request is no longer open.
+ *
+ * For requests waiting on the card (`awaitingCardHold`) this is the moment the
+ * request reaches the owner: the saved request email is sent, the response
+ * window starts now, and the customer gets their "request received" email.
  */
 export async function noteShortNoticeHoldAuthorised(input: {
   store: KVNamespace;
   pending: PendingCheckoutRecord;
   emailOwner: OwnerEmailFn;
+  sendCustomerRequestReceived?: CustomerReceivedFn;
+  now?: Date;
 }): Promise<void> {
   const reference = input.pending.shortNoticeReference ?? "";
   if (!reference) return;
@@ -121,12 +139,58 @@ export async function noteShortNoticeHoldAuthorised(input: {
   const state = await getCheckoutHoldState(hold.checkoutId);
   if (state.paymentIntentStatus !== "requires_capture") return;
 
-  if (holdIsReleasable(record)) {
+  const nowDate = input.now ?? new Date();
+  if (holdIsReleasable(record) || awaitingHoldIsStale(record, nowDate)) {
     await releaseShortNoticeHold(input.store, record, "request_no_longer_open");
     return;
   }
 
-  const now = new Date().toISOString();
+  const now = nowDate.toISOString();
+  if (record.awaitingCardHold) {
+    // Response window runs from when the card was held, not when the form was sent.
+    const shortNoticeExpiresAt =
+      record.underMinimumNotice && record.shortNoticeExpiresAt
+        ? shortNoticeResponseExpiresAtIso(now, record.shortNoticeConfirmationWindowHours)
+        : record.shortNoticeExpiresAt;
+    const released: ShortNoticeBookingRecord = {
+      ...record,
+      awaitingCardHold: false,
+      deferredOwnerEmail: undefined,
+      cardHold: { ...hold, authorisedAt: now },
+      ...(shortNoticeExpiresAt ? { shortNoticeExpiresAt } : {}),
+      updatedAt: now,
+    };
+    await saveShortNoticeBooking(input.store, released);
+    const respondBy = shortNoticeExpiresAt ? formatLondonClockTime(shortNoticeExpiresAt) : "";
+    const deferred = record.deferredOwnerEmail;
+    if (deferred) {
+      await input.emailOwner(
+        deferred.subject.split("{{RESPOND_BY}}").join(respondBy),
+        deferred.body.split("{{RESPOND_BY}}").join(respondBy),
+      );
+    } else {
+      await input.emailOwner(
+        `SHORT-NOTICE BOOKING REQUEST — ${record.reference} (card held ${formatGbp(hold.amount)})`,
+        `New short-notice request ${record.reference} (${record.booking.tripDate} ${record.booking.tripTime}).\n` +
+          `Card held: ${formatGbp(hold.amount)} (not charged yet).\n` +
+          (respondBy ? `Respond by ${respondBy}\n` : "") +
+          `Open the Owner Dashboard to Approve, Offer alternative time, or Decline.`,
+      );
+    }
+    if (input.sendCustomerRequestReceived) {
+      try {
+        await input.sendCustomerRequestReceived(released);
+      } catch (error) {
+        console.error(
+          "Short-notice request-received email failed",
+          record.reference,
+          error instanceof Error ? error.message : "",
+        );
+      }
+    }
+    return;
+  }
+
   await saveShortNoticeBooking(input.store, {
     ...record,
     cardHold: { ...hold, authorisedAt: now },
@@ -174,8 +238,9 @@ export async function releaseShortNoticeHold(
 /** Cron: release holds on requests that were declined, expired or changed. */
 export async function sweepShortNoticeCardHolds(
   store: KVNamespace | undefined,
-): Promise<{ released: number; closed: number }> {
-  const result = { released: 0, closed: 0 };
+  notify?: { emailOwner: OwnerEmailFn; sendCustomerRequestReceived?: CustomerReceivedFn },
+): Promise<{ released: number; closed: number; authorised: number }> {
+  const result = { released: 0, closed: 0, authorised: 0 };
   if (!store || !stripeConfigured()) return result;
   let cursor: string | undefined;
   do {
@@ -192,6 +257,37 @@ export async function sweepShortNoticeCardHolds(
       if (holdIsReleasable(record)) {
         if (await releaseShortNoticeHold(store, record, record.status.toLowerCase())) {
           result.released += 1;
+        }
+        continue;
+      }
+      // Backstop for a missed Stripe webhook: if the card is now held, pass
+      // the request to the owner; if it went stale unheld, close it quietly.
+      if (record.awaitingCardHold && !hold.authorisedAt) {
+        try {
+          if (awaitingHoldIsStale(record, new Date())) {
+            if (await releaseShortNoticeHold(store, record, "never_authorised")) {
+              result.released += 1;
+            }
+            continue;
+          }
+          if (!notify) continue;
+          const state = await getCheckoutHoldState(hold.checkoutId);
+          if (state.paymentIntentStatus !== "requires_capture") continue;
+          const pending = await getPendingCheckout(store, hold.checkoutId);
+          if (!pending) continue;
+          await noteShortNoticeHoldAuthorised({
+            store,
+            pending,
+            emailOwner: notify.emailOwner,
+            sendCustomerRequestReceived: notify.sendCustomerRequestReceived,
+          });
+          result.authorised += 1;
+        } catch (error) {
+          console.error(
+            "Short-notice awaiting-hold check failed",
+            reference,
+            error instanceof Error ? error.message : "",
+          );
         }
       }
     }

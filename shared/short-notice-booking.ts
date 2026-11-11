@@ -148,6 +148,17 @@ export type ShortNoticeBookingRecord = {
    * charged). Approve → charged and confirmed; decline / expiry → released.
    */
   cardHold?: ShortNoticeCardHold;
+  /**
+   * True while the customer has been sent to the card-hold page but has not
+   * authorised yet. The request is hidden from the Owner Dashboard, cannot be
+   * approved, and the owner is not emailed until the card is held.
+   */
+  awaitingCardHold?: boolean;
+  /**
+   * Owner request email saved at submission and sent once the card is held.
+   * `{{RESPOND_BY}}` is replaced with the response deadline at send time.
+   */
+  deferredOwnerEmail?: { subject: string; body: string };
   /** Set when SumUp checkout is created after approval. */
   checkoutId?: string;
   checkoutReference?: string;

@@ -384,6 +384,9 @@ async function sendResponseExpiryEmailOnce(
   if (!isShortNoticeResponseExpiredRecord(record) || record.responseExpiryEmailSentAt) {
     return { record, sent: false };
   }
+  // The customer never finished the card hold, so the owner never saw the
+  // request — no "we couldn't confirm in time" email.
+  if (record.awaitingCardHold) return { record, sent: false };
   const store = env.TRACKING_STORE;
   const key = shortNoticeExpiryEmailKey(record.reference);
   const existingClaim = await store.get(key);
@@ -1176,7 +1179,11 @@ export async function handleOwnerListShortNotice(
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
   await processExpiredShortNoticeResponseWindows(env);
-  const bookings = await listOpenShortNoticeBookings(env.TRACKING_STORE);
+  // Requests still waiting for the customer's card hold are not shown — they
+  // reach the owner (email + dashboard) only once the card is held.
+  const bookings = (await listOpenShortNoticeBookings(env.TRACKING_STORE)).filter(
+    (record) => !record.awaitingCardHold,
+  );
   return { ok: true, bookings };
 }
 
@@ -1302,6 +1309,13 @@ export async function handleOwnerApproveShortNotice(
     return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
   }
   const existing = expiry.record;
+  if (existing.awaitingCardHold) {
+    return {
+      error:
+        "The customer hasn't finished authorising their card yet, so there is nothing to approve.",
+      status: 409,
+    };
+  }
   if (existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED") {
     return {
       error: "An alternative time is already offered — withdraw it first, or wait for the customer to accept.",
