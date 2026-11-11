@@ -473,7 +473,7 @@ export default function OwnerMobileApp({
     screen = (
       <MoreScreen
         awaitingRequests={awaitingRequests}
-        onOpenDrivers={() => setView({ kind: "drivers" })}
+        onOpenDrivers={driversSummary ? () => setView({ kind: "drivers" }) : undefined}
         driversSummary={driversSummary}
         onOpenTool={(tool) => onOpenTool(tool, { returnTab: "more" })}
         onSwitchToClassic={onSwitchToClassic}
