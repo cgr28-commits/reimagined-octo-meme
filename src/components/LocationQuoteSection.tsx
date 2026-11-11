@@ -2,6 +2,7 @@
 
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteCard from "@/components/QuoteCard";
+import type { TownGuidePickup } from "@/lib/selected-place";
 
 type Props = {
   bookingIntroduction?: string;
@@ -9,6 +10,8 @@ type Props = {
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
+  /** Town pages: pre-confirmed town-centre pickup for an instant guide price. */
+  guidePickup?: TownGuidePickup | null;
   heading?: string;
   eyebrow?: string;
   description?: string;
@@ -26,6 +29,7 @@ export default function LocationQuoteSection({
   airportCode = "",
   direction = "to-airport",
   addressHint = "",
+  guidePickup = null,
   heading = "Get your fixed quote",
   eyebrow = "Instant quote",
   description = "Fixed prices. No surge pricing. Airport pickups include up to 60 minutes complimentary waiting time.",
@@ -65,6 +69,7 @@ export default function LocationQuoteSection({
           initialAirportCode={airportCode}
           initialDirection={direction}
           initialAddressHint={addressHint}
+          initialGuidePickup={guidePickup}
           preferMinibus={preferMinibus}
           businessClassAnyRoute={businessClassAnyRoute}
         />

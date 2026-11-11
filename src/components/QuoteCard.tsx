@@ -386,6 +386,10 @@ import {
   isIncompleteAddressPlace,
   INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
+  TOWN_GUIDE_PICKUP_MESSAGE,
+  isTownGuidePlace,
+  townGuidePlace,
+  type TownGuidePickup,
   isPlaceSelected,
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
@@ -754,6 +758,12 @@ type QuoteCardProps = {
    */
   initialPickupPlace?: SelectedPlace | null;
   /**
+   * Town pages only: town-centre pickup that is pre-confirmed so a guide price
+   * shows without the customer re-selecting the town. It can never be booked —
+   * the customer must replace it with their full address first.
+   */
+  initialGuidePickup?: TownGuidePickup | null;
+  /**
    * Quote-ready drop-off from a validated Return Offer token only.
    * Never pass URL/query-string address text here.
    */
@@ -838,6 +848,7 @@ function QuoteCard({
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
   initialPickupPlace = null,
+  initialGuidePickup = null,
   initialDropoffPlace = null,
   preferMinibus = false,
   businessClassAnyRoute = false,
@@ -936,7 +947,9 @@ function QuoteCard({
     : null;
   const confirmedInitialPickup = isQuoteReadyPlace(initialPickupPlace)
     ? initialPickupPlace
-    : null;
+    : initialGuidePickup && initialDirection === "to-airport"
+      ? townGuidePlace(initialGuidePickup)
+      : null;
   const confirmedInitialDropoff = isQuoteReadyPlace(initialDropoffPlace)
     ? initialDropoffPlace
     : null;
@@ -1447,6 +1460,8 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isIncompleteAddressPlace(pickupPlace) &&
     !detectAirportCodeFromPlace(pickupPlace);
+  /** Town page guide pickup (town centre): shows a guide price but cannot be booked. */
+  const isTownGuidePickup = isTownGuidePlace(pickupPlace);
   const showsRequestQuoteFlow =
     isRequestQuote || isManualQuoteJourney || pricingConfirmationRequired;
   const effectiveAirportCode = isA2AFlow
@@ -3876,6 +3891,17 @@ function QuoteCard({
     }
   }
 
+  /** Booking gate: a town-centre guide pickup must be replaced by the full address. */
+  function blockTownGuidePickupBooking(): boolean {
+    if (!isTownGuidePickup) return false;
+    setPickupPlaceError(TOWN_GUIDE_PICKUP_MESSAGE);
+    setSubmitError(TOWN_GUIDE_PICKUP_MESSAGE);
+    window.setTimeout(() => {
+      focusFirstInvalidField(cardRef.current ?? document);
+    }, 0);
+    return true;
+  }
+
   function validateA2APlaces(): boolean {
     let ok = true;
     if (!isPlaceSelected(pickupPlace)) {
@@ -4851,6 +4877,7 @@ function QuoteCard({
       return;
     }
     if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
+    if (blockTownGuidePickupBooking()) return;
     if (!validateCheckoutRequiredFields()) return;
     paymentSubmitLock.current = true;
     paymentNavigating.current = false;
@@ -5660,6 +5687,9 @@ function QuoteCard({
     if (submitted || bookingSent) {
       return;
     }
+    if (blockTownGuidePickupBooking()) {
+      return;
+    }
     if (!validateCheckoutRequiredFields()) {
       return;
     }
@@ -5870,6 +5900,10 @@ function QuoteCard({
           }, 0);
           return;
         }
+      }
+      if (blockTownGuidePickupBooking()) {
+        trackQuoteValidationError("town_guide_pickup", quoteFunnelParams({ cta: step1Cta }));
+        return;
       }
       if (!hasQuoteRoute) {
         if (isA2AFlow && journeyIntent === "to-airport") {
@@ -9848,6 +9882,15 @@ function QuoteCard({
                     : canShowPrice && !liveQuote
                       ? "Calculating your fixed price…"
                       : QUOTE_PRICE_WAIT_FOR_DETAILS}
+              </p>
+            ) : null}
+
+            {isTownGuidePickup ? (
+              <p
+                data-town-guide-note
+                className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm leading-relaxed text-white/90"
+              >
+                {TOWN_GUIDE_PICKUP_MESSAGE}
               </p>
             ) : null}
 
