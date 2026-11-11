@@ -70,19 +70,27 @@ jobs:
           echo "Using ADDRESSES_API_URL ($ADDRESSES_API_URL)"
           # Secrets optional — src/lib/google-ads.ts has account defaults for tag + quote_generated.
           # Lead/purchase labels stay optional until their distinct Ads actions are verified.
-          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY" \
-          NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN" \
-          NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL" \
-          NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL" \
-          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY" \
-          NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID" \
-          NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL="$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL="$GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL" \
-          NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL="$GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL" \
-          GITHUB_PAGES=true npm run build
+          export NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="$KEY"
+          export NEXT_PUBLIC_GETADDRESS_API_KEY="$GETADDRESS_DOMAIN_TOKEN"
+          export NEXT_PUBLIC_BOOKINGS_API_URL="$BOOKINGS_API_URL"
+          export NEXT_PUBLIC_ADDRESSES_API_URL="$ADDRESSES_API_URL"
+          export NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="$WEB3FORMS_ACCESS_KEY"
+          export NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID"
+          export NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL"
+          export NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL"
+          export NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL="$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL"
+          export NEXT_PUBLIC_GOOGLE_ADS_BOOKING_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_CONVERSION_LABEL"
+          export NEXT_PUBLIC_GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL="$GOOGLE_ADS_WHATSAPP_CLICK_CONVERSION_LABEL"
+          export NEXT_PUBLIC_GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL="$GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL"
+          export GITHUB_PAGES=true
+          # The build downloads the site font from Google; that download occasionally fails
+          # and used to fail the whole deploy. Retry up to three times before giving up.
+          for attempt in 1 2 3; do
+            if npm run build; then break; fi
+            if [ "$attempt" = 3 ]; then echo "::error::Build failed after 3 attempts"; exit 1; fi
+            echo "::warning::Build attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
           if [ -n "$GOOGLE_ADS_PURCHASE_CONVERSION_LABEL" ] || [ -n "$GOOGLE_ADS_BOOKING_CONVERSION_LABEL" ]; then
             echo "Google Ads purchase conversion label override configured"
           else
