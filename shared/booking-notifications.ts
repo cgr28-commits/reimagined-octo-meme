@@ -10,6 +10,7 @@ import {
   BRAND_NAVY,
   BUSINESS_MAILBOX,
   BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_TEXT_ROUTE,
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   businessWhatsAppChatUrl,
@@ -512,7 +513,7 @@ function brandFooterHtml(businessName: string): string {
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace("https://", "")}</a> ·
               Call <a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${NAVY};">${BUSINESS_LANDLINE_DISPLAY}</a> ·
-              WhatsApp <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a> ·
+              <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">WhatsApp @belfasttaxi</a> ·
               <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a><br />
               <a href="${BUSINESS_WEBSITE}/terms/" style="color:${NAVY};">Terms &amp; Conditions</a> ·
               <a href="${BUSINESS_WEBSITE}/privacy/" style="color:${NAVY};">Privacy Policy</a>
@@ -729,7 +730,7 @@ ${businessEmailClientMeta()}
           <tr>
             <td style="padding:16px 32px 28px;font-size:14px;line-height:1.7;color:#475569;">
               <p style="margin:0 0 12px;">We will contact you if we need any further information before your journey.</p>
-              <p style="margin:0;">Questions? Reply to this email, call <a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${NAVY};">${BUSINESS_LANDLINE_DISPLAY}</a>, WhatsApp <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>, or email <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
+              <p style="margin:0;">Questions? Reply to this email, call <a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${NAVY};">${BUSINESS_LANDLINE_DISPLAY}</a>, <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">WhatsApp @belfasttaxi</a>, or email <a href="mailto:${BUSINESS_EMAIL}" style="color:${NAVY};">${BUSINESS_EMAIL}</a>.</p>
             </td>
           </tr>
           ${brandFooterHtml(businessName)}
@@ -781,7 +782,7 @@ export function buildCustomerConfirmationEmail(
     }\n\n` +
     (customerRef ? `Booking reference: ${customerRef}\n\n` : "") +
     `${BUSINESS_WEBSITE}\n` +
-    `Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_PHONE_DISPLAY}\n` +
+    `Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_WHATSAPP_TEXT_ROUTE}\n` +
     `Email: ${BUSINESS_EMAIL}\n\n` +
     `Please find your invoice details below.\n\n` +
     `BOOKING DETAILS\n` +
@@ -892,7 +893,7 @@ export function buildCustomerConfirmationEmail(
     `Keep ${businessName} in your contacts so we're easy to find whenever you need another airport transfer.\n` +
     `Save My Airport Taxi NI to Contacts:\n${contactVCardPublicUrl()}\n` +
     `\nWe will contact you if we need any further information before your journey.\n\n` +
-    `If you have questions, reply to this email, call ${BUSINESS_LANDLINE_DISPLAY}, WhatsApp ${BUSINESS_PHONE_DISPLAY}, or contact us at ${BUSINESS_EMAIL}.\n\n` +
+    `If you have questions, reply to this email, call ${BUSINESS_LANDLINE_DISPLAY}, WhatsApp ${BUSINESS_WHATSAPP_TEXT_ROUTE}, or contact us at ${BUSINESS_EMAIL}.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}`;
 
@@ -2096,7 +2097,7 @@ ${businessEmailClientMeta()}
               <strong style="color:${NAVY};">${escapeHtml(businessName)}</strong><br />
               <a href="${BUSINESS_WEBSITE}" style="color:${NAVY};">${BUSINESS_WEBSITE.replace(/^https:\/\//, "")}</a> ·
               Call <a href="tel:${BUSINESS_LANDLINE_TEL}" style="color:${NAVY};">${BUSINESS_LANDLINE_DISPLAY}</a> ·
-              WhatsApp <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">${BUSINESS_PHONE_DISPLAY}</a>
+              <a href="https://wa.me/${BUSINESS_WHATSAPP_DIGITS}" style="color:${NAVY};">WhatsApp @belfasttaxi</a>
             </td>
           </tr>
           <tr>
