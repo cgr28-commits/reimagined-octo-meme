@@ -1,5 +1,6 @@
 "use client";
 
+import { overnightTooSoonBody } from "../../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { formatUkDateTime } from "../../../shared/uk-time";
 import { emailAddressProblem } from "../../../shared/email-typo";
@@ -59,6 +60,7 @@ import {
   isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
   tooSoonRequestBody,
+  isBelowMinimumShortNoticeLead,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 
@@ -293,6 +295,11 @@ function BookQuoteInner() {
       : "unknown";
   const isMinibusQuote = isPublicMinibusVehicle(journey?.vehicleType);
   const isTooSoonPickup = !isMinibusQuote && pickupLeadWindow === "too_soon";
+  // Too soon only because we're closed overnight (22:00–07:00), not the normal lead time.
+  const isOvernightTooSoon =
+    isTooSoonPickup &&
+    Boolean(tripDate && tripTime) &&
+    !isBelowMinimumShortNoticeLead(tripDate, tripTime, new Date(), minimumShortNoticeLeadHours);
   const isMinimumNoticeRequest = !isMinibusQuote && pickupLeadWindow === "short_notice";
   const isMinibusNoticeRequest =
     isMinibusQuote &&
@@ -369,7 +376,11 @@ function BookQuoteInner() {
   async function pay() {
     setError("");
     if (isTooSoonPickup) {
-      setError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      setError(
+        isOvernightTooSoon
+          ? overnightTooSoonBody()
+          : tooSoonRequestBody(minimumShortNoticeLeadHours),
+      );
       focusBookQuoteTime();
       return;
     }
@@ -787,6 +798,7 @@ function BookQuoteInner() {
           <TooSoonCheckoutNotice
             leadHours={minimumShortNoticeLeadHours}
             onChooseAnotherTime={focusBookQuoteTime}
+            overnight={isOvernightTooSoon}
           />
         ) : null}
         {isMinibusNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (

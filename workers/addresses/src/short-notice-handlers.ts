@@ -3,6 +3,10 @@ import { updateSaveQuoteSettings } from "./booking-settings-store";
  * Short-notice booking: create / list / approve / decline / pay-via-SumUp.
  */
 
+import {
+  isPickupTooSoonForOwnerOvernight,
+  overnightTooSoonBody,
+} from "../shared/owner-quiet-hours";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
   DEFAULT_DEPOSIT_MINIMUM_GBP,
@@ -878,6 +882,17 @@ export async function createShortNoticeRequest(options: {
   ) {
     throw new PickupTooSoonError(leadHours);
   }
+  if (
+    isWithinMinimumBookingNotice(
+      options.booking.tripDate,
+      options.booking.tripTime,
+      now,
+      settings.minimumBookingNoticeHours,
+    ) &&
+    isPickupTooSoonForOwnerOvernight(options.booking.tripDate, options.booking.tripTime, now)
+  ) {
+    throw new PickupTooSoonError(leadHours, overnightTooSoonBody(now));
+  }
   const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
@@ -1033,6 +1048,8 @@ export async function shouldForceShortNotice(
   minimumNoticeHours: number;
   minimumShortNoticeLeadHours: number;
   tooSoon: boolean;
+  /** Too soon only because the owner is asleep (22:00–07:00). */
+  overnightTooSoon?: boolean;
   luggageCapacity: boolean;
   /** Separate 7-Seater notice. Owner short-notice hours are not used. */
   minibusNotice: boolean;
@@ -1151,7 +1168,12 @@ export async function shouldForceShortNotice(
     noticeHours,
   );
   const activePeriods = listActiveUnavailablePeriods(periods, now);
+  const overnightTooSoon =
+    !tooSoon &&
+    underMinimumNotice &&
+    isPickupTooSoonForOwnerOvernight(booking.tripDate, booking.tripTime, now);
   return {
+    overnightTooSoon,
     shortNotice: Boolean(blocking) || Boolean(smartBlock) || clashHold || underMinimumNotice,
     noAvailability: false,
     gateActive: activePeriods.length > 0 || Boolean(smartBlock) || clashHold || underMinimumNotice,
@@ -1166,7 +1188,7 @@ export async function shouldForceShortNotice(
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
     minimumShortNoticeLeadHours: leadHours,
-    tooSoon,
+    tooSoon: tooSoon || overnightTooSoon,
     luggageCapacity,
     minibusNotice: false,
   };

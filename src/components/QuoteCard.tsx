@@ -1,5 +1,6 @@
 "use client";
 
+import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import CallUsButton from "@/components/CallUsButton";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
@@ -284,6 +285,7 @@ import {
   isWithinMinimumBookingNotice,
   OWNER_NO_AVAILABILITY_MESSAGE,
   tooSoonRequestBody,
+  isBelowMinimumShortNoticeLead,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
@@ -2138,6 +2140,11 @@ function QuoteCard({
     pickupLeadWindow === "too_soon" &&
     !ownerNoAvailabilityBlocked &&
     !closedAvailabilityMessage;
+  // Too soon only because we're closed overnight (22:00–07:00), not the normal lead time.
+  const isOvernightTooSoon =
+    isTooSoonPickup &&
+    Boolean(tripDate && tripTime) &&
+    !isBelowMinimumShortNoticeLead(tripDate, tripTime, new Date(), minimumShortNoticeLeadHours);
   const isMinimumNoticeRequest =
     !isMinibusQuote &&
     pickupLeadWindow === "short_notice" &&
@@ -4912,7 +4919,11 @@ function QuoteCard({
       return;
     }
     if (isTooSoonPickup) {
-      setPaymentError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      setPaymentError(
+        isOvernightTooSoon
+          ? overnightTooSoonBody()
+          : tooSoonRequestBody(minimumShortNoticeLeadHours),
+      );
       handleChooseAnotherTime();
       return;
     }
@@ -7849,6 +7860,7 @@ function QuoteCard({
             <TooSoonCheckoutNotice
               leadHours={minimumShortNoticeLeadHours}
               onChooseAnotherTime={handleChooseAnotherTime}
+              overnight={isOvernightTooSoon}
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">

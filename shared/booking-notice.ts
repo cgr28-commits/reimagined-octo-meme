@@ -6,6 +6,7 @@
  */
 
 import { hoursUntilPickup } from "./refund-ops";
+import { isPickupTooSoonForOwnerOvernight } from "./owner-quiet-hours";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 /**
@@ -276,9 +277,9 @@ export function tooSoonRequestBody(leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS):
 export class PickupTooSoonError extends Error {
   readonly code = TOO_SOON_BOOKING_CODE;
   readonly leadHours: number;
-  constructor(leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS) {
+  constructor(leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS, message?: string) {
     const hours = normalizeMinimumShortNoticeLeadHours(leadHours);
-    super(tooSoonRequestBody(hours));
+    super(message ?? tooSoonRequestBody(hours));
     this.leadHours = hours;
     this.name = "PickupTooSoonError";
   }
@@ -318,7 +319,10 @@ export function classifyPickupLeadWindow(
   const notice = configuredNoticeHours(noticeHours);
   const lead = clampShortNoticeLeadHours(leadHours, notice);
   if (hours < lead) return "too_soon";
-  if (hours < notice) return "short_notice";
+  if (hours < notice) {
+    // Owner asleep 22:00–07:00: too early to confirm before pickup.
+    return isPickupTooSoonForOwnerOvernight(tripDate, tripTime, now) ? "too_soon" : "short_notice";
+  }
   return "normal";
 }
 

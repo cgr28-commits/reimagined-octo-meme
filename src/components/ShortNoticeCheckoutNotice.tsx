@@ -2,6 +2,7 @@ import {
   MINIBUS_NOTICE_BODY,
   MINIBUS_NOTICE_HEADING,
 } from "../../shared/availability-resource";
+import { overnightTooSoonBody, overnightTooSoonHeading } from "../../shared/owner-quiet-hours";
 import {
   CHOOSE_ANOTHER_PICKUP_TIME_LABEL,
   leadTimeHoursLabel,
@@ -82,11 +83,37 @@ export function ShortNoticePaymentFollowUp({
 export function TooSoonCheckoutNotice({
   leadHours,
   onChooseAnotherTime,
+  overnight = false,
 }: {
   leadHours: number;
   onChooseAnotherTime: () => void;
+  /** Too soon only because we're closed overnight (22:00–07:00). */
+  overnight?: boolean;
 }) {
   const hours = normalizeMinimumShortNoticeLeadHours(leadHours);
+  if (overnight) {
+    const [first, second] = overnightTooSoonBody().split("\n\n");
+    return (
+      <div
+        className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-3 text-left sm:rounded-xl sm:px-3.5"
+        role="status"
+        aria-live="polite"
+        data-too-soon-booking
+        data-overnight-too-soon
+      >
+        <p className="text-sm font-semibold leading-snug text-white">{overnightTooSoonHeading()}</p>
+        <p className="mt-1 text-xs leading-snug text-white/80 sm:text-sm">{first}</p>
+        <p className="mt-1 text-xs leading-snug text-white/80 sm:text-sm">{second}</p>
+        <button
+          type="button"
+          onClick={onChooseAnotherTime}
+          className="btn-secondary mt-3 min-h-11 w-full"
+        >
+          {CHOOSE_ANOTHER_PICKUP_TIME_LABEL}
+        </button>
+      </div>
+    );
+  }
   return (
     <div
       className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-3 text-left sm:rounded-xl sm:px-3.5"

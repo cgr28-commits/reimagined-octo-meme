@@ -1,4 +1,5 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
+import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
 import { handleOwnerPushRequest } from "./owner-push";
@@ -3537,7 +3538,9 @@ async function handlePaymentRequest(
     if (notice.tooSoon) {
       return json(
         {
-          error: tooSoonRequestBody(notice.minimumShortNoticeLeadHours),
+          error: notice.overnightTooSoon
+            ? overnightTooSoonBody()
+            : tooSoonRequestBody(notice.minimumShortNoticeLeadHours),
           code: TOO_SOON_BOOKING_CODE,
           minimumShortNoticeLeadHours: notice.minimumShortNoticeLeadHours,
         },
