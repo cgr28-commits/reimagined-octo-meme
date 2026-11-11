@@ -40,6 +40,42 @@ export type FinalizePaidBookingResult = {
   error?: string;
 };
 
+type BrowserEmailFallback = { customerEmailSent: boolean; ownerEmailSent: boolean };
+const browserEmailFallbackKey = (paymentReference: string) =>
+  `matni-paid-email-fallback:${paymentReference}`;
+
+/** Outcome of the browser backup emails already sent for this booking, if any. */
+function readBrowserEmailFallback(paymentReference: string | undefined): BrowserEmailFallback | null {
+  const reference = paymentReference?.trim();
+  if (!reference) return null;
+  try {
+    const raw = window.localStorage.getItem(browserEmailFallbackKey(reference));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<BrowserEmailFallback>;
+    return {
+      customerEmailSent: parsed.customerEmailSent === true,
+      ownerEmailSent: parsed.ownerEmailSent === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberBrowserEmailFallback(
+  paymentReference: string | undefined,
+  outcome: BrowserEmailFallback,
+): BrowserEmailFallback {
+  const reference = paymentReference?.trim();
+  if (reference) {
+    try {
+      window.localStorage.setItem(browserEmailFallbackKey(reference), JSON.stringify(outcome));
+    } catch {
+      // Storage unavailable: the emails were still sent this once.
+    }
+  }
+  return outcome;
+}
+
 function buildPaymentConfirmationSummary(
   result: PaymentConfirmationResult,
   customerEmail: string,
@@ -106,7 +142,13 @@ export async function finalizePaidBookingFromUrl(
 
       if (booking && (result.customerEmailSent !== true || result.ownerEmailSent !== true)) {
         try {
-          const fallback = await sendPaidBookingEmailsFromBrowser(booking, result);
+          // Send the browser backup emails once per booking: a refresh reuses the first outcome.
+          const fallback =
+            readBrowserEmailFallback(result.paymentReference) ??
+            rememberBrowserEmailFallback(
+              result.paymentReference,
+              await sendPaidBookingEmailsFromBrowser(booking, result),
+            );
           result = {
             ...result,
             customerEmailSent: result.customerEmailSent === true || fallback.customerEmailSent,

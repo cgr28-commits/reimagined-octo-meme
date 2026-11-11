@@ -226,11 +226,31 @@ export function readOpenCheckoutSession(): OpenCheckoutSession | null {
   }
 }
 
+const REPLACED_CHECKOUT_KEY = "matni-replaced-checkout-v1";
+
+/**
+ * The unpaid payment page this tab most recently walked away from ("Back to booking",
+ * "start a fresh payment"). Sent with the next payment so the server can close it — an old
+ * payment page must not stay payable after the booking changes.
+ */
+export function readReplacedCheckoutId(): string {
+  if (!canUseStorage()) {
+    return "";
+  }
+  try {
+    return sessionStorage.getItem(REPLACED_CHECKOUT_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function clearOpenCheckoutSession(): void {
   if (!canUseStorage()) {
     return;
   }
   try {
+    const leaving = readOpenCheckoutSession()?.checkoutId?.trim();
+    if (leaving) sessionStorage.setItem(REPLACED_CHECKOUT_KEY, leaving);
     sessionStorage.removeItem(OPEN_CHECKOUT_KEY);
   } catch {
     // ignore

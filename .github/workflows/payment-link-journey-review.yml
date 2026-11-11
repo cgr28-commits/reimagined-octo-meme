@@ -5,6 +5,9 @@ on:
       - 'src/lib/booking-draft-storage.ts'
       - 'src/components/QuoteCard.tsx'
       - 'scripts/check-open-checkout-journey.ts'
+      - 'scripts/check-supersede-checkout.ts'
+      - 'workers/addresses/src/supersede-checkout.ts'
+      - 'workers/addresses/src/pending-checkout-store.ts'
       - '.github/workflows/payment-link-journey-review.yml'
 permissions:
   contents: read
@@ -20,4 +23,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsx scripts/check-open-checkout-journey.ts
+      - run: npx tsx scripts/check-supersede-checkout.ts
       - run: npx tsx scripts/check-child-seats-booking-sumup.ts

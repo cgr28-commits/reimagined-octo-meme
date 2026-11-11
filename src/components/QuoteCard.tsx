@@ -321,6 +321,7 @@ import {
 } from "@/lib/save-quote-payload";
 import {
   clearOpenCheckoutSession,
+  readReplacedCheckoutId,
   readBookingFormDraft,
   readOpenCheckoutSession,
   saveBookingFormDraft,
@@ -5074,6 +5075,8 @@ function QuoteCard({
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        // A payment page this tab opened earlier for a booking that has since changed.
+        supersedesCheckoutId: openCheckout?.checkoutId || readReplacedCheckoutId() || undefined,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         expressDropOffSelected: airportAccessQuote.outboundExpressDropOffSelected,
