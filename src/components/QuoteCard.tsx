@@ -3894,11 +3894,15 @@ function QuoteCard({
   /** Booking gate: a town-centre guide pickup must be replaced by the full address. */
   function blockTownGuidePickupBooking(): boolean {
     if (!isTownGuidePickup) return false;
+    // Back to the journey form with an empty pickup box, ready for the full address.
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    if (presentation === "homepage") setHomepagePriceRequested(false);
+    handlePickupChange("");
     setPickupPlaceError(TOWN_GUIDE_PICKUP_MESSAGE);
     setSubmitError(TOWN_GUIDE_PICKUP_MESSAGE);
     window.setTimeout(() => {
       focusFirstInvalidField(cardRef.current ?? document);
-    }, 0);
+    }, 60);
     return true;
   }
 
@@ -6132,6 +6136,9 @@ function QuoteCard({
     setContinueToDetailsBusy(true);
     try {
       setSubmitError("");
+      if (blockTownGuidePickupBooking()) {
+        return;
+      }
       const schedule = syncScheduleFieldsFromInputs();
       if (!validateTripForBooking(schedule)) {
         return;
