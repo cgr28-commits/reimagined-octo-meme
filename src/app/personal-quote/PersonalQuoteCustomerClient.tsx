@@ -493,6 +493,11 @@ function PersonalQuoteInner() {
           ? { standardWebsiteAmount: quote.standardWebsiteAmount }
           : {}),
       });
+      if (checkout.shortNotice && checkout.reference && checkout.cardHoldUrl) {
+        // Short-notice journey: hold the card now; the owner's approval charges it.
+        window.location.assign(checkout.cardHoldUrl);
+        return;
+      }
       if (!checkout.paymentUrl || !checkout.checkoutId) {
         throw new Error("Could not start secure payment");
       }
