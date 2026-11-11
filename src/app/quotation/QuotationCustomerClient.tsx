@@ -163,12 +163,18 @@ export default function QuotationCustomerClient() {
     <div className="mx-auto max-w-lg space-y-4 text-white">
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">{quote.categoryLabel}</p>
-        <h1 className="mt-1 text-2xl font-bold">Hi {quote.customerFirstName}, here is your quotation</h1>
+        <h1 className="mt-1 text-2xl font-bold">
+          {SETTLED.has(quote.status) ? `Thank you, ${quote.customerFirstName}` : `Hi ${quote.customerFirstName}, here is your quotation`}
+        </h1>
         <p className="mt-1 text-sm text-white/70">{quote.statusLabel}</p>
         {quote.quote ? (
           <div className="mt-4 rounded-xl border border-emerald/30 bg-emerald/10 p-4">
-            <p className="text-3xl font-bold">£{quote.quote.amountGbp.toFixed(2)}</p>
-            <p className="mt-1 text-sm text-white/80">Valid until {formatUkInstant(quote.quote.expiresAt)}</p>
+            <p className="text-3xl font-bold"><strong>£{quote.quote.amountGbp.toFixed(2)}</strong></p>
+            {SETTLED.has(quote.status) ? (
+              <p className="mt-1 text-sm text-white/80">Amount paid</p>
+            ) : (
+              <p className="mt-1 text-sm text-white/80">Valid until {formatUkInstant(quote.quote.expiresAt)}</p>
+            )}
             {quote.quote.customerMessage ? <p className="mt-3 whitespace-pre-line text-sm">{quote.quote.customerMessage}</p> : null}
           </div>
         ) : null}

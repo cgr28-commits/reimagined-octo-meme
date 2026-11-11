@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import QuotationCustomerClient from "./QuotationCustomerClient";
+import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
   title: "Your quotation | My Airport Taxi NI",
@@ -18,7 +19,11 @@ export const metadata: Metadata = {
  */
 export default function QuotationPage() {
   return (
-    <main className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
+    <>
+    {/* Same light design as the other customer screens (Manage Booking, payment links):
+        1200px+ shows the slim brand bar (logo + Call Us) and hides the in-page logo. */}
+    <StandaloneBrandBar />
+    <main data-customer-standalone className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto mb-6 max-w-lg text-center sm:mb-8">
         <Link href="/" aria-label="My Airport Taxi NI — home" className="inline-block">
           <Logo className="mx-auto h-20 w-auto" priority />
@@ -26,5 +31,6 @@ export default function QuotationPage() {
       </div>
       <QuotationCustomerClient />
     </main>
+    </>
   );
 }
