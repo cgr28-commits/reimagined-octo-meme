@@ -7355,3 +7355,64 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     transform: none !important;
   }
 }
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #6b7a90 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] svg {
+    width: 1rem !important;
+    height: 1rem !important;
+  }
+}
+@layer base {
+  /* Return journeys: labels may wrap; keep the controls aligned */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > div {
+    row-gap: 0.625rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label {
+    line-height: 1.15 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > p[data-booking-nav-heading] {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+}
+/* Tablets: keep the header clearance and hold the hero to a composed column */
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+      padding: 3.25rem 1.5rem 0 !important;
+      max-width: 42rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero {
+      padding-bottom: 2.5rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.125rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.9375rem !important;
+    }
+    html:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      padding: 1.25rem 1.25rem 1.125rem !important;
+    }
+  }
+}
+@layer base {
+  /* Vehicle and details steps: one soft surface, no doubled outline around the inner cards */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"]:not([data-d2="journey"]) {
+    background: #f3f6f9 !important;
+    border: 0 !important;
+    box-shadow: 0 2px 4px rgba(2, 8, 20, 0.2), 0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
+  }
+}
