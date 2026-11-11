@@ -124,7 +124,6 @@ import {
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
 import {
-  buildWhatsAppFollowUpDiscountText,
   buildWhatsAppFollowUpText,
   cancelWhatsAppFollowUp,
   deferWhatsAppFollowUp,
@@ -1641,29 +1640,10 @@ export async function processWhatsAppFollowUps(
       result.skipped += 1;
       continue;
     }
-    // Still not booked after the wait: one-time 5% "book now" offer, unless they've had it.
-    const conversation = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
-    const offer =
-      conversation && conversation.stage === "quoted" && !conversation.discountOffered
-        ? await createWhatsAppDiscountOffer(env, store, phone, conversation)
-        : null;
-    if (conversation && offer) {
-      const previousAmountLabel = conversation.lastQuoteAmountLabel ?? record.amountLabel;
-      conversation.discountOffered = true;
-      conversation.lastQuoteUrl = offer.bookingUrl;
-      conversation.lastQuoteAmountLabel = offer.amountLabel;
-      await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
-      await reply(
-        env,
-        phone,
-        buildWhatsAppFollowUpDiscountText(record, { ...offer, previousAmountLabel, journey: conversation.draft }),
-        WHATSAPP_QUOTED_BUTTONS,
-      );
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: offer.quoteId.slice(-6), discount: true });
-    } else {
-      await reply(env, phone, buildWhatsAppFollowUpText(record));
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
-    }
+    // Still not booked after the wait: a plain reminder only. No 5% "book now" offer here —
+    // the owner stopped discounting customers who simply haven't booked yet (11 Nov 2026).
+    await reply(env, phone, buildWhatsAppFollowUpText(record));
+    logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
     result.sent += 1;
   }
   return result;

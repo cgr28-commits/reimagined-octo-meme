@@ -1,7 +1,7 @@
 /**
  * WhatsApp quote follow-up: one message when a customer got a price but hasn't
- * booked — a one-time 5% "book now" offer (or a plain reminder if they've already
- * had it). Sent once, an hour after their last message, and only inside
+ * booked — a plain reminder with their booking link (no discount; the 5% "book now"
+ * follow-up offer was stopped by the owner, 11 Nov 2026). Sent once, an hour after their last message, and only inside
  * WhatsApp's 24-hour customer service window (so it is a free reply).
  */
 
