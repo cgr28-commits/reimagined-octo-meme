@@ -1,4 +1,5 @@
 import { getBookingSettings } from "./booking-settings-store";
+import { sendWebQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { VEHICLE_TYPES, type VehicleType } from "../../../src/lib/data";
 import { getReturnJourneySavingGbp } from "../shared/website-fare-breakdown";
 /**
@@ -506,6 +507,12 @@ function readClientSubmittedAmount(body: Record<string, unknown>): {
   };
 }
 
+/** "Belfast City Hall, Donegall Square N, Belfast BT1 5GS, UK" → "Belfast City Hall". */
+function shortPlaceLabel(label: string | undefined): string {
+  const first = String(label ?? "").split(",")[0]?.trim() ?? "";
+  return first || String(label ?? "").trim() || "your pickup";
+}
+
 /** POST /saved-quotes — create + send initial email. */
 export async function handleCreateSavedQuote(
   request: Request,
@@ -528,16 +535,28 @@ export async function handleCreateSavedQuote(
     return jsonResponse({ error: "Invalid JSON body." }, 400, origin);
   }
 
-  const channel = body.channel === "whatsapp" ? "whatsapp" : "email";
+  // "whatsapp_send": we message the saved-quote link to the mobile the customer typed in.
+  // "whatsapp": the customer shares the link from their own WhatsApp (no message from us).
+  const sendToMobile = body.channel === "whatsapp_send";
+  const channel = body.channel === "whatsapp" || sendToMobile ? "whatsapp" : "email";
   if ((channel === "email" && !settings.emailEnabled) || (channel === "whatsapp" && !settings.whatsappEnabled)) {
     return jsonResponse({ error: "This saving option is currently unavailable." }, 403, origin);
+  }
+  const whatsAppTo = sendToMobile ? whatsAppRecipient(String(body.mobile ?? "").slice(0, 40)) : "";
+  if (sendToMobile && !whatsAppTo) {
+    return jsonResponse(
+      { error: "Please enter a valid mobile number. Add the country code if it is not a UK or Irish mobile." },
+      400,
+      origin,
+    );
   }
   const customerName = String(body.customerName ?? "").trim().slice(0, 100);
   const customerEmail = String(body.customerEmail ?? "").trim().toLowerCase();
   if (channel === "email" && (!isValidEmail(customerEmail) || customerEmail.length > 254)) {
     return jsonResponse({ error: "Please enter a valid email address." }, 400, origin);
   }
-  if (!await allowSavedQuoteRequest(env.TRACKING_STORE, request, channel === "email" ? customerEmail : undefined)) {
+  // Per-visitor limit plus at most three sends an hour to any one email address or mobile.
+  if (!await allowSavedQuoteRequest(env.TRACKING_STORE, request, channel === "email" ? customerEmail : sendToMobile ? `wa:${whatsAppTo}` : undefined)) {
     return jsonResponse({ error: "Too many requests. Please try again later." }, 429, origin);
   }
 
@@ -659,6 +678,31 @@ export async function handleCreateSavedQuote(
     });
   }
 
+  // Send the link to the customer's WhatsApp from the business number (approved template).
+  // If that is not possible the quote is still saved and the customer can share it themselves.
+  let whatsappSent = false;
+  let whatsappUnavailableReason: string | undefined;
+  if (sendToMobile) {
+    const held = toSavedQuotePublicSummary(record, siteOrigin(env)).heldPrice;
+    if (!held) {
+      whatsappUnavailableReason = "no_held_price";
+    } else {
+      const sent = await sendWebQuoteLinkWhatsApp(env as unknown as WhatsAppTemplateEnv, {
+        savedQuoteToken: record.token,
+        mobile: whatsAppTo,
+        journeyLabel: `${shortPlaceLabel(record.journey.pickupLabel)} to ${shortPlaceLabel(record.journey.dropoffLabel)}${record.journey.returnJourney ? " (return)" : ""}`,
+        whenLabel: tripWhen(record.journey.tripDate, record.journey.tripTime),
+        amountLabel: held.amountLabel,
+        heldUntilLabel: held.heldUntilLabel,
+      });
+      whatsappSent = sent.sent;
+      if (!sent.sent) {
+        whatsappUnavailableReason = sent.reason;
+        console.log(JSON.stringify({ event: "saved_quote_whatsapp_not_sent", reference: record.reference, reason: sent.reason }));
+      }
+    }
+  }
+
   // Let the owner know: a saved quote is a warm lead worth following up.
   try {
     const owner = buildOwnerSavedQuoteAlert(
@@ -689,6 +733,9 @@ export async function handleCreateSavedQuote(
       currency: "GBP",
       email: customerEmail,
       emailSent,
+      ...(sendToMobile
+        ? { whatsappSent, ...(whatsappSent ? { whatsappToSuffix: whatsAppTo.slice(-4) } : { whatsappUnavailableReason }) }
+        : {}),
       emailError: !emailSent && channel === "email" ? "Email could not be sent. Use your secure link below." : undefined,
       quoteUrl: summary.bookUrl,
       priceHeld: Boolean(summary.heldPrice),

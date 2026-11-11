@@ -14,7 +14,9 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
   onBookNow: () => void; settings: SaveQuoteSettings;
 }) {
   const emailId = useId();
+  const mobileId = useId();
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<SaveQuoteResult | null>(null);
@@ -34,26 +36,35 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
   }, [open, initialWhatsAppRequest]);
   if (!open || !settings.enabled) return null;
   function close() { if (!busy) { setResult(null); setError(""); setShareUrl(""); onClose(); } }
-  async function submit(channel: "email" | "whatsapp") {
+  async function submit(channel: "email" | "whatsapp" | "whatsapp_send") {
     if (busy) return;
     const built = buildPayload();
     if (!built.ok) { setError(built.message); return; }
     setBusy(true); setError("");
     try {
-      const saved = await saveQuote({ ...built.payload, channel, customerEmail: channel === "email" ? email.trim() : "" });
+      const saved = await saveQuote({
+        ...built.payload,
+        channel,
+        customerEmail: channel === "email" ? email.trim() : "",
+        ...(channel === "whatsapp_send" ? { mobile: mobile.trim() } : {}),
+      });
       setResult(saved);
-      if (channel === "whatsapp") {
-        const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        setShareUrl(savedQuoteWhatsAppUrl(saved, mobile));
+      // Not sent by us (or sending was not possible): the customer can still share the saved
+      // link from their own WhatsApp.
+      if (channel === "whatsapp" || (channel === "whatsapp_send" && saved.whatsappSent !== true)) {
+        const onPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        setShareUrl(savedQuoteWhatsAppUrl(saved, onPhone));
       }
     } catch (err) { setError(saveQuoteSubmitErrorMessage(err)); }
     finally { setBusy(false); }
   }
-  return <QuoteActionDialog title="Save My Quote" titleId="save-quote-title" onClose={close} closeDisabled={busy}>
+  const sentToWhatsApp = result?.whatsappSent === true;
+  const whatsAppNotSent = result?.whatsappSent === false;
+  return <QuoteActionDialog title="Send Me My Quote" titleId="save-quote-title" onClose={close} closeDisabled={busy}>
     <div className="space-y-4 text-sm text-white">
       <p>{saveQuoteIntroCopy(result, settings.validityDays)}</p>
       {result ? <>
-        <p role="status">{result.emailSent ? `Your quote has been emailed to ${result.email}.` : shareUrl ? "Your quote is saved. Open WhatsApp, choose a recipient and send it yourself." : "Your quote is saved, but the email could not be sent. Keep your secure link below."}</p>
+        <p role="status" data-save-quote-status>{sentToWhatsApp ? `We’ve sent your quote by WhatsApp to the number ending ${result.whatsappToSuffix ?? ""}. Open the message any time to finish booking.` : whatsAppNotSent ? "Your quote is saved, but we couldn’t send the WhatsApp message automatically. Tap below to send it to yourself on WhatsApp instead." : result.emailSent ? `Your quote has been emailed to ${result.email}.` : shareUrl ? "Your quote is saved. Open WhatsApp, choose a recipient and send it yourself." : "Your quote is saved, but the email could not be sent. Keep your secure link below."}</p>
         {result.heldPrice
           ? <p className="break-words">Reference: {result.reference}<br/>Fixed price: {result.heldPrice.amountLabel}<br/>Price held until: {result.heldPrice.heldUntilLabel}</p>
           : <p className="break-words">Reference: {result.reference}<br/>Original fare: {result.amountLabel}<br/>Retrieve until: {result.expiresAtLabel}</p>}
@@ -68,10 +79,14 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
           <input id={emailId} type="email" autoComplete="email" required maxLength={254} value={email} onChange={e => setEmail(e.target.value)} disabled={busy} className="quote-text-input min-h-12 w-full rounded-xl bg-navy px-3 text-base" />
           <button type="submit" disabled={busy} className="btn-primary w-full">{busy ? "Saving…" : "Email My Quote"}</button>
         </form>}
-        {settings.whatsappEnabled && <button type="button" disabled={busy} className="btn-secondary w-full" onClick={() => void submit("whatsapp")}>Save via WhatsApp</button>}
+        {settings.whatsappEnabled && <form className="space-y-3" data-save-quote-whatsapp onSubmit={event => { event.preventDefault(); void submit("whatsapp_send"); }}>
+          <label className="block" htmlFor={mobileId}>Mobile number (WhatsApp)</label>
+          <input id={mobileId} type="tel" inputMode="tel" autoComplete="tel" required minLength={9} maxLength={24} placeholder="07xxx xxxxxx" value={mobile} onChange={e => setMobile(e.target.value)} disabled={busy} className="quote-text-input min-h-12 w-full rounded-xl bg-navy px-3 text-base" />
+          <button type="submit" disabled={busy} className={`${settings.emailEnabled ? "btn-secondary" : "btn-primary"} w-full`}>{busy ? "Sending…" : "Send to My WhatsApp"}</button>
+        </form>}
       </>}
       {error && <p role="alert" className="text-red-300">{error}</p>}
-      <p className="text-xs text-white/70">Saving does not book your journey. We won’t subscribe you to marketing or send follow-up messages.</p>
+      <p className="text-xs text-white/70">Sending your quote does not book your journey. We only use your details to send this quote — no marketing or follow-up messages.</p>
     </div>
   </QuoteActionDialog>;
 }
