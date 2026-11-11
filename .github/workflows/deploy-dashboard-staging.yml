@@ -83,7 +83,7 @@ jobs:
           done
           grep -q '__MATNI_STAGING_SANDBOX__ = "true"' "$WRANGLER_CONFIG" || { echo "::error::Outbound sandbox define missing."; exit 1; }
           grep -q '^crons = \[\]' "$WRANGLER_CONFIG" || { echo "::error::Staging must have no crons."; exit 1; }
-          if grep -q "send_email" "$WRANGLER_CONFIG"; then echo "::error::Staging must not bind email."; exit 1; fi
+          if grep -v '^[[:space:]]*#' "$WRANGLER_CONFIG" | grep -q "send_email"; then echo "::error::Staging must not bind email."; exit 1; fi
           echo "::notice::Isolation checks passed."
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
