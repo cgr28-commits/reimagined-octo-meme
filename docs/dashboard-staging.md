@@ -39,7 +39,8 @@ account were left untouched.
    Workers Scripts: Edit · Workers KV Storage: Edit · D1: Edit · Cloudflare Pages: Edit · Account Settings: Read.
 2. GitHub → repo → Settings → Secrets and variables → Actions → New repository secret:
    - `STAGING_CLOUDFLARE_API_TOKEN` = the token from step 1
-   - `STAGING_OWNER_ACCESS_KEY` = a new long random key (at least 24 characters), **not** the live key.
+   - `STAGING_OWNER_ACCESS_KEY` (optional) = a new long random key (at least 24 characters), **not** the live key.
+     Without it the deploy makes a private key for itself: the cloud tests still run, but nobody can sign in to staging.
 3. Actions → "Deploy Dashboard Staging (isolated account)" → Run workflow on `claude/owner-dashboard-mobile`.
 
 Without those secrets the workflow skips the deploy with a warning — nothing fails and nothing is deployed.

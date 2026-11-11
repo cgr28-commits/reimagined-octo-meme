@@ -51,11 +51,19 @@ jobs:
           LIVE_OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           LIVE_DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
         run: |
-          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ] || [ -z "$STAGING_OWNER_ACCESS_KEY" ]; then
-            echo "::warning::Staging not deployed: add GitHub secrets STAGING_CLOUDFLARE_API_TOKEN and STAGING_OWNER_ACCESS_KEY (see docs/dashboard-staging.md)."
+          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::Staging not deployed: add GitHub secret STAGING_CLOUDFLARE_API_TOKEN (see docs/dashboard-staging.md)."
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          if [ -z "$STAGING_OWNER_ACCESS_KEY" ]; then
+            # No owner key supplied: make a private one for this run. It is masked in logs, stored only
+            # as the staging Worker's secret, and used by the cloud tests below. Nobody can read it back.
+            STAGING_OWNER_ACCESS_KEY="$(openssl rand -hex 32)"
+            echo "::add-mask::$STAGING_OWNER_ACCESS_KEY"
+            echo "::notice::No STAGING_OWNER_ACCESS_KEY secret: using a private auto-generated key (test-only staging; owner sign-in not available)."
+          fi
+          echo "STAGING_OWNER_KEY_EFFECTIVE=$STAGING_OWNER_ACCESS_KEY" >> "$GITHUB_ENV"
           if [ "${#STAGING_OWNER_ACCESS_KEY}" -lt 24 ]; then
             echo "::error::STAGING_OWNER_ACCESS_KEY must be at least 24 characters."
             exit 1
@@ -105,8 +113,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
-          STAGING_OWNER_ACCESS_KEY: ${{ secrets.STAGING_OWNER_ACCESS_KEY }}
         run: |
+          STAGING_OWNER_ACCESS_KEY="$STAGING_OWNER_KEY_EFFECTIVE"
           npx wrangler d1 migrations apply dashboard-staging-drivers --remote -c "$WRANGLER_CONFIG"
           OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)"
           echo "$OUTPUT"
@@ -125,6 +133,13 @@ jobs:
           printf '%s' "$STATUS" | grep -q '"sandbox":true' || { echo "::error::Outbound sandbox is not active."; exit 1; }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Staging Worker (isolated account): $URL"
+
+      - name: Stage 1 cloud tests (real Worker + D1 in the staging account)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          STAGING_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          STAGING_OWNER_KEY="$STAGING_OWNER_KEY_EFFECTIVE" npx --yes tsx@4 scripts/staging-cloud-test.ts
 
   pages:
     needs: worker
