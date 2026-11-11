@@ -6769,3 +6769,20 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     html:root:not([data-mobile-light]) .quote-flow :is(input[type="date"], input[type="time"]) { color-scheme: light !important; }
   }
 }
+
+/* Design 3 (phones and tablets): "Send me my quote" — opens the box that sends the quote link
+   to the customer's WhatsApp or email so they can finish booking later. */
+@layer base {
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote] {
+    display: flex !important; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; min-height: 48px; margin-top: .75rem; padding: .5rem 1rem;
+    border: 1.5px solid #94a3b8 !important; border-radius: .9rem; background: #fff !important;
+    color: #071c38 !important; -webkit-text-fill-color: #071c38; font-size: .9375rem; font-weight: 700;
+    text-decoration: none !important; visibility: visible !important;
+  }
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]::before {
+    content: ""; width: 1.1rem; height: 1.1rem; flex: none;
+    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316803c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4 20-7z'/%3E%3C/svg%3E");
+  }
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+}

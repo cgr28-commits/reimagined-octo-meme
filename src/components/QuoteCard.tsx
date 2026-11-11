@@ -8131,9 +8131,10 @@ function QuoteCard({
               onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               data-checkout-email-quote
+              data-d3-send-quote={mobileDesign3 ? "" : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              Email my quote
+              {mobileDesign3 ? "Send me my quote to finish later" : "Email my quote"}
             </button>
           ) : null}
 
@@ -10070,6 +10071,19 @@ function QuoteCard({
                         </li>
                         <li>Free cancellation up to 24 hours before pickup</li>
                       </ul>
+                    ) : null}
+                    {design2Home && liveQuote && !isVehiclePersonalQuote && !appliedPersonalQuote ? (
+                      /* Design 3 only (shown by its stylesheet): send the quote link to the
+                         customer's WhatsApp or email so they can finish booking later. */
+                      <button
+                        type="button"
+                        className="hidden"
+                        data-d3-send-quote
+                        onClick={() => handleSaveQuoteClick()}
+                        style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                      >
+                        Send me my quote to finish later
+                      </button>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
