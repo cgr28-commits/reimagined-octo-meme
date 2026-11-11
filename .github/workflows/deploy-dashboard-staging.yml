@@ -1,0 +1,198 @@
+# Isolated Owner Dashboard + Driver Portal staging.
+#
+# Deploys ONLY to the separate "My Airport Taxi NI Staging" Cloudflare account
+# (ecad568dc411e28a3e435ef40b36c2b5). It never touches the live Worker, live KV,
+# live Durable Objects, GitHub Pages or the custom domain.
+#
+# Required GitHub Actions secrets (owner adds these once):
+#   STAGING_CLOUDFLARE_API_TOKEN  — API token scoped to the Staging account only:
+#                                   Workers Scripts:Edit, Workers KV Storage:Edit, D1:Edit,
+#                                   Cloudflare Pages:Edit, Account Settings:Read
+#   STAGING_OWNER_ACCESS_KEY      — a NEW owner key for staging. Must not equal the live key.
+#
+# Safety: the staging Worker is built with __MATNI_STAGING_SANDBOX__ (all outbound HTTP
+# blocked: no email, WhatsApp, Stripe or Google Ads), has no crons and no other secrets.
+
+name: Deploy Dashboard Staging (isolated account)
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/owner-dashboard-mobile
+
+concurrency:
+  group: dashboard-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  STAGING_ACCOUNT_ID: ecad568dc411e28a3e435ef40b36c2b5
+  STAGING_WORKER_NAME: matni-dashboard-staging
+  STAGING_PAGES_PROJECT: matni-dashboard-staging
+  WRANGLER_CONFIG: wrangler.dashboard-staging.toml
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets and isolation
+        id: secrets
+        working-directory: workers/addresses
+        env:
+          STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          STAGING_OWNER_ACCESS_KEY: ${{ secrets.STAGING_OWNER_ACCESS_KEY }}
+          LIVE_OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          LIVE_DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+        run: |
+          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::Staging not deployed: add GitHub secret STAGING_CLOUDFLARE_API_TOKEN (see docs/dashboard-staging.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$STAGING_OWNER_ACCESS_KEY" ]; then
+            # No owner key supplied: make a private one for this run. It is masked in logs, stored only
+            # as the staging Worker's secret, and used by the cloud tests below. Nobody can read it back.
+            STAGING_OWNER_ACCESS_KEY="$(openssl rand -hex 32)"
+            echo "::add-mask::$STAGING_OWNER_ACCESS_KEY"
+            echo "::notice::No STAGING_OWNER_ACCESS_KEY secret: using a private auto-generated key (test-only staging; owner sign-in not available)."
+          fi
+          echo "STAGING_OWNER_KEY_EFFECTIVE=$STAGING_OWNER_ACCESS_KEY" >> "$GITHUB_ENV"
+          if [ "${#STAGING_OWNER_ACCESS_KEY}" -lt 24 ]; then
+            echo "::error::STAGING_OWNER_ACCESS_KEY must be at least 24 characters."
+            exit 1
+          fi
+          if [ -n "$LIVE_OWNER_ACCESS_KEY" ] && [ "$STAGING_OWNER_ACCESS_KEY" = "$LIVE_OWNER_ACCESS_KEY" ]; then
+            echo "::error::STAGING_OWNER_ACCESS_KEY is the same as the live owner key. Use a new key."
+            exit 1
+          fi
+          if [ -n "$LIVE_DRIVER_ACCESS_KEY" ] && [ "$STAGING_OWNER_ACCESS_KEY" = "$LIVE_DRIVER_ACCESS_KEY" ]; then
+            echo "::error::STAGING_OWNER_ACCESS_KEY is the same as the live driver key. Use a new key."
+            exit 1
+          fi
+          grep -q "^account_id = \"$STAGING_ACCOUNT_ID\"" "$WRANGLER_CONFIG" || { echo "::error::Config is not pinned to the staging account."; exit 1; }
+          # Production resource ids must never appear in the staging config.
+          for live_id in 53fa3cc2bd46436f90ae19200e599ea1 869e2c2e02004d4a88c9cfbf563f1d6a 36c5c88df4c1f0259413d555f2679f3c; do
+            if grep -q "$live_id" "$WRANGLER_CONFIG"; then echo "::error::Live resource id $live_id found in staging config."; exit 1; fi
+          done
+          grep -q '__MATNI_STAGING_SANDBOX__ = "true"' "$WRANGLER_CONFIG" || { echo "::error::Outbound sandbox define missing."; exit 1; }
+          grep -q '^crons = \[\]' "$WRANGLER_CONFIG" || { echo "::error::Staging must have no crons."; exit 1; }
+          if grep -v '^[[:space:]]*#' "$WRANGLER_CONFIG" | grep -q "send_email"; then echo "::error::Staging must not bind email."; exit 1; fi
+          echo "::notice::Isolation checks passed."
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          # node:sqlite (used by the driver-accounts checks) needs Node 22.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/addresses/package-lock.json
+
+      - name: Install Worker dependencies
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: workers/addresses
+        run: npm ci
+
+      - name: Driver accounts + sandbox checks
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          npx --yes tsx@4 scripts/check-staging-sandbox.ts
+          npx --yes tsx@4 scripts/check-driver-accounts.ts
+
+      - name: Deploy staging Worker (staging account only)
+        if: steps.secrets.outputs.ready == 'true'
+        id: deploy
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+        run: |
+          STAGING_OWNER_ACCESS_KEY="$STAGING_OWNER_KEY_EFFECTIVE"
+          npx wrangler d1 migrations apply dashboard-staging-drivers --remote -c "$WRANGLER_CONFIG"
+          OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)"
+          echo "$OUTPUT"
+          URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${STAGING_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
+          if [ -z "$URL" ]; then echo "::error::Could not read the staging Worker URL."; exit 1; fi
+          printf '%s' "$STAGING_OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY -c "$WRANGLER_CONFIG"
+          # Only the staging owner key may exist on this Worker.
+          SECRETS="$(npx wrangler secret list -c "$WRANGLER_CONFIG")"
+          EXTRA="$(printf '%s' "$SECRETS" | grep -o '"name": *"[A-Z0-9_]*"' | grep -v '"OWNER_ACCESS_KEY"' || true)"
+          if [ -n "$EXTRA" ]; then
+            echo "::error::Unexpected secrets on the staging Worker: $EXTRA"
+            exit 1
+          fi
+          # A brand-new workers.dev address can take a minute to start answering.
+          STATUS=""
+          for attempt in $(seq 1 18); do
+            STATUS="$(curl -fsS "$URL/staging/sandbox-status" 2>/dev/null || true)"
+            [ -n "$STATUS" ] && break
+            sleep 10
+          done
+          echo "$STATUS"
+          printf '%s' "$STATUS" | grep -q '"sandbox":true' || { echo "::error::Outbound sandbox is not active."; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Staging Worker (isolated account): $URL"
+
+      - name: Stage 1 cloud tests (real Worker + D1 in the staging account)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          STAGING_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          STAGING_OWNER_KEY="$STAGING_OWNER_KEY_EFFECTIVE" npx --yes tsx@4 scripts/staging-cloud-test.ts
+
+  pages:
+    needs: worker
+    if: needs.worker.outputs.url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build static site against the staging Worker
+        env:
+          WORKER_URL: ${{ needs.worker.outputs.url }}
+        run: |
+          case "$WORKER_URL" in
+            https://${STAGING_WORKER_NAME}.*.workers.dev) ;;
+            *) echo "::error::Unexpected Worker URL: $WORKER_URL"; exit 1 ;;
+          esac
+          # No Google Ads, no Web3Forms, no Places key: nothing on staging can reach a live service.
+          NEXT_PUBLIC_BOOKINGS_API_URL="$WORKER_URL/bookings" \
+          NEXT_PUBLIC_ADDRESSES_API_URL="$WORKER_URL/addresses" \
+          NEXT_PUBLIC_GOOGLE_ADS_ID="" \
+          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY="" \
+          NEXT_PUBLIC_GOOGLE_PLACES_API_KEY="" \
+          GITHUB_PAGES=true npm run build
+          node scripts/fix-github-pages-paths.mjs
+          grep -rqs "$WORKER_URL" out/_next || { echo "::error::Build does not point at the staging Worker."; exit 1; }
+          # Keep staging out of search engines.
+          printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > out/_headers
+          printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
+          rm -f out/CNAME
+
+      - name: Deploy to staging Pages project (staging account only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+        run: |
+          npm install --no-save wrangler@3.109.0
+          npx wrangler pages project create "$STAGING_PAGES_PROJECT" --production-branch=main 2>/dev/null || true
+          OUTPUT="$(npx wrangler pages deploy out --project-name="$STAGING_PAGES_PROJECT" --branch=main --commit-hash="${GITHUB_SHA}" --commit-dirty=true 2>&1)"
+          echo "$OUTPUT"
+          SUB="$(npx wrangler pages project list 2>/dev/null | grep -Eo "${STAGING_PAGES_PROJECT}(-[a-z0-9]+)?\.pages\.dev" | head -1)"
+          SUB="${SUB:-${STAGING_PAGES_PROJECT}.pages.dev}"
+          echo "::notice::Owner Dashboard staging: https://${SUB}/owner/?ui=mobile"
+          echo "::notice::Driver portal staging: https://${SUB}/driver-portal/"

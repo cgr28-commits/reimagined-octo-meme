@@ -186,7 +186,7 @@ function ThreadView({
       setData(
         await ownerInboxFetch<InboxThreadResponse>(
           ownerKey,
-          `/owner/inbox/thread?key=${encodeURIComponent(thread.threadKey)}`,
+          `/owner/inbox/thread?thread=${encodeURIComponent(thread.threadKey)}`,
         ),
       );
       onChanged();

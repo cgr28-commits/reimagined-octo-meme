@@ -55,14 +55,6 @@ export function isDriverPortalSessionToken(value: string | null | undefined): bo
   return (value ?? "").trim().startsWith("dps_");
 }
 
-function driverQueryKey(url: URL, driverKey: string): void {
-  const trimmed = driverKey.trim();
-  if (!trimmed || isDriverPortalSessionToken(trimmed)) {
-    return;
-  }
-  url.searchParams.set("key", trimmed);
-}
-
 function driverAuthHeaders(driverKey: string): Record<string, string> {
   const trimmed = driverKey.trim();
   if (isDriverPortalSessionToken(trimmed)) {
@@ -87,10 +79,14 @@ function driverPostHeaders(driverKey: string): HeadersInit {
   };
 }
 
-function driverKeyedUrl(path: string, access: string): string {
-  const url = new URL(path, WORKER_BASE);
-  driverQueryKey(url, access);
-  return url.toString();
+/**
+ * Worker URL for a driver/owner call. The access key is sent only in the
+ * X-Driver-Key / X-Owner-Key / X-Driver-Session headers (driverAuthHeaders),
+ * never in the web address, so it can't end up in logs or browser history.
+ * `access` is kept in the signature so call sites read the same as before.
+ */
+function driverKeyedUrl(path: string, _access: string): string {
+  return new URL(path, WORKER_BASE).toString();
 }
 
 export type DriverStatusResponse = {
@@ -137,7 +133,6 @@ export async function fetchDriverStatus(driverKey: string): Promise<DriverStatus
   }
 
   const url = new URL(`${WORKER_BASE}/driver/status`);
-  driverQueryKey(url, driverKey);
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -435,7 +430,6 @@ export async function fetchDriverJobs(
   }
 
   const url = new URL(`${WORKER_BASE}/driver/jobs`);
-  driverQueryKey(url, driverKey);
   if (options?.scope === "upcoming" || options?.scope === "pending") {
     url.searchParams.set("scope", options.scope);
     if (options.days) {
@@ -504,7 +498,7 @@ export async function updateDriverBooking(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/driver/bookings/update?key=${encodeURIComponent(driverKey.trim())}`,
+    `${WORKER_BASE}/driver/bookings/update`,
     {
       method: "POST",
       headers: driverPostHeaders(driverKey),
@@ -873,7 +867,7 @@ export async function ensurePaidBookingTracking(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/paid-bookings/ensure-tracking?key=${encodeURIComponent(ownerKey.trim())}`,
+    `${WORKER_BASE}/paid-bookings/ensure-tracking`,
     {
       method: "POST",
       headers: driverPostHeaders(ownerKey),
@@ -922,7 +916,6 @@ export async function fetchOwnerAccountProfile(
   }
 
   const url = new URL(`${WORKER_BASE}/owner/profile`);
-  driverQueryKey(url, ownerKey);
 
   const response = await fetch(url.toString(), {
     method: "GET",
@@ -972,7 +965,7 @@ export async function saveOwnerAccountProfile(
   }
 
   const response = await fetch(
-    `${WORKER_BASE}/owner/profile?key=${encodeURIComponent(ownerKey.trim())}`,
+    `${WORKER_BASE}/owner/profile`,
     {
       method: "POST",
       headers: {
@@ -1009,11 +1002,10 @@ export async function fetchDriverVehicleProfiles(
   }
 
   const url = new URL(`${WORKER_BASE}/driver/vehicle/profiles`);
-  driverQueryKey(url, accessKey);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(accessKey),
     cache: "no-store",
   });
 
@@ -1037,14 +1029,13 @@ export async function fetchDriverVehicle(
   }
 
   const url = new URL(`${WORKER_BASE}/driver/vehicle`);
-  driverQueryKey(url, accessKey);
   if (profile?.trim()) {
     url.searchParams.set("profile", profile.trim());
   }
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(accessKey),
     cache: "no-store",
   });
 
@@ -1105,7 +1096,7 @@ export async function saveDriverVehicle(
     };
   }
 
-  const response = await fetch(`${WORKER_BASE}/driver/vehicle?key=${encodeURIComponent(accessKey.trim())}`, {
+  const response = await fetch(`${WORKER_BASE}/driver/vehicle`, {
     method: "POST",
     headers: driverPostHeaders(accessKey),
     body: JSON.stringify(input),
@@ -1132,11 +1123,10 @@ export async function fetchDriverRoster(ownerKey: string): Promise<string[]> {
   }
 
   const url = new URL(`${WORKER_BASE}/driver/roster`);
-  driverQueryKey(url, ownerKey);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(ownerKey),
     cache: "no-store",
   });
 
@@ -1189,7 +1179,7 @@ export async function assignJobToDriver(
     };
   }
 
-  const response = await fetch(`${WORKER_BASE}/driver/assign?key=${encodeURIComponent(ownerKey.trim())}`, {
+  const response = await fetch(`${WORKER_BASE}/driver/assign`, {
     method: "POST",
     headers: driverPostHeaders(ownerKey),
     body: JSON.stringify({
@@ -1239,7 +1229,7 @@ export async function deassignJob(
     };
   }
 
-  const response = await fetch(`${WORKER_BASE}/driver/deassign?key=${encodeURIComponent(ownerKey.trim())}`, {
+  const response = await fetch(`${WORKER_BASE}/driver/deassign`, {
     method: "POST",
     headers: driverPostHeaders(ownerKey),
     body: JSON.stringify({ token }),
@@ -1308,12 +1298,11 @@ export async function fetchDriverLocationHistory(
   }
 
   const url = new URL(`${WORKER_BASE}/driver/location-history`);
-  driverQueryKey(url, ownerKey);
   url.searchParams.set("token", token);
 
   const response = await fetch(url.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: driverGetHeaders(ownerKey),
     cache: "no-store",
   });
 

@@ -1,3 +1,7 @@
+// Must stay first: disables all outbound requests on the dashboard staging build only.
+import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
+import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
+import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
 import { supersedeEarlierCheckouts } from "./supersede-checkout";
 import { processFlightWatch } from "./flight-watch-handlers";
@@ -162,7 +166,7 @@ import {
   handleDriverAcceptConfirmRequest,
   handleDriverAcceptLookupRequest,
 } from "./booking-job-handlers";
-import { bookingJobStoreConfigured } from "./booking-job-store";
+import { bookingJobStoreConfigured, getBookingJob, listAllBookingJobs } from "./booking-job-store";
 import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
@@ -665,6 +669,8 @@ type Env = {
   /** Minutes after journey completion before automated Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
+  /** Stage 1 driver accounts (D1). Bound on dashboard staging only. */
+  DRIVER_DB?: D1Like;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
@@ -4695,6 +4701,33 @@ export default {
     const url = new URL(request.url);
     const route = routePath(url.pathname);
 
+    if (url.pathname === "/staging/sandbox-status" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({ sandbox: STAGING_SANDBOX, recentBlocked: STAGING_SANDBOX ? recentBlockedOutbound() : [] }),
+        { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", ...corsHeaders(origin) } },
+      );
+    }
+    // Stage 1 driver accounts — answers 404 unless a DRIVER_DB binding exists (staging only).
+    const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
+      ownerAuthorized: (req) => ownerAuthorized(req, env),
+      corsHeaders,
+      // Read-only booking lookup for the suspension review alert.
+      findUpcomingBookingsForDriver: async (driver) => {
+        if (!env.TRACKING_STORE) return [];
+        return upcomingBookingsForDriver(await listAllBookingJobs(env.TRACKING_STORE), driver, londonTodayYmd());
+      },
+      // Read-only: current state of one booking, to verify the owner's update.
+      checkBookingAssignment: async (reference, driver) => {
+        if (!env.TRACKING_STORE) return { found: false, cancelled: false, assignedToThisDriver: false, otherDriver: "" };
+        let job = await getBookingJob(env.TRACKING_STORE, reference);
+        if (!job) {
+          job = (await listAllBookingJobs(env.TRACKING_STORE)).find((j) => (j.paymentReference || "").trim() === reference) ?? null;
+        }
+        return checkBookingAssignment(job, driver);
+      },
+    });
+    if (driverAccountsResponse) return driverAccountsResponse;
+
     // Stripe webhook (server-to-server, signature-verified inside).
     if (
       (url.pathname === "/payments/stripe-webhook" || url.pathname === "/api/payments/stripe-webhook") &&
@@ -5350,13 +5383,18 @@ export default {
       if (!ownerAuthorized(request, env)) {
         return json({ error: "Unauthorized — owner access required." }, 401, origin);
       }
-      const body = (await request.json().catch(() => ({}))) as { phone?: unknown; text?: unknown; action?: unknown };
+      const body = (await request.json().catch(() => ({}))) as {
+        phone?: unknown;
+        text?: unknown;
+        action?: unknown;
+        sendId?: unknown;
+      };
       const phone = String(body.phone ?? "");
       if (body.action === "resume") {
         await resumeWhatsAppAssistant(env, phone);
         return json({ ok: true, assistantPaused: false }, 200, origin);
       }
-      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""));
+      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""), new Date(), String(body.sendId ?? ""));
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
     }
@@ -6494,6 +6532,8 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Dashboard staging has no crons; refuse to run scheduled jobs there even if one is added.
+    if (STAGING_SANDBOX) return;
     configureStripe(env);
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {

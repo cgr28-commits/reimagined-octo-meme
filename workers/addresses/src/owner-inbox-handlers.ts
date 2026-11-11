@@ -3,7 +3,7 @@
  *
  *   POST /inbound/resend                Resend "email.received" webhook (signature checked)
  *   GET  /owner/inbox                   threads + connection status
- *   GET  /owner/inbox/thread?key=…      one conversation (marks it read) + that customer's bookings
+ *   GET  /owner/inbox/thread?thread=…   one conversation (marks it read) + that customer's bookings
  *   POST /owner/inbox/reply             { threadKey, message, paymentReference? }
  *   POST /owner/inbox/archive           { threadKey, archived }
  *   POST /owner/inbox/setup             {} → create the Resend webhook automatically, or { secret } to paste one
@@ -47,6 +47,10 @@ import {
 } from "./owner-inbox-store";
 
 const SITE_ORIGIN = "https://www.myairporttaxini.co.uk";
+const INBOX_SEND_GUARD_PREFIX = "owner-inbox:send:";
+/** Long enough to cover retries and a phone coming back online; short enough not to pile up. */
+const INBOX_SEND_GUARD_TTL_SECONDS = 60 * 60 * 24;
+
 export const INBOX_WEBHOOK_ENDPOINT = "https://reimagined-octo-meme.cgr28.workers.dev/inbound/resend";
 
 export type OwnerInboxEnv = DriverAuthEnv & {
@@ -325,7 +329,10 @@ export async function handleOwnerInboxThread(request: Request, env: OwnerInboxEn
   if (!ownerAuthorized(request, env)) return json({ error: "Owner access required" }, 401, origin);
   const store = env.TRACKING_STORE;
   if (!store) return json({ error: "Storage not configured" }, 503, origin);
-  const key = new URL(request.url).searchParams.get("key") ?? "";
+  // "thread" is the conversation id. "key" is the old name for the same thing, kept so an
+  // older dashboard tab still opens conversations; it is never an access key here.
+  const params = new URL(request.url).searchParams;
+  const key = params.get("thread") ?? params.get("key") ?? "";
   const messages = (await listInboxMessages(store)).filter((m) => m.threadKey === key).sort((a, b) => a.at.localeCompare(b.at));
   if (!messages.length) return json({ error: "Conversation not found" }, 404, origin);
   for (const m of messages) {
@@ -383,6 +390,21 @@ export async function handleOwnerInboxReply(
     booking = await bookingDetails(store, record);
   }
 
+  // Duplicate-send guard: the dashboard sends a one-time sendId with each reply. A second
+  // request with the same id (double tap, retry after a dropped signal) never emails twice.
+  const sendId = String(body.sendId ?? "").trim().slice(0, 80);
+  const sendKey = sendId ? `${INBOX_SEND_GUARD_PREFIX}${sendId}` : "";
+  if (sendKey) {
+    const previous = await store.get(sendKey);
+    if (previous === "sending") {
+      return json({ error: "This email is already being sent." }, 409, origin);
+    }
+    if (previous) {
+      return json({ ok: true, duplicate: true, message: JSON.parse(previous) as InboxMessage }, 200, origin);
+    }
+    await store.put(sendKey, "sending", { expirationTtl: INBOX_SEND_GUARD_TTL_SECONDS });
+  }
+
   const subject = replySubject(first.subject);
   const email = buildOwnerOutgoingEmail({ message: text, booking, quoted: lastIn ? quotedFrom(lastIn) : null });
   const references = lastIn?.messageId ? [lastIn.references, lastIn.messageId].filter(Boolean).join(" ") : undefined;
@@ -395,7 +417,11 @@ export async function handleOwnerInboxReply(
     inReplyTo: lastIn?.messageId,
     references,
   });
-  if (!sent.ok) return json({ error: sent.error }, 502, origin);
+  if (!sent.ok) {
+    // Not sent, so the same sendId may be tried again.
+    if (sendKey) await store.delete(sendKey);
+    return json({ error: sent.error }, 502, origin);
+  }
   const record = outgoingRecord({
     id: sent.id,
     to,
@@ -407,6 +433,7 @@ export async function handleOwnerInboxReply(
     bookingRef: booking?.reference ?? first.bookingRef,
   });
   await saveInboxMessage(store, record);
+  if (sendKey) await store.put(sendKey, JSON.stringify(record), { expirationTtl: INBOX_SEND_GUARD_TTL_SECONDS });
   return json({ ok: true, message: record }, 200, origin);
 }
 

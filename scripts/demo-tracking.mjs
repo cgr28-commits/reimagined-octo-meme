@@ -129,8 +129,8 @@ function seedJobs() {
   }
 }
 
-async function fetchJson(path) {
-  const response = await fetch(`${workerBase}${path}`);
+async function fetchJson(path, headers = {}) {
+  const response = await fetch(`${workerBase}${path}`, { headers });
   const body = await response.json();
   return { status: response.status, body };
 }
@@ -164,7 +164,7 @@ async function main() {
   console.log(`  ${siteBase}/driver/`);
   console.log(`  Access key: ${driverKey}\n`);
 
-  const jobs = await fetchJson(`/driver/jobs?key=${driverKey}`);
+  const jobs = await fetchJson("/driver/jobs", { "X-Driver-Key": driverKey });
   console.log("GET /driver/jobs (today):");
   console.log(JSON.stringify(jobs.body, null, 2));
 }
