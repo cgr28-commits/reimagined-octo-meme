@@ -206,7 +206,9 @@ async function main(): Promise<void> {
   assert.match(form, /destinationPlaceId: placeIds\.destination/);
   assert.ok(!/requireSuggestion/.test(form), "typed addresses still allowed when suggestions are unavailable");
   const css = read("src/app/globals.css");
-  const block = css.slice(css.indexOf("Event / Business Class request forms"));
+  const blockStart = css.indexOf("Event / Business Class request forms");
+  // Our block is one "@layer base { … }" ending at the first closing brace in column 0.
+  const block = css.slice(blockStart, css.indexOf("\n}\n", blockStart) + 2);
   assert.ok(block.length > 100, "form styles present");
   for (const line of block.split("\n").filter((l) => /\{/.test(l) && !/^\s*@/.test(l))) {
     assert.match(line, /data-bespoke-request-form/, `form styles are scoped to the request forms: ${line.trim().slice(0, 60)}`);

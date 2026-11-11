@@ -6,6 +6,7 @@ import {
   buildOwnerOutgoingEmail,
   inboxThreadKey,
   signatureHtml,
+  signatureText,
 } from "../shared/owner-inbox";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
@@ -92,10 +93,15 @@ async function main() {
   assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo\.png/, "signature has the real logo");
   assert.doesNotMatch(sig, /Brian/, "no personal name in the signature");
   assert.match(sig, /My Airport Taxi NI/);
-  assert.match(sig, /07549 815538/);
+  // The number may sit inside the link's href, but never in the visible text.
+  assert.doesNotMatch(sig.replace(/<[^>]+>/g, " "), /7549 ?815 ?538/, "WhatsApp number is never shown (owner request, 11 Nov 2026)");
+  assert.match(sig, /WhatsApp @belfasttaxi/, "WhatsApp shown as the @belfasttaxi handle");
   assert.match(sig, /bookings@myairporttaxini\.co\.uk/);
   assert.match(sig, /Call: <a href="tel:\+442896022952"[^>]*>028 9602 2952<\/a>/, "office landline is the number to call (owner request, Nov 2026)");
-  assert.match(sig, /WhatsApp: <a href="https:\/\/wa\.me\/447549815538"[^>]*>07549 815538<\/a>/, "07549 is WhatsApp only");
+  const sigText = signatureText();
+  assert.match(sigText, /Call: 028 9602 2952/);
+  assert.doesNotMatch(sigText, /7549/, "plain-text signature shows no WhatsApp number");
+  assert.match(sigText, /WhatsApp: @belfasttaxi/);
   const out = buildOwnerOutgoingEmail({ message: "Hi <Sarah>\n\nSee you then.", quoted: { from: "Sarah", at: "today", text: "What time?" } });
   assert.match(out.html, /Hi &lt;Sarah&gt;/, "message is escaped");
   assert.match(out.text, /> What time\?/);
@@ -249,6 +255,48 @@ async function main() {
   );
   assert.equal(res.status, 400);
 
+  // The new "thread" parameter opens the same conversation as the old "key" one.
+  res = await handleOwnerInboxThread(new Request(`https://w/owner/inbox/thread?thread=${encodeURIComponent(threadKey)}`, { headers: ownerHeaders }), env, null);
+  assert.equal(res.status, 200);
+
+  // Duplicate-send guard: the same sendId twice sends one email; a new sendId sends again.
+  const before = sent.length;
+  const replyOnce = () =>
+    handleOwnerInboxReply(
+      new Request("https://w/owner/inbox/reply", {
+        method: "POST",
+        headers: ownerHeaders,
+        body: JSON.stringify({ threadKey, message: "See you at 5.", sendId: "send-abc" }),
+      }),
+      env,
+      null,
+      fakeFetch,
+    );
+  res = await replyOnce();
+  assert.equal(res.status, 200);
+  res = await replyOnce();
+  assert.equal(res.status, 200);
+  assert.equal(((await res.json()) as { duplicate?: boolean }).duplicate, true);
+  assert.equal(sent.length, before + 1, "double tap sends one email");
+  // A failed send releases the sendId so it can be retried.
+  const failingFetch = async (url: string, init?: RequestInit) =>
+    url === "https://api.resend.com/emails" ? new Response("{}", { status: 500 }) : fakeFetch(url, init);
+  res = await handleOwnerInboxReply(
+    new Request("https://w/owner/inbox/reply", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey, message: "Retry me", sendId: "send-retry" }) }),
+    env,
+    null,
+    failingFetch,
+  );
+  assert.notEqual(res.status, 200);
+  res = await handleOwnerInboxReply(
+    new Request("https://w/owner/inbox/reply", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey, message: "Retry me", sendId: "send-retry" }) }),
+    env,
+    null,
+    fakeFetch,
+  );
+  assert.equal(res.status, 200);
+  assert.equal(sent.length, before + 2);
+
   // Our own BCC copy coming back through the GoDaddy forward is ignored.
   assert.equal(
     inboundToMessage({ from: "My Airport Taxi NI <bookings@myairporttaxini.co.uk>", to: ["sarah@example.com"], subject: "Re: x", text: "y" }, "em-2", "bookings@myairporttaxini.co.uk"),
@@ -278,8 +326,8 @@ async function main() {
     fakeFetch,
   );
   assert.equal(res.status, 200);
-  assert.equal(sent[1]!.subject, draft.subject);
-  assert.match(String(sent[1]!.html), /Flight:<\/span> EZY123/);
+  assert.equal(sent[sent.length - 1]!.subject, draft.subject);
+  assert.match(String(sent[sent.length - 1]!.html), /Flight:<\/span> EZY123/);
 
   // Archive hides the thread; a new email from the customer brings it back.
   await handleOwnerInboxArchive(new Request("https://w/owner/inbox/archive", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey }) }), env, null);

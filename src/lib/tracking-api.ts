@@ -55,13 +55,6 @@ export function isDriverPortalSessionToken(value: string | null | undefined): bo
   return (value ?? "").trim().startsWith("dps_");
 }
 
-/*
- * Security: owner/driver credentials are sent ONLY in request headers
- * (X-Driver-Key / X-Owner-Key / X-Driver-Session), never in the URL, where they
- * would be recorded in logs and history. The Worker still accepts ?key= for
- * older cached pages; that compatibility is removed in a later, separate step.
- */
-
 function driverAuthHeaders(driverKey: string): Record<string, string> {
   const trimmed = driverKey.trim();
   if (isDriverPortalSessionToken(trimmed)) {
@@ -86,7 +79,13 @@ function driverPostHeaders(driverKey: string): HeadersInit {
   };
 }
 
-function workerUrl(path: string): string {
+/**
+ * Worker URL for a driver/owner call. The access key is sent only in the
+ * X-Driver-Key / X-Owner-Key / X-Driver-Session headers (driverAuthHeaders),
+ * never in the web address, so it can't end up in logs or browser history.
+ * `access` is kept in the signature so call sites read the same as before.
+ */
+function driverKeyedUrl(path: string, _access: string): string {
   return new URL(path, WORKER_BASE).toString();
 }
 
@@ -520,7 +519,7 @@ export async function setDriverSharing(
     return { ok: true, trackUrl };
   }
 
-  const response = await fetch(workerUrl("/driver/sharing"), {
+  const response = await fetch(driverKeyedUrl("/driver/sharing", driverKey), {
     method: "POST",
     headers: driverPostHeaders(driverKey),
     body: JSON.stringify({ token, active }),
@@ -617,7 +616,7 @@ export async function postJourneyAction(
   }
 
   const response = await fetch(
-    workerUrl("/driver/journey"),
+    driverKeyedUrl("/driver/journey", accessKey),
     {
       method: "POST",
       headers: driverPostHeaders(accessKey),
@@ -649,7 +648,7 @@ export async function fetchJourneySession(
   }
 
   const response = await fetch(
-    workerUrl("/driver/journey/session"),
+    driverKeyedUrl("/driver/journey/session", accessKey),
     {
       method: "POST",
       headers: driverPostHeaders(accessKey),
@@ -1272,7 +1271,7 @@ export async function respondToJobAssignment(
   }
 
   const response = await fetch(
-    workerUrl("/driver/assignment"),
+    driverKeyedUrl("/driver/assignment", driverKey),
     {
       method: "POST",
       headers: driverPostHeaders(driverKey),
@@ -1349,7 +1348,7 @@ export async function postDriverLocation(
     headers["X-Tracking-Session"] = sessionToken;
   }
 
-  const url = workerUrl("/driver/location");
+  const url = driverKeyedUrl("/driver/location", driverKey);
 
   const response = await fetch(url, {
     method: "POST",

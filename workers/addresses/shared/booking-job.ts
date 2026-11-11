@@ -75,6 +75,11 @@ export type BookingJobRecord = {
   /** Saved DriverVehicleProfile this assignment belongs to. */
   driverProfileKey?: string;
   /**
+   * Permanent driver-account id (drv_…) of the assigned driver. The reliable link between a
+   * booking and a driver account; email/mobile are only a fallback for older assignments.
+   */
+  driverAccountId?: string;
+  /**
    * Display label for the agreed driver pay on this assignment email.
    * Derived from driverPayAmountPence for new assignments. The tracking journey
    * remains the payment record. Not a SumUp payout.

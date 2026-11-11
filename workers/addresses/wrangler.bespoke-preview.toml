@@ -1,5 +1,7 @@
 # Isolated PREVIEW Worker for Event / Business Class bespoke quotes (Phase 3 testing).
-# DO NOT deploy until the owner approves. Nothing in CI or deploy-worker.yml uses this file.
+# Deployed ONLY by .github/workflows/deploy-bespoke-preview.yml, ONLY to the separate
+# "My Airport Taxi NI Staging" Cloudflare account. deploy-worker.yml never uses this file.
+# The workflow fills the REPLACE_WITH_… placeholders in a temporary copy; this file keeps them.
 # Full proposal: docs/bespoke-quotes-preview-environment.md
 #
 # Isolation guarantees (by construction):
@@ -32,7 +34,8 @@ name = "reimagined-octo-meme-bespoke-preview"
 # (test-mode Stripe only, emails only to PREVIEW_EMAIL_ALLOWLIST). See src/preview-entry.ts.
 main = "src/preview-entry.ts"
 compatibility_date = "2025-08-01"
-account_id = "36c5c88df4c1f0259413d555f2679f3c"
+# Staging account (isolated from the live account 36c5…; a check fails if the live id is used).
+account_id = "ecad568dc411e28a3e435ef40b36c2b5"
 workers_dev = true
 
 # Replace after creating NEW isolated namespaces (owner approval first):
@@ -106,6 +109,9 @@ PREVIEW_SITE_ORIGIN = "https://matni-bespoke-preview.pages.dev"
 # Customer quotation links point at the preview site, never the live site.
 SITE_ORIGIN = "https://matni-bespoke-preview.pages.dev"
 TURNSTILE_ALLOWED_HOSTNAMES = "matni-bespoke-preview.pages.dev"
+# Preview only: accept Cloudflare's always-pass Turnstile TEST keys (honoured only together
+# with PREVIEW_ENVIRONMENT above). Never set in wrangler.toml.
+TURNSTILE_TEST_KEYS = "1"
 # Stripe holds off for preview: Phase 3 charges immediately.
 STRIPE_HOLDS_ENABLED = "false"
 WHATSAPP_BOT_ENABLED = "false"

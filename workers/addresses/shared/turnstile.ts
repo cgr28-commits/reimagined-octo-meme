@@ -17,6 +17,7 @@ type SiteverifyResponse = {
   hostname?: string;
   action?: string;
   "error-codes"?: string[];
+  metadata?: { result_with_testing_key?: boolean };
 };
 
 export function parseTurnstileHostnames(value: string | undefined | null): string[] {
@@ -34,6 +35,13 @@ export async function verifyTurnstileToken(input: {
   expectedAction: string;
   allowedHostnames: readonly string[];
   fetchImpl?: typeof fetch;
+  /**
+   * PREVIEW ONLY. Cloudflare's published always-pass test secret answers with
+   * hostname "example.com", no action and metadata.result_with_testing_key = true.
+   * When this is set, such an answer is accepted. A real secret never produces
+   * that marker, so this cannot weaken a production widget.
+   */
+  allowTestingKey?: boolean;
 }): Promise<TurnstileVerifyResult> {
   const secret = input.secret?.trim();
   if (!secret) return { ok: false, reason: "not_configured" };
@@ -55,6 +63,9 @@ export async function verifyTurnstileToken(input: {
     return { ok: false, reason: "siteverify_unreachable" };
   }
   if (data.success !== true) return { ok: false, reason: (data["error-codes"] ?? ["failed"]).join(",") };
+  if (data.metadata?.result_with_testing_key === true) {
+    return input.allowTestingKey === true ? { ok: true } : { ok: false, reason: "testing_key_not_allowed" };
+  }
   if (data.action !== input.expectedAction) return { ok: false, reason: "action_mismatch" };
   const host = String(data.hostname ?? "").toLowerCase();
   if (!input.allowedHostnames.includes(host)) return { ok: false, reason: "hostname_mismatch" };

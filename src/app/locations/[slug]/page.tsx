@@ -9,6 +9,7 @@ import LandingHeroMedia from "@/components/LandingHeroMedia";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { SITE } from "@/lib/data";
+import { townGuidePickupFor } from "@/lib/town-centres";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
@@ -67,6 +68,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/** Lede airport names link to that airport's own page, so each airport search points at one page. */
+function airportLedeLink(code: "BFS" | "BHD" | "DUB", label: string) {
+  const airport = AIRPORT_PAGES.find((entry) => entry.code === code);
+  if (!airport) return label;
+  return (
+    <Link
+      href={`/airports/${airport.slug}/`}
+      className="underline decoration-white/40 underline-offset-4 hover:text-emerald"
+      data-lede-airport-link
+    >
+      {label}
+    </Link>
+  );
+}
+
 export default async function TownHubPage({ params }: Props) {
   const { slug } = await params;
   const page = getTownHubPage(slug);
@@ -118,9 +134,10 @@ export default async function TownHubPage({ params }: Props) {
             </p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-4 text-lg leading-relaxed text-white/80">
-              Door-to-door airport taxis from {page.town.name} to Belfast International, George Best
-              Belfast City and Dublin Airport. Fixed price before you pay, with flight tracking on
-              airport pickups.
+              Door-to-door airport taxis from {page.town.name} to{" "}
+              {airportLedeLink("BFS", "Belfast International")}, George Best{" "}
+              {airportLedeLink("BHD", "Belfast City")} and {airportLedeLink("DUB", "Dublin Airport")}.
+              Fixed price before you pay, with flight tracking on airport pickups.
             </p>
             <div className="mt-4">
               <GoogleReviewsBadge />
@@ -132,6 +149,7 @@ export default async function TownHubPage({ params }: Props) {
             journey without scrolling past the route links. */}
         <LocationQuoteSection
           addressHint={page.town.addressHint}
+          guidePickup={townGuidePickupFor(page.town.addressHint, page.town.name)}
           heading={`Quote an airport taxi from ${page.town.name}`}
         />
 

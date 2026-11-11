@@ -9,6 +9,7 @@ import {
   BRAND_NAVY,
   BUSINESS_MAILBOX as BUSINESS_EMAIL,
   BUSINESS_PHONE_DISPLAY,
+  BUSINESS_WHATSAPP_TEXT_ROUTE,
   BUSINESS_WEBSITE as CANONICAL_BUSINESS_WEBSITE,
   lightCustomerEmailHtml,
   businessEmailClientMeta,
@@ -219,7 +220,7 @@ export function buildA2aQuotePaymentLinkEmail(details: A2aQuotePaymentLinkEmailD
     "",
     "Secure card payment.",
     "",
-    `My Airport Taxi NI · Call ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp ${BUSINESS_PHONE_DISPLAY} · ${BUSINESS_EMAIL}`,
+    `My Airport Taxi NI · Call ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp ${BUSINESS_WHATSAPP_TEXT_ROUTE} · ${BUSINESS_EMAIL}`,
     BUSINESS_WEBSITE,
   );
   const text = textLines.join("\n");

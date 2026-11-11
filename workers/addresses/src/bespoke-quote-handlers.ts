@@ -85,6 +85,10 @@ export type BespokeQuoteEnv = DriverAuthEnv &
     BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
     /** "1" turns on the PUBLIC routes, customer emails and the expiry sweep. Default off. */
     BESPOKE_QUOTES_ENABLED?: string;
+    /** Set only by wrangler.bespoke-preview.toml. */
+    PREVIEW_ENVIRONMENT?: string;
+    /** Preview only: "1" accepts Cloudflare's always-pass Turnstile test keys. */
+    TURNSTILE_TEST_KEYS?: string;
     TURNSTILE_SECRET_KEY?: string;
     /** Comma-separated hostnames Turnstile tokens may come from. Defaults to the live site. */
     TURNSTILE_ALLOWED_HOSTNAMES?: string;
@@ -684,6 +688,8 @@ async function publicRequest(
     expectedAction: BESPOKE_TURNSTILE_ACTION,
     allowedHostnames: parseTurnstileHostnames(env.TURNSTILE_ALLOWED_HOSTNAMES),
     fetchImpl: deps.fetchImpl,
+    // Only the isolated preview Worker may use Cloudflare's always-pass test keys.
+    allowTestingKey: env.PREVIEW_ENVIRONMENT === "bespoke-preview" && env.TURNSTILE_TEST_KEYS === "1",
   });
   if (!turnstile.ok) {
     return respond({ error: "We could not verify this request. Please refresh the page and try again." }, 403, origin);

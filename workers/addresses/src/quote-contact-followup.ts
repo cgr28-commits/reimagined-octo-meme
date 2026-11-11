@@ -15,6 +15,8 @@ import {
   BRAND_NAVY,
   BUSINESS_MAILBOX,
   BUSINESS_PHONE_DISPLAY,
+  businessWhatsAppChatUrl,
+  BUSINESS_WHATSAPP_TEXT_ROUTE,
   BUSINESS_WEBSITE,
   businessEmailClientMeta,
   businessEmailLogoHtml,
@@ -194,7 +196,7 @@ export function buildQuoteFollowUpEmail(input: {
     input.url,
     "",
     "Fixed price, a pre-booked local driver and free cancellation up to 24 hours before pickup.",
-    `Any questions? Just reply to this email, or call us on ${BUSINESS_LANDLINE_DISPLAY}, or WhatsApp us on ${BUSINESS_PHONE_DISPLAY}.`,
+    `Any questions? Just reply to this email, or call us on ${BUSINESS_LANDLINE_DISPLAY}, or WhatsApp us at ${BUSINESS_WHATSAPP_TEXT_ROUTE}.`,
     "",
     "My Airport Taxi NI",
     BUSINESS_WEBSITE,
@@ -218,7 +220,7 @@ ${businessEmailLogoHtml()}
 <p style="margin:24px 0 8px;text-align:center;">
 <a href="${esc(input.url)}" style="display:inline-block;background:${BRAND_NAVY};color:#ffffff;text-decoration:none;font-size:16px;font-weight:bold;padding:14px 28px;border-radius:8px;">Book my transfer</a>${paymentMethodsEmailHtml()}
 </p>
-<p style="margin:16px 0 0;font-size:14px;color:#64748b;">Fixed price, a pre-booked local driver and free cancellation up to 24 hours before pickup. Any questions? Just reply to this email, or call us on ${esc(BUSINESS_LANDLINE_DISPLAY)}, or WhatsApp us on ${esc(BUSINESS_PHONE_DISPLAY)}.</p>
+<p style="margin:16px 0 0;font-size:14px;color:#64748b;">Fixed price, a pre-booked local driver and free cancellation up to 24 hours before pickup. Any questions? Just reply to this email, or call us on ${esc(BUSINESS_LANDLINE_DISPLAY)}, or <a href="${businessWhatsAppChatUrl()}" style="color:#071c38;">WhatsApp us at @belfasttaxi</a>.</p>
 </td></tr>
 <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 32px;font-size:13px;color:#64748b;">
 <strong style="color:${BRAND_NAVY};">My Airport Taxi NI</strong><br />

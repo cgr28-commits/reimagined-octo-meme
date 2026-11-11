@@ -26,8 +26,13 @@ import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDriverPaymentsPanel from "@/components/OwnerDriverPaymentsPanel";
 import DriverPayPanel from "@/components/DriverPayPanel";
+import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import OwnerMobileApp, { BottomNav, type OwnerMobileTab } from "@/components/owner-mobile/OwnerMobileApp";
+import ownerMobileStyles from "@/components/owner-mobile/OwnerMobile.module.css";
+import { BackIcon as OwnerMobileBackIcon } from "@/components/owner-mobile/OwnerMobileIcons";
 import OwnerDashboardToolSwitcher, {
   OwnerDashboardMoreMenu,
+  OWNER_MORE_DESTINATIONS,
   OwnerToolBackBar,
   type OwnerDashboardToolTab,
 } from "@/components/OwnerDashboardToolSwitcher";
@@ -120,6 +125,8 @@ const DRIVER_KEY_STORAGE = "matni-driver-key";
 const OWNER_KEY_STORAGE = "matni-owner-key";
 /** Owner key kept across visits when "Remember this device" is ticked; cleared on sign out. */
 const OWNER_REMEMBERED_KEY_STORAGE = "matni-owner-key-remembered";
+/** Which owner dashboard layout this device uses ("mobile" or "classic"). */
+const OWNER_UI_STORAGE = "matni-owner-ui";
 
 function readRememberedOwnerKey(): string {
   try {
@@ -2628,6 +2635,14 @@ export default function DriverPageClient({
   const [rememberOwnerDevice, setRememberOwnerDevice] = useState(true);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [ownerToolTab, setOwnerToolTab] = useState<OwnerDashboardToolTab>("jobs");
+  /**
+   * Owner dashboard layout: "mobile" is the new mobile-first dashboard, "classic" the original.
+   * Opt in with /owner/?ui=mobile (remembered on this device); switch back from More.
+   */
+  const [ownerUi, setOwnerUi] = useState<"classic" | "mobile">("classic");
+  /** In the mobile layout: an existing tool (pricing, refunds…) is open, and which tab Back returns to. */
+  const [mobileShowingClassic, setMobileShowingClassic] = useState(false);
+  const [mobileReturnTab, setMobileReturnTab] = useState<OwnerMobileTab>("home");
   const [nameBoardPrefill, setNameBoardPrefill] = useState<NameBoardPrefill | null>(null);
   const [driverNameBoardOpen, setDriverNameBoardOpen] = useState(false);
   // Where the Name Board's Back button returns to (Jobs, More, Past…).
@@ -2811,6 +2826,41 @@ export default function DriverPageClient({
     if (tab === "name-board") setOwnerToolTab("name-board");
     if (tab === "past" || tab === "jobs" || tab === "more") setOwnerToolTab(tab);
   }, [isOwnerPortal]);
+
+  useEffect(() => {
+    if (!isOwnerPortal || typeof window === "undefined") return;
+    try {
+      const url = new URL(window.location.href);
+      const requested = url.searchParams.get("ui")?.trim().toLowerCase();
+      if (requested === "mobile" || requested === "classic") {
+        window.localStorage.setItem(OWNER_UI_STORAGE, requested);
+        url.searchParams.delete("ui");
+        window.history.replaceState(null, "", url.toString());
+      }
+      setOwnerUi(window.localStorage.getItem(OWNER_UI_STORAGE) === "mobile" ? "mobile" : "classic");
+    } catch {
+      // Storage unavailable (private browsing): stay on the classic layout.
+    }
+  }, [isOwnerPortal]);
+
+  const chooseOwnerUi = useCallback((next: "classic" | "mobile") => {
+    try {
+      window.localStorage.setItem(OWNER_UI_STORAGE, next);
+    } catch {
+      // Not remembered on this device; still switches for this visit.
+    }
+    setOwnerUi(next);
+    setMobileShowingClassic(false);
+    setOwnerToolTab("jobs");
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  // In the mobile layout, the existing tools' own "Back to More" returns to the mobile dashboard.
+  useEffect(() => {
+    if (ownerUi === "mobile" && mobileShowingClassic && ownerToolTab === "more") {
+      setMobileShowingClassic(false);
+    }
+  }, [ownerUi, mobileShowingClassic, ownerToolTab]);
 
   const refreshJobs = useCallback(() => {
     if (savedKey) {
@@ -3241,15 +3291,82 @@ export default function DriverPageClient({
     )
   ) : null;
 
+  const signOut = () => {
+    window.sessionStorage.removeItem(keyStorage);
+    window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
+    forgetRememberedOwnerKey();
+    setSavedKey(null);
+    setJobs([]);
+    setPendingJobs([]);
+    setActiveToken(null);
+    setSessionRole(null);
+    setDriverName(null);
+    setAvailableDrivers([]);
+    setDriverKey("");
+    setError(null);
+  };
+
+  const mobileLayout = isOwnerPortal && isOwnerView && Boolean(savedKey) && ownerUi === "mobile";
+
+  if (mobileLayout && savedKey && !mobileShowingClassic) {
+    return (
+      <NameBoardLauncherContext.Provider value={openNameBoardFromJob}>
+        <OwnerMobileApp
+          ownerKey={savedKey}
+          initialTab={mobileReturnTab}
+          onOpenTool={(tool, options) => {
+            if (options?.date) setJobsDay(options.date);
+            setMobileReturnTab(options?.returnTab ?? "more");
+            setOwnerToolTab(tool);
+            setMobileShowingClassic(true);
+            window.scrollTo({ top: 0 });
+          }}
+          onSwitchToClassic={() => chooseOwnerUi("classic")}
+          onSignOut={signOut}
+        />
+      </NameBoardLauncherContext.Provider>
+    );
+  }
+
+  const mobileToolTitle =
+    OWNER_MORE_DESTINATIONS.find((item) => item.id === ownerToolTab)?.label ??
+    (ownerToolTab === "jobs" ? "Jobs & calendar" : ownerToolTab === "past" ? "Past jobs" : ownerToolTab === "availability" ? "Availability" : "Owner tools");
+
   return (
     <NameBoardLauncherContext.Provider value={savedKey ? openNameBoardFromJob : null}>
+      <div className={mobileLayout ? ownerMobileStyles.app : undefined} style={mobileLayout ? { background: "#071C38" } : undefined}>
+      {mobileLayout ? (
+        <div className={ownerMobileStyles.classicBar}>
+          <button
+            type="button"
+            className={ownerMobileStyles.backButton}
+            onClick={() => {
+              setMobileShowingClassic(false);
+              window.scrollTo({ top: 0 });
+            }}
+          >
+            <OwnerMobileBackIcon size={24} />
+            Back
+          </button>
+          <p className={ownerMobileStyles.classicTitle}>{mobileToolTitle}</p>
+        </div>
+      ) : null}
+      {mobileLayout ? null : (
       <OwnerPortalHeader
         variant={isOwnerPortal ? "owner" : "driver"}
         title={isOwnerPortal ? "Owner Dashboard" : "My Jobs"}
       />
-      <main data-staff-page className="min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]">
+      )}
+      <main
+        data-staff-page
+        className={
+          mobileLayout
+            ? "min-h-screen overflow-x-clip bg-navy pb-16 pt-6"
+            : "min-h-screen overflow-x-clip bg-navy pb-16 pt-[calc(4.75rem+env(safe-area-inset-top))] md:pt-[calc(4.5rem+env(safe-area-inset-top))]"
+        }
+      >
         <div className={`mx-auto w-full min-w-0 px-4 sm:px-6 min-[64rem]:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
-          <header className="mb-8">
+          <header className={mobileLayout ? "hidden" : "mb-8"}>
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {isOwnerView
                 ? "Owner dashboard"
@@ -3262,7 +3379,9 @@ export default function DriverPageClient({
             </h1>
             {isOwnerPortal && isOwnerPreviewHost ? (
               <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
-                Signed-in owner preview. Saving availability or jobs updates the live system.
+                {resolveWorkerBaseUrl().includes("://matni-dashboard-staging.")
+                  ? "Isolated staging copy with its own test data. Nothing here reaches real customers or the live site."
+                  : "Preview connected to the live booking data. Saving availability or jobs updates the live system."}
               </p>
             ) : null}
             <p className="mt-3 text-white/70">
@@ -3454,7 +3573,7 @@ export default function DriverPageClient({
                 </div>
               )}
 
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className={mobileLayout ? "hidden" : "mb-6 flex flex-wrap items-center justify-between gap-3"}>
                 <p className="text-sm text-white/60">
                   {SITE.name}
                   {isOwnerView
@@ -3465,34 +3584,21 @@ export default function DriverPageClient({
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    window.sessionStorage.removeItem(keyStorage);
-                    window.localStorage.removeItem(DRIVER_PORTAL_SESSION_STORAGE_KEY);
-                    forgetRememberedOwnerKey();
-                    setSavedKey(null);
-                    setJobs([]);
-                    setPendingJobs([]);
-                    setActiveToken(null);
-                    setSessionRole(null);
-                    setDriverName(null);
-                    setAvailableDrivers([]);
-                    setDriverKey("");
-                    setError(null);
-                  }}
+                  onClick={signOut}
                   className="text-sm text-white/50 transition-colors hover:text-white"
                 >
                   Sign out
                 </button>
               </div>
 
-              {isOwnerView && savedKey ? (
+              {isOwnerView && savedKey && !mobileLayout ? (
                 <OwnerDashboardToolSwitcher
                   value={ownerToolTab}
                   onChange={setOwnerToolTab}
                 />
               ) : null}
 
-              {isOwnerView && savedKey && ownerToolTab === "jobs" ? (
+              {isOwnerView && savedKey && ownerToolTab === "jobs" && !mobileLayout ? (
                 <div className="mb-4 flex justify-end">
                   <button
                     type="button"
@@ -3750,7 +3856,20 @@ export default function DriverPageClient({
               ) : null}
 
               {isOwnerView && savedKey && ownerToolTab === "more" ? (
-                <OwnerDashboardMoreMenu onChange={setOwnerToolTab} />
+                <>
+                  <OwnerDashboardMoreMenu onChange={setOwnerToolTab} />
+                  {isOwnerPortal ? (
+                    <button
+                      type="button"
+                      onClick={() => chooseOwnerUi("mobile")}
+                      className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl border border-emerald/40 bg-emerald/10 px-4 text-left text-sm font-semibold text-white"
+                      data-owner-try-mobile
+                    >
+                      <span>Try the new mobile dashboard</span>
+                      <span aria-hidden="true">›</span>
+                    </button>
+                  ) : null}
+                </>
               ) : null}
 
               {/* Driver name board: owner-verified only, no public route, name never leaves the device. */}
@@ -4240,7 +4359,21 @@ export default function DriverPageClient({
           )}
         </div>
       </main>
-      <Footer />
+      {mobileLayout ? (
+        <BottomNav
+          tab={mobileReturnTab}
+          inboxCount={0}
+          bookingsUrgent={0}
+          onChange={(next) => {
+            setMobileReturnTab(next);
+            setMobileShowingClassic(false);
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      ) : (
+        <Footer />
+      )}
+      </div>
     </NameBoardLauncherContext.Provider>
   );
 }

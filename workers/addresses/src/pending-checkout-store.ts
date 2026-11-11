@@ -13,6 +13,12 @@ export type PendingCheckoutRecord = {
   checkoutStartedAt?: string;
   /** Set when owner/customer emails have been sent for this checkout. */
   finalizedAt?: string;
+  /**
+   * Set when the customer started a newer payment for a changed booking, so this
+   * older unpaid payment page was closed and can no longer be paid.
+   */
+  supersededAt?: string;
+  supersededByCheckoutId?: string;
   paymentReference?: string;
   /** Owner notified that payment was started (contact details captured). */
   attemptEmailSentAt?: string;

@@ -321,6 +321,7 @@ import {
 } from "@/lib/save-quote-payload";
 import {
   clearOpenCheckoutSession,
+  readReplacedCheckoutId,
   readBookingFormDraft,
   readOpenCheckoutSession,
   saveBookingFormDraft,
@@ -386,6 +387,10 @@ import {
   isIncompleteAddressPlace,
   INCOMPLETE_DROPOFF_ADDRESS_MESSAGE,
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
+  TOWN_GUIDE_PICKUP_MESSAGE,
+  isTownGuidePlace,
+  townGuidePlace,
+  type TownGuidePickup,
   isPlaceSelected,
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
@@ -754,6 +759,12 @@ type QuoteCardProps = {
    */
   initialPickupPlace?: SelectedPlace | null;
   /**
+   * Town pages only: town-centre pickup that is pre-confirmed so a guide price
+   * shows without the customer re-selecting the town. It can never be booked —
+   * the customer must replace it with their full address first.
+   */
+  initialGuidePickup?: TownGuidePickup | null;
+  /**
    * Quote-ready drop-off from a validated Return Offer token only.
    * Never pass URL/query-string address text here.
    */
@@ -838,6 +849,7 @@ function QuoteCard({
   maxPassengers = MAX_ONLINE_PASSENGERS,
   returnOfferToken = "",
   initialPickupPlace = null,
+  initialGuidePickup = null,
   initialDropoffPlace = null,
   preferMinibus = false,
   businessClassAnyRoute = false,
@@ -936,7 +948,9 @@ function QuoteCard({
     : null;
   const confirmedInitialPickup = isQuoteReadyPlace(initialPickupPlace)
     ? initialPickupPlace
-    : null;
+    : initialGuidePickup && initialDirection === "to-airport"
+      ? townGuidePlace(initialGuidePickup)
+      : null;
   const confirmedInitialDropoff = isQuoteReadyPlace(initialDropoffPlace)
     ? initialDropoffPlace
     : null;
@@ -1447,6 +1461,8 @@ function QuoteCard({
     isPlaceSelected(pickupPlace) &&
     isIncompleteAddressPlace(pickupPlace) &&
     !detectAirportCodeFromPlace(pickupPlace);
+  /** Town page guide pickup (town centre): shows a guide price but cannot be booked. */
+  const isTownGuidePickup = isTownGuidePlace(pickupPlace);
   const showsRequestQuoteFlow =
     isRequestQuote || isManualQuoteJourney || pricingConfirmationRequired;
   const effectiveAirportCode = isA2AFlow
@@ -3876,6 +3892,20 @@ function QuoteCard({
     }
   }
 
+  /** Booking gate: a town-centre guide pickup must be replaced by the full address. */
+  function blockTownGuidePickupBooking(): boolean {
+    if (!isTownGuidePickup) return false;
+    // Back to the journey form with an empty pickup box, ready for the full address.
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    if (presentation === "homepage") setHomepagePriceRequested(false);
+    handlePickupChange("");
+    setPickupPlaceError(TOWN_GUIDE_PICKUP_MESSAGE);
+    window.setTimeout(() => {
+      focusFirstInvalidField(cardRef.current ?? document);
+    }, 60);
+    return true;
+  }
+
   function validateA2APlaces(): boolean {
     let ok = true;
     if (!isPlaceSelected(pickupPlace)) {
@@ -4851,6 +4881,7 @@ function QuoteCard({
       return;
     }
     if (paymentSubmitLock.current || paymentLoading || submitted || paymentUncertain) return;
+    if (blockTownGuidePickupBooking()) return;
     if (!validateCheckoutRequiredFields()) return;
     paymentSubmitLock.current = true;
     paymentNavigating.current = false;
@@ -5044,6 +5075,8 @@ function QuoteCard({
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        // A payment page this tab opened earlier for a booking that has since changed.
+        supersedesCheckoutId: openCheckout?.checkoutId || readReplacedCheckoutId() || undefined,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         expressDropOffSelected: airportAccessQuote.outboundExpressDropOffSelected,
@@ -5660,6 +5693,9 @@ function QuoteCard({
     if (submitted || bookingSent) {
       return;
     }
+    if (blockTownGuidePickupBooking()) {
+      return;
+    }
     if (!validateCheckoutRequiredFields()) {
       return;
     }
@@ -5870,6 +5906,10 @@ function QuoteCard({
           }, 0);
           return;
         }
+      }
+      if (blockTownGuidePickupBooking()) {
+        trackQuoteValidationError("town_guide_pickup", quoteFunnelParams({ cta: step1Cta }));
+        return;
       }
       if (!hasQuoteRoute) {
         if (isA2AFlow && journeyIntent === "to-airport") {
@@ -6098,6 +6138,9 @@ function QuoteCard({
     setContinueToDetailsBusy(true);
     try {
       setSubmitError("");
+      if (blockTownGuidePickupBooking()) {
+        return;
+      }
       const schedule = syncScheduleFieldsFromInputs();
       if (!validateTripForBooking(schedule)) {
         return;
@@ -8091,9 +8134,10 @@ function QuoteCard({
               onClick={() => handleSaveQuoteClick()}
               style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
               data-checkout-email-quote
+              data-d3-send-quote={mobileDesign3 ? "" : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              Email my quote
+              {mobileDesign3 ? "Send me my quote" : "Email my quote"}
             </button>
           ) : null}
 
@@ -9566,7 +9610,17 @@ function QuoteCard({
             invoice email.
           </div>
         )}
-        {routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
+        {pickupPlaceError === TOWN_GUIDE_PICKUP_MESSAGE && !routeReconfirmationRequired ? (
+          <p
+            role="alert"
+            data-field-error
+            data-town-guide-address-prompt
+            className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-50"
+          >
+            Nearly there — enter your full pickup address, including the house number, to get your
+            exact price and book.
+          </p>
+        ) : routeReconfirmationRequired || pickupPlaceError || dropoffPlaceError ? (
           <div className="space-y-3">
             <p
               role="alert"
@@ -9851,6 +9905,15 @@ function QuoteCard({
               </p>
             ) : null}
 
+            {isTownGuidePickup ? (
+              <p
+                data-town-guide-note
+                className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm leading-relaxed text-white/90"
+              >
+                {TOWN_GUIDE_PICKUP_MESSAGE}
+              </p>
+            ) : null}
+
             {presentation === "homepage" &&
             !(isIncompletePickupAddress || isIncompleteDropoffAddress || isOutOfAreaPickupJourney || isRoiJourney) ? null : (
             <div
@@ -10011,6 +10074,19 @@ function QuoteCard({
                         </li>
                         <li>Free cancellation up to 24 hours before pickup</li>
                       </ul>
+                    ) : null}
+                    {design2Home && liveQuote && !isVehiclePersonalQuote && !appliedPersonalQuote ? (
+                      /* Design 3 only (shown by its stylesheet): send the quote link to the
+                         customer's WhatsApp or email so they can finish booking later. */
+                      <button
+                        type="button"
+                        className="hidden"
+                        data-d3-send-quote
+                        onClick={() => handleSaveQuoteClick()}
+                        style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                      >
+                        Send me my quote
+                      </button>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>

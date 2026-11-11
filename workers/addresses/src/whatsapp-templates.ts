@@ -59,6 +59,7 @@ export type WhatsAppTemplateName =
   | "mat_driver_arrived"
   | "mat_driver_arrived_airport"
   | "mat_quote_link"
+  | "mat_web_quote_link"
   | "mat_add_flight_number"
   | "mat_call_followup";
 
@@ -310,6 +311,33 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
               text: "Book now",
               url: `${SITE}/book-quote/?id={{1}}`,
               example: [`${SITE}/book-quote/?id=abc123`],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // Website: the customer typed their mobile into "Send me my quote" to finish booking later.
+      name: "mat_web_quote_link",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi, here is your quote from My Airport Taxi NI. Your fixed price for {{1}} on {{2}} is {{3}}.\n\n" +
+            "This price is held until {{4}}. Tap the button below to check your details and book.",
+          example: {
+            body_text: [["Belfast International Airport to Bangor", "Fri 20 Nov at 14:30", "£87", "Sat 14 Nov, 14:30"]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Book now",
+              url: `${SITE}/quote/?t={{1}}`,
+              example: [`${SITE}/quote/?t=abc123`],
             },
           ],
         },
@@ -1070,6 +1098,42 @@ export function sendQuoteLinkWhatsApp(
           input.heldFor,
         ],
         urlButtonParam: input.quoteId,
+      },
+      fetchImpl,
+    ),
+  );
+}
+
+/**
+ * Website "Send me my quote": the saved-quote link, sent to the mobile the customer typed in.
+ * One message per saved quote (each request saves a new quote).
+ */
+export function sendWebQuoteLinkWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: {
+    savedQuoteToken: string;
+    mobile?: string | null;
+    journeyLabel: string;
+    whenLabel: string;
+    amountLabel: string;
+    heldUntilLabel: string;
+  },
+  fetchImpl?: typeof fetch,
+): Promise<TemplateSendResult> {
+  return safely(() =>
+    sendTemplate(
+      env,
+      {
+        name: "mat_web_quote_link",
+        jobKey: input.savedQuoteToken,
+        mobile: input.mobile,
+        bodyParams: [
+          templateParam(input.journeyLabel, 200),
+          templateParam(input.whenLabel, 60),
+          templateParam(input.amountLabel, 20),
+          templateParam(input.heldUntilLabel, 60),
+        ],
+        urlButtonParam: input.savedQuoteToken,
       },
       fetchImpl,
     ),

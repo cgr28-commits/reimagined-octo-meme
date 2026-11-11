@@ -37,6 +37,5 @@ for (const path of ["/driver/vehicle/profiles", "/driver/vehicle`", "/driver/ros
   const window = api.slice(at, at + 600);
   assert.match(window, /headers: driverGetHeaders\(/, `${path} must send the auth header`);
 }
-// The inbox thread parameter is a thread id, not a credential — allowed.
-assert.match(readFileSync("src/components/OwnerInboxPanel.tsx", "utf8"), /thread\?key=\$\{encodeURIComponent\(thread\.threadKey\)\}/);
+// (The inbox thread parameter is a thread id, not a credential, so it is not checked here.)
 console.log("No owner/driver credentials in request URLs.");

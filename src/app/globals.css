@@ -6770,6 +6770,785 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   }
 }
 
+/* Design 3 (phones and tablets): "Send me my quote" — opens the box that sends the quote link
+   to the customer's WhatsApp or email so they can finish booking later. */
+@layer base {
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote],
+  html:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions button[data-d3-send-quote][data-d3-send-quote] {
+    display: flex !important; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; min-height: 48px; margin-top: .75rem; padding: .5rem 1rem;
+    border: 1.5px solid #94a3b8 !important; border-radius: .9rem; background: #fff !important;
+    color: #071c38 !important; -webkit-text-fill-color: #071c38; font-size: .9375rem; font-weight: 700;
+    text-decoration: none !important; visibility: visible !important;
+  }
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]::before {
+    content: ""; width: 1.1rem; height: 1.1rem; flex: none;
+    background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316803c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4 20-7z'/%3E%3C/svg%3E");
+  }
+  html:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; }
+}
+/* ───────────────────────────────────────────────────────────────────────────
+   Design 3 — premium midnight homepage (phones and tablets, below 1200px).
+   Visual only: no markup, pricing or behaviour changes. Desktop is untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html:root:root:root[data-mobile-d3] {
+    --pm-ink: #0a1b33;
+    --pm-ink-soft: #51607a;
+    --pm-line: #d7dee8;
+    --pm-line-soft: #e6ebf1;
+    --pm-green: #1faa4b;
+    --pm-green-bright: #34d06a;
+    --pm-card: #fbfcfd;
+    --pm-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  /* ── Midnight hero ─────────────────────────────────────────────────────── */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero {
+    background:
+      radial-gradient(120% 60% at 85% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+      radial-gradient(140% 70% at 0% 8%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+      linear-gradient(180deg, #071c38 0%, #06152b 46%, #040d1c 100%) !important;
+    padding-bottom: 1.75rem !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+    gap: 0 !important;
+    padding: 0.625rem 0.875rem 0 !important;
+  }
+
+  /* Header: one calm bar, green kept for the icons */
+  html:root:root:root[data-mobile-d3] header[data-site-header] {
+    background: rgba(7, 28, 56, 0.86) !important;
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+    gap: 0.5rem !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill],
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    border-radius: 0.75rem !important;
+    transition: background-color 160ms var(--pm-ease), transform 160ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+    border-radius: 999px !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.005em;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg,
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] svg {
+    color: var(--pm-green-bright) !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] svg,
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] svg path {
+    fill: var(--pm-green-bright) !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-mobile-header-actions] > :is(a, button):active {
+    background: rgba(255, 255, 255, 0.14) !important;
+    transform: scale(0.97);
+  }
+
+  /* Intro on navy */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro {
+    padding: 0.25rem 0.25rem 0 !important;
+    margin: 0 0 0.75rem !important;
+    background: none !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.6875rem !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.028em !important;
+    font-weight: 750 !important;
+    color: #fff !important;
+    margin: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 > span {
+    color: #fff !important;
+    -webkit-text-fill-color: currentColor !important;
+    background: none !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 > span + span {
+    color: var(--pm-green-bright) !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    color: rgba(226, 233, 244, 0.74) !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.45 !important;
+    letter-spacing: -0.003em !important;
+    margin: 0.4375rem 0 0 !important;
+    max-width: none !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d2-rating] {
+    margin: 0.625rem 0 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border: 1px solid rgba(255, 255, 255, 0.13) !important;
+    box-shadow: none !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+    padding: 0.25rem 0.625rem !important;
+    min-height: 0 !important;
+    font-size: 0.75rem !important;
+    border-radius: 999px !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] :is(span, strong) {
+    color: inherit !important;
+    font-size: inherit !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    color: #fbbf24 !important;
+    letter-spacing: 0.06em;
+    font-size: 0.6875rem !important;
+  }
+
+  /* ── The quote card (all steps keep one elevated surface) ──────────────── */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"] {
+    background: var(--pm-card) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    border-top-width: 1px !important;
+    border-radius: 1.25rem !important;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 2px 4px rgba(2, 8, 20, 0.2),
+      0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"]::before {
+    display: none !important;
+  }
+}
+
+/* ── Step 1 only: the compact journey form ─────────────────────────────── */
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding: 0.875rem 0.875rem 0.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > div:first-child {
+    margin: 0 0 0.625rem !important;
+    padding: 0 0.125rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] h2[data-site-nav-heading="quote"] {
+    font-size: 1.0625rem !important;
+    line-height: 1.3 !important;
+    font-weight: 720 !important;
+    letter-spacing: -0.015em !important;
+    color: var(--pm-ink) !important;
+    padding: 0 !important;
+    margin: 0 0 0.3125rem !important;
+    border: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] h2[data-site-nav-heading="quote"]::before {
+    display: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > form#quoteForm {
+    margin-top: 0.5rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > * {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Pickup + drop-off: one joined control, labels kept for screen readers */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) > div:first-child,
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div:first-child {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div {
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    box-shadow: none !important;
+    transition: border-color 160ms var(--pm-ease), box-shadow 160ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) > div.relative > div {
+    border-radius: 0.875rem 0.875rem 0 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div {
+    border-radius: 0 0 0.875rem 0.875rem !important;
+    margin-top: -1px !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div:focus-within {
+    border-color: var(--pm-green) !important;
+    box-shadow: 0 0 0 3px rgba(31, 170, 75, 0.16) !important;
+    position: relative;
+    z-index: 2;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    padding-left: 2.625rem !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    color: var(--pm-ink) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff)::placeholder {
+    color: #7a879b !important;
+    font-weight: 450 !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] {
+    color: var(--pm-green) !important;
+    background: none !important;
+    border: 0 !important;
+  }
+  /* green pin for the drop-off row */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    content: "";
+    position: absolute;
+    left: 0.8125rem;
+    top: 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    transform: translateY(-50%);
+    background: var(--pm-green);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+  }
+  /* swap: a small chip sitting on the divider */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-swap-row] {
+    position: relative !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 12 !important;
+    display: block !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    position: absolute !important;
+    right: 2.75rem !important;
+    top: 0 !important;
+    transform: translateY(-50%) !important;
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    color: var(--pm-ink) !important;
+    box-shadow: 0 1px 2px rgba(10, 27, 51, 0.08) !important;
+    transition: transform 200ms var(--pm-ease), border-color 160ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap]::after {
+    content: "";
+    position: absolute;
+    inset: -0.5rem;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap]:active {
+    transform: translateY(-50%) rotate(180deg) !important;
+    border-color: var(--pm-green) !important;
+  }
+
+  /* One way / Return: slim segmented control */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    margin: 0.625rem 0 0 !important;
+    padding: 0.1875rem !important;
+    min-height: 0 !important;
+    height: 2.375rem !important;
+    border-radius: 0.75rem !important;
+    background: #edf1f5 !important;
+    border: 0 !important;
+    gap: 0.1875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 0 0.5rem !important;
+    border-radius: 0.5625rem !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--pm-ink-soft) !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.375rem !important;
+    line-height: 1 !important;
+    transition: background-color 180ms var(--pm-ease), color 180ms var(--pm-ease), box-shadow 180ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button[aria-pressed="true"] {
+    background: #fff !important;
+    color: var(--pm-ink) !important;
+    box-shadow: 0 1px 2px rgba(10, 27, 51, 0.14), 0 0 0 0.5px rgba(10, 27, 51, 0.06) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    margin: 0 !important;
+    font-size: 0.6875rem !important;
+    font-weight: 700 !important;
+    color: var(--pm-green) !important;
+    background: rgba(31, 170, 75, 0.1) !important;
+    padding: 0.1875rem 0.375rem !important;
+    border-radius: 999px !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    line-height: 1 !important;
+  }
+
+  /* Date + time */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule {
+    margin: 0.6875rem 0 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 0 0.375rem 0.125rem !important;
+    font-size: 0.6875rem !important;
+    line-height: 1 !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    color: #6b7a90 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    border-radius: 0.875rem !important;
+    box-shadow: none !important;
+    transition: border-color 160ms var(--pm-ease), box-shadow 160ms var(--pm-ease) !important;
+    margin: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > div,
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > div > div {
+    margin: 0 !important;
+    padding: 0 !important;
+    row-gap: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control]:focus-within {
+    border-color: var(--pm-green) !important;
+    box-shadow: 0 0 0 3px rgba(31, 170, 75, 0.16) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon {
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule #trip-date-error:empty {
+    display: none !important;
+  }
+
+  /* Passengers + suitcases: one quiet grouped list */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    display: block !important;
+    margin: 0.625rem 0 0 !important;
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    border-radius: 0.875rem !important;
+    overflow: hidden !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper] {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: 2.625rem !important;
+    min-height: 0 !important;
+    padding: 0 0.5rem 0 0.8125rem !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper] + [data-d2-stepper] {
+    border-top: 1px solid var(--pm-line-soft) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.625rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 0.9375rem !important;
+    font-weight: 550 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--pm-ink) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    content: "";
+    width: 1.1875rem;
+    height: 1.1875rem;
+    flex: none;
+    background: var(--pm-green);
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-passengers-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-suitcases-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 20a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2'/%3E%3Cpath d='M8 18V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14'/%3E%3Cpath d='M10 20h4'/%3E%3Ccircle cx='16' cy='20' r='2'/%3E%3Ccircle cx='8' cy='20' r='2'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 20a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2'/%3E%3Cpath d='M8 18V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14'/%3E%3Cpath d='M10 20h4'/%3E%3Ccircle cx='16' cy='20' r='2'/%3E%3Ccircle cx='8' cy='20' r='2'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    order: 2 !important;
+    width: 1.75rem !important;
+    min-width: 0 !important;
+    flex: none !important;
+    text-align: center !important;
+    font-size: 1rem !important;
+    font-weight: 650 !important;
+    font-variant-numeric: tabular-nums;
+    color: var(--pm-ink) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    position: relative !important;
+    width: 1.875rem !important;
+    height: 1.875rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    flex: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 999px !important;
+    background: #fff !important;
+    border: 1px solid #c3ccd8 !important;
+    color: var(--pm-ink) !important;
+    box-shadow: none !important;
+    transition: background-color 140ms var(--pm-ease), border-color 140ms var(--pm-ease), transform 140ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]::after {
+    content: "";
+    position: absolute;
+    inset: -0.4375rem -0.25rem;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn="minus"] {
+    order: 1 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn="plus"] {
+    order: 3 !important;
+    border-color: rgba(31, 170, 75, 0.55) !important;
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]:disabled {
+    border-color: var(--pm-line-soft) !important;
+    color: #b4bfcc !important;
+    background: #fff !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]:not(:disabled):active {
+    transform: scale(0.9);
+    background: #f1f5f9 !important;
+  }
+
+  /* The one strong green element: the quote button */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding: 0.75rem 0 0 !important;
+    margin: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    position: static !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+    height: 3.125rem !important;
+    min-height: 3.125rem !important;
+    margin: 0 !important;
+    border-radius: 0.875rem !important;
+    border: 0 !important;
+    background: linear-gradient(180deg, #37d06b 0%, #25b455 100%) !important;
+    color: #04142b !important;
+    font-size: 1.0313rem !important;
+    font-weight: 720 !important;
+    letter-spacing: -0.005em !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 8px 18px -8px rgba(31, 170, 75, 0.7), 0 1px 2px rgba(10, 27, 51, 0.18) !important;
+    opacity: 1 !important;
+    transition: transform 140ms var(--pm-ease), box-shadow 180ms var(--pm-ease), filter 180ms var(--pm-ease) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    background: linear-gradient(180deg, #6fdc95 0%, #57c983 100%) !important;
+    color: rgba(4, 20, 43, 0.8) !important;
+    -webkit-text-fill-color: rgba(4, 20, 43, 0.8) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:not(:disabled):active {
+    transform: scale(0.985);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 3px 8px -4px rgba(31, 170, 75, 0.7) !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    margin: 0.625rem 0 0 !important;
+    font-size: 0.75rem !important;
+    line-height: 1.3 !important;
+    color: #6b7a90 !important;
+    text-align: center !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    margin: 0.75rem 0 0 !important;
+    padding: 0.75rem 0.125rem 0 !important;
+    border-top: 1px solid var(--pm-line-soft) !important;
+    gap: 0.4375rem 0.625rem !important;
+    background: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    min-height: 0 !important;
+    padding: 0 !important;
+    font-size: 0.7813rem !important;
+    line-height: 1.3 !important;
+    font-weight: 500 !important;
+    color: var(--pm-ink-soft) !important;
+    background: none !important;
+    border: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    color: var(--pm-green) !important;
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:root:root:root[data-mobile-d3] :is(#quote, header[data-site-header]) * {
+    transition: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote button:active {
+    transform: none !important;
+  }
+}
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #6b7a90 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] svg {
+    width: 1rem !important;
+    height: 1rem !important;
+  }
+}
+@layer base {
+  /* Return journeys: labels may wrap; keep the controls aligned */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > div {
+    row-gap: 0.625rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label {
+    line-height: 1.15 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule > p[data-booking-nav-heading] {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+}
+/* Tablets: keep the header clearance and hold the hero to a composed column */
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+      padding: 3.25rem 1.5rem 0 !important;
+      max-width: 42rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero {
+      padding-bottom: 2.5rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.125rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.9375rem !important;
+    }
+    html:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      padding: 1.25rem 1.25rem 1.125rem !important;
+    }
+  }
+}
+@layer base {
+  /* Vehicle and details steps: one soft surface, no doubled outline around the inner cards */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"]:not([data-d2="journey"]) {
+    background: #f3f6f9 !important;
+    border: 0 !important;
+    box-shadow: 0 2px 4px rgba(2, 8, 20, 0.2), 0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
+  }
+}
+/* ── Shorter quote card: no repeated title, steppers side by side, benefits moved off the card ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > div:has(> h2[data-site-nav-heading="quote"]) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > form#quoteForm {
+    margin-top: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-fields] {
+    margin-top: 0 !important;
+  }
+
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+    margin: 0.6875rem 0 0 !important;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper],
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper] + [data-d2-stepper] {
+    display: block !important;
+    position: relative !important;
+    height: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    display: block !important;
+    margin: 0 0 0.375rem 0.125rem !important;
+    font-size: 0.6875rem !important;
+    line-height: 1.15 !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    color: #6b7a90 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.78rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    z-index: 1;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 2.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: flex-end !important;
+    padding: 0 0.4375rem 0 2.5rem !important;
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    border-radius: 0.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 1.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+
+  /* Benefits sit beneath the card, on the navy */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    position: relative !important;
+    overflow: visible !important;
+    margin-bottom: 5.25rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0.375rem !important;
+    right: 0.375rem !important;
+    margin: 1.875rem 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    gap: 0.5rem 0.75rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    color: rgba(226, 233, 244, 0.78) !important;
+    font-size: 0.75rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    color: var(--pm-green-bright) !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero {
+    padding-bottom: 0.5rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    margin: 0.5625rem 0 0 !important;
+  }
+}
+
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding-top: 0.875rem !important;
+  }
+}
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 4rem !important;
+    }
+  }
+}
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.375rem !important;
+      left: 0.5rem !important;
+      right: 0.5rem !important;
+    }
+    html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.8125rem !important;
+    }
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.5rem !important;
+    }
+  }
+}
+
 /* ==========================================================================
    Event / Business Class request forms ([data-bespoke-request-form]) only.
    They reuse the booking form's address box (AddressInput) and Design 3 time

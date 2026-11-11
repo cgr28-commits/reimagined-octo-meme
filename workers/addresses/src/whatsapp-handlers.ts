@@ -124,7 +124,6 @@ import {
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
 import {
-  buildWhatsAppFollowUpDiscountText,
   buildWhatsAppFollowUpText,
   cancelWhatsAppFollowUp,
   deferWhatsAppFollowUp,
@@ -1561,6 +1560,7 @@ export async function ownerReplyToWhatsAppChat(
   rawPhone: string,
   rawText: string,
   now: Date = new Date(),
+  sendId = "",
 ): Promise<OwnerWhatsAppReplyResult> {
   const store = env.TRACKING_STORE;
   if (!store || !whatsAppCloudConfigured(env)) return { error: "WhatsApp is not configured", status: 503 };
@@ -1580,8 +1580,20 @@ export async function ownerReplyToWhatsAppChat(
       status: 409,
     };
   }
+  // Duplicate-send guard (double tap / retry): one WhatsApp message per dashboard sendId.
+  const guardKey = sendId.trim() ? `whatsapp:owner-send:${sendId.trim().slice(0, 80)}` : "";
+  if (guardKey) {
+    const previous = await store.get(guardKey);
+    if (previous === "sending") return { error: "This message is already being sent.", status: 409 };
+    if (previous) return { ok: true, assistantPaused: true };
+    await store.put(guardKey, "sending", { expirationTtl: 60 * 60 * 24 });
+  }
   const sent = await sendWhatsAppText(env, phone, text);
   await appendWhatsAppChat(store, phone, { from: "team", text, failed: !sent.sent });
+  if (guardKey) {
+    if (sent.sent) await store.put(guardKey, "sent", { expirationTtl: 60 * 60 * 24 });
+    else await store.delete(guardKey);
+  }
   if (!sent.sent) {
     logEvent("whatsapp_owner_reply_failed", phone, { error: sent.error });
     return { error: `WhatsApp didn't accept the message: ${String(sent.error ?? "unknown error")}`, status: 502 };
@@ -1628,29 +1640,10 @@ export async function processWhatsAppFollowUps(
       result.skipped += 1;
       continue;
     }
-    // Still not booked after the wait: one-time 5% "book now" offer, unless they've had it.
-    const conversation = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
-    const offer =
-      conversation && conversation.stage === "quoted" && !conversation.discountOffered
-        ? await createWhatsAppDiscountOffer(env, store, phone, conversation)
-        : null;
-    if (conversation && offer) {
-      const previousAmountLabel = conversation.lastQuoteAmountLabel ?? record.amountLabel;
-      conversation.discountOffered = true;
-      conversation.lastQuoteUrl = offer.bookingUrl;
-      conversation.lastQuoteAmountLabel = offer.amountLabel;
-      await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
-      await reply(
-        env,
-        phone,
-        buildWhatsAppFollowUpDiscountText(record, { ...offer, previousAmountLabel, journey: conversation.draft }),
-        WHATSAPP_QUOTED_BUTTONS,
-      );
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: offer.quoteId.slice(-6), discount: true });
-    } else {
-      await reply(env, phone, buildWhatsAppFollowUpText(record));
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
-    }
+    // Still not booked after the wait: a plain reminder only. No 5% "book now" offer here —
+    // the owner stopped discounting customers who simply haven't booked yet (11 Nov 2026).
+    await reply(env, phone, buildWhatsAppFollowUpText(record));
+    logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
     result.sent += 1;
   }
   return result;

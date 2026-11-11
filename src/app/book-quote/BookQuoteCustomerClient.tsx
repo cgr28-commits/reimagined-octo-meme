@@ -450,6 +450,12 @@ function BookQuoteInner() {
           ? { paymentMethod: "DEPOSIT_CARD_BALANCE" as const, cardBalanceAgreementAccepted: true }
           : {}),
       });
+      if (checkout.shortNotice && checkout.reference && checkout.cardHoldUrl) {
+        // Stripe: the customer authorises a card hold now; the owner's approval
+        // charges it and confirms the booking.
+        window.location.assign(checkout.cardHoldUrl);
+        return;
+      }
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
         setShortNoticeResult({
           reference: checkout.reference,

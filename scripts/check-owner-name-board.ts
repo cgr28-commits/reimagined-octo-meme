@@ -242,7 +242,7 @@ console.log("\n=== 7. Access: signed-in dashboard / driver portal only, no publi
   // Quick open: one tap from the Jobs tab; Back returns to where it was opened from.
   assert.match(
     page,
-    /isOwnerView && savedKey && ownerToolTab === "jobs" \? \([\s\S]{0,300}onClick=\{\(\) => setOwnerToolTab\("name-board"\)\}[\s\S]{0,250}Name board/,
+    /isOwnerView && savedKey && ownerToolTab === "jobs"(?: && !mobileLayout)? \? \([\s\S]{0,300}onClick=\{\(\) => setOwnerToolTab\("name-board"\)\}[\s\S]{0,250}Name board/,
   );
   assert.match(page, /if \(ownerToolTab !== "name-board"\) setNameBoardReturnTab\(ownerToolTab\);/);
   assert.match(page, /onBack=\{\(\) => setOwnerToolTab\(nameBoardReturnTab\)\}/);

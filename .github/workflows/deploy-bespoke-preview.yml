@@ -1,0 +1,191 @@
+# Isolated PRIVATE preview for the Belfast events hub and the Event / Business Class request forms.
+#
+# Deploys ONLY to the separate "My Airport Taxi NI Staging" Cloudflare account
+# (ecad568dc411e28a3e435ef40b36c2b5): its own Worker, KV, Durable Objects and Pages project.
+# It never touches the live Worker, live KV, live Durable Objects (no migration v6),
+# GitHub Pages or the custom domain, and it does not switch the new pages on publicly.
+#
+# Uses existing secrets:
+#   STAGING_CLOUDFLARE_API_TOKEN   staging-account token (already used by dashboard staging)
+#   GOOGLE_PLACES_API_KEY          optional: real address suggestions on the preview
+# Optional owner-added secrets (the preview works without them; see docs):
+#   BESPOKE_PREVIEW_OWNER_KEY          NEW owner key for the preview dashboard (24+ characters)
+#   BESPOKE_PREVIEW_TESTER_EMAIL       inbox allowed to receive preview emails (otherwise all are blocked)
+#   BESPOKE_PREVIEW_STRIPE_SECRET_KEY  Stripe TEST key (sk_test_… / rk_test_…)
+#   BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY  pk_test_…
+#   BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET   whsec_… of a TEST-mode webhook endpoint
+#   BESPOKE_PREVIEW_RESEND_API_KEY     separate sending-only Resend key
+#
+# The website is behind a private link (scripts/bespoke-preview-gate.js) and is noindex.
+
+name: Deploy Bespoke Preview (isolated account)
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/serene-hamilton-4c65sj
+
+concurrency:
+  group: bespoke-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  STAGING_ACCOUNT_ID: ecad568dc411e28a3e435ef40b36c2b5
+  PREVIEW_WORKER_NAME: reimagined-octo-meme-bespoke-preview
+  PREVIEW_PAGES_PROJECT: matni-bespoke-preview
+  WRANGLER_CONFIG: wrangler.bespoke-preview.generated.toml
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the staging token is available
+        id: ready
+        env:
+          STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::Bespoke preview not deployed: GitHub secret STAGING_CLOUDFLARE_API_TOKEN is missing."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm --prefix workers/addresses ci
+
+      - name: Isolation and feature checks
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          npm run -s check:bespoke-preview
+          npm run -s check:bespoke-isolation
+          npm run -s check:belfast-events
+
+      - name: Prepare isolated storage and config (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        id: prepare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          BESPOKE_PREVIEW_TESTER_EMAIL: ${{ secrets.BESPOKE_PREVIEW_TESTER_EMAIL }}
+        run: node scripts/bespoke-preview-prepare.mjs
+
+      - name: Deploy preview Worker (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        id: worker
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          PREVIEW_OWNER_KEY: ${{ secrets.BESPOKE_PREVIEW_OWNER_KEY }}
+          LIVE_OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          LIVE_DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY || secrets.GOOGLE_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.BESPOKE_PREVIEW_STRIPE_SECRET_KEY }}
+          STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET }}
+          PREVIEW_RESEND_API_KEY: ${{ secrets.BESPOKE_PREVIEW_RESEND_API_KEY }}
+          SITE_HOST: ${{ steps.prepare.outputs.site_host }}
+        run: |
+          set -euo pipefail
+          # Owner key: the owner's preview key, or a private random one (owner sign-in then unavailable).
+          if [ -z "${PREVIEW_OWNER_KEY:-}" ]; then
+            PREVIEW_OWNER_KEY="$(openssl rand -hex 32)"
+            echo "::add-mask::$PREVIEW_OWNER_KEY"
+            echo "::notice::No BESPOKE_PREVIEW_OWNER_KEY secret: the preview Owner Dashboard cannot be signed in to yet."
+          fi
+          if [ "${#PREVIEW_OWNER_KEY}" -lt 24 ]; then echo "::error::BESPOKE_PREVIEW_OWNER_KEY must be at least 24 characters."; exit 1; fi
+          for live in "${LIVE_OWNER_ACCESS_KEY:-}" "${LIVE_DRIVER_ACCESS_KEY:-}"; do
+            if [ -n "$live" ] && [ "$PREVIEW_OWNER_KEY" = "$live" ]; then echo "::error::The preview owner key is the same as a live key. Use a new key."; exit 1; fi
+          done
+          # Stripe: TEST keys only. Anything else stops the deploy before it reaches Cloudflare.
+          if [ -n "${STRIPE_TEST_SECRET_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_SECRET_KEY" | grep -Eq '^(sk|rk)_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_SECRET_KEY is not a Stripe TEST key."; exit 1; fi
+          if [ -n "${STRIPE_TEST_PUBLISHABLE_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_PUBLISHABLE_KEY" | grep -Eq '^pk_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY is not a Stripe TEST key."; exit 1; fi
+
+          OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)" || { echo "$OUTPUT"; exit 1; }
+          echo "$OUTPUT" | grep -v -i "tester\|EMAIL" || true
+          URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${PREVIEW_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
+          if [ -z "$URL" ]; then echo "::error::Could not read the preview Worker URL."; exit 1; fi
+
+          put_secret() { if [ -n "$2" ]; then printf '%s' "$2" | npx wrangler secret put "$1" -c "$WRANGLER_CONFIG" >/dev/null; echo "secret set: $1"; fi; }
+          put_secret OWNER_ACCESS_KEY "$PREVIEW_OWNER_KEY"
+          # Cloudflare's published always-pass Turnstile TEST secret (not a real secret).
+          put_secret TURNSTILE_SECRET_KEY "1x0000000000000000000000000000000AA"
+          put_secret GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+          put_secret STRIPE_SECRET_KEY "${STRIPE_TEST_SECRET_KEY:-}"
+          put_secret STRIPE_PUBLISHABLE_KEY "${STRIPE_TEST_PUBLISHABLE_KEY:-}"
+          put_secret STRIPE_WEBHOOK_SECRET "${STRIPE_TEST_WEBHOOK_SECRET:-}"
+          put_secret RESEND_API_KEY "${PREVIEW_RESEND_API_KEY:-}"
+          # Nothing live may ever be set on this Worker.
+          SECRETS="$(npx wrangler secret list -c "$WRANGLER_CONFIG")"
+          for forbidden in SUMUP_API_KEY SUMUP_MERCHANT_CODE DRIVER_ACCESS_KEY D360_API_KEY WHATSAPP_ACCESS_TOKEN GOOGLE_ADS_DEVELOPER_TOKEN; do
+            if printf '%s' "$SECRETS" | grep -q "\"$forbidden\""; then echo "::error::Forbidden secret on the preview Worker: $forbidden"; exit 1; fi
+          done
+
+          # A new workers.dev address can take a minute to start answering.
+          BODY=""
+          for attempt in $(seq 1 18); do
+            BODY="$(curl -fsS -H "Origin: https://${SITE_HOST}" "$URL/events/public" 2>/dev/null || true)"
+            [ -n "$BODY" ] && break
+            sleep 10
+          done
+          printf '%s' "$BODY" | grep -q '"ok":true' || { echo "::error::Preview Worker did not answer /events/public."; exit 1; }
+          # The live website must NOT be allowed to call the preview Worker.
+          if curl -sS -D - -o /dev/null -H "Origin: https://www.myairporttaxini.co.uk" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
+            echo "::error::Preview Worker accepts the live website origin."; exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Preview Worker (staging account): $URL"
+
+      - name: Build the preview website against the preview Worker
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          PREVIEW_WORKER_ORIGIN: ${{ steps.worker.outputs.url }}
+          NEXT_PUBLIC_GOOGLE_ADS_ID: ""
+          NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY: ""
+        run: |
+          set -euo pipefail
+          # next/font downloads can fail briefly: retry.
+          for attempt in 1 2 3; do
+            if node scripts/build-bespoke-preview-site.mjs; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 15
+          done
+          # Private-link gate, no search engines, no live-domain marker.
+          cp scripts/bespoke-preview-gate.js out/_worker.js
+          printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
+          rm -f out/CNAME out/sitemap.xml
+
+      - name: Deploy the preview website (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          SITE_HOST: ${{ steps.prepare.outputs.site_host }}
+        run: |
+          set -euo pipefail
+          npm install --no-save wrangler@3.109.0
+          npx wrangler pages deploy out --project-name="$PREVIEW_PAGES_PROJECT" --branch=preview --commit-hash="${GITHUB_SHA}" --commit-dirty=true
+          # Without the private link the site must answer 401, never the pages.
+          CODE=""
+          for attempt in $(seq 1 12); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "https://${SITE_HOST}/events/" || true)"
+            [ "$CODE" = "401" ] && break
+            sleep 10
+          done
+          if [ "$CODE" != "401" ]; then echo "::error::Preview site is not behind the private link (HTTP $CODE)."; exit 1; fi
+          echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
