@@ -8137,7 +8137,7 @@ function QuoteCard({
               data-d3-send-quote={mobileDesign3 ? "" : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              {mobileDesign3 ? "Send me my quote to finish later" : "Email my quote"}
+              {mobileDesign3 ? "Send me my quote" : "Email my quote"}
             </button>
           ) : null}
 
@@ -10085,7 +10085,7 @@ function QuoteCard({
                         onClick={() => handleSaveQuoteClick()}
                         style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
                       >
-                        Send me my quote to finish later
+                        Send me my quote
                       </button>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
