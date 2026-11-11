@@ -8060,7 +8060,7 @@ function QuoteCard({
                   {previewPaymentsOff
                     ? "Payments are switched off on this preview"
                     : paymentLoading
-                    ? isAvailabilityRequest
+                    ? isAvailabilityRequest && !isMinimumNoticeRequest
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
                     : testChargeAmount !== null
@@ -8068,7 +8068,7 @@ function QuoteCard({
                       : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
-                          ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                          ? `Book Now — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                           : selectedCardBalance && cardBalanceOffer
                             ? cardBalancePayButtonLabel(cardBalanceOffer.depositGbp)
                             : showDepositCashChoice && depositCashOffer

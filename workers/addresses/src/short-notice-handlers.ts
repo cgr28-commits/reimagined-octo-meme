@@ -985,6 +985,7 @@ export async function sendShortNoticeRequestReceivedEmail(
     noticeHours: record.minimumNoticeHoursApplied ?? MINIMUM_BOOKING_NOTICE_HOURS,
     holdReasons: record.holdReasons,
     minibusNotice: record.minibusNotice === true,
+    cardHeld: Boolean(record.cardHold?.authorisedAt && !record.cardHold.releasedAt),
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),

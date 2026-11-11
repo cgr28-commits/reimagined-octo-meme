@@ -95,7 +95,7 @@ function makeRecord(reference: string, now: Date, expiresInMin: number): ShortNo
       customerPhone: "07000000000",
       pickupLabel: "Portstewart",
       dropoffLabel: "Belfast International Airport",
-      tripDate: "2026-11-11",
+      tripDate: "2027-06-01",
       tripTime: "20:00",
       passengers: 1,
       suitcases: 0,
