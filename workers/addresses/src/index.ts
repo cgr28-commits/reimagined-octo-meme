@@ -1,6 +1,7 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
+import { handleOwnerPushRequest } from "./owner-push";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
 import { supersedeEarlierCheckouts } from "./supersede-checkout";
@@ -5332,6 +5333,12 @@ export default {
       );
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
+    }
+
+    // Owner Dashboard phone notifications (subscribe, preferences, test).
+    {
+      const pushResponse = await handleOwnerPushRequest(request, env, origin);
+      if (pushResponse) return pushResponse;
     }
 
     // Owner inbox: emails copied in from bookings@ via Resend receiving, replies, email-a-customer.

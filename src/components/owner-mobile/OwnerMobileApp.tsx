@@ -64,6 +64,7 @@ import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { fetchOwnerAccountProfile } from "@/lib/tracking-api";
 import { isPreviewHost, sampleOwnerData } from "./owner-mobile-sample";
 import OwnerDriversScreen from "./OwnerDriversScreen";
+import OwnerNotificationsScreen from "./OwnerNotificationsScreen";
 import { ownerDrivers, type DriversSummary } from "@/lib/driver-accounts-api";
 import type { OwnerDashboardToolTab } from "@/components/OwnerDashboardToolSwitcher";
 import { buildOwnerOutgoingEmail, type InboxMessage } from "../../../shared/owner-inbox";
@@ -88,7 +89,8 @@ type View =
   | { kind: "email"; threadKey: string }
   | { kind: "whatsapp"; phone: string }
   | { kind: "customer"; id: string }
-  | { kind: "drivers"; driverId?: string };
+  | { kind: "drivers"; driverId?: string }
+  | { kind: "notifications" };
 
 export type OwnerMobileAppProps = {
   ownerKey: string;
@@ -199,6 +201,22 @@ export default function OwnerMobileApp({
   onSignOut,
 }: OwnerMobileAppProps) {
   const [tab, setTab] = useState<OwnerMobileTab>(initialTab);
+  // A tapped notification opens the right tab (#inbox, #bookings, #home).
+  useEffect(() => {
+    const go = (url: string) => {
+      const target = url.split("#")[1];
+      if (target === "inbox" || target === "bookings" || target === "home" || target === "customers" || target === "more") {
+        setTab(target);
+        setView({ kind: "tab" });
+      }
+    };
+    go(window.location.hash ? `#${window.location.hash.slice(1)}` : "");
+    const onMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === "owner-open" && typeof event.data.url === "string") go(event.data.url);
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, []);
   const [view, setView] = useState<View>({ kind: "tab" });
   const [now, setNow] = useState(() => new Date());
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
@@ -247,21 +265,26 @@ export default function OwnerMobileApp({
       .summary(ownerKey)
       .then(setDriversSummary)
       .catch(() => setDriversSummary(null));
-    const [b, sn, ib, wa] = await Promise.allSettled([
-      fetchOwnerPaidBookings(ownerKey, { mode: "upcoming", pastDays: 1, futureDays: 120, limit: 250 }),
-      fetchShortNoticeBookings(ownerKey),
-      ownerInboxFetch<InboxListResponse>(ownerKey, "/owner/inbox"),
-      fetchWhatsAppChats(ownerKey),
-    ]);
+    // Each part shows as soon as it arrives: bookings never wait for emails or WhatsApp.
     const errors: string[] = [];
-    if (b.status === "fulfilled") setBookings(b.value);
-    else errors.push("bookings");
-    if (sn.status === "fulfilled") setShortNotice(sn.value);
-    else errors.push("short-notice requests");
-    if (ib.status === "fulfilled") setInbox(ib.value);
-    else errors.push("emails");
-    if (wa.status === "fulfilled") setChats(wa.value);
-    else errors.push("WhatsApp chats");
+    const part = <T,>(promise: Promise<T>, apply: (value: T) => void, label: string) =>
+      promise.then(apply).catch(() => {
+        errors.push(label);
+      });
+    const bookingsPart = part(
+      fetchOwnerPaidBookings(ownerKey, { mode: "upcoming", pastDays: 1, futureDays: 120, limit: 250 }),
+      setBookings,
+      "bookings",
+    ).then(() => {
+      setLoaded(true);
+      setNow(new Date());
+    });
+    await Promise.all([
+      bookingsPart,
+      part(fetchShortNoticeBookings(ownerKey), setShortNotice, "short-notice requests"),
+      part(ownerInboxFetch<InboxListResponse>(ownerKey, "/owner/inbox"), setInbox, "emails"),
+      part(fetchWhatsAppChats(ownerKey), setChats, "WhatsApp chats"),
+    ]);
     setLoadErrors(errors);
     setLoaded(true);
     setNow(new Date());
@@ -404,6 +427,8 @@ export default function OwnerMobileApp({
         onOpenBooking={(ref) => setView({ kind: "booking", ref, leg: "outbound" })}
       />
     );
+  } else if (view.kind === "notifications") {
+    screen = <OwnerNotificationsScreen ownerKey={ownerKey} onBack={() => setView({ kind: "tab" })} onToast={setToast} />;
   } else if (view.kind === "drivers") {
     screen = (
       <OwnerDriversScreen
@@ -474,6 +499,7 @@ export default function OwnerMobileApp({
       <MoreScreen
         awaitingRequests={awaitingRequests}
         onOpenDrivers={driversSummary ? () => setView({ kind: "drivers" }) : undefined}
+        onOpenNotifications={sample ? undefined : () => setView({ kind: "notifications" })}
         driversSummary={driversSummary}
         onOpenTool={(tool) => onOpenTool(tool, { returnTab: "more" })}
         onSwitchToClassic={onSwitchToClassic}
@@ -1227,7 +1253,8 @@ function InboxScreen({
   onOpenEmailSetup: () => void;
 }) {
   const [channel, setChannel] = useState<Channel>("all");
-  const [filter, setFilter] = useState<"none" | "unread" | "reply">("none");
+  const [filter, setFilter] = useState<"none" | "unread" | "reply" | "system">("none");
+  const systemCount = messages.filter((m) => m.system).length;
   const [query, setQuery] = useState("");
   const unreadBy = (c: Channel) => messages.filter((m) => m.unread && (c === "all" || m.channel === c)).length;
   const shown = messages.filter((m) => {
@@ -1235,6 +1262,8 @@ function InboxScreen({
     if (filter === "unread" && !m.unread) return false;
     if (filter === "reply" && !m.needsReply) return false;
     const q = query.trim().toLowerCase();
+    // Automatic emails live under their own filter (and still turn up in search).
+    if (filter === "system" ? !m.system : m.system && !q) return false;
     if (q && ![m.name, m.subject, m.preview, m.bookingRef].filter(Boolean).join(" ").toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1280,6 +1309,7 @@ function InboxScreen({
             [
               ["unread", "Unread"],
               ["reply", "Needs reply"],
+              ["system", systemCount ? `Automatic (${systemCount})` : "Automatic"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -2079,6 +2109,7 @@ const ADVANCED_TOOLS: Array<{ tool: OwnerDashboardToolTab; label: string }> = [
 function MoreScreen({
   awaitingRequests,
   onOpenDrivers,
+  onOpenNotifications,
   driversSummary,
   onOpenTool,
   onSwitchToClassic,
@@ -2086,6 +2117,7 @@ function MoreScreen({
 }: {
   awaitingRequests: number;
   onOpenDrivers?: () => void;
+  onOpenNotifications?: () => void;
   driversSummary?: DriversSummary | null;
   onOpenTool: (tool: OwnerDashboardToolTab) => void;
   onSwitchToClassic: () => void;
@@ -2100,6 +2132,21 @@ function MoreScreen({
         </div>
       </div>
       <main className={styles.main} style={{ gap: 14 }}>
+        {onOpenNotifications ? (
+          <section className={styles.card} style={{ overflow: "hidden" }}>
+            <button type="button" className={styles.row} onClick={onOpenNotifications} data-owner-more="notifications">
+              <span className={styles.rowBody}>
+                <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
+                  Notifications
+                </span>
+                <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
+                  Alerts on your phone for bookings, messages and requests
+                </span>
+              </span>
+              <ChevronIcon size={18} />
+            </button>
+          </section>
+        ) : null}
         {onOpenDrivers ? (
           <section className={styles.card} style={{ overflow: "hidden" }}>
             <button type="button" className={styles.row} onClick={onOpenDrivers} data-owner-more="drivers">
