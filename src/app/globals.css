@@ -7416,3 +7416,120 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     box-shadow: 0 2px 4px rgba(2, 8, 20, 0.2), 0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
   }
 }
+/* ── Shorter quote card: no repeated title, steppers side by side, benefits moved off the card ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > div:has(> h2[data-site-nav-heading="quote"]) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote > [data-d2="journey"] > form#quoteForm {
+    margin-top: 0 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-fields] {
+    margin-top: 0 !important;
+  }
+
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+    margin: 0.6875rem 0 0 !important;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper],
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section > [data-d2-stepper] + [data-d2-stepper] {
+    display: block !important;
+    position: relative !important;
+    height: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    display: block !important;
+    margin: 0 0 0.375rem 0.125rem !important;
+    font-size: 0.6875rem !important;
+    line-height: 1.15 !important;
+    font-weight: 650 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    color: #6b7a90 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.78rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    z-index: 1;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 2.75rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: flex-end !important;
+    padding: 0 0.4375rem 0 2.5rem !important;
+    background: #fff !important;
+    border: 1px solid var(--pm-line) !important;
+    border-radius: 0.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 1.875rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+
+  /* Benefits sit beneath the card, on the navy */
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    position: relative !important;
+    overflow: visible !important;
+    margin-bottom: 5.25rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0.375rem !important;
+    right: 0.375rem !important;
+    margin: 1.875rem 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    gap: 0.5rem 0.75rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    color: rgba(226, 233, 244, 0.78) !important;
+    font-size: 0.75rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    color: var(--pm-green-bright) !important;
+  }
+  html:root:root:root[data-mobile-d3] main > section.homepage-hero {
+    padding-bottom: 0.5rem !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    margin: 0.5625rem 0 0 !important;
+  }
+}
+
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding-top: 0.875rem !important;
+  }
+}
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 4rem !important;
+    }
+  }
+}
