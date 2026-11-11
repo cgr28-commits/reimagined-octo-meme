@@ -32,6 +32,12 @@ Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key
 - The instant airport quote and the automatically priced Business Class option are untouched (checked in `scripts/check-belfast-events.ts`).
 - SEO (when enabled): canonical URLs, breadcrumb, Service and FAQ structured data. No Event rich-result markup, because we provide transport, not tickets.
 
+## Address suggestions and Design 3 date/time
+- Pickup and destination use the booking form's address box (`AddressInput`) unchanged, so customers get the same Google suggestions. The chosen Google place id is sent with the request. Typed addresses are still accepted when suggestions are unavailable.
+- Phones and tablets on Design 3: dates show as dd/mm/yy over the phone's light calendar, and times use the Design 3 hour/minute selector (`D3TimePicker`) unchanged. Desktop keeps the browser's date and time boxes, as on the airport form.
+- A small block of styles in `globals.css`, scoped to `[data-bespoke-request-form]`, gives those parts the light look outside the quote card. The airport calculator files are unchanged (checked in `check:belfast-events`).
+- Preview: suggestions need the optional `GOOGLE_PLACES_API_KEY` secret on the preview Worker.
+
 ## Tests
 `npm run check:belfast-events` covers the model, the approval gate, the Worker routes, switch-off behaviour, copy and capacity guards. Listed-event request binding is covered in `npm run check:bespoke-quote`.
 

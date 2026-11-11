@@ -10,7 +10,12 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Calendar, Clock } from "lucide-react";
+import AddressInput from "@/components/AddressInput";
+import D3TimePicker from "@/components/D3TimePicker";
 import TurnstileWidget from "@/components/TurnstileWidget";
+import { useMobileDesign3 } from "@/lib/use-mobile-design3";
+import type { SelectedPlace } from "@/lib/selected-place";
 import { SITE } from "@/lib/data";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import {
@@ -115,6 +120,94 @@ const FIELD_ORDER = [
   "privacyAcknowledged",
 ];
 
+/** Display only (dd/mm/yy), like the airport form: the native input keeps the ISO date. */
+function shortUkDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Select date";
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year.slice(-2)}`;
+}
+
+function openNativePicker(input: HTMLInputElement & { showPicker?: () => void }) {
+  if (typeof input.showPicker !== "function") return;
+  try {
+    input.showPicker();
+  } catch {
+    // Not allowed without a user gesture — the phone opens it on tap anyway.
+  }
+}
+
+type ScheduleFieldProps = {
+  id: string;
+  kind: "date" | "time";
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  design3: boolean;
+  invalid: boolean;
+  describedBy?: string;
+  min?: string;
+};
+
+/**
+ * Date / time box. Phones and tablets on Design 3 get the same treatment as the
+ * airport booking form: the date shows as dd/mm/yy over the phone's light calendar,
+ * and the time opens the Design 3 hour/minute selector (D3TimePicker, unchanged).
+ * Desktop and the classic mobile design keep the browser's own date and time boxes.
+ */
+function ScheduleField({ id, kind, label, value, onChange, design3, invalid, describedBy, min }: ScheduleFieldProps) {
+  const Icon = kind === "date" ? Calendar : Clock;
+  if (!design3) {
+    return (
+      <>
+        <label className={labelClass} htmlFor={id}>
+          {label}
+        </label>
+        <input id={id} type={kind} min={min} className={`${inputClass} [color-scheme:light]`} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={invalid} aria-describedby={describedBy} />
+      </>
+    );
+  }
+  return (
+    <>
+      {kind === "date" ? (
+        <label className={labelClass} htmlFor={id}>
+          {label}
+        </label>
+      ) : (
+        <span className={labelClass}>{label}</span>
+      )}
+      <div
+        id={kind === "time" ? id : undefined}
+        data-bespoke-schedule={kind}
+        data-schedule-control={kind === "time" ? "time" : undefined}
+        data-invalid={invalid || undefined}
+        className="relative mt-1.5 h-[52px] w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 focus-within:border-emerald/50 focus-within:ring-1 focus-within:ring-emerald/30"
+      >
+        <Icon className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-emerald" size={18} strokeWidth={1.8} aria-hidden="true" />
+        {kind === "date" ? (
+          <>
+            <span data-bespoke-schedule-text data-empty={!value || undefined} aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-[2.6rem] right-3 flex items-center text-base font-bold text-white">
+              {shortUkDate(value)}
+            </span>
+            <input
+              id={id}
+              type="date"
+              min={min}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onClick={(e) => openNativePicker(e.currentTarget)}
+              aria-invalid={invalid}
+              aria-describedby={describedBy}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 [color-scheme:light]"
+            />
+          </>
+        ) : (
+          <D3TimePicker idBase={`${id}-d3`} value={value} label={label} onChange={onChange} />
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function BespokeRequestForm({ category, event = null }: Props) {
   const uid = useId();
   const id = (name: string) => `${uid}-${name}`;
@@ -125,6 +218,11 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
   const [resetSignal, setResetSignal] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const design3 = useMobileDesign3();
+  // Google Place IDs for chosen suggestions; cleared as soon as the text is edited.
+  const [placeIds, setPlaceIds] = useState<{ pickup: string; destination: string }>({ pickup: "", destination: "" });
+  const choosePlace = (which: "pickup" | "destination") => (place: SelectedPlace) =>
+    setPlaceIds((ids) => ({ ...ids, [which]: place.placeId || "" }));
   const successRef = useRef<HTMLDivElement>(null);
 
   // Bring the confirmation into view and move focus to it for screen readers.
@@ -203,7 +301,10 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
 
   function focusFirst(e: Record<string, string>) {
     const first = FIELD_ORDER.find((k) => e[k]);
-    if (first) document.getElementById(id(first))?.focus();
+    if (!first) return;
+    const el = document.getElementById(id(first));
+    // Design 3 time boxes are a wrapper around the selector button.
+    (el?.matches("input, select, textarea, button") ? el : el?.querySelector<HTMLElement>("button, input"))?.focus();
   }
 
   async function onSubmit(ev: FormEvent) {
@@ -228,7 +329,9 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         customerEmail: fields.customerEmail,
         customerPhone: fields.customerPhone,
         pickupAddress: fields.pickupAddress,
+        ...(placeIds.pickup ? { pickupPlaceId: placeIds.pickup } : {}),
         destinationAddress: fields.destinationAddress,
+        ...(placeIds.destination ? { destinationPlaceId: placeIds.destination } : {}),
         date: fields.date,
         time: fields.time,
         returnJourney: fields.returnJourney,
@@ -294,7 +397,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
   }
 
   return (
-    <form noValidate onSubmit={onSubmit} className="space-y-8" aria-describedby={formError ? id("form-error") : undefined}>
+    <form noValidate onSubmit={onSubmit} data-bespoke-request-form className="space-y-8" aria-describedby={formError ? id("form-error") : undefined}>
       {formError ? (
         <p id={id("form-error")} role="alert" className="rounded-xl border border-red-300/60 bg-red-500/10 p-4 text-sm font-medium text-[#b42318]">
           {formError}
@@ -331,10 +434,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
                   {err("eventVenue")}
                 </div>
                 <div>
-                  <label className={labelClass} htmlFor={id("eventDate")}>
-                    Event date
-                  </label>
-                  <input id={id("eventDate")} type="date" className={inputClass} value={fields.eventDate} onChange={(e) => { set("eventDate", e.target.value); if (!fields.date) set("date", e.target.value); }} aria-invalid={Boolean(errors.eventDate)} aria-describedby={describedBy("eventDate")} />
+                  <ScheduleField id={id("eventDate")} kind="date" label="Event date" value={fields.eventDate} onChange={(v) => { set("eventDate", v); if (!fields.date) set("date", v); }} design3={design3} invalid={Boolean(errors.eventDate)} describedBy={describedBy("eventDate")} />
                   {err("eventDate")}
                 </div>
               </div>
@@ -364,33 +464,41 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
 
       <fieldset className="space-y-4 rounded-2xl [&>legend+*]:clear-both border border-white/10 bg-white/[0.03] p-5 sm:p-6">
         <legend className="float-left mb-2 w-full text-lg font-bold text-white">Journey</legend>
-        <div>
-          <label className={labelClass} htmlFor={id("pickupAddress")}>
-            Pickup address
-          </label>
-          <input id={id("pickupAddress")} className={inputClass} value={fields.pickupAddress} maxLength={300} autoComplete="street-address" placeholder="House number, street and postcode" onChange={(e) => set("pickupAddress", e.target.value)} aria-invalid={Boolean(errors.pickupAddress)} aria-describedby={describedBy("pickupAddress")} />
-          {err("pickupAddress")}
-        </div>
-        <div>
-          <label className={labelClass} htmlFor={id("destinationAddress")}>
-            Destination
-          </label>
-          <input id={id("destinationAddress")} className={inputClass} value={fields.destinationAddress} maxLength={300} placeholder={category === "event" ? "The venue, or where you'd like dropping" : "Address, hotel or airport"} onChange={(e) => set("destinationAddress", e.target.value)} aria-invalid={Boolean(errors.destinationAddress)} aria-describedby={describedBy("destinationAddress")} />
-          {err("destinationAddress")}
-        </div>
+        <AddressInput
+          id={id("pickupAddress")}
+          name="pickupAddress"
+          label="Pickup address"
+          placeholder="Start typing your address or postcode"
+          value={fields.pickupAddress}
+          onChange={(value) => {
+            set("pickupAddress", value.slice(0, 300));
+            setPlaceIds((ids) => (ids.pickup ? { ...ids, pickup: "" } : ids));
+          }}
+          onSelectPlace={choosePlace("pickup")}
+          selectionError={errors.pickupAddress || undefined}
+          reserveHelperSpace={false}
+        />
+        <AddressInput
+          id={id("destinationAddress")}
+          name="destinationAddress"
+          label="Destination"
+          placeholder={category === "event" ? "The venue, or where you'd like dropping" : "Address, hotel or airport"}
+          value={fields.destinationAddress}
+          onChange={(value) => {
+            set("destinationAddress", value.slice(0, 300));
+            setPlaceIds((ids) => (ids.destination ? { ...ids, destination: "" } : ids));
+          }}
+          onSelectPlace={choosePlace("destination")}
+          selectionError={errors.destinationAddress || undefined}
+          reserveHelperSpace={false}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass} htmlFor={id("date")}>
-              Pickup date
-            </label>
-            <input id={id("date")} type="date" className={inputClass} value={fields.date} onChange={(e) => set("date", e.target.value)} aria-invalid={Boolean(errors.date)} aria-describedby={describedBy("date")} />
+            <ScheduleField id={id("date")} kind="date" label="Pickup date" value={fields.date} onChange={(v) => set("date", v)} design3={design3} invalid={Boolean(errors.date)} describedBy={describedBy("date")} />
             {err("date")}
           </div>
           <div>
-            <label className={labelClass} htmlFor={id("time")}>
-              Pickup time
-            </label>
-            <input id={id("time")} type="time" className={inputClass} value={fields.time} onChange={(e) => set("time", e.target.value)} aria-invalid={Boolean(errors.time)} aria-describedby={describedBy("time")} />
+            <ScheduleField id={id("time")} kind="time" label="Pickup time" value={fields.time} onChange={(v) => set("time", v)} design3={design3} invalid={Boolean(errors.time)} describedBy={describedBy("time")} />
             {err("time")}
           </div>
         </div>
@@ -401,17 +509,11 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         {fields.returnJourney ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass} htmlFor={id("returnDate")}>
-                Return date
-              </label>
-              <input id={id("returnDate")} type="date" className={inputClass} value={fields.returnDate} onChange={(e) => set("returnDate", e.target.value)} aria-invalid={Boolean(errors.returnDate)} aria-describedby={describedBy("returnDate")} />
+              <ScheduleField id={id("returnDate")} kind="date" label="Return date" value={fields.returnDate} onChange={(v) => set("returnDate", v)} design3={design3} invalid={Boolean(errors.returnDate)} describedBy={describedBy("returnDate")} />
               {err("returnDate")}
             </div>
             <div>
-              <label className={labelClass} htmlFor={id("returnTime")}>
-                Return pickup time
-              </label>
-              <input id={id("returnTime")} type="time" className={inputClass} value={fields.returnTime} onChange={(e) => set("returnTime", e.target.value)} aria-invalid={Boolean(errors.returnTime)} aria-describedby={describedBy("returnTime", category === "event")} />
+              <ScheduleField id={id("returnTime")} kind="time" label="Return pickup time" value={fields.returnTime} onChange={(v) => set("returnTime", v)} design3={design3} invalid={Boolean(errors.returnTime)} describedBy={describedBy("returnTime", category === "event")} />
               {category === "event" ? (
                 <span id={id("returnTime-hint")} className={hintClass}>
                   Your best guess is fine. We agree the exact meeting point and time with you.

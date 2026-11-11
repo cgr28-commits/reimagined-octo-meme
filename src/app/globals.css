@@ -6769,3 +6769,35 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     html:root:not([data-mobile-light]) .quote-flow :is(input[type="date"], input[type="time"]) { color-scheme: light !important; }
   }
 }
+
+/* ==========================================================================
+   Event / Business Class request forms ([data-bespoke-request-form]) only.
+   They reuse the booking form's address box (AddressInput) and Design 3 time
+   selector unchanged; these rules just give those parts the light look outside
+   the airport quote card. Nothing here matches the airport calculator.
+   ========================================================================== */
+@layer base {
+  [data-bespoke-request-form] label.form-label {
+    color: #071c38 !important; -webkit-text-fill-color: #071c38; text-transform: none !important; letter-spacing: 0 !important;
+    font-size: 0.875rem !important; font-weight: 600 !important; line-height: 1.25rem !important; margin: 0 !important;
+  }
+  [data-bespoke-request-form] .address-input { color: #071c38 !important; -webkit-text-fill-color: #071c38; font-size: 1rem !important; }
+  [data-bespoke-request-form] .address-input::placeholder { color: #7a8799 !important; -webkit-text-fill-color: #7a8799; }
+  [data-bespoke-request-form] div:has(> div > .address-input) { background: #fff !important; border: 1.5px solid #94a3b8 !important; }
+  [data-bespoke-request-form] .quote-secondary { color: #5b6b80 !important; -webkit-text-fill-color: #5b6b80; }
+  [data-bespoke-request-form] [data-bespoke-schedule] { background: #fff !important; border: 1.5px solid #94a3b8 !important; }
+  [data-bespoke-request-form] [data-bespoke-schedule][data-invalid] { border-color: #b42318 !important; }
+  [data-bespoke-request-form] [data-bespoke-schedule] > svg { color: #16803c !important; }
+  [data-bespoke-request-form] [data-bespoke-schedule-text] { color: #071c38 !important; }
+  [data-bespoke-request-form] [data-bespoke-schedule-text][data-empty] { color: #475569 !important; font-weight: 500 !important; }
+  @media (min-width: 1200px) {
+    body:has([data-bespoke-request-form]) .address-suggestions-overlay {
+      background: #fff !important; border: 1px solid #e3e8ef !important; border-radius: 0.9rem !important;
+      box-shadow: 0 22px 44px -18px rgba(11, 31, 58, 0.35) !important; color: #0f1b2d;
+    }
+    body:has([data-bespoke-request-form]) .address-suggestions-overlay button { background: #fff !important; }
+    body:has([data-bespoke-request-form]) .address-suggestions-overlay button:is(:hover, :focus-visible) { background: #f2f6fb !important; }
+    body:has([data-bespoke-request-form]) .address-suggestions-overlay button span { color: #5b6b80 !important; -webkit-text-fill-color: #5b6b80; }
+    body:has([data-bespoke-request-form]) .address-suggestions-overlay button span:first-child { color: #0b1f3a !important; -webkit-text-fill-color: #0b1f3a; }
+  }
+}

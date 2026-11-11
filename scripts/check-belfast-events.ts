@@ -198,6 +198,29 @@ async function main(): Promise<void> {
   assert.match(form, /BESPOKE_TURNSTILE_ACTION/);
   assert.equal(read("src/lib/bespoke-public.ts").match(/BESPOKE_TURNSTILE_ACTION = "([^"]+)"/)?.[1], "bespoke_quote_request", "Turnstile action matches the Worker");
   assert.ok(!/"@type":\s*"Event"|@type": "Event"/.test(read("src/app/events/page.tsx")), "no Event rich-result markup pointing at our service");
+  // Address suggestions and Design 3 date/time: reused, never forked.
+  assert.match(form, /import AddressInput from "@\/components\/AddressInput"/, "reuses the booking form's address box");
+  assert.match(form, /import D3TimePicker from "@\/components\/D3TimePicker"/, "reuses the Design 3 time selector");
+  assert.match(form, /useMobileDesign3\(\)/, "Design 3 pickers only where Design 3 is active");
+  assert.match(form, /pickupPlaceId: placeIds\.pickup/, "chosen Google place id is sent");
+  assert.match(form, /destinationPlaceId: placeIds\.destination/);
+  assert.ok(!/requireSuggestion/.test(form), "typed addresses still allowed when suggestions are unavailable");
+  const css = read("src/app/globals.css");
+  const block = css.slice(css.indexOf("Event / Business Class request forms"));
+  assert.ok(block.length > 100, "form styles present");
+  for (const line of block.split("\n").filter((l) => /\{/.test(l) && !/^\s*@/.test(l))) {
+    assert.match(line, /data-bespoke-request-form/, `form styles are scoped to the request forms: ${line.trim().slice(0, 60)}`);
+  }
+  // The shared components and the airport calculator are byte-for-byte what main has.
+  const { execFileSync } = await import("node:child_process");
+  let changed = "";
+  try {
+    const base = execFileSync("git", ["merge-base", "HEAD", "origin/main"], { cwd: root, encoding: "utf8" }).trim();
+    changed = execFileSync("git", ["diff", "--name-only", base, "--", "src/components/AddressInput.tsx", "src/components/D3TimePicker.tsx", "src/components/QuoteCard.tsx", "src/components/QuoteScheduleFields.tsx", "src/components/HomepageQuoteFields.tsx", "src/lib/google-maps.ts", "src/lib/addresses-api.ts"], { cwd: root, encoding: "utf8" }).trim();
+  } catch {
+    changed = ""; // no git / no origin/main (e.g. shallow CI checkout): skip
+  }
+  assert.equal(changed, "", "airport calculator and shared address/time components are unchanged since branching from main");
   // Airport instant quote and automatic Business Class untouched by this feature.
   for (const file of ["src/components/QuoteCard.tsx", "shared/executive-vehicle.ts", "shared/business-class-minimum.ts", "workers/addresses/src/main-quote-pricing.ts"]) {
     assert.ok(!/belfast-events|bespoke-public|BespokeRequestForm/.test(read(file)), `${file} unchanged by events feature`);
