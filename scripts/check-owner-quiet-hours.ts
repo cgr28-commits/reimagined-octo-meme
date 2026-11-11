@@ -57,3 +57,17 @@ assert.equal(classifyPickupLeadWindow("2026-11-12", "09:00", Z("2026-11-12T01:00
 assert.equal(classifyPickupLeadWindow("2026-11-12", "16:00", Z("2026-11-12T01:00:00Z"), 12, 2), "normal");
 console.log("ok quote screen classification");
 console.log("\nowner quiet-hours checks passed");
+
+// WhatsApp bot reply
+import("../shared/whatsapp-quote-bot").then(({ buildWhatsAppUnavailableReply }) => {
+  const text = buildWhatsAppUnavailableReply({
+    leg: "outbound",
+    draft: { outboundDate: "2026-11-12", outboundTime: "06:30" } as never,
+    reason: "overnight",
+    hasAlternatives: false,
+    now: new Date("2026-11-11T23:30:00Z"),
+  });
+  assert.match(text, /closed overnight \(10pm–7am\)/);
+  assert.match(text, /earliest pickup we can take is 08:15 tomorrow/);
+  console.log("ok WhatsApp overnight reply");
+});
