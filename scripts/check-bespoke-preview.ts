@@ -251,6 +251,10 @@ async function main() {
   const through = await testGate.fetch(new Request("https://preview.example/events/", { headers: { Cookie: cookie.split(";")[0] } }), assets);
   assert.equal(through.status, 200);
   assert.equal(through.headers.get("X-Robots-Tag"), "noindex, nofollow");
+  const csp = through.headers.get("Content-Security-Policy") ?? "";
+  assert.ok(csp.includes("script-src") && csp.includes("connect-src"), "preview pages carry a content security policy");
+  assert.ok(!/google|doubleclick|gtag|facebook/i.test(csp), "no advertising or analytics hosts are allowed on the preview");
+  assert.ok(!/cgr28\.workers\.dev|myairporttaxini/.test(csp), "the live Worker and live site are not allowed data sources");
 
   console.log("=== Turnstile test keys: preview only ===");
   const { verifyTurnstileToken } = await import("../shared/turnstile");

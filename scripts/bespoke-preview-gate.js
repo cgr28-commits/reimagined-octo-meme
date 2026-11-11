@@ -10,6 +10,10 @@
  */
 const ACCESS_CODE_SHA256 = "b984499b56acd05ed31e2b9c70287ecc8fd5ae5b99cfa932b172d97f0e46ab96";
 const COOKIE = "matni_preview";
+const PREVIEW_CSP = [
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.stripe.com",
+  "connect-src 'self' https://*.my-airport-taxi-ni-staging.workers.dev https://challenges.cloudflare.com https://api.stripe.com",
+].join("; ");
 const MAX_AGE = 60 * 60 * 24 * 30;
 
 async function sha256Hex(value) {
@@ -64,6 +68,10 @@ export default {
     const headers = new Headers(response.headers);
     headers.set("X-Robots-Tag", "noindex, nofollow");
     headers.set("Cache-Control", "private, no-cache");
+    // Test site: no advertising or analytics tags may load or report from here.
+    // Scripts and data calls are limited to this site, the staging-account Worker,
+    // Cloudflare's bot check and Stripe.
+    if ((headers.get("Content-Type") || "").includes("text/html")) headers.set("Content-Security-Policy", PREVIEW_CSP);
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
