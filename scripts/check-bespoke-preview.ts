@@ -189,6 +189,81 @@ async function main() {
   assert.equal(isAllowedBrowserOrigin(previewSite), false, "production Worker does not accept the preview site");
   assert.equal(isAllowedBrowserOrigin("https://www.myairporttaxini.co.uk"), true);
 
+  console.log("=== Preview lives in the separate Staging account ===");
+  const { renderPreviewConfig, STAGING_ACCOUNT_ID, LIVE_IDS, KV_TITLES } = await import("./bespoke-preview-prepare.mjs");
+  assert.match(toml, new RegExp(`^account_id = "${STAGING_ACCOUNT_ID}"$`, "m"), "preview config pinned to the staging account");
+  const liveToml = readFileSync("workers/addresses/wrangler.toml", "utf8");
+  assert.ok(liveToml.includes(LIVE_IDS[0]) && !liveToml.includes(STAGING_ACCOUNT_ID), "live config stays on the live account");
+  assert.ok(!/TURNSTILE_TEST_KEYS|PREVIEW_ENVIRONMENT/.test(liveToml), "live config never enables preview-only switches");
+  const good = { trackingId: "a".repeat(32), counterId: "b".repeat(32), siteHost: "matni-bespoke-preview.pages.dev", testerEmails: "tester@example.com" };
+  const rendered = renderPreviewConfig(toml, good);
+  assert.ok(!/REPLACE_WITH_/.test(rendered.split("\n").filter((l: string) => !/^\s*#/.test(l)).join("\n")), "all placeholders filled");
+  assert.match(rendered, /^PREVIEW_SITE_ORIGIN = "https:\/\/matni-bespoke-preview\.pages\.dev"$/m);
+  // A different Pages address is applied to all three settings together.
+  const moved = renderPreviewConfig(toml, { ...good, siteHost: "matni-bespoke-preview-abc.pages.dev" });
+  for (const name of ["PREVIEW_SITE_ORIGIN", "SITE_ORIGIN"]) assert.match(moved, new RegExp(`^${name} = "https://matni-bespoke-preview-abc\\.pages\\.dev"$`, "m"));
+  assert.match(moved, /^TURNSTILE_ALLOWED_HOSTNAMES = "matni-bespoke-preview-abc\.pages\.dev"$/m);
+  // Refusals: live ids, live account, the live mailbox, a non-Pages host, bad ids.
+  assert.throws(() => renderPreviewConfig(toml, { ...good, trackingId: LIVE_IDS[1] }), /Live resource id/);
+  assert.throws(() => renderPreviewConfig(toml.replace(STAGING_ACCOUNT_ID, LIVE_IDS[0]), good), /staging account|Live resource id/);
+  assert.throws(() => renderPreviewConfig(toml, { ...good, testerEmails: "bookings@myairporttaxini.co.uk" }), /bookings mailbox/);
+  assert.throws(() => renderPreviewConfig(toml, { ...good, siteHost: "www.myairporttaxini.co.uk" }), /Unexpected preview site host/);
+  assert.throws(() => renderPreviewConfig(toml, { ...good, counterId: good.trackingId }), /KV namespace ids/);
+  assert.ok(Object.values(KV_TITLES).every((t) => /bespoke-preview/.test(String(t))), "preview KV namespaces are clearly named");
+
+  console.log("=== Preview deploy workflow guards ===");
+  const wf = readFileSync(".github/workflows/deploy-bespoke-preview.yml", "utf8");
+  assert.ok(wf.includes(`STAGING_ACCOUNT_ID: ${STAGING_ACCOUNT_ID}`), "workflow targets the staging account");
+  assert.ok(!wf.includes(LIVE_IDS[0]), "workflow never names the live account");
+  const tokens = [...wf.matchAll(/CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.([A-Z_]+) \}\}/g)].map((m) => m[1]);
+  assert.ok(tokens.length >= 3 && tokens.every((t) => t === "STAGING_CLOUDFLARE_API_TOKEN"), "only the staging-account token is ever used");
+  assert.ok(!/wrangler\.toml|--env production|deploy-worker|github-pages/.test(wf.replace(/^\s*#.*$/gm, "")), "no live Worker config or GitHub Pages in the preview workflow");
+  assert.match(wf, /-c "\$WRANGLER_CONFIG"/, "Worker commands use the generated preview config");
+  assert.match(wf, /\^\(sk\|rk\)_test_/, "Stripe secret must be a TEST key");
+  assert.match(wf, /cp scripts\/bespoke-preview-gate\.js out\/_worker\.js/, "website is deployed behind the private link");
+  assert.match(wf, /\[ "\$CODE" != "401" \]/, "deploy fails unless the site answers 401 without the link");
+  assert.match(wf, /rm -f out\/CNAME/, "live domain marker removed from the preview site");
+  for (const live of ["deploy-pages.yml", "deploy-worker.yml"]) {
+    const text = readFileSync(`.github/workflows/${live}`, "utf8");
+    assert.ok(!/bespoke-preview|NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES|TURNSTILE_TEST_KEYS/.test(text), `${live} has nothing to do with the preview`);
+  }
+
+  console.log("=== Private-link gate ===");
+  const gateSrc = readFileSync("scripts/bespoke-preview-gate.js", "utf8");
+  assert.match(gateSrc, /ACCESS_CODE_SHA256 = "[a-f0-9]{64}"/, "only a hash is stored");
+  const gate = (await import("./bespoke-preview-gate.js")).default as { fetch: (r: Request, e: unknown) => Promise<Response> };
+  const assets = { ASSETS: { fetch: async () => new Response("<h1>site</h1>", { headers: { "Content-Type": "text/html" } }) } };
+  const noLink = await gate.fetch(new Request("https://preview.example/events/"), assets);
+  assert.equal(noLink.status, 401, "no link → private page");
+  assert.ok(!(await noLink.text()).includes("<h1>site</h1>"));
+  assert.equal((await gate.fetch(new Request("https://preview.example/events/?k=wrong-code"), assets)).status, 401);
+  assert.equal((await gate.fetch(new Request("https://preview.example/_next/static/app.js", { headers: { Cookie: "matni_preview=wrong" } }), assets)).status, 401, "assets are gated too");
+  // A code that matches a test hash is accepted, sets a cookie and is removed from the address.
+  const { createHash } = await import("node:crypto");
+  const testCode = "test-code-for-check";
+  const patched = gateSrc.replace(/ACCESS_CODE_SHA256 = "[a-f0-9]{64}"/, `ACCESS_CODE_SHA256 = "${createHash("sha256").update(testCode).digest("hex")}"`);
+  const testGate = (await import(`data:text/javascript;base64,${Buffer.from(patched).toString("base64")}`)).default as typeof gate;
+  const first = await testGate.fetch(new Request(`https://preview.example/events/?k=${testCode}&event=abc`), assets);
+  assert.equal(first.status, 302);
+  assert.equal(first.headers.get("Location"), "/events/?event=abc", "access code removed from the address");
+  const cookie = first.headers.get("Set-Cookie") ?? "";
+  assert.match(cookie, /HttpOnly; Secure; SameSite=Lax/);
+  const through = await testGate.fetch(new Request("https://preview.example/events/", { headers: { Cookie: cookie.split(";")[0] } }), assets);
+  assert.equal(through.status, 200);
+  assert.equal(through.headers.get("X-Robots-Tag"), "noindex, nofollow");
+
+  console.log("=== Turnstile test keys: preview only ===");
+  const { verifyTurnstileToken } = await import("../shared/turnstile");
+  const testingAnswer = (async () => Response.json({ success: true, hostname: "example.com", metadata: { result_with_testing_key: true } })) as typeof fetch;
+  const base = { secret: "s", token: "t", expectedAction: "bespoke_quote_request", allowedHostnames: ["www.myairporttaxini.co.uk"], fetchImpl: testingAnswer };
+  assert.deepEqual(await verifyTurnstileToken(base), { ok: false, reason: "testing_key_not_allowed" }, "live rejects Cloudflare test keys");
+  assert.deepEqual(await verifyTurnstileToken({ ...base, allowTestingKey: true }), { ok: true }, "preview accepts them");
+  const realWrongHost = (async () => Response.json({ success: true, hostname: "evil.example", action: "bespoke_quote_request" })) as typeof fetch;
+  assert.equal((await verifyTurnstileToken({ ...base, fetchImpl: realWrongHost, allowTestingKey: true })).ok, false, "a real widget is still fully checked on preview");
+  const handlerSrc = readFileSync("workers/addresses/src/bespoke-quote-handlers.ts", "utf8");
+  assert.match(handlerSrc, /allowTestingKey: env\.PREVIEW_ENVIRONMENT === "bespoke-preview" && env\.TURNSTILE_TEST_KEYS === "1"/);
+  assert.match(toml, /^TURNSTILE_TEST_KEYS = "1"$/m);
+
   console.log("\nAll preview isolation checks passed.");
 }
 
