@@ -242,7 +242,7 @@ check("Worker + UI wiring — unavailable periods replace hours/single-date rule
   assert.match(notice, /isPickupBlockedByUnavailablePeriods/);
   assert.match(notice, /isUnavailablePeriodExpired/);
   assert.match(data, /INSTANT_PAY_VEHICLE_TYPES/);
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /ShortNoticeRequestReceived|Need a quick answer\? WhatsApp us/);
   assert.match(notice, /MINIMUM_BOOKING_NOTICE_HOURS/);
   assert.match(notice, /isWithinMinimumBookingNotice/);

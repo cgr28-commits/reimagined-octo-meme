@@ -849,7 +849,7 @@ function BookQuoteInner() {
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
             {paying
-              ? isAvailabilityRequest
+              ? isAvailabilityRequest && !isMinimumNoticeRequest
                 ? "Submitting booking request…"
                 : "Starting secure payment…"
               : isMinibusNoticeRequest
@@ -859,7 +859,7 @@ function BookQuoteInner() {
                       : quote.quotedAmountLabel
                   }`
                 : isMinimumNoticeRequest
-                ? `Request Short-Notice Booking — ${
+                ? `Book Now — ${
                     displayPricing
                       ? formatQuickQuoteAmount(displayPricing.totalGbp)
                       : quote.quotedAmountLabel
