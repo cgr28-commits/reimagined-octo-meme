@@ -128,7 +128,13 @@ jobs:
             echo "::error::Unexpected secrets on the staging Worker: $EXTRA"
             exit 1
           fi
-          STATUS="$(curl -fsS "$URL/staging/sandbox-status")"
+          # A brand-new workers.dev address can take a minute to start answering.
+          STATUS=""
+          for attempt in $(seq 1 18); do
+            STATUS="$(curl -fsS "$URL/staging/sandbox-status" 2>/dev/null || true)"
+            [ -n "$STATUS" ] && break
+            sleep 10
+          done
           echo "$STATUS"
           printf '%s' "$STATUS" | grep -q '"sandbox":true' || { echo "::error::Outbound sandbox is not active."; exit 1; }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
