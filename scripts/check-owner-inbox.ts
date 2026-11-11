@@ -6,6 +6,7 @@ import {
   buildOwnerOutgoingEmail,
   inboxThreadKey,
   signatureHtml,
+  signatureText,
 } from "../shared/owner-inbox";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
@@ -92,10 +93,15 @@ async function main() {
   assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo\.png/, "signature has the real logo");
   assert.doesNotMatch(sig, /Brian/, "no personal name in the signature");
   assert.match(sig, /My Airport Taxi NI/);
-  assert.match(sig, /07549 815538/);
+  // The number may sit inside the link's href, but never in the visible text.
+  assert.doesNotMatch(sig.replace(/<[^>]+>/g, " "), /7549 ?815 ?538/, "WhatsApp number is never shown (owner request, 11 Nov 2026)");
+  assert.match(sig, /WhatsApp @belfasttaxi/, "WhatsApp shown as the @belfasttaxi handle");
   assert.match(sig, /bookings@myairporttaxini\.co\.uk/);
   assert.match(sig, /Call: <a href="tel:\+442896022952"[^>]*>028 9602 2952<\/a>/, "office landline is the number to call (owner request, Nov 2026)");
-  assert.match(sig, /WhatsApp: <a href="https:\/\/wa\.me\/447549815538"[^>]*>07549 815538<\/a>/, "07549 is WhatsApp only");
+  const sigText = signatureText();
+  assert.match(sigText, /Call: 028 9602 2952/);
+  assert.doesNotMatch(sigText, /7549/, "plain-text signature shows no WhatsApp number");
+  assert.match(sigText, /WhatsApp: @belfasttaxi/);
   const out = buildOwnerOutgoingEmail({ message: "Hi <Sarah>\n\nSee you then.", quoted: { from: "Sarah", at: "today", text: "What time?" } });
   assert.match(out.html, /Hi &lt;Sarah&gt;/, "message is escaped");
   assert.match(out.text, /> What time\?/);

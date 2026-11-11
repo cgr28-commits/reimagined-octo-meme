@@ -22,6 +22,12 @@ export function businessWhatsAppChatUrl(
   return `https://wa.me/${BUSINESS_WHATSAPP_DIGITS}?text=${encodeURIComponent(message)}`;
 }
 
+/**
+ * Number-free WhatsApp route for plain-text emails (owner request, 11 Nov 2026: the landline
+ * is the only number customers see; WhatsApp is offered as a link, never as a number).
+ */
+export const BUSINESS_WHATSAPP_TEXT_ROUTE = "@belfasttaxi";
+
 /** Number-free branded page that already hosts the website WhatsApp chat control. */
 export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): string {
   return `${siteUrl.replace(/\/$/, "")}/contact/`;
