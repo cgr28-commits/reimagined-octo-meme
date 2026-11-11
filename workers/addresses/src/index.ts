@@ -1,4 +1,5 @@
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
+import { supersedeEarlierCheckouts } from "./supersede-checkout";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
   configureStripe,
@@ -3963,6 +3964,15 @@ async function handlePaymentRequest(
               cashBalanceDue: 0,
             }),
     });
+
+    // A newer payment for a changed booking closes the customer's earlier unpaid payment
+    // page, so an old link can never be paid at the old price (plain website bookings only).
+    if (stripePaymentsActive(env, booking ?? null)) {
+      await supersedeEarlierCheckouts(env.TRACKING_STORE, {
+        newCheckoutId: checkout.checkoutId,
+        clientPreviousCheckoutId: String(body.supersedesCheckoutId ?? "").trim() || null,
+      });
+    }
 
     if (quickQuoteId) {
       await markQuickQuoteCheckout(env.TRACKING_STORE, quickQuoteId, {
