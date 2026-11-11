@@ -39,6 +39,11 @@ export type PaymentCheckoutRequest = {
   redirectUrl?: string;
   /** Full booking with customer email + mobile — stored server-side before SumUp redirect. */
   booking?: BookingDetails;
+  /**
+   * This tab's earlier unpaid payment page for a booking the customer has since changed.
+   * The server closes it so the old link can no longer be paid.
+   */
+  supersedesCheckoutId?: string;
   /** After Owner approval — pay the locked short-notice booking (no re-entry). */
   shortNoticeToken?: string;
   /** After Owner A2A quote approval — pay the locked personalised quote. */
@@ -362,6 +367,7 @@ export async function createPaymentCheckout(
       redirectUrl: request.redirectUrl ?? buildPaymentRedirectUrl(),
       measurementConsent: currentMeasurementConsent(),
       ...(booking ? { booking } : {}),
+      ...(request.supersedesCheckoutId ? { supersedesCheckoutId: request.supersedesCheckoutId } : {}),
       ...(request.shortNoticeToken ? { shortNoticeToken: request.shortNoticeToken } : {}),
       ...(request.a2aQuoteToken ? { a2aQuoteToken: request.a2aQuoteToken } : {}),
       ...(request.a2aQuoteToken && request.quoteFlightDetails ? { quoteFlightDetails: request.quoteFlightDetails } : {}),

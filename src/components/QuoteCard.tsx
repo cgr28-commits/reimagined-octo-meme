@@ -5044,6 +5044,8 @@ function QuoteCard({
         description: buildPaymentDescription(),
         redirectUrl: buildPaymentRedirectUrl(returnToken),
         booking: bookingDetails,
+        // A payment page this tab opened earlier for a booking that has since changed.
+        supersedesCheckoutId: openCheckout?.checkoutId || undefined,
         pickupPlaceId: pickupPlace?.placeId?.trim() || undefined,
         dropoffPlaceId: dropoffPlace?.placeId?.trim() || undefined,
         expressDropOffSelected: airportAccessQuote.outboundExpressDropOffSelected,

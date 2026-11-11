@@ -25,7 +25,9 @@ import {
   getPaidBookingRecordByCheckoutId,
   ensureManageBookingToken,
   paidBookingStoreConfigured,
+  savePaidBookingRecord,
 } from "./paid-booking-store";
+import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import {
   getPendingCheckout,
@@ -88,6 +90,16 @@ type FinalizeEnv = {
   GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
   GOOGLE_ADS_PAID_BOOKING_CONVERSION_ACTION_ID?: string;
 };
+
+/** Email outcome recorded when the booking was first confirmed (older bookings: sent). */
+function storedConfirmationEmailFlags(
+  record: Pick<PaidBookingRecord, "confirmationEmails"> | null | undefined,
+): { emailSent: boolean; customerEmailSent: boolean; ownerEmailSent: boolean } {
+  const stored = record?.confirmationEmails;
+  const customerEmailSent = stored ? stored.customerSent === true : true;
+  const ownerEmailSent = stored ? stored.ownerSent === true : true;
+  return { emailSent: customerEmailSent && ownerEmailSent, customerEmailSent, ownerEmailSent };
+}
 
 export type FinalizePaidCheckoutResult = {
   ok: boolean;
@@ -303,9 +315,7 @@ async function finalizePaidCheckoutOnce(input: {
           ...(typeof existing.cashBalanceDue === "number"
             ? { cashBalanceDue: existing.cashBalanceDue }
             : {}),
-          emailSent: true,
-          customerEmailSent: true,
-          ownerEmailSent: true,
+          ...storedConfirmationEmailFlags(existing),
           calendarLogged: (existing.calendarEventIds?.length ?? 0) > 0,
           calendarEvents: existing.calendarEventIds?.length ?? 0,
           trackingCreated: Boolean(existing.trackingToken),
@@ -342,9 +352,11 @@ async function finalizePaidCheckoutOnce(input: {
         meetGreetFeeGbp: pending.booking?.meetGreetFeeGbp,
         amountPaid: formatPaidAmount(pending.amount),
         paymentReference: pending.paymentReference,
-        emailSent: true,
-        customerEmailSent: true,
-        ownerEmailSent: true,
+        ...storedConfirmationEmailFlags(
+          paidBookingStoreConfigured(env.TRACKING_STORE)
+            ? await getPaidBookingRecord(env.TRACKING_STORE, pending.paymentReference).catch(() => null)
+            : null,
+        ),
         calendarLogged: false,
         calendarEvents: 0,
         trackingCreated: false,
@@ -707,6 +719,26 @@ async function finalizePaidCheckoutOnce(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerEmailResult.sent;
+
+  // Keep the real email outcome with the booking, so a later refresh of the confirmation
+  // page reports what actually happened instead of assuming the emails went out.
+  if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    try {
+      const saved = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+      if (saved) {
+        await savePaidBookingRecord(env.TRACKING_STORE, {
+          ...saved,
+          confirmationEmails: {
+            customerSent: customerEmailResult.sent,
+            ownerSent: ownerNotifySent,
+            at: new Date().toISOString(),
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Confirmation email status save failed", error instanceof Error ? error.message : "");
+    }
+  }
 
   try {
     const txn = booking.quoteTransactionId?.trim() || "";

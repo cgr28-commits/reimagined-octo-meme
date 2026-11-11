@@ -236,6 +236,11 @@ export type PaidBookingRecord = {
    * Set only after SumUp PAID finalize attempts an upload — used for idempotency.
    */
   googleAdsPaidConversionSentAt?: string;
+  /**
+   * Whether the booking confirmation emails were actually sent when the payment was
+   * confirmed. Absent on older bookings (treated as sent).
+   */
+  confirmationEmails?: { customerSent: boolean; ownerSent: boolean; at: string };
   googleAdsPaidConversionOrderId?: string;
   googleAdsPaidConversionStatus?:
     | "sent"
