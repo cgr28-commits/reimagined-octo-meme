@@ -4,10 +4,10 @@ import Footer from "@/components/Footer";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { DUBLIN_CITY_TRANSFER_PAGE, DUBLIN_CITY_TRANSFER_PATH } from "@/lib/dublin-city-transfer-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
@@ -108,7 +108,9 @@ export default function DublinCityTransferLanding({
           body:has(.dublin-city-transfer-page) [data-sticky-quote-bar] { display: none; }
         }
       `}</style>
-      <main className={`${LANDING_PAGE_MAIN_CLASS} dublin-city-transfer-page`}>
+      <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} dublin-city-transfer-page`}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow heading={page.h1} intro={firstSentence(page.intro)} />
         <LandingHeroMedia baseName={heroImage.base} alt={heroImage.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
@@ -120,7 +122,6 @@ export default function DublinCityTransferLanding({
           />
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-wider text-emerald">{page.eyebrow}</p>
-            <h1 className="mt-3 text-3xl font-bold leading-tight text-white sm:text-5xl">{page.h1}</h1>
             <p className="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">{page.intro}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <LandingPageQuoteCta label="Get a Fixed Quote" />
@@ -246,7 +247,6 @@ export default function DublinCityTransferLanding({
               ))}
           </div>
         </div>
-        <LocationQuoteSection heading={page.quoteHeading ?? "Get your Belfast–Dublin city fixed quote"} eyebrow="Your journey" description={page.quoteText} />
       </main>
       <Footer />
     </>
