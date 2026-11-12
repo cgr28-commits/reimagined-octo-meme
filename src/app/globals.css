@@ -5962,6 +5962,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > div:has([data-d2-airport-head]) { order: 1; width: 100%; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > [data-d2-airport-photo] { order: 2; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > section[data-landing-quote] { order: 3; }
+  /* Quote hero (heading + quote tool) always leads the airport page. */
+  html[data-mobile-light] main:has(> [data-d2-airport-photo]) > section.homepage-hero { order: 0; }
   html[data-mobile-light] [data-d2-airport-photo] { position: relative; margin: .9rem 1rem 0; border-radius: 1rem; overflow: hidden; }
   html[data-mobile-light] [data-d2-airport-photo] [data-landing-hero] { height: 7.4rem !important; }
   html[data-mobile-light] [data-d2-airport-photo] [data-landing-hero] > div[class*="bg-gradient"] { background: linear-gradient(to top, rgba(7,28,56,.55), rgba(7,28,56,0) 60%) !important; }

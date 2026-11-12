@@ -3,10 +3,9 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
-import SectionHeading from "@/components/SectionHeading";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   LONG_DISTANCE_EXAMPLE_ROUTES,
   LONG_DISTANCE_HIGHLIGHTS,
@@ -34,7 +33,9 @@ export default function LongDistanceTransfersPage() {
   return (
     <>
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow heading={LONG_DISTANCE_PAGE_TITLE} navId="long-distance" intro={firstSentence(LONG_DISTANCE_INTRO)} />
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Link
@@ -48,24 +49,11 @@ export default function LongDistanceTransfersPage() {
             </Link>
 
             <div className="mt-8 max-w-3xl">
-              <SectionHeading
-                as="h1"
-                align="left"
-                eyebrow="Long-distance transfers"
-                title={LONG_DISTANCE_PAGE_TITLE}
-                navId="long-distance"
-                description={LONG_DISTANCE_INTRO}
-              />
+              <p className="text-lg leading-relaxed text-white/70">{LONG_DISTANCE_INTRO}</p>
             </div>
           </div>
         </div>
 
-        {/* Quote form straight under the heading so visitors can price a
-            long-distance journey without scrolling. */}
-        <LocationQuoteSection
-          showStickyQuote={false}
-          description="Fixed prices. Enter your exact pickup and destination for an instant price, or request a fixed quote for cross-border journeys."
-        />
 
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">

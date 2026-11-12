@@ -3,8 +3,8 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import HeroSlideshow from "@/components/HeroSlideshow";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { AIRPORT_PAGES } from "@/lib/location-pages";
 import { getBreadcrumbJsonLd } from "@/lib/structured-data";
 
@@ -28,25 +28,21 @@ export default function AirportsIndexPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading="Airport transfers"
+          navId="airports-index"
+          intro="Fixed-price transfers to and from Belfast International, Belfast City and Dublin Airport."
+        />
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Destinations</p>
-          <h1
-            className="mt-2 text-3xl font-bold text-white sm:text-4xl"
-            data-site-nav-heading="airports-index"
-            tabIndex={-1}
-          >
-            Airport transfers
-          </h1>
           <p className="mt-4 text-lg leading-relaxed text-white/65">
             Dedicated transfer pages for each airport we serve — with local tips and a quote tool
             preselected for that destination.
           </p>
         </div>
 
-        {/* Quote form straight under the heading so hub visitors can price a
-            journey without scrolling past the airport list. */}
-        <LocationQuoteSection showStickyQuote={false} />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-xl font-bold text-white">Airport guides</h2>

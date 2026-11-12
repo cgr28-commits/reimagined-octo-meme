@@ -5,9 +5,9 @@ import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { withBasePath } from "@/lib/paths";
 import {
   GOLF_BUSINESS_CLASS_POINTS,
@@ -94,7 +94,13 @@ export default function GolfTransfersPage() {
       <style>{`
         .golf-transfers [data-landing-hero] img { object-position: 30% 42%; }
       `}</style>
-      <main className={`${LANDING_PAGE_MAIN_CLASS} golf-transfers`}>
+      <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} golf-transfers`}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading={GOLF_TRANSFERS_H1}
+          intro="Private, pre-booked transfers from the airport to your hotel and the first tee, with a fixed fare agreed before you book."
+          journey={{ businessClassAnyRoute: true }}
+        />
         <LandingHeroMedia baseName="royal-portrush" alt="Aerial view of the Royal Portrush links beside Whiterocks beach on the Causeway Coast" />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -108,7 +114,6 @@ export default function GolfTransfersPage() {
 
           <header className="mt-5">
             <p className="text-sm font-semibold text-emerald">Royal Portrush · Portstewart · Castlerock · Royal County Down</p>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-white sm:text-4xl">{GOLF_TRANSFERS_H1}</h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
               Private, pre-booked transfers from the airport to your hotel and the first tee. Travel in our Business
               Class executive car or bring the whole group in a 7-seater — with a fixed fare agreed before you book.
@@ -214,7 +219,6 @@ export default function GolfTransfersPage() {
           </div>
         </div>
 
-        <LocationQuoteSection heading="Quote your golf transfer" showStickyQuote={false} businessClassAnyRoute />
       </main>
       <Footer />
     </>

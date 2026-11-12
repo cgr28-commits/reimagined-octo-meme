@@ -33,7 +33,10 @@ try {
         for (const button of await page.getByRole("button", { name: "Get My Fixed Price", exact: false }).all()) {
           if (!await button.isVisible()) continue;
           const price = await button.boundingBox();
-          assert.ok(price && price.y > 844, "No disabled quote button may float over landing-page content");
+          // Owner (12 Nov 2026): the quote tool leads every hub page, so its button sits on the first phone screen,
+          // in the page flow (never fixed over the content).
+          assert.ok(price && price.y < 844, "The quote button should be on the first phone screen");
+          assert.notEqual(await button.evaluate(node => getComputedStyle(node).position), "fixed", "The quote button must not float over landing-page content");
         }
       }
       await page.screenshot({ path: `test-results/cork-transfer-pages/${width}-${direction}-top.png` });
