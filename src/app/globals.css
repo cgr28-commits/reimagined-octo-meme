@@ -8971,3 +8971,8 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   visibility: hidden;
   animation: matni-d3-reveal 0s linear 2.5s forwards;
 }
+
+/* Homepage intro is now two sentences: let it wrap on laptops/desktop instead of running off the edge. */
+@media (min-width: 1024px) {
+  section.homepage-hero .homepage-hero-copy > p { white-space: normal; max-width: 62rem; }
+}
