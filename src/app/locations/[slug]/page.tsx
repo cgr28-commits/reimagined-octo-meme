@@ -9,7 +9,6 @@ import LandingHeroMedia from "@/components/LandingHeroMedia";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LocationQuoteSection from "@/components/LocationQuoteSection";
 import { SITE } from "@/lib/data";
-import { townGuidePickupFor } from "@/lib/town-centres";
 import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
@@ -148,8 +147,6 @@ export default async function TownHubPage({ params }: Props) {
         {/* Quote form directly under the town heading so visitors can price a
             journey without scrolling past the route links. */}
         <LocationQuoteSection
-          addressHint={page.town.addressHint}
-          guidePickup={townGuidePickupFor(page.town.addressHint, page.town.name)}
           heading={`Quote an airport taxi from ${page.town.name}`}
         />
 
