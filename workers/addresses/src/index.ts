@@ -521,6 +521,7 @@ import {
 } from "./quick-quote-store";
 import {
   formatQuickQuoteAmount,
+  quickQuoteTripLabel,
   normalizeQuickQuoteId,
   parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
@@ -2559,9 +2560,8 @@ async function handlePaymentRequest(
       expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
       expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
       expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
-      tripLabel: j.childSeatRequired
-        ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
-        : booking.tripLabel || "Airport transfer",
+      // From the stored quote (event name + child seat), not the browser's label.
+      tripLabel: quickQuoteTripLabel({ eventName: j.eventName, childSeatRequired: j.childSeatRequired }),
     };
 
     const quickQuoteClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);

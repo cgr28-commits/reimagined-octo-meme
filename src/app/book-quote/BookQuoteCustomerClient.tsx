@@ -32,7 +32,7 @@ import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
-import { formatQuickQuoteAmount } from "../../../shared/quick-quote";
+import { formatQuickQuoteAmount, quickQuoteTripLabel } from "../../../shared/quick-quote";
 import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
@@ -325,9 +325,7 @@ function BookQuoteInner() {
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
       mobileNumber: mobileNumber.trim(),
-      tripLabel: childSeatRequired
-        ? "Airport transfer · Child seat required"
-        : "Airport transfer",
+      tripLabel: quickQuoteTripLabel({ eventName: journey.eventName, childSeatRequired }),
       pickupLabel: journey.pickupAddress,
       dropoffLabel: journey.dropoffAddress,
       returnJourney: Boolean(journey.returnJourney),
@@ -617,6 +615,11 @@ function BookQuoteInner() {
 
       <section className="min-w-0 space-y-2 overflow-hidden rounded-2xl border border-white/10 bg-navy-dark/70 p-4 text-sm text-white/80 sm:p-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/45">Journey</p>
+        {journey.eventName ? (
+          <p className="break-words">
+            <span className="text-white/50">Event:</span> {journey.eventName}
+          </p>
+        ) : null}
         <p className="break-words">
           <span className="text-white/50">Pickup:</span> {journey.pickupAddress}
         </p>

@@ -11,9 +11,12 @@ import {
   parseQuickQuoteMessage,
   type QuickQuoteAirportCode,
 } from "../../../shared/quick-quote-parse";
+import { KNOWN_EVENTS, upcomingKnownEvents } from "../../../shared/known-events";
 import {
+  QUICK_QUOTE_EVENT_NAME_MAX,
   applyQuickQuoteManualDiscount,
   assertQuickQuoteTransferFareFloor,
+  cleanQuickQuoteEventName,
   formatQuickQuoteAmount,
   parseQuickQuoteManualTransferFare,
   quickQuoteMaxPassengersForVehicle,
@@ -74,6 +77,9 @@ type Draft = {
   childSeatRequired: boolean;
   flightNumber: string;
   vehicleChoice: QuickQuoteVehicleChoice;
+  /** "" = no event, a known event id, or "other" (typed in eventOther). */
+  eventChoice: string;
+  eventOther: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -91,7 +97,16 @@ const emptyDraft = (): Draft => ({
   childSeatRequired: false,
   flightNumber: "",
   vehicleChoice: "Saloon",
+  eventChoice: "",
+  eventOther: "",
 });
+
+/** The event name sent with the quote: the picked event, or the one typed in. */
+function draftEventName(draft: Draft): string | undefined {
+  if (draft.eventChoice === "other") return cleanQuickQuoteEventName(draft.eventOther);
+  const known = KNOWN_EVENTS.find((e) => e.id === draft.eventChoice);
+  return known ? known.label : undefined;
+}
 
 function FieldLabel({
   label,
@@ -522,6 +537,9 @@ export default function QuickQuoteOwnerClient() {
       childSeatRequired: parsed.childSeatRequired.value ?? false,
       flightNumber,
       vehicleChoice: draft.vehicleChoice,
+      // Reading a pasted message keeps whatever event was already picked.
+      eventChoice: draft.eventChoice,
+      eventOther: draft.eventOther,
     };
 
     setPickupPlace(nextPickupPlace);
@@ -776,6 +794,7 @@ export default function QuickQuoteOwnerClient() {
         suitcases: Number(draft.suitcases),
         childSeatRequired: draft.childSeatRequired,
         flightNumber: draft.flightNumber.trim() || undefined,
+        eventName: draftEventName(draft),
         vehicleChoice: draft.vehicleChoice,
         vehicleType: vehicleType || undefined,
         discountType,
@@ -1235,6 +1254,36 @@ export default function QuickQuoteOwnerClient() {
             className={fieldClass}
           />
         </div>
+        <div className="min-w-0">
+          <FieldLabel label="Event" flag={undefined} />
+          <select
+            value={draft.eventChoice}
+            onChange={(e) => setDraft((d) => ({ ...d, eventChoice: e.target.value }))}
+            className={fieldClass}
+            aria-label="Event"
+          >
+            <option value="">No event</option>
+            {upcomingKnownEvents().map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.label}
+              </option>
+            ))}
+            <option value="other">Other – type the event</option>
+          </select>
+          {draft.eventChoice === "other" ? (
+            <input
+              value={draft.eventOther}
+              onChange={(e) => setDraft((d) => ({ ...d, eventOther: e.target.value }))}
+              placeholder="e.g. Ulster Rugby – Kingspan Stadium"
+              maxLength={QUICK_QUOTE_EVENT_NAME_MAX}
+              className={`${fieldClass} mt-2`}
+              aria-label="Event name"
+            />
+          ) : null}
+          <p className="mt-1 break-words text-xs text-white/55">
+            Optional. Shown on the customer&apos;s quote page, WhatsApp message and booking confirmation.
+          </p>
+        </div>
         {flightTimeHint ? (
           <p className="break-words text-xs text-white/55">
             Flight time mentioned in message: <span className="text-white/85">{flightTimeHint}</span>{" "}
@@ -1305,6 +1354,7 @@ export default function QuickQuoteOwnerClient() {
           {(
             [
               ["none", "No time limit"],
+              ["2h", "2 hours"],
               ["24h", "24 hours"],
               ["7d", "7 days"],
               ["30d", "30 days"],
