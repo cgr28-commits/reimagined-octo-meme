@@ -7548,3 +7548,716 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     }
   }
 }
+/* ───────────────────────────────────────────────────────────────────────────
+   Design 3 — high-contrast pass on the midnight homepage (owner mockup, 12 Nov 2026).
+   Visual only. Phones and tablets (below 1200px); desktop untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html:root:root:root:root[data-mobile-d3] {
+    --pm-ink: #071c38;
+    --pm-ink-soft: #24385a;
+    --pm-line: #c5cedb;
+    --pm-line-soft: #dbe2ea;
+    --pm-green: #00b820;
+    --pm-green-bright: #4be03c;
+  }
+
+  /* Header controls: brighter outlines */
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill],
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
+    border: 1.5px solid rgba(255, 255, 255, 0.42) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+    font-weight: 750 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg {
+    stroke-width: 2.6 !important;
+  }
+
+  /* Hero copy */
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.9375rem !important;
+    line-height: 1.08 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    color: #f4f7fb !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.45 !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.012em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+    color: #fff !important;
+    font-size: 0.8438rem !important;
+    font-weight: 700 !important;
+    padding: 0.3125rem 0.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] :is(span, strong) {
+    font-weight: 700 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    color: #fcc419 !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  /* Card: defined borders, navy text, heavier weights */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    border: 1.5px solid var(--pm-line) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div {
+    margin-top: -1.5px !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    padding-left: 2.875rem !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    color: var(--pm-ink) !important;
+    -webkit-text-fill-color: var(--pm-ink) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff)::placeholder {
+    color: var(--pm-ink) !important;
+    -webkit-text-fill-color: var(--pm-ink) !important;
+    font-weight: 550 !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] {
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    stroke-width: 2.6 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    left: 0.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--pm-green);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    width: 2rem !important;
+    height: 2rem !important;
+    right: 1.75rem !important;
+    border: 1.5px solid var(--pm-line) !important;
+    color: var(--pm-ink) !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.14) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 1.0625rem !important;
+    height: 1.0625rem !important;
+    stroke-width: 2.6 !important;
+  }
+
+  /* One way / Return */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    height: 2.75rem !important;
+    background: #e9eef4 !important;
+    box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.06);
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    color: var(--pm-ink-soft) !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button[aria-pressed="true"] {
+    color: var(--pm-ink) !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.2), 0 0 0 1px rgba(7, 28, 56, 0.1) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    font-size: 0.8125rem !important;
+    font-weight: 750 !important;
+    color: #0a8f1f !important;
+    background: #cdf5d3 !important;
+    padding: 0.3125rem 0.5rem !important;
+  }
+
+  /* Labels */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    color: var(--pm-ink) !important;
+    font-size: 0.75rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.035em !important;
+    margin-bottom: 0.4375rem !important;
+  }
+
+  /* Date + time */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 3rem !important;
+    min-height: 3rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+    color: var(--pm-ink) !important;
+    font-weight: 650 !important;
+    font-size: 1.0625rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon {
+    color: var(--pm-green) !important;
+    -webkit-text-fill-color: initial !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    stroke-width: 2.6 !important;
+    color: var(--pm-green) !important;
+  }
+
+  /* Passengers + suitcases */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 3.125rem !important;
+    padding: 0 0.4375rem 0 2.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    left: 0.6875rem;
+    bottom: 0.75rem;
+    width: 1.625rem;
+    height: 1.625rem;
+    background: var(--pm-green);
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-passengers-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-suitcases-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2.5'/%3E%3Cpath d='M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M8.5 7v13'/%3E%3Cpath d='M15.5 7v13'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2.5'/%3E%3Cpath d='M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M8.5 7v13'/%3E%3Cpath d='M15.5 7v13'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 2rem !important;
+    font-size: 1.1875rem !important;
+    font-weight: 800 !important;
+    color: var(--pm-ink) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 2.125rem !important;
+    height: 2.125rem !important;
+    border: 1.5px solid #8492a6 !important;
+    color: #3d4c63 !important;
+    background: #fff !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 1.0625rem !important;
+    height: 1.0625rem !important;
+    stroke-width: 3 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn="plus"] {
+    border: 2px solid var(--pm-green) !important;
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]:disabled {
+    border-color: #a9b4c4 !important;
+    color: #7c8a9f !important;
+    opacity: 1 !important;
+  }
+
+  /* Quote button: saturated green, bold white */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    height: 4.5rem !important;
+    min-height: 4.5rem !important;
+    padding: 0 1rem !important;
+    border-radius: 1.125rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.4375rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.015em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] * {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    color: var(--pm-ink) !important;
+    font-size: 0.8438rem !important;
+    font-weight: 550 !important;
+    margin-top: 0.875rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding-top: 0.9375rem !important;
+  }
+
+  /* Benefits beneath the card */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.4375rem !important;
+    left: 0.875rem !important;
+    right: 0.5rem !important;
+    margin-top: 1.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.6875rem !important;
+    color: #fff !important;
+    font-size: 1rem !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.005em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    color: var(--pm-green-bright) !important;
+    width: 1.3125rem !important;
+    height: 1.3125rem !important;
+    stroke-width: 3.2 !important;
+    flex: none !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    margin-bottom: 8.75rem !important;
+  }
+}
+/* Small phones */
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 1.625rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      padding-left: 2.25rem !important;
+      padding-right: 0.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      left: 0.4375rem;
+      width: 1.375rem;
+      height: 1.375rem;
+      bottom: 0.875rem;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+      width: 1.875rem !important;
+      height: 1.875rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+      width: 1.5rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.9688rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      font-size: 1rem !important;
+      padding-left: 2.5rem !important;
+      letter-spacing: -0.02em !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      font-size: 1.3125rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.9375rem !important;
+    }
+  }
+}
+/* Wider phones in landscape and tablets: benefits in two balanced columns */
+@media (min-width: 600px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 0.5rem 1.5rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.75rem !important;
+    }
+  }
+}
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.375rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 1rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+      height: 4.875rem !important;
+      min-height: 4.875rem !important;
+      font-size: 1.5625rem !important;
+      border-radius: 1.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 7rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg * {
+    color: var(--pm-green) !important;
+    stroke: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]),
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    white-space: nowrap !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.9063rem !important;
+      letter-spacing: -0.02em !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+      font-size: 0.9375rem !important;
+      gap: 0.25rem !important;
+      padding: 0 0.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+      font-size: 0.6875rem !important;
+      padding: 0.25rem 0.375rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      font-size: 1rem !important;
+      letter-spacing: -0.03em !important;
+      padding-left: 2.375rem !important;
+      padding-right: 2.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 0.5rem !important;
+      width: 1.75rem !important;
+      height: 1.75rem !important;
+    }
+  }
+}
+/* ── Compact sizing to the owner's mockup: the quote card must not be bigger than the reference ── */
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+    padding: 0.625rem 0.6875rem 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro {
+    padding: 0 0.3125rem !important;
+    margin: 0 0 0.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.6875rem !important;
+    line-height: 1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    font-size: 0.7813rem !important;
+    line-height: 1.32 !important;
+    margin-top: 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d2-rating] {
+    margin-top: 0.5rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    font-size: 0.75rem !important;
+  }
+
+  html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding: 0.75rem 0.75rem 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.0625rem !important;
+    min-height: 2.0625rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 2.5rem !important;
+    font-size: 1rem !important;
+    font-weight: 550 !important;
+    letter-spacing: -0.02em !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    left: 0.6875rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    right: 2.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 0.9375rem !important;
+    height: 0.9375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    margin-top: 0.5625rem !important;
+    height: 2rem !important;
+    padding: 0.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    font-size: 0.9063rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    margin-top: 0.5625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    font-size: 0.7188rem !important;
+    margin-bottom: 0.3125rem !important;
+    line-height: 1.1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 2.125rem !important;
+    min-height: 2.125rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+    font-size: 0.9688rem !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 2.375rem !important;
+    padding: 0 0.3125rem 0 2.375rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    left: 0.625rem;
+    bottom: 0.5rem;
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 1.75rem !important;
+    font-size: 1.0625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding-top: 0.8125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    font-size: 0.7813rem !important;
+    margin-top: 0.5625rem !important;
+    line-height: 1.25 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    margin-top: 1.375rem !important;
+    gap: 0.25rem !important;
+    left: 0.375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    font-size: 0.9688rem !important;
+    line-height: 1.3 !important;
+    font-weight: 750 !important;
+    gap: 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    margin-bottom: 7.25rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 1.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      padding-left: 2rem !important;
+      padding-right: 0.1875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      left: 0.4375rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      bottom: 0.5625rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+      width: 1.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      font-size: 1.125rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 0.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.875rem !important;
+    }
+  }
+}
+@media (min-width: 600px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 4.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      gap: 0.375rem 1.5rem !important;
+    }
+  }
+}
+/* Tablets: same proportions, scaled up modestly — never larger than the live card */
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+      padding: 3.25rem 1.5rem 0 !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.25rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.9375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      padding: 1.125rem 1.125rem 1rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+      height: 2.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+      height: 2.625rem !important;
+      min-height: 2.625rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      bottom: 0.6875rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+      height: 3.375rem !important;
+      min-height: 3.375rem !important;
+      font-size: 1.4375rem !important;
+      border-radius: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 2.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.75rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])),
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div > div.relative {
+    min-height: 0 !important;
+    height: auto !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+  }
+}
+@layer base {
+  /* Swap chip must never sit on the clear (×) buttons */
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    right: 2.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap]::after {
+    inset: -0.375rem 0 -0.375rem -0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    padding-right: 2.5rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 2.625rem !important;
+      width: 1.625rem !important;
+      height: 1.625rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+}
+/* "Send me my quote": deep navy with white text, sized like the Pay / Continue buttons (owner, 12 Nov 2026) */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions button[data-d3-send-quote][data-d3-send-quote] {
+    min-height: 50px !important;
+    height: 50px !important;
+    padding: 0 1rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    background: #071c38 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.25) !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4 20-7z'/%3E%3C/svg%3E") !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:active {
+    background: #0d2a52 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:focus-visible {
+    outline: 3px solid #34d06a !important;
+    outline-offset: 2px;
+  }
+}
