@@ -93,14 +93,14 @@ export function latestOwnerAnswerFor(pickupAt: Date): Date {
 export function isPickupTooSoonForOwnerOvernight(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   const decision = decideBookingApprovalForTrip(tripDate, tripTime, now, { forceManual: true });
   return decision.mode === "reject" && decision.reason === "deadline_after_pickup";
 }
 
 /** Earliest pickup the customer can book right now (UK time "HH:MM", plus whether it's tomorrow). */
-export function earliestOvernightPickup(now = new Date()): { time: string; tomorrow: boolean } {
+export function earliestOvernightPickup(now = new Date(Date.now())): { time: string; tomorrow: boolean } {
   // First quarter-hour pickup the approval policy can accept from `now`.
   const quarter = 15 * 60 * 1000;
   let candidate = Math.ceil(nextApprovalClockStart(now).getTime() / quarter) * quarter;
@@ -121,7 +121,7 @@ export function overnightTooSoonHeading(): string {
   return "Please choose a later pickup time";
 }
 
-export function overnightTooSoonBody(now = new Date()): string {
+export function overnightTooSoonBody(now = new Date(Date.now())): string {
   const { time, tomorrow } = earliestOvernightPickup(now);
   return (
     `We’re unable to take an online booking for this pickup time.\n\n` +

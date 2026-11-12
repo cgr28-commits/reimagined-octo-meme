@@ -227,7 +227,7 @@ function parseOfferSchedule(
 export function shouldAutoSendPaymentLinkEmail(
   record: ShortNoticeBookingRecord,
   payUrl: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   if (
     record.status === "SHORT_NOTICE_DECLINED" ||
@@ -438,7 +438,7 @@ async function sendResponseExpiryEmailOnce(
 export async function expireShortNoticeResponseIfDue(
   env: WorkerEmailEnv & { TRACKING_STORE: KVNamespace },
   record: ShortNoticeBookingRecord,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): Promise<{ record: ShortNoticeBookingRecord; blocked: boolean; emailed: boolean }> {
   const store = env.TRACKING_STORE;
   if (isShortNoticeResponseExpiredRecord(record)) {
@@ -501,7 +501,7 @@ export async function expireShortNoticeResponseIfDue(
 
 export async function processExpiredShortNoticeResponseWindows(
   env: WorkerEmailEnv & { TRACKING_STORE?: KVNamespace },
-  now = new Date(),
+  now = new Date(Date.now()),
 ): Promise<{ expired: number; emailed: number; errors: number }> {
   if (!env.TRACKING_STORE) return { expired: 0, emailed: 0, errors: 0 };
   const scoped = { ...env, TRACKING_STORE: env.TRACKING_STORE };
@@ -888,7 +888,7 @@ export async function createShortNoticeRequest(options: {
   record: ShortNoticeBookingRecord;
   whatsappUrl: string;
 }> {
-  const now = options.now ?? new Date();
+  const now = options.now ?? new Date(Date.now());
   const settings = await getBookingSettings(options.store);
   const resource = availabilityResourceForVehicle(options.booking.vehicle);
   const periods = filterUnavailablePeriodsForResource(settings.unavailablePeriods, resource);
@@ -1054,7 +1054,7 @@ export async function sendShortNoticeRequestReceivedEmail(
 export async function evaluateOwnerNoAvailabilityFromStore(
   store: KVNamespace,
   booking: OwnerAvailabilityBooking,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): Promise<PublicOwnerAvailability> {
   const settings = await getBookingSettings(store);
   const resource = availabilityResourceForVehicle(booking.vehicle);
@@ -1072,7 +1072,7 @@ export async function evaluateOwnerNoAvailabilityFromStore(
 export async function shouldForceShortNotice(
   store: KVNamespace,
   booking: PaidBookingDetails,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): Promise<{
   shortNotice: boolean;
   noAvailability: boolean;
@@ -2050,7 +2050,7 @@ export async function handleOwnerDeclineShortNotice(
 export async function resolveShortNoticeForPayment(
   store: KVNamespace,
   token: string,
-  now = new Date(),
+  now = new Date(Date.now()),
   env?: WorkerEmailEnv,
 ): Promise<{ ok: true; record: ShortNoticeBookingRecord } | { error: string; status: number }> {
   let record = await getShortNoticeByToken(store, token);
@@ -2517,7 +2517,7 @@ export function isPublicShortNoticePath(pathname: string): boolean {
 export async function runShortNoticeDeadline(
   env: WorkerEmailEnv & { TRACKING_STORE?: KVNamespace },
   reference: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): Promise<void> {
   const store = env.TRACKING_STORE;
   if (!store) return;

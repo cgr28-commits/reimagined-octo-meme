@@ -79,7 +79,8 @@ async function main() {
   };
   try {
     for(const minimum of [45,60.25]) for(const distanceScale of [0.1,1]) for(const signed of [false,true]) for(const route of reviewed.routes) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) for(const returning of [false,true]) {
-      now+=11 * 60_000;store.clear(); distanceScaleForRoute = distanceScale; env.QUOTE_RECEIPT_SECRET = signed ? "isolated-receipt-secret" : "";
+      now+=11 * 60_000; if (new RealDate(now).getUTCHours() >= 21) now += 10 * 3600_000; // stay in UK daytime
+      store.clear(); distanceScaleForRoute = distanceScale; env.QUOTE_RECEIPT_SECRET = signed ? "isolated-receipt-secret" : "";
       const pricing=defaultOwnerPricingSettings();pricing.version=checkouts+1;
       pricing.saloonFormula={enabled:true,startingChargeGbp:10,ratePerMileGbp:2.5,minimumFareGbp:30};
       pricing.estate.upliftGbp=minimum===45?7:9.35;pricing.bfsMinimumSaloonFareGbp=minimum;
