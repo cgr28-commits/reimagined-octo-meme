@@ -8142,6 +8142,9 @@ function QuoteCard({
           !submitted &&
           !activeOpenCheckout ? (
             <>
+              {mobileDesign3 && saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => handleSaveQuoteClick()}
@@ -8152,9 +8155,6 @@ function QuoteCard({
               >
                 {mobileDesign3 ? "Send me my quote" : "Email my quote"}
               </button>
-              {mobileDesign3 && saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
-                <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
-              ) : null}
             </>
           ) : null}
 
@@ -10096,6 +10096,9 @@ function QuoteCard({
                       /* Design 3 only (shown by its stylesheet): send the quote link to the
                          customer's WhatsApp or email so they can finish booking later. */
                       <>
+                        {saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                          <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+                        ) : null}
                         <button
                           type="button"
                           className="hidden"
@@ -10105,9 +10108,6 @@ function QuoteCard({
                         >
                           Send me my quote
                         </button>
-                        {saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
-                          <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
-                        ) : null}
                       </>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
