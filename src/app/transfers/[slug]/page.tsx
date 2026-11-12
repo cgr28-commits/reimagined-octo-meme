@@ -9,6 +9,7 @@ import LandingCtaRow from "@/components/LandingCtaRow";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import HeroSlideshow from "@/components/HeroSlideshow";
+import { townGuidePickupFor } from "@/lib/town-centres";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
@@ -208,6 +209,8 @@ export default async function TransferRoutePage({ params }: Props) {
             airportCode: page.airport.code,
             direction: page.direction,
             addressHint: page.town.addressHint,
+            // Town to airport: pre-confirmed town-centre pickup, so a guide price shows straight away.
+            guidePickup: townGuidePickupFor(page.town.addressHint, page.town.name),
           }}
         />
         {quoteFirstLede ? (
