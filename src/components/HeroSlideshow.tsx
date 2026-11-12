@@ -40,12 +40,12 @@ export default function HeroSlideshow() {
           </h1>
 
           <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            Professional, pre-booked transport across Northern Ireland and beyond. From airport transfers and long-distance journeys to cruise terminals, special events and private day trips — enjoy reliable, comfortable travel at a fixed price.
+            Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price.
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
-          <p className="hidden" data-d3-intro-sub>Professional, pre-booked transport across Northern Ireland and beyond. From airport transfers and long-distance journeys to cruise terminals, special events and private day trips — enjoy reliable, comfortable travel at a fixed price.</p>
+          <p className="hidden" data-d3-intro-sub>Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price.</p>
           <div className="hidden" data-d2-rating>
             <GoogleReviewsBadge variant="compact" />
           </div>
