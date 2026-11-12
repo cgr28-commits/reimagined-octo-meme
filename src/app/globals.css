@@ -8204,3 +8204,32 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     min-height: 2.25rem !important;
   }
 }
+@layer base {
+  /* Swap chip must never sit on the clear (×) buttons */
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    right: 2.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap]::after {
+    inset: -0.375rem 0 -0.375rem -0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    padding-right: 2.5rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 2.625rem !important;
+      width: 1.625rem !important;
+      height: 1.625rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+}
