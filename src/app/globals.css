@@ -8392,3 +8392,9 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     font-weight: 500 !important;
   }
 }
+@layer base {
+  /* Body copy across the mobile site: full-strength navy-grey instead of 60–70% tints */
+  html:root:root:root[data-mobile-d3] main :is(p, span, li, dd, dt, small, summary)[class*="text-white/"]:not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, .quote-flow, [data-d2-journey-card], [data-d2-pay-summary], [data-stripe-pay], :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) {
+    color: #24364f !important;
+  }
+}
