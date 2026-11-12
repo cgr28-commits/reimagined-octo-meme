@@ -1479,6 +1479,18 @@ function QuoteCard({
   const isFromAirport = isA2AFlow
     ? Boolean(pickupAirportCode)
     : tripDirection === "from-airport";
+  /** Return leg collects the customer at an airport (e.g. Belfast → Dublin Airport, then back). */
+  const returnPickupAtAirport =
+    returnJourney && (isA2AFlow ? Boolean(dropoffAirportCode) : isAirportTrip && !isFromAirport);
+  /** Waiting wording for the vehicle step: only the waiting that applies to this booking's pickups. */
+  const vehicleStepWaitingLine = (() => {
+    const airportWait = "Up to 60 minutes’ free waiting from your flight’s landing time";
+    if (!returnJourney) return isFromAirport ? airportWait : "10 minutes’ complimentary waiting at pickup";
+    if (isFromAirport && returnPickupAtAirport) return `${airportWait} on both pickups`;
+    if (isFromAirport) return `${airportWait} at the airport; 10 minutes’ complimentary waiting on your return pickup`;
+    if (returnPickupAtAirport) return `10 minutes’ complimentary waiting at pickup; ${airportWait.charAt(0).toLowerCase()}${airportWait.slice(1)} on your return`;
+    return "10 minutes’ complimentary waiting at each pickup";
+  })();
   /**
    * Outbound flight number: airport pickup only (collecting the customer from an airport).
    * To-airport / address-to-address do not ask for an outbound flight.
@@ -7323,6 +7335,10 @@ function QuoteCard({
     const design2AccessIsMeetGreet = Object.values(terminalAccessChoices).includes("meet-greet");
     const design2When =
       tripDate && tripTime ? `${formatBookingDate(tripDate)}, ${formatCustomerClock(tripTime) || tripTime}` : "";
+    const design2ReturnWhen =
+      returnJourney && returnDate && returnTime
+        ? `${formatBookingDate(returnDate)}, ${formatCustomerClock(returnTime) || returnTime}`
+        : "";
     return (
       <>
         {design2Home ? (
@@ -7331,8 +7347,9 @@ function QuoteCard({
               <div>
                 <p data-d2-pay-when>
                   {vehicleShortLabel(quoteVehicle)}
-                  {design2When ? ` · ${design2When}` : ""}
+                  {design2When ? ` · ${design2ReturnWhen ? "Outbound " : ""}${design2When}` : ""}
                 </p>
+                {design2ReturnWhen ? <p data-d2-pay-when>Return · {design2ReturnWhen}</p> : null}
                 <p data-d2-pay-route>
                   {(pickupLabel || "Pickup").split(",")[0]} <span aria-hidden="true">→</span>
                   <span className="sr-only"> to </span> {(dropoffLabel || "Destination").split(",")[0]}
@@ -8775,15 +8792,10 @@ function QuoteCard({
   function renderDesktopResultsIncluded() {
     if (presentation !== "homepage") return null;
     const requestOnly = publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly;
-    const airportPickup = checkoutTimeLabel("outbound") !== "Pickup time";
     return (
       <ul className="hidden" data-results-included>
         {requestOnly ? null : <li>Fixed price, confirmed before you pay</li>}
-        <li>
-          {airportPickup
-            ? "Up to 60 minutes’ complimentary waiting from your flight’s actual landing time"
-            : "Up to 10 minutes’ complimentary waiting at pickup"}
-        </li>
+        <li>{vehicleStepWaitingLine}</li>
         <li>Free cancellation up to 24 hours before pickup</li>
       </ul>
     );
@@ -10106,9 +10118,7 @@ function QuoteCard({
                          with the waiting time that applies to this pickup. */
                       <ul className="hidden" data-d3-included>
                         <li>
-                          {isFromAirport
-                            ? "Up to 60 minutes’ free waiting from your flight’s landing time"
-                            : "10 minutes’ complimentary waiting at pickup"}
+                          {vehicleStepWaitingLine}
                         </li>
                         <li>Free cancellation up to 24 hours before pickup</li>
                       </ul>

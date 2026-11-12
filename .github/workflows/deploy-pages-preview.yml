@@ -30,6 +30,7 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
+      - claude/checkout-return-fixes
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

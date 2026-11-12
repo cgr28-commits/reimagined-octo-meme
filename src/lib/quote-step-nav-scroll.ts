@@ -949,7 +949,14 @@ export function focusFirstInvalidField(
   }
   if (!field) return null;
 
-  scrollBookingTargetIntoView(field, { behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  // Scroll to the field's label when it sits above the field, so the label isn't left
+  // hidden under the sticky header (e.g. "Full name" on mobile checkout).
+  let scrollTarget: HTMLElement = field;
+  if (field.id) {
+    const label = document.querySelector<HTMLElement>(`label[for="${CSS.escape(field.id)}"]`);
+    if (label && label.getBoundingClientRect().top <= field.getBoundingClientRect().top) scrollTarget = label;
+  }
+  scrollBookingTargetIntoView(scrollTarget, { behavior: prefersReducedMotion() ? "auto" : "smooth" });
   try {
     field.focus({ preventScroll: true });
   } catch {
