@@ -8282,3 +8282,71 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     margin-top: 0.4375rem !important;
   }
 }
+
+/* ── Send Me My Quote box: clear, padded action buttons (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 3.25rem !important;
+    padding: 0.875rem 1.25rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.0625rem !important;
+    line-height: 1.2 !important;
+    font-weight: 750 !important;
+    letter-spacing: 0 !important;
+    text-shadow: none !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root [data-save-quote-body] button[data-save-quote-email-submit] {
+    background: #071c38 !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.3), 0 8px 16px -10px rgba(7, 28, 56, 0.6) !important;
+  }
+  html:root:root:root [data-save-quote-body] button[data-save-quote-whatsapp-submit] {
+    background: linear-gradient(180deg, #2fb62f 0%, #1f9a2a 100%) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 8px 16px -10px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):not(:disabled):active {
+    transform: scale(0.985);
+    filter: brightness(0.95);
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):disabled {
+    opacity: 0.7 !important;
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):focus-visible {
+    outline: 3px solid #34d06a !important;
+    outline-offset: 2px;
+  }
+}
+
+/* ── Design 3 details step: darker, heavier supporting text (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], button[data-d3-send-quote]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]) {
+    color: #1c2d49 !important;
+    -webkit-text-fill-color: #1c2d49 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary]) *) {
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p#customer-mobile-whatsapp, [data-access-note], [data-d3-send-quote-note]) {
+    color: #1c2d49 !important;
+    -webkit-text-fill-color: #1c2d49 !important;
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(input, textarea).quote-text-input {
+    color: #071c38 !important;
+    -webkit-text-fill-color: #071c38 !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(input, textarea).quote-text-input::placeholder {
+    color: #4b5b73 !important;
+    -webkit-text-fill-color: #4b5b73 !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+}
