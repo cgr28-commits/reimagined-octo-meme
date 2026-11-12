@@ -233,11 +233,15 @@ export default function Header() {
             href="/"
             aria-label={`${SITE.name} home`}
             className="shrink-0"
-            onClick={() => {
-              // Already on the homepage (e.g. mid-quote): return to the first screen.
-              // Journey details are kept; nothing is cleared, quoted or charged.
+            onClick={(event) => {
+              // Already on the homepage (e.g. mid-quote): return to the first screen in place,
+              // keeping the address bar (ad click IDs etc.) and the journey details.
+              // Nothing is cleared, quoted or charged. Other pages follow the link as normal.
               try {
-                window.dispatchEvent(new Event("matni-logo-home"));
+                if (window.location.pathname === "/" && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                  event.preventDefault();
+                  window.dispatchEvent(new Event("matni-logo-home"));
+                }
               } catch {
                 // ignore
               }
