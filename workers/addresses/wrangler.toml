@@ -122,7 +122,7 @@ WHATSAPP_CLAUDE_LED = "all"
 # owner's personal number only. WHATSAPP_QUOTE_FORM_ID is the Flow id from WhatsApp Manager
 # (empty = off); MODE "draft" sends it before it's published, for testing.
 WHATSAPP_QUOTE_FORM = "447377515059"
-WHATSAPP_QUOTE_FORM_ID = ""
+WHATSAPP_QUOTE_FORM_ID = "1136470702219959"
 WHATSAPP_QUOTE_FORM_MODE = "draft"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
