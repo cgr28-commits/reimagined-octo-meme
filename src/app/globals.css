@@ -6102,7 +6102,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @layer base {
 @media (max-width: 1199.98px) {
   html[data-mobile-d3] {
-    --d2-field: #7d8da3; --d2-muted: #475569;
+    --d2-field: #7d8da3; --d2-muted: #24364f;
     --quote-input-border: #7d8da3; --quote-choice-border: #7d8da3; --quote-input-bg: #ffffff;
     --quote-placeholder: #475569; --quote-secondary-ink: #475569;
     --color-mist: #1e293b; --color-ink-secondary: #475569; --color-ink-muted: #475569;
@@ -8383,5 +8383,12 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     color: #1c2d49 !important;
     -webkit-text-fill-color: #1c2d49 !important;
     font-weight: 600 !important;
+  }
+}
+@layer base {
+  html:root:root:root[data-mobile-d3] [data-results-upgrade-copy] > span,
+  html:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) {
+    color: #1c2d49 !important;
+    font-weight: 500 !important;
   }
 }
