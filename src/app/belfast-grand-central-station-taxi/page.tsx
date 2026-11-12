@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
@@ -78,13 +78,19 @@ export default function GrandCentralStationPage() {
     {schema.map((item) => <script key={item["@type"]} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(item).replace(/</g, "\\u003c") }} />)}
     <Header />
     <main className={styles.page}>
-      <section className={styles.hero}>
+      {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+      <HeroSlideshow
+        heading="Belfast Grand Central Station Taxi Transfers"
+        intro="Pre-book a private taxi to or from Belfast Grand Central Station. Fixed price before you pay."
+        journey={{ bookingIntroduction: "Pre-book your transfer to or from Belfast Grand Central Station in just a few clicks." }}
+      />
+      <section className={styles.hero} style={{ paddingTop: 32 }}>
         <div className={styles.shell}>
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Grand Central Station taxis" }]} />
+          <p className="mt-6 rounded-xl border border-emerald/30 bg-emerald/5 p-4 text-sm leading-relaxed text-white/85"><strong>Station pickup:</strong> Follow the meeting instructions agreed for your booking. Do not assume collection at the public-hire taxi rank. If your meeting point is not confirmed, contact us on WhatsApp before heading outside.</p>
           <div className={styles.heroGrid}>
             <div className={styles.intro}>
               <p className={styles.eyebrow}>By train. By coach. Onward with us.</p>
-              <h1>Belfast Grand Central Station Taxi Transfers</h1>
               <p className={styles.lead}>Your next connection, arranged before you arrive.</p>
               <p>Arriving on the Enterprise from Dublin, a cross-border coach or a local train? Pre-book a private taxi from Belfast Grand Central Station to anywhere in Northern Ireland — home, a hotel, the coast or the airports — with a fixed-price quote and straightforward online booking. Heading the other way, we&apos;ll get you to the station on time too.</p>
               <div className={styles.actions}><LandingPageQuoteCta label="Get Instant Quote" /><a href={whatsapp} target="_blank" rel="noopener noreferrer">Ask us on WhatsApp ↗</a></div>
@@ -101,13 +107,6 @@ export default function GrandCentralStationPage() {
         </div>
       </section>
       <nav className={`${styles.shell} ${styles.jumpLinks}`} aria-label="On this page"><a href="#quote">Get a quote</a><a href="#routes">Popular destinations</a><a href="#meeting-point">Meeting your driver</a><a href="#station-vehicles">Vehicles and luggage</a><a href="#station-faqs">FAQs</a></nav>
-      <LocationQuoteSection
-        bookingIntroduction="Pre-book your transfer to or from Belfast Grand Central Station in just a few clicks."
-        pickupNotice="Follow the meeting instructions agreed for your booking. Do not assume collection at the public-hire taxi rank. If your meeting point is not confirmed, contact us on WhatsApp before heading outside."
-        addressHint="Belfast Grand Central Station, Belfast"
-        heading="Quote a taxi to or from Belfast Grand Central Station"
-        description="Enter your pickup, destination, passengers and luggage. Choose your date and time when you book."
-      />
       <div className={styles.shell}>
         <section className={styles.section}>
           <p className={styles.eyebrow}>Make the connection</p>

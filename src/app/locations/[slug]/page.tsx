@@ -7,9 +7,9 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
   airportTaxiAnchor,
@@ -112,7 +112,12 @@ export default async function TownHubPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }}
       />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading={page.h1}
+          intro={`Door-to-door airport taxis from ${page.town.name} to Belfast International, Belfast City and Dublin Airport. Fixed price before you pay.`}
+        />
         {/* Photo hidden on phones so the quote form is on the first screen. */}
         <div className="hidden sm:block">
           <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
@@ -131,7 +136,6 @@ export default async function TownHubPage({ params }: Props) {
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {page.town.name} · Airport taxi
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-4 text-lg leading-relaxed text-white/80">
               Door-to-door airport taxis from {page.town.name} to{" "}
               {airportLedeLink("BFS", "Belfast International")}, George Best{" "}
@@ -144,11 +148,6 @@ export default async function TownHubPage({ params }: Props) {
           </header>
         </div>
 
-        {/* Quote form directly under the town heading so visitors can price a
-            journey without scrolling past the route links. */}
-        <LocationQuoteSection
-          heading={`Quote an airport taxi from ${page.town.name}`}
-        />
 
         {/* Local detail sits below the quote form. */}
         <div className="mx-auto mb-10 max-w-3xl px-4 sm:px-6 lg:px-8">

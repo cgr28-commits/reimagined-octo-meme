@@ -93,8 +93,8 @@ for (const [name, source] of [
 ] as const) {
   assert.match(source, /export async function generateMetadata/);
   assert.match(source, /alternates: \{ canonical:/);
-  // Route pages render their H1 through the shared quote hero (heading={page.h1}).
-  assert.match(source, /<h1|<HeroSlideshow\s+heading=\{page\.h1\}/);
+  // Hub and route pages render their H1 through the shared quote hero (heading={page.h1}).
+  assert.match(source, /<h1|<HeroSlideshow\s+heading=\{page\.(?:h1|title)\}/);
 }
 assert.match(airports, /getServiceAreaJsonLd|getBreadcrumbJsonLd/);
 assert.match(transfers, /getFaqPageJsonLd/);
