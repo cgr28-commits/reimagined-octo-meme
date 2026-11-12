@@ -672,7 +672,6 @@ export default function QuickQuoteOwnerClient() {
           suitcases: Number(draft.suitcases),
           childSeatRequired: draft.childSeatRequired,
           flightNumber: draft.flightNumber.trim() || undefined,
-          eventName: draftEventName(draft),
           vehicleChoice: draft.vehicleChoice,
           pickupLat: pickupPlace.lat ?? undefined,
           pickupLng: pickupPlace.lng ?? undefined,
