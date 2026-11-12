@@ -61,7 +61,7 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
   const sentToWhatsApp = result?.whatsappSent === true;
   const whatsAppNotSent = result?.whatsappSent === false;
   return <QuoteActionDialog title="Send Me My Quote" titleId="save-quote-title" onClose={close} closeDisabled={busy}>
-    <div className="space-y-4 text-sm text-white">
+    <div className="space-y-4 text-sm text-white" data-save-quote-body>
       <p>{saveQuoteIntroCopy(result, settings.validityDays)}</p>
       {result ? <>
         <p role="status" data-save-quote-status>{sentToWhatsApp ? `We’ve sent your quote by WhatsApp to the number ending ${result.whatsappToSuffix ?? ""}. Open the message any time to finish booking.` : whatsAppNotSent ? "Your quote is saved, but we couldn’t send the WhatsApp message automatically. Tap below to send it to yourself on WhatsApp instead." : result.emailSent ? `Your quote has been emailed to ${result.email}.` : shareUrl ? "Your quote is saved. Open WhatsApp, choose a recipient and send it yourself." : "Your quote is saved, but the email could not be sent. Keep your secure link below."}</p>
@@ -77,12 +77,12 @@ export default function SaveQuoteModal({ open, onClose, buildPayload, onBookNow,
         {settings.emailEnabled && <form className="space-y-3" onSubmit={event => { event.preventDefault(); void submit("email"); }}>
           <label className="block" htmlFor={emailId}>Email address</label>
           <input id={emailId} type="email" autoComplete="email" required maxLength={254} value={email} onChange={e => setEmail(e.target.value)} disabled={busy} className="quote-text-input min-h-12 w-full rounded-xl bg-navy px-3 text-base" />
-          <button type="submit" disabled={busy} className="btn-primary w-full">{busy ? "Saving…" : "Email My Quote"}</button>
+          <button type="submit" disabled={busy} className="btn-primary w-full" data-save-quote-email-submit>{busy ? "Saving…" : "Email My Quote"}</button>
         </form>}
         {settings.whatsappEnabled && <form className="space-y-3" data-save-quote-whatsapp onSubmit={event => { event.preventDefault(); void submit("whatsapp_send"); }}>
           <label className="block" htmlFor={mobileId}>Mobile number (WhatsApp)</label>
           <input id={mobileId} type="tel" inputMode="tel" autoComplete="tel" required minLength={9} maxLength={24} placeholder="07xxx xxxxxx" value={mobile} onChange={e => setMobile(e.target.value)} disabled={busy} className="quote-text-input min-h-12 w-full rounded-xl bg-navy px-3 text-base" />
-          <button type="submit" disabled={busy} className={`${settings.emailEnabled ? "btn-secondary" : "btn-primary"} w-full`}>{busy ? "Sending…" : "Send to My WhatsApp"}</button>
+          <button type="submit" disabled={busy} className={`${settings.emailEnabled ? "btn-secondary" : "btn-primary"} w-full`} data-save-quote-whatsapp-submit>{busy ? "Sending…" : "Send to My WhatsApp"}</button>
         </form>}
       </>}
       {error && <p role="alert" className="text-red-300">{error}</p>}
