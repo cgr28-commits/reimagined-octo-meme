@@ -118,6 +118,12 @@ WHATSAPP_ADDRESS_CHECK = "all"
 # WhatsApp: Claude runs the chat (reads every message; prices still only from the quote engine;
 # falls back to the fixed flow if Claude is unavailable). "off" to switch back.
 WHATSAPP_CLAUDE_LED = "all"
+# WhatsApp quote form (opens inside WhatsApp) for chats the bot struggles with. Pilot: the
+# owner's personal number only. WHATSAPP_QUOTE_FORM_ID is the Flow id from WhatsApp Manager
+# (empty = off); MODE "draft" sends it before it's published, for testing.
+WHATSAPP_QUOTE_FORM = "447377515059"
+WHATSAPP_QUOTE_FORM_ID = ""
+WHATSAPP_QUOTE_FORM_MODE = "draft"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
 # 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.

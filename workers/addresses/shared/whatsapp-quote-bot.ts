@@ -667,7 +667,8 @@ const POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b|\b[AC-FHKNPRTV-Y]\d{2}\s
  */
 export function isWhatsAppTownOnlyAddress(value: string | undefined): boolean {
   const v = (value ?? "").trim();
-  if (!v || parseAirportCode(v) || findKnownPlaces(v).length) return false;
+  // "Dublin city" / "Dublin, Ireland" is a city, not the airport (12 Nov 2026).
+  if (!v || explicitAirportCode(v) || findKnownPlaces(v).length) return false;
   if (/\d/.test(v) || POSTCODE.test(v) || STREET_WORDS.test(v) || BUSINESS_WORDS.test(v)) return false;
   const words = v.replace(/[,.]/g, " ").split(/\s+/).filter(Boolean);
   return words.length <= 3;
@@ -958,8 +959,9 @@ export function validateWhatsAppDraft(
     draft.pickupAddress &&
     draft.dropoffAddress &&
     (draft.pickupAddress.trim().toLowerCase() === draft.dropoffAddress.trim().toLowerCase() ||
-      (parseAirportCode(draft.pickupAddress) != null &&
-        parseAirportCode(draft.pickupAddress) === parseAirportCode(draft.dropoffAddress)));
+      // Only places that plainly are the airport: a Dublin hotel isn't Dublin Airport (12 Nov 2026).
+      (explicitAirportCode(draft.pickupAddress) != null &&
+        explicitAirportCode(draft.pickupAddress) === explicitAirportCode(draft.dropoffAddress)));
   if (samePlace) {
     const place = draft.pickupAddress!;
     return {
