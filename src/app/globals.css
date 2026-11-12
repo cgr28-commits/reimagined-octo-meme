@@ -8233,3 +8233,31 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     min-height: 0 !important;
   }
 }
+/* "Send me my quote": deep navy with white text, sized like the Pay / Continue buttons (owner, 12 Nov 2026) */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions button[data-d3-send-quote][data-d3-send-quote] {
+    min-height: 50px !important;
+    height: 50px !important;
+    padding: 0 1rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    background: #071c38 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.25) !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4 20-7z'/%3E%3C/svg%3E") !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:active {
+    background: #0d2a52 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:focus-visible {
+    outline: 3px solid #34d06a !important;
+    outline-offset: 2px;
+  }
+}
