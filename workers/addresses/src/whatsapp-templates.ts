@@ -46,6 +46,8 @@ export type WhatsAppTemplateEnv = WhatsAppCloudEnv & {
   /** "false" stops every template message (emails are unaffected). */
   WHATSAPP_TEMPLATES_ENABLED?: string;
   GOOGLE_REVIEW_URL?: string;
+  /** The in-WhatsApp quote form's Flow id: adds the mat_quote_form template (FLOW button). */
+  WHATSAPP_QUOTE_FORM_ID?: string;
 };
 
 export type WhatsAppTemplateName =
@@ -61,7 +63,8 @@ export type WhatsAppTemplateName =
   | "mat_quote_link"
   | "mat_web_quote_link"
   | "mat_add_flight_number"
-  | "mat_call_followup";
+  | "mat_call_followup"
+  | "mat_quote_form";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -73,8 +76,40 @@ type TemplateDefinition = {
 };
 
 /** Exactly what is submitted to Meta. Keep wording in sync with the senders below. */
-export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_REVIEW_URL): TemplateDefinition[] {
+export function whatsAppTemplateDefinitions(
+  reviewUrl: string = DEFAULT_GOOGLE_REVIEW_URL,
+  options: { quoteFormId?: string } = {},
+): TemplateDefinition[] {
   return [
+    // Sent by the phone receptionist to callers who'd rather type their journey (12 Nov 2026).
+    // Needs the form's Flow id, so it's only listed once the form exists in WhatsApp Manager.
+    ...(options.quoteFormId?.trim()
+      ? [
+          {
+            name: "mat_quote_form" as const,
+            category: "UTILITY" as const,
+            components: [
+              {
+                type: "BODY",
+                text:
+                  "Thanks for calling My Airport Taxi NI. Tap the button below to enter your journey and " +
+                  "pick your addresses from a list. Your fixed price will come straight back to you here.",
+              },
+              {
+                type: "BUTTONS",
+                buttons: [
+                  {
+                    type: "FLOW",
+                    text: "Get my price",
+                    flow_id: options.quoteFormId.trim(),
+                    flow_action: "data_exchange",
+                  },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
     {
       name: "mat_booking_confirmed",
       category: "UTILITY",
@@ -577,6 +612,55 @@ export function buildTemplatePayload(
   return { type: "template", template: { name, language: { code: WHATSAPP_TEMPLATE_LANGUAGE }, components } };
 }
 
+/**
+ * The quote form as a template (callers who aren't in a WhatsApp chat yet). Its FLOW button
+ * carries the form session's token. Sent only when the template is approved.
+ */
+export async function sendQuoteFormTemplate(
+  env: WhatsAppTemplateEnv,
+  input: { mobile: string; flowToken: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<TemplateSendResult> {
+  const to = whatsAppRecipient(input.mobile);
+  if (!to) return { sent: false, reason: "no_mobile" };
+  if (!resolveWhatsAppProvider(env) || !env.WHATSAPP_QUOTE_FORM_ID?.trim()) {
+    return { sent: false, reason: "disabled_or_not_approved" };
+  }
+  if (!(await templateApproved(env, "mat_quote_form", fetchImpl))) return { sent: false, reason: "disabled_or_not_approved" };
+  const result = await postWhatsAppMessage(
+    env,
+    to,
+    {
+      type: "template",
+      template: {
+        name: "mat_quote_form",
+        language: { code: WHATSAPP_TEMPLATE_LANGUAGE },
+        components: [
+          {
+            type: "button",
+            sub_type: "flow",
+            index: "0",
+            parameters: [{ type: "action", action: { flow_token: input.flowToken } }],
+          },
+        ],
+      },
+    },
+    fetchImpl,
+  );
+  if (!result.sent) {
+    console.log(JSON.stringify({ event: "whatsapp_template_failed", template: "mat_quote_form", phoneSuffix: to.slice(-4), error: result.error }));
+    return { sent: false, reason: "send_failed", error: result.error };
+  }
+  console.log(JSON.stringify({ event: "whatsapp_template_sent", template: "mat_quote_form", phoneSuffix: to.slice(-4) }));
+  if (env.TRACKING_STORE) {
+    await appendWhatsAppChat(env.TRACKING_STORE, to, {
+      from: "assistant",
+      text: "[Quote form sent after a phone call]\n[Button: Get my price]",
+    });
+  }
+  return { sent: true, messageId: result.messageId };
+}
+
 /** The words of a sent template message, as the customer saw them (buttons in brackets). */
 export function templateChatText(name: WhatsAppTemplateName, bodyParams: string[]): string {
   const def = whatsAppTemplateDefinitions().find((d) => d.name === name);
@@ -1038,7 +1122,7 @@ export async function handleWhatsAppTemplates(
   }
   const url = new URL(request.url);
   const reviewUrl = env.GOOGLE_REVIEW_URL?.trim() || DEFAULT_GOOGLE_REVIEW_URL;
-  const definitions = whatsAppTemplateDefinitions(reviewUrl);
+  const definitions = whatsAppTemplateDefinitions(reviewUrl, { quoteFormId: env.WHATSAPP_QUOTE_FORM_ID });
   const lines: string[] = [];
 
   if (url.searchParams.get("submit") === "1") {

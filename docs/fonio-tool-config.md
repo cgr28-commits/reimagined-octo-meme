@@ -136,6 +136,30 @@ The booking URL is our genuine `/book-quote/?id=…` link; customers pay via Str
 
 ---
 
+## 4b. Send Quote Form — during call
+
+For callers struggling to give their journey (addresses not found twice, bad line, would rather type).
+
+- URL: `…/voice/quote-form`
+- Method: POST
+
+```json
+{
+  "mobile": "{{mobile}}",
+  "channel": "{{channel}}",
+  "pickup": "{{pickup}}",
+  "destination": "{{destination}}"
+}
+```
+
+`channel`: `whatsapp` (caller has WhatsApp on that number) or `sms` (no WhatsApp; UK 07 only). Pickup and destination are optional (their words; they prefill the form).
+
+- WhatsApp: sends the quote form (template `mat_quote_form`). The caller picks their addresses from a list and the fixed price comes back on WhatsApp. `messageStatus: accepted`. Speak `say`.
+- No WhatsApp, or the form isn't available: `sendBySms: true` with `smsText` (link to the website quote tool). Run Fonio Send SMS, then `sayAfterSmsAccepted`.
+- Max 3 per number per hour.
+
+---
+
 ## 5. Provisional Booking — during call
 
 - URL: `…/voice/provisional-booking`

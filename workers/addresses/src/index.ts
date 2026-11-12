@@ -1,4 +1,5 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
+import { handleVoiceQuoteForm } from "./voice-quote-form";
 import {
   handleQuoteFormRequest,
   handleQuoteFormSetup,
@@ -4839,6 +4840,9 @@ export default {
     // Live quote — same pricing engine as the website and WhatsApp.
     if (voicePath === "/voice/quote" && request.method === "POST") {
       return handleVoiceQuote(request, env);
+    }
+    if (voicePath === "/voice/quote-form" && request.method === "POST") {
+      return handleVoiceQuoteForm(request, env);
     }
     if (voicePath === "/voice/send-link" && request.method === "POST") {
       return handleVoiceSendLink(request, env);

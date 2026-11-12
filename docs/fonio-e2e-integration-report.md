@@ -1,11 +1,11 @@
 # Fonio end-to-end integration — PASS / FAIL report
 
-_Generated 2026-11-05T11:14:36.773Z by scripts/check-voice-e2e-integration.ts_
+_Generated 2026-11-12T21:19:20.489Z by scripts/check-voice-e2e-integration.ts_
 
 **Scope:** branch Worker handlers + shared quote/pricing rules + read-only production probes.
 **Not in scope this run:** live Fonio phone call, real SMS carrier delivery, real Stripe charges, production deploy.
 
-## Score: 20 PASS · 0 FAIL · 4 BLOCKED
+## Score: 12 PASS · 8 FAIL · 4 BLOCKED
 
 | ID | Area | Result | Detail |
 |----|------|--------|--------|
@@ -20,14 +20,14 @@ _Generated 2026-11-05T11:14:36.773Z by scripts/check-voice-e2e-integration.ts_
 | T09 | Leave Message (failed tool / urgent) | **PASS** | assertions held |
 | T10 | After Call webhook | **PASS** | assertions held |
 | T11 | Stripe Checkout test-mode wiring | **PASS** | assertions held |
-| P01 | Production Worker | **PASS** | /voice/inbound → HTTP 200; body keys=dayPart,greeting,knownCaller,hasUpcomingBooking,sayHint |
-| P02 | Production Worker | **PASS** | /voice/quote → HTTP 200; body keys=ok,missing,askNext,say |
-| P03 | Production Worker | **PASS** | /voice/send-link → HTTP 200; body keys=ok,say |
-| P04 | Production Worker | **PASS** | /voice/provisional-booking → HTTP 200; body keys=ok,say |
-| P05 | Production Worker | **PASS** | /voice/booking → HTTP 200; body keys=ok,found,say |
-| P06 | Production Worker | **PASS** | /voice/booking-link → HTTP 200; body keys=ok,say |
-| P07 | Production Worker | **PASS** | /voice/message → HTTP 200; body keys=ok,urgent,say |
-| P08 | Production Worker | **PASS** | /voice/call-ended → HTTP 200; body keys=ok,queued,reason,logged |
+| P01 | Production Worker | **FAIL** | /voice/inbound: fetch failed |
+| P02 | Production Worker | **FAIL** | /voice/quote: fetch failed |
+| P03 | Production Worker | **FAIL** | /voice/send-link: fetch failed |
+| P04 | Production Worker | **FAIL** | /voice/provisional-booking: fetch failed |
+| P05 | Production Worker | **FAIL** | /voice/booking: fetch failed |
+| P06 | Production Worker | **FAIL** | /voice/booking-link: fetch failed |
+| P07 | Production Worker | **FAIL** | /voice/message: fetch failed |
+| P08 | Production Worker | **FAIL** | /voice/call-ended: fetch failed |
 | L01 | Live Fonio | **BLOCKED** | Live Fonio assistant call not executed here — paste approved prompt/tools in Fonio dashboard, then place a test call |
 | L02 | Live Fonio SMS | **BLOCKED** | Fonio Send SMS add-on + handset delivery receipt not verified in this environment (accepted≠delivered covered in T05) |
 | L03 | Stripe Checkout live test-mode charge | **BLOCKED** | No Stripe test keys in this environment; do not use live keys. Complete /book-quote Checkout with sk_test_ + PAYMENT_PROVIDER=stripe-test after Worker deploy |
@@ -35,7 +35,14 @@ _Generated 2026-11-05T11:14:36.773Z by scripts/check-voice-e2e-integration.ts_
 | T12 | Prompt freeze | **PASS** | assertions held |
 
 ## Failures that block live Fonio testing
-- None in local handler suite.
+- **P01** (Production Worker): /voice/inbound: fetch failed
+- **P02** (Production Worker): /voice/quote: fetch failed
+- **P03** (Production Worker): /voice/send-link: fetch failed
+- **P04** (Production Worker): /voice/provisional-booking: fetch failed
+- **P05** (Production Worker): /voice/booking: fetch failed
+- **P06** (Production Worker): /voice/booking-link: fetch failed
+- **P07** (Production Worker): /voice/message: fetch failed
+- **P08** (Production Worker): /voice/call-ended: fetch failed
 
 ## Configuration required inside Fonio (before live test call)
 1. Paste approved prompt from `docs/fonio-receptionist-prompt.md` into the test assistant.

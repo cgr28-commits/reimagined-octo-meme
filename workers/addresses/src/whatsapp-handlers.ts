@@ -729,6 +729,20 @@ async function customerHasUpcomingBooking(store: KVNamespace, phone: string): Pr
 export const WHATSAPP_QUOTE_FORM_INTRO =
   "Tap below to fill in your journey: pick the addresses from a list, then the date and time. Your fixed price will come straight back here.";
 
+/** A new quote form session for this number (the form's flow token). */
+export async function createQuoteFormSession(
+  store: KVNamespace,
+  phone: string,
+  prefill: { pickup?: string; dropoff?: string } = {},
+): Promise<string> {
+  const token = `qf_${crypto.randomUUID()}`;
+  const session: QuoteFormSession = { phone, createdAt: nowIso(), places: {}, prefill };
+  await store.put(quoteFormSessionKey(token), JSON.stringify(session), {
+    expirationTtl: QUOTE_FORM_SESSION_TTL_SECONDS,
+  });
+  return token;
+}
+
 /**
  * Send the quote form (a WhatsApp Flow) when it's switched on for this customer. Its
  * session remembers the number and what the chat already knows. False when not sent
@@ -747,16 +761,10 @@ async function sendWhatsAppQuoteForm(
   if (!key?.ok) {
     logEvent("whatsapp_quote_form_key_not_registered", phone, { error: key?.error ?? "unknown" });
   }
-  const token = `qf_${crypto.randomUUID()}`;
   const draft = conversation?.draft ?? {};
-  const session: QuoteFormSession = {
-    phone,
-    createdAt: nowIso(),
-    places: {},
-    prefill: { pickup: draft.pickupAddress ?? "", dropoff: draft.dropoffAddress ?? "" },
-  };
-  await store.put(quoteFormSessionKey(token), JSON.stringify(session), {
-    expirationTtl: QUOTE_FORM_SESSION_TTL_SECONDS,
+  const token = await createQuoteFormSession(store, phone, {
+    pickup: draft.pickupAddress ?? "",
+    dropoff: draft.dropoffAddress ?? "",
   });
   const result = await sendWhatsAppFlow(env, phone, {
     body,

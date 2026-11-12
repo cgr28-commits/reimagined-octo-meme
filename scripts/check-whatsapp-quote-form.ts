@@ -9,6 +9,8 @@ import assert from "node:assert/strict";
 import { parseWhatsAppWebhook } from "../shared/whatsapp-cloud";
 import { WHATSAPP_QUOTE_FORM_JSON, type QuoteFormSession } from "../shared/whatsapp-quote-form";
 import { isWhatsAppQuoteFormRequest, processWhatsAppWebhook } from "../workers/addresses/src/whatsapp-handlers";
+import { handleVoiceQuoteForm, voiceQuoteFormSmsText } from "../workers/addresses/src/voice-quote-form";
+import { whatsAppTemplateDefinitions } from "../workers/addresses/src/whatsapp-templates";
 import {
   answerQuoteFormRequest,
   getQuoteFormKeyPair,
@@ -265,6 +267,47 @@ async function main() {
   } finally {
     globalThis.fetch = realFetch;
   }
+  // --- Phone receptionist: WhatsApp form when available, else a text with the quote page.
+  {
+    const { store: vStore } = memoryStore();
+    const voiceReq = (body: unknown) =>
+      new Request("https://w.test/voice/quote-form", { method: "POST", body: JSON.stringify(body) });
+    const realFetch2 = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({ data: [] }))) as typeof fetch;
+    try {
+      // Form not set up yet: a text with the website's quote tool.
+      let res = await handleVoiceQuoteForm(voiceReq({ mobile: "07377 515059" }), { TRACKING_STORE: vStore } as never);
+      let out = (await res.json()) as Record<string, unknown>;
+      assert.equal(out.sendBySms, true);
+      assert.equal(out.smsText, voiceQuoteFormSmsText("https://www.myairporttaxini.co.uk"));
+      assert.match(String(out.smsText), /myairporttaxini\.co\.uk\/#quote/);
+      // Asked for a text: always a text.
+      res = await handleVoiceQuoteForm(voiceReq({ parameters: { mobile: "07377515059", channel: "text" } }), {
+        TRACKING_STORE: vStore,
+        WHATSAPP_QUOTE_FORM: "all",
+        WHATSAPP_QUOTE_FORM_ID: "1",
+      } as never);
+      out = (await res.json()) as Record<string, unknown>;
+      assert.equal(out.channel, "sms");
+      // No number: asks for one.
+      res = await handleVoiceQuoteForm(voiceReq({}), { TRACKING_STORE: vStore } as never);
+      out = (await res.json()) as Record<string, unknown>;
+      assert.deepEqual(out.missing, ["mobile"]);
+      // Rate limited after 3 per number per hour.
+      for (let i = 0; i < 3; i++) await handleVoiceQuoteForm(voiceReq({ mobile: "07700900111" }), { TRACKING_STORE: vStore } as never);
+      res = await handleVoiceQuoteForm(voiceReq({ mobile: "07700900111" }), { TRACKING_STORE: vStore } as never);
+      out = (await res.json()) as Record<string, unknown>;
+      assert.match(String(out.say), /already sent/);
+    } finally {
+      globalThis.fetch = realFetch2;
+    }
+    // The template is only listed once the form exists, with a FLOW button to it.
+    assert.ok(!whatsAppTemplateDefinitions().some((d) => d.name === "mat_quote_form"));
+    const tpl = whatsAppTemplateDefinitions(undefined, { quoteFormId: "999" }).find((d) => d.name === "mat_quote_form");
+    assert.match(JSON.stringify(tpl), /"type":"FLOW".*"flow_id":"999"/);
+    console.log("OK  phone receptionist: WhatsApp form when set up, otherwise a text with the quote page");
+  }
+
   console.log("\nAll quote form checks passed.");
 }
 
