@@ -8744,3 +8744,17 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > :last-child { margin-bottom: 0 !important; }
 }
 }
+@media (min-width: 1200px) {
+@layer base {
+  /* long labels (e.g. "Scheduled flight arrival time") may wrap: keep every field on one baseline */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule {
+    align-items: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule > div > * {
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule label {
+    letter-spacing: 0.02em !important;
+  }
+}
+}
