@@ -80,7 +80,7 @@ export const CRUISE_TERMINAL_NOTES = [
   },
   {
     title: "How to book",
-    body: "Cruise-terminal collections are arranged by enquiry so we can confirm the meeting point and timing. WhatsApp or the contact page is the most reliable start. The homepage quote tool remains available for standard airport transfers once you have an address and flight time.",
+    body: "Use the quote tool at the top of this page for a fixed price — choose Belfast Cruise Terminal as your pickup or destination. We confirm the exact meeting point at the terminal before you travel. You can also message us on WhatsApp if you would rather book that way.",
   },
 ] as const;
 

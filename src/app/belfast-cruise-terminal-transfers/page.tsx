@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   CRUISE_TERMINAL_BOOKING_DETAILS,
   CRUISE_TERMINAL_FAQS,
@@ -64,8 +65,18 @@ export default function BelfastCruiseTerminalTransfersPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading.
+            Nothing is pre-filled — customers pick the cruise terminal or their own address. */}
+        <HeroSlideshow
+          heading={CRUISE_TERMINAL_H1}
+          intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal — airports, hotels and onward journeys."
+          journey={{
+            bookingIntroduction:
+              "Enter Belfast Cruise Terminal as your pickup or destination to see your fixed price.",
+          }}
+        />
+        <div className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
             items={[{ name: "Home", href: "/" }, { name: CRUISE_TERMINAL_H1 }]}
           />
@@ -74,17 +85,16 @@ export default function BelfastCruiseTerminalTransfersPage() {
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               Cruise transfers
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{CRUISE_TERMINAL_H1}</h1>
-            <p className="mt-6 text-lg leading-relaxed text-white/70">{CRUISE_TERMINAL_INTRO}</p>
+            <p className="mt-4 text-lg leading-relaxed text-white/70">{CRUISE_TERMINAL_INTRO}</p>
             <LandingCtaRow whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE} />
             <p className="mt-4 text-sm text-white/55">
-              Cruise-terminal collections are confirmed by message so the meeting point can be
-              agreed. The quote tool is the existing airport-transfer calculator — use it for
-              standard airport journeys, or{" "}
+              Get your fixed price with the quote tool above — choose Belfast Cruise Terminal as
+              your pickup or destination. We confirm the exact meeting point at the terminal before
+              you travel. Prefer to talk it through?{" "}
               <Link href="/contact/" className="text-emerald hover:text-emerald-light">
-                contact us
-              </Link>{" "}
-              to book your transfer.
+                Contact us
+              </Link>
+              .
             </p>
           </header>
 
@@ -207,9 +217,8 @@ export default function BelfastCruiseTerminalTransfersPage() {
           <section className="mt-12 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
             <h2 className="text-lg font-bold text-white">Book your Belfast cruise transfer</h2>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-white/75">
-              Message us with the ship, date and destination to book your transfer. Use Get a Quote
-              only for a standard airport journey on the existing calculator — we do not publish
-              cruise-terminal fares here.
+              Get your fixed price online with the quote tool at the top of this page, or message
+              us with the ship, date and destination and we&apos;ll arrange it for you.
             </p>
             <div className="flex justify-center">
               <LandingCtaRow whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE} />
