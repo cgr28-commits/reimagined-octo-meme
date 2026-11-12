@@ -8398,3 +8398,349 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     color: #24364f !important;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Desktop homepage (≥1200px), first step only: compact two-row quote form on
+   midnight navy, trust strip, rotating images higher (owner approved 12 Nov 2026).
+   Styling only. Mobile/tablet (Design 3, <1200px), other pages and later
+   booking steps are untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) {
+    background:
+      radial-gradient(90% 60% at 88% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+      radial-gradient(90% 70% at 0% 6%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+      linear-gradient(180deg, #071c38 0%, #06152b 46%, #040d1c 100%) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding: 1.125rem 2.5rem 2.5rem !important;
+    row-gap: 0.875rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro {
+    text-align: left !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 {
+    font-size: 2.375rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #fff !important;
+    margin: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 > span { color: #fff !important; -webkit-text-fill-color: currentColor !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 > span + span { color: #4be03c !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin: 0.375rem 0 0 !important;
+    max-width: none !important;
+    color: #f4f7fb !important;
+    font-size: 1.0313rem !important;
+    line-height: 1.4 !important;
+    font-weight: 500 !important;
+  }
+
+  /* card across the full width, trust strip beneath */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: 0.875rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    position: relative !important;
+    padding: 1.25rem 1.375rem 1rem !important;
+    border-radius: 1.25rem !important;
+    background: #fbfcfd !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 2px 4px rgba(2, 8, 20, 0.2), 0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > div:has(> h2[data-site-nav-heading="quote"]) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form { margin: 0 !important; padding: 0 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] {
+    grid-template-columns: repeat(36, minmax(0, 1fr)) !important;
+    gap: 0.875rem 0.875rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) { grid-column: 1 / span 14 !important; grid-row: 1 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) { grid-column: 15 / span 14 !important; grid-row: 1 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child {
+    position: static !important;
+    grid-column: 29 / span 8 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule {
+    grid-column: 1 / span 14 !important;
+    grid-row: 2 !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.875rem !important;
+    margin: 0 !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1) { grid-column: 15 / span 7 !important; grid-row: 2 !important; align-self: end !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2) { grid-column: 22 / span 7 !important; grid-row: 2 !important; align-self: end !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] {
+    grid-column: 29 / span 8 !important;
+    grid-row: 2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] > * { margin-top: 0 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    margin: -0.25rem 0 0 !important;
+    font-size: 0.8438rem !important;
+    line-height: 1.3 !important;
+    color: #24364f !important;
+    font-weight: 500 !important;
+  }
+
+  /* fields: same language as mobile */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form label {
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 0 0.4375rem 0.125rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.035em !important;
+    text-transform: uppercase !important;
+    color: #071c38 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, [data-schedule-control], select) {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    background-color: #fff !important;
+    border: 1.5px solid #c5cedb !important;
+    border-radius: 0.75rem !important;
+    box-shadow: none !important;
+    color: #071c38 !important;
+    font-weight: 600 !important;
+    transition: border-color 160ms ease, box-shadow 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, select):focus,
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control]:focus-within {
+    border-color: #00b820 !important;
+    box-shadow: 0 0 0 3px rgba(31, 170, 75, 0.16) !important;
+    outline: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff)::placeholder {
+    color: #24364f !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control] span { color: #071c38 !important; font-weight: 600 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(button[data-gps-location], .homepage-field-icon, #passenger-luggage-section) svg {
+    color: #00b820 !important;
+    stroke-width: 2.4 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child > div {
+    width: 100% !important;
+    height: 3rem !important;
+    padding: 0.1875rem !important;
+    border-radius: 0.75rem !important;
+    background: #e9eef4 !important;
+    border: 0 !important;
+    box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.06) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 0 0.375rem !important;
+    border-radius: 0.5625rem !important;
+    color: #24364f !important;
+    font-size: 0.9375rem !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.375rem !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] {
+    background: #fff !important;
+    color: #071c38 !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.2), 0 0 0 1px rgba(7, 28, 56, 0.1) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price],
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:disabled {
+    width: 100% !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.0938rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    opacity: 1 !important;
+    filter: none !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price] * { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:not(:disabled):hover { filter: brightness(1.05); }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:not(:disabled):active { transform: scale(0.985); }
+
+  /* trust panel → one readable reassurance strip, rating prominent */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1.25rem !important;
+    padding: 0.25rem 0.375rem !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { display: none !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: clamp(0.875rem, 1.9vw, 2.25rem) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5625rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li > span:last-child > span { display: none !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong {
+    color: #fff !important;
+    font-size: clamp(0.9375rem, 1.15vw, 1rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.005em !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] {
+    width: 1.625rem !important;
+    height: 1.625rem !important;
+    flex: none !important;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    color: #4be03c !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    color: #4be03c !important;
+    stroke-width: 2.5 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] {
+    flex: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5625rem !important;
+    min-height: 0 !important;
+    white-space: nowrap !important;
+    padding: 0.4375rem 0.9375rem !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    text-decoration: none !important;
+    transition: background-color 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel]:hover { background: rgba(255, 255, 255, 0.16) !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] * {
+    color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] { display: inline-flex !important; align-items: center !important; gap: 0.5rem !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :first-child { font-size: 1.1875rem !important; font-weight: 800 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :not(:first-child),
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :not(:first-child) * { color: #fcc419 !important; font-size: 1.0625rem !important; letter-spacing: 0.04em !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-meta] > :not(:first-child) { display: none !important; }
+
+  /* rotating images straight after */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-homepage-hero-rails] { margin-top: 0.5rem !important; }
+
+  /* navigation: same language, homepage only */
+  html:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] {
+    background: rgba(7, 28, 56, 0.9) !important;
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] a.bg-emerald {
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 14px -8px rgba(20, 150, 36, 0.75) !important;
+  }
+}
+}
+@media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
+  html:not([data-mobile-d3]) main > section.homepage-hero #quote * { transition: none !important; }
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note] {
+    margin: 0 !important;
+    padding: 0.1875rem 0.4375rem !important;
+    border-radius: 999px !important;
+    background: #cdf5d3 !important;
+    color: #0a8f1f !important;
+    font-size: 0.75rem !important;
+    font-weight: 750 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note]::first-letter { text-transform: uppercase; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button {
+    flex: 1 1 auto !important;
+    font-size: 0.875rem !important;
+    padding: 0 0.5rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note] {
+    font-size: 0.6875rem !important;
+    padding: 0.1875rem 0.375rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] { padding-bottom: 0.875rem !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > :last-child { margin-bottom: 0 !important; }
+}
+}
