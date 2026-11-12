@@ -8,6 +8,8 @@
 # Uses existing secrets:
 #   STAGING_CLOUDFLARE_API_TOKEN   staging-account token (already used by dashboard staging)
 #   GOOGLE_PLACES_API_KEY          optional: real address suggestions on the preview
+#   "staging" environment: STAGING_STRIPE_SECRET_KEY / STAGING_STRIPE_PUBLISHABLE_KEY (Stripe sandbox)
+#   and the variable STAGING_STRIPE_TEST_EMAILS (tester inboxes), reused when no preview-specific value is set
 # Optional owner-added secrets (the preview works without them; see docs):
 #   BESPOKE_PREVIEW_OWNER_KEY          NEW owner key for the preview dashboard (24+ characters)
 #   BESPOKE_PREVIEW_TESTER_EMAIL       inbox allowed to receive preview emails (otherwise all are blocked)
@@ -42,6 +44,9 @@ env:
 jobs:
   preview:
     runs-on: ubuntu-latest
+    # Same protected GitHub environment as the earlier payment staging: it holds the Stripe
+    # SANDBOX keys and the test customer emails, and the owner approves each run in GitHub.
+    environment: staging
     steps:
       - uses: actions/checkout@v4
 
@@ -81,8 +86,12 @@ jobs:
         id: prepare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
-          BESPOKE_PREVIEW_TESTER_EMAIL: ${{ secrets.BESPOKE_PREVIEW_TESTER_EMAIL }}
-        run: node scripts/bespoke-preview-prepare.mjs
+          # Preview tester inbox, else the staging environment's test customer emails.
+          BESPOKE_PREVIEW_TESTER_EMAIL: ${{ secrets.BESPOKE_PREVIEW_TESTER_EMAIL || vars.STAGING_STRIPE_TEST_EMAILS }}
+        run: |
+          # Keep tester addresses out of the public run log.
+          for address in $(printf '%s' "${BESPOKE_PREVIEW_TESTER_EMAIL:-}" | tr ',' ' '); do echo "::add-mask::$address"; done
+          node scripts/bespoke-preview-prepare.mjs
 
       - name: Deploy preview Worker (staging account only)
         if: steps.ready.outputs.ready == 'true'
@@ -99,6 +108,9 @@ jobs:
           STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY }}
           STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET }}
           PREVIEW_RESEND_API_KEY: ${{ secrets.BESPOKE_PREVIEW_RESEND_API_KEY }}
+          # Stripe SANDBOX keys already stored in the "staging" environment (earlier payment staging).
+          STAGING_STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STAGING_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
           # Existing repository Stripe keys: used ONLY if they are TEST keys (checked below), never if live.
           EXISTING_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           EXISTING_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
@@ -115,6 +127,15 @@ jobs:
           for live in "${LIVE_OWNER_ACCESS_KEY:-}" "${LIVE_DRIVER_ACCESS_KEY:-}"; do
             if [ -n "$live" ] && [ "$PREVIEW_OWNER_KEY" = "$live" ]; then echo "::error::The preview owner key is the same as a live key. Use a new key."; exit 1; fi
           done
+          # No preview-specific Stripe keys? Use the staging environment's sandbox keys.
+          if [ -z "${STRIPE_TEST_SECRET_KEY:-}" ] && [ -n "${STAGING_STRIPE_SECRET_KEY:-}" ]; then
+            STRIPE_TEST_SECRET_KEY="$STAGING_STRIPE_SECRET_KEY"
+            echo "::notice::Stripe: using the staging environment's sandbox secret key."
+          fi
+          if [ -z "${STRIPE_TEST_PUBLISHABLE_KEY:-}" ] && [ -n "${STAGING_STRIPE_PUBLISHABLE_KEY:-}" ]; then
+            STRIPE_TEST_PUBLISHABLE_KEY="$STAGING_STRIPE_PUBLISHABLE_KEY"
+            echo "::notice::Stripe: using the staging environment's sandbox publishable key."
+          fi
           # No preview-specific Stripe keys? Reuse the repository's existing ones, but only when
           # they are Stripe TEST keys. A live key is never copied to the preview.
           if [ -z "${STRIPE_TEST_SECRET_KEY:-}" ] && [ -n "${EXISTING_STRIPE_SECRET_KEY:-}" ]; then
@@ -140,7 +161,7 @@ jobs:
           if [ -n "${STRIPE_TEST_SECRET_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_SECRET_KEY" | grep -Eq '^(sk|rk)_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_SECRET_KEY is not a Stripe TEST key."; exit 1; fi
           if [ -n "${STRIPE_TEST_PUBLISHABLE_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_PUBLISHABLE_KEY" | grep -Eq '^pk_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY is not a Stripe TEST key."; exit 1; fi
 
-          OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)" || { echo "$OUTPUT"; exit 1; }
+          OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)" || { echo "$OUTPUT" | grep -v -i "tester\|EMAIL"; exit 1; }
           echo "$OUTPUT" | grep -v -i "tester\|EMAIL" || true
           URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${PREVIEW_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
           if [ -z "$URL" ]; then echo "::error::Could not read the preview Worker URL."; exit 1; fi

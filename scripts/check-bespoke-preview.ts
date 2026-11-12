@@ -224,6 +224,11 @@ async function main() {
   assert.match(wf, /EXISTING_STRIPE_SECRET_KEY" \| grep -Eq '\^\(sk\|rk\)_test_'/, "existing secret key reused only if it is a test key");
   assert.match(wf, /EXISTING_STRIPE_PUBLISHABLE_KEY" \| grep -Eq '\^pk_test_'/, "existing publishable key reused only if it is a test key");
   assert.ok(!/secrets\.STRIPE_WEBHOOK_SECRET\b/.test(wf), "the live webhook secret is never used by the preview");
+  assert.match(wf, /^    environment: staging$/m, "preview runs in the protected staging environment (owner approves each run)");
+  // Whatever the source, the Stripe keys must pass the TEST-key checks before the deploy.
+  const guardAt = wf.indexOf("BESPOKE_PREVIEW_STRIPE_SECRET_KEY is not a Stripe TEST key");
+  assert.ok(guardAt > wf.indexOf('STRIPE_TEST_SECRET_KEY="$STAGING_STRIPE_SECRET_KEY"') && guardAt < wf.indexOf("npx wrangler deploy -c"), "sandbox keys are format-checked before deploying");
+  assert.match(wf, /::add-mask::\$address/, "tester addresses are masked in the public log");
   assert.match(wf, /cp scripts\/bespoke-preview-gate\.js out\/_worker\.js/, "website is deployed behind the private link");
   assert.match(wf, /\[ "\$CODE" != "401" \]/, "deploy fails unless the site answers 401 without the link");
   assert.match(wf, /rm -f out\/CNAME/, "live domain marker removed from the preview site");

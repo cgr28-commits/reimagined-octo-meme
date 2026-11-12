@@ -29,6 +29,13 @@ preview cannot be signed in to until you add a preview owner key (below).
 | `BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY` | Test payments | `pk_test_…` |
 | `BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET` | Test payment confirmations | Signing secret (`whsec_…`) of a **Test mode** webhook endpoint (see below) |
 
+**Already set up from your earlier payment staging:** the preview runs in the same protected
+GitHub environment, **staging**. Each deploy waits for you to approve it in GitHub (Actions → the
+run → **Review deployments** → tick *staging* → **Approve and deploy**). From that environment it
+reuses your Stripe **sandbox** keys (`STAGING_STRIPE_SECRET_KEY`, `STAGING_STRIPE_PUBLISHABLE_KEY`)
+and the test customer emails (`STAGING_STRIPE_TEST_EMAILS`) as the tester inboxes, unless you add
+the preview-specific secrets above.
+
 **Stripe keys already in GitHub:** if you add no preview Stripe keys, the preview reuses the
 repository's existing `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`, but **only if they are
 Stripe test keys** (`sk_test_…` / `pk_test_…`). Live keys are never copied to the preview. The
