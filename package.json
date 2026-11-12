@@ -92,6 +92,7 @@
     "check:quick-quote": "npx tsx scripts/check-quick-quote.ts",
     "check:owner-customer-contact-message": "npx tsx scripts/check-owner-customer-contact-message.ts",
     "check:whatsapp-quote-bot": "npx tsx scripts/check-whatsapp-quote-bot.ts",
+    "check:whatsapp-quote-form": "npx tsx scripts/check-whatsapp-quote-form.ts",
     "check:whatsapp-templates": "npx tsx scripts/check-whatsapp-templates.ts",
     "check:whatsapp-meta-cloud": "npx tsx scripts/check-whatsapp-meta-cloud.ts",
     "check:quick-quote-roi-manual": "npx tsx scripts/check-quick-quote-roi-manual-price.ts",

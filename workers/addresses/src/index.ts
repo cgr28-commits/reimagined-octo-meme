@@ -1,4 +1,10 @@
 // Must stay first: disables all outbound requests on the dashboard staging build only.
+import {
+  handleQuoteFormRequest,
+  handleQuoteFormSetup,
+  isQuoteFormPath,
+  isQuoteFormSetupPath,
+} from "./whatsapp-quote-form-endpoint";
 import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
@@ -4863,6 +4869,13 @@ export default {
     }
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/voice-calls" && request.method === "GET") {
       return handleOwnerVoiceCalls(request, env, request.headers.get("Origin"));
+    }
+    // The in-WhatsApp quote form: WhatsApp's encrypted data endpoint, and its key setup.
+    if (isQuoteFormPath(url.pathname)) {
+      return handleQuoteFormRequest(request, env);
+    }
+    if (isQuoteFormSetupPath(url.pathname) && request.method === "GET") {
+      return handleQuoteFormSetup(request, env);
     }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
