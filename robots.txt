@@ -1,0 +1,14 @@
+User-Agent: *
+Allow: /
+Disallow: /driver/
+Disallow: /owner/
+Disallow: /driver-portal/
+Disallow: /track/demo/
+Disallow: /test-booking/
+Disallow: /admin/
+Disallow: /tip
+Disallow: /email-previews/
+Disallow: /partners/
+Disallow: /*-example.html
+
+Sitemap: https://www.myairporttaxini.co.uk/sitemap.xml
