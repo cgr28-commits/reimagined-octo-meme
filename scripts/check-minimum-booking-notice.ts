@@ -193,9 +193,9 @@ await checkAsync("Unapproved request cannot start payment from its token", async
 });
 
 check("Customer short-notice copy comes from the shared helper", () => {
-  assert.equal(minimumNoticeRequestHeading(), "Short-notice booking");
-  assert.match(minimumNoticeRequestBody(), /12-hour advance booking period/);
-  assert.match(minimumNoticeRequestBody(), /secure payment link/);
+  assert.equal(minimumNoticeRequestHeading(), "Thank You for Your Booking");
+  assert.match(minimumNoticeRequestBody(), /confirmed once you receive your booking confirmation email/);
+  assert.doesNotMatch(minimumNoticeRequestBody(), /hour/);
   assert.doesNotMatch(minimumNoticeRequestBody(), /guaranteed/);
 });
 

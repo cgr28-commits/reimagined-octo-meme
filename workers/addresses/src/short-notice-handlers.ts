@@ -3,6 +3,8 @@ import { updateSaveQuoteSettings } from "./booking-settings-store";
  * Short-notice booking: create / list / approve / decline / pay-via-SumUp.
  */
 
+import { decideBookingApprovalForTrip } from "../shared/approval-policy";
+import { releaseShortNoticeHold } from "./short-notice-card-hold";
 import {
   isPickupTooSoonForOwnerOvernight,
   overnightTooSoonBody,
@@ -53,7 +55,6 @@ import {
 } from "../shared/short-notice-payment-email";
 import { buildShortNoticeAlternativeOfferEmail } from "../shared/short-notice-alternative-email";
 import { buildShortNoticeDeclineEmail } from "../shared/short-notice-decline-email";
-import { buildShortNoticeExpiryEmail } from "../shared/short-notice-expiry-email";
 import { buildShortNoticeRequestReceivedEmail } from "../shared/short-notice-request-received-email";
 import { checkoutAmountsMatch } from "../shared/open-website-payment-fares";
 import {
@@ -362,10 +363,16 @@ async function sendResponseExpiryEmail(
   if (!isValidCustomerEmail(record.booking.customerEmail)) {
     return { sent: false, error: "Customer email is missing or invalid." };
   }
-  const email = buildShortNoticeExpiryEmail({
+  // Same "Booking Request Unavailable" email as a decline: polite, nothing
+  // charged, authorisation cancelled. Internal deadlines are never mentioned.
+  const email = buildShortNoticeDeclineEmail({
     customerName: record.booking.customerName,
     customerEmail: record.booking.customerEmail.trim(),
-    confirmationWindowHours: record.shortNoticeConfirmationWindowHours,
+    pickupLabel: record.booking.pickupLabel,
+    dropoffLabel: record.booking.dropoffLabel,
+    tripDate: record.booking.tripDate,
+    tripTime: record.booking.tripTime,
+    reference: record.reference,
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -481,6 +488,9 @@ export async function expireShortNoticeResponseIfDue(
     updatedAt: nowIso,
   };
   await saveShortNoticeBooking(store, expired);
+  console.log("Short-notice request expired", JSON.stringify({ reference: expired.reference, at: nowIso }));
+  // Release the card authorisation straight away — the customer is never charged.
+  await releaseShortNoticeHold(store, expired, "expired");
   const stored = (await getShortNoticeByReference(store, expired.reference)) ?? expired;
   if (!isShortNoticeResponseExpiredRecord(stored)) {
     return { record: stored, blocked: false, emailed: false };
@@ -530,8 +540,9 @@ async function claimOpenDecisionOrConflict(
   store: KVNamespace,
   reference: string,
   action: ShortNoticeDecisionAction,
+  deadlineAt?: string,
 ): Promise<{ proceed: true } | { error: string; status: number } | { alreadyClaimed: true }> {
-  const claim = await claimShortNoticeDecision(store, reference, action);
+  const claim = await claimShortNoticeDecision(store, reference, action, { deadlineAt });
   if (!claim.ok) {
     return { error: claim.error, status: 409 };
   }
@@ -747,6 +758,22 @@ export function publicShortNoticeSummary(record: ShortNoticeBookingRecord) {
   };
 }
 
+/** 24/7 approval policy audit fields for a new under-notice request. */
+function approvalPolicyFields(
+  booking: PaidBookingDetails,
+  now: Date,
+): Pick<ShortNoticeBookingRecord, "approvalTier" | "approvalWindowMinutes" | "approvalOvernight"> {
+  const decision = decideBookingApprovalForTrip(booking.tripDate, booking.tripTime, now, {
+    forceManual: true,
+  });
+  if (decision.mode !== "manual") return {};
+  return {
+    approvalTier: decision.tier,
+    approvalWindowMinutes: decision.windowMinutes,
+    approvalOvernight: decision.overnight,
+  };
+}
+
 async function createMinibusNoticeRequest(
   options: {
     store: KVNamespace;
@@ -766,6 +793,12 @@ async function createMinibusNoticeRequest(
     now,
     noticeHours,
   );
+  if (
+    underMinimumNotice &&
+    isPickupTooSoonForOwnerOvernight(options.booking.tripDate, options.booking.tripTime, now)
+  ) {
+    throw new PickupTooSoonError(settings.minimumShortNoticeLeadHours, overnightTooSoonBody(now));
+  }
   const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
@@ -814,6 +847,7 @@ async function createMinibusNoticeRequest(
           shortNoticeConfirmationWindowHours: confirmationWindowHours,
           shortNoticeRequestedAt: createdAt,
           shortNoticeExpiresAt,
+          ...approvalPolicyFields(options.booking, now),
         }
       : {}),
     history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
@@ -961,6 +995,7 @@ export async function createShortNoticeRequest(options: {
           shortNoticeConfirmationWindowHours: confirmationWindowHours,
           shortNoticeRequestedAt: createdAt,
           shortNoticeExpiresAt,
+          ...approvalPolicyFields(options.booking, now),
         }
       : {}),
     history: appendShortNoticeHistory(undefined, "request_submitted", createdAt),
@@ -1368,7 +1403,12 @@ export async function handleOwnerApproveShortNotice(
     return { error: "Booking cannot be approved in its current status.", status: 409 };
   }
 
-  const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "approve");
+  const claim = await claimOpenDecisionOrConflict(
+    env.TRACKING_STORE,
+    reference,
+    "approve",
+    existing.underMinimumNotice ? existing.shortNoticeExpiresAt : undefined,
+  );
   if ("error" in claim) return { error: claim.error, status: claim.status };
   if ("alreadyClaimed" in claim) {
     const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
@@ -1958,7 +1998,14 @@ export async function handleOwnerDeclineShortNotice(
     existing.status === "SHORT_NOTICE_AWAITING_APPROVAL" ||
     existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED"
   ) {
-    const claim = await claimOpenDecisionOrConflict(env.TRACKING_STORE, reference, "decline");
+    const claim = await claimOpenDecisionOrConflict(
+      env.TRACKING_STORE,
+      reference,
+      "decline",
+      existing.status === "SHORT_NOTICE_AWAITING_APPROVAL" && existing.underMinimumNotice
+        ? existing.shortNoticeExpiresAt
+        : undefined,
+    );
     if ("error" in claim) return { error: claim.error, status: claim.status };
     if ("alreadyClaimed" in claim) {
       const latest = await getShortNoticeByReference(env.TRACKING_STORE, reference);
@@ -2461,4 +2508,27 @@ export function isPublicShortNoticePath(pathname: string): boolean {
     pathname === "/short-notice/alternative-offer" ||
     pathname === "/api/short-notice/alternative-offer"
   );
+}
+
+/**
+ * Durable Object alarm at the approval deadline: expire if still pending,
+ * release the card hold, email the customer once. Safe to run repeatedly.
+ */
+export async function runShortNoticeDeadline(
+  env: WorkerEmailEnv & { TRACKING_STORE?: KVNamespace },
+  reference: string,
+  now = new Date(),
+): Promise<void> {
+  const store = env.TRACKING_STORE;
+  if (!store) return;
+  const record = await getShortNoticeByReference(store, reference);
+  if (!record) return;
+  if (record.awaitingCardHold) {
+    // Card never authorised: the owner never saw it. Close it quietly.
+    if (isShortNoticeResponseWindowDue(record, now)) {
+      await releaseShortNoticeHold(store, record, "never_authorised");
+    }
+    return;
+  }
+  await expireShortNoticeResponseIfDue({ ...env, TRACKING_STORE: store }, record, now);
 }

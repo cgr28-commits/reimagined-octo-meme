@@ -7,6 +7,7 @@
 
 import { hoursUntilPickup } from "./refund-ops";
 import { isPickupTooSoonForOwnerOvernight } from "./owner-quiet-hours";
+import { isOvernight } from "./approval-policy";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 /**
@@ -296,6 +297,8 @@ export function isWithinMinimumBookingNotice(
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
+  // 24/7 approval policy: every request sent overnight (23:00–07:00 UK) needs owner approval.
+  if (hours > 0 && isOvernight(now)) return true;
   return hours < configuredNoticeHours(noticeHours);
 }
 
@@ -319,8 +322,8 @@ export function classifyPickupLeadWindow(
   const notice = configuredNoticeHours(noticeHours);
   const lead = clampShortNoticeLeadHours(leadHours, notice);
   if (hours < lead) return "too_soon";
-  if (hours < notice) {
-    // Owner asleep 22:00–07:00: too early to confirm before pickup.
+  if (hours < notice || isOvernight(now)) {
+    // Approval can't finish before pickup (e.g. overnight, clock starts 07:00).
     return isPickupTooSoonForOwnerOvernight(tripDate, tripTime, now) ? "too_soon" : "short_notice";
   }
   return "normal";
@@ -355,16 +358,17 @@ export function formatHoursUntilPickupLabel(
 }
 
 export function minimumNoticeRequestHeading(): string {
-  return "Short-notice booking";
+  return "Thank You for Your Booking";
 }
 
+/** Customer acknowledgement — never reveals internal approval rules or thresholds. */
 export function minimumNoticeRequestBody(
-  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
+  _noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
 ): string {
-  const hours = normalizeMinimumBookingNoticeHours(noticeHours);
   return (
-    `This journey is within our ${hours}-hour advance booking period. You can still request the transfer, but we need to confirm availability before your booking is confirmed.\n\n` +
-    `If we can accommodate your journey, we’ll email you with a secure payment link to confirm your booking.`
+    `Your booking request has been received successfully.\n\n` +
+    `Your transfer is confirmed once you receive your booking confirmation email.\n\n` +
+    `Please check your inbox, including your spam or junk folder.`
   );
 }
 

@@ -155,7 +155,7 @@ try {
    }
    if(collection && width===390) {
      await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=isolated-confirmed`);
-     await page.getByRole('heading',{name:'Booking confirmed',exact:true}).waitFor();
+     await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).waitFor();
      assert.match(await page.locator('main').innerText(),/Meet & Greet: £18.25/);
    }
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

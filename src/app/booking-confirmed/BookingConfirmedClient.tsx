@@ -222,7 +222,7 @@ export default function BookingConfirmedClient() {
         <p className="text-xs font-semibold uppercase tracking-wider text-emerald">{SITE.name}</p>
         <h1 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
           {status === "confirmed"
-            ? "Booking confirmed"
+            ? "Thank You for Your Booking"
             : status === "pending"
               ? "Payment processing"
               : status === "error"
@@ -243,6 +243,13 @@ export default function BookingConfirmedClient() {
         >
           {summary}
         </p>
+        {status === "confirmed" ? (
+          <div data-booking-acknowledgement className="mt-4 space-y-2 text-sm leading-relaxed text-white/85 sm:text-base">
+            <p>Your booking request has been received successfully.</p>
+            <p>Your transfer is confirmed once you receive your booking confirmation email.</p>
+            <p>Please check your inbox, including your spam or junk folder.</p>
+          </div>
+        ) : null}
         {status === "confirmed" && customerReference ? (
           <div data-confirmed-booking-number className="mt-6 rounded-xl border border-emerald/50 bg-white px-4 py-5 text-center">
             <p className="text-xs font-bold uppercase tracking-wider text-navy/70">Your booking number</p>

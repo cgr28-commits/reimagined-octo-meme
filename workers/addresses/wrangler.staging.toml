@@ -61,6 +61,10 @@ class_name = "ConsentLedger"
 name = "WHATSAPP_REPLY_RUNNER"
 class_name = "WhatsAppReplyRunner"
 
+[[durable_objects.bindings]]
+name = "SHORT_NOTICE_DECISION_COORDINATOR"
+class_name = "ShortNoticeDecisionCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -80,6 +84,10 @@ new_sqlite_classes = ["ConsentLedger"]
 [[migrations]]
 tag = "v5-whatsapp-reply-runner"
 new_sqlite_classes = ["WhatsAppReplyRunner"]
+
+[[migrations]]
+tag = "v6-short-notice-decision-coordinator"
+new_sqlite_classes = ["ShortNoticeDecisionCoordinator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"

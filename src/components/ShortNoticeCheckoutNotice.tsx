@@ -6,18 +6,16 @@ import { overnightTooSoonBody, overnightTooSoonHeading } from "../../shared/owne
 import {
   CHOOSE_ANOTHER_PICKUP_TIME_LABEL,
   leadTimeHoursLabel,
-  normalizeMinimumBookingNoticeHours,
   normalizeMinimumShortNoticeLeadHours,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   tooSoonRequestHeading,
 } from "../../shared/booking-notice";
 
-export const SHORT_NOTICE_BOOK_NOW_HEADING = "Short-notice journey — you can still book";
+export const SHORT_NOTICE_BOOK_NOW_HEADING = "Book now — we’ll confirm by email";
 
-/** Compact checkout copy. The notice window still comes from the existing hours setting. */
-export function shortNoticeCheckoutSummary(noticeHours: number): string {
-  const hours = normalizeMinimumBookingNoticeHours(noticeHours);
-  return `Your pickup is within our ${hours}-hour short-notice period. Book now and we’ll confirm your booking shortly.`;
+/** Compact checkout copy. Internal approval rules and thresholds are never shown. */
+export function shortNoticeCheckoutSummary(_noticeHours: number): string {
+  return "Book now and we’ll confirm your booking shortly by email.";
 }
 
 export function shortNoticePaymentFollowUpLines(

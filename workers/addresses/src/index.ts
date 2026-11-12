@@ -30,7 +30,7 @@ import {
   sweepShortNoticeCardHolds,
   SHORT_NOTICE_HOLD_KIND,
 } from "./short-notice-card-hold";
-import { captureCheckoutHold } from "./stripe-holds";
+import { captureCheckoutHold, getCheckoutHoldState } from "./stripe-holds";
 import { paymentProviderStatus, stripeActiveFor } from "./payment-provider";
 import {
   firstPickupAtForBooking,
@@ -234,6 +234,7 @@ import {
   publicAlternativeOfferSummary,
   publicShortNoticeSummary,
   processExpiredShortNoticeResponseWindows,
+  runShortNoticeDeadline,
   resolveShortNoticeForPayment,
   resolveShortNoticeSiteOrigin,
   evaluateOwnerNoAvailabilityFromStore,
@@ -262,9 +263,11 @@ import {
   isOwnerSmartOpsPath,
 } from "./smart-ops-handlers";
 import {
+  configureShortNoticeDecisionCoordinator,
   getShortNoticeByAcceptToken,
   getShortNoticeByReference,
   getShortNoticeByToken,
+  listOpenShortNoticeBookings,
   saveShortNoticeBooking,
 } from "./short-notice-store";
 import {
@@ -390,6 +393,13 @@ import {
   runAdFraudRetentionCleanup,
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
+export { ShortNoticeDecisionCoordinator } from "./short-notice-decision-coordinator";
+import { setShortNoticeDeadlineRunner } from "./short-notice-decision-coordinator";
+import {
+  alertOwnerApprovalRequest,
+  verifyOwnerApprovalToken,
+} from "./owner-approval-alert";
+import { notifyOwnerPush } from "./owner-push";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
 export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
@@ -685,6 +695,12 @@ type Env = {
   /** Per-booking refund serialization (Durable Object). */
   MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  /** Per-request approve/decline/expire lock + deadline alarm (Durable Object). */
+  SHORT_NOTICE_DECISION_COORDINATOR?: DurableObjectNamespace;
+  /** Owner's mobile for approval WhatsApp alerts (secret). */
+  OWNER_APPROVAL_WHATSAPP?: string;
+  /** Optional dedicated HMAC secret for one-tap approval links (falls back to OWNER_ACCESS_KEY). */
+  OWNER_APPROVAL_LINK_SECRET?: string;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
@@ -3703,6 +3719,7 @@ async function handlePaymentRequest(
             subject: ownerEmail.subject,
             body: ownerEmail.body,
           });
+          await alertOwnerApprovalRequest(env, created.record).catch(() => undefined);
           if (created.record.underMinimumNotice || luggageCapacity) {
             await sendShortNoticeRequestReceivedEmail(env, created.record);
           }
@@ -4198,6 +4215,7 @@ async function handlePaymentWebhookRequest(
               await sendShortNoticeRequestReceivedEmail(env, record);
             }
           },
+          alertOwner: (record) => alertOwnerApprovalRequest(env, record),
         });
       } catch (error) {
         console.error("Short-notice hold webhook failed", error instanceof Error ? error.message : "");
@@ -4713,6 +4731,203 @@ async function captureShortNoticeHoldAndConfirm(
   }
 }
 
+setShortNoticeDeadlineRunner(async (rawEnv, reference) => {
+  const env = rawEnv as Env;
+  configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
+  await runShortNoticeDeadline(env, reference);
+});
+
+/**
+ * Owner approval → charge the held card → confirm. Shared by the dashboard
+ * button and the one-tap link. Capture failures never confirm the booking:
+ * - card hold gone (released/expired) → declined, hold released, customer told;
+ * - temporary Stripe error → stays approved-but-unpaid, owner alerted, retried
+ *   by the 5-minute cron and given up (declined) if it can't be charged.
+ */
+async function approveShortNoticeAndCapture(
+  env: Env,
+  request: Request,
+  body: Record<string, unknown>,
+  siteOrigin: string,
+): Promise<{ status: number; payload: Record<string, unknown> }> {
+  const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE! };
+  const result = await handleOwnerApproveShortNotice(request, snEnv, body, siteOrigin);
+  if ("error" in result) return { status: result.status, payload: { error: result.error } };
+  const holdOutcome = await captureShortNoticeHoldAndConfirm(env, result.record);
+  if (holdOutcome.cardHold === "capture_failed") {
+    await handleShortNoticeCaptureFailure(env, result.record.reference, String(holdOutcome.cardHoldError ?? ""));
+  }
+  await appendApprovalAudit(env, result.record.reference, "approve", holdOutcome);
+  return { status: 200, payload: { ...result, ...holdOutcome } };
+}
+
+async function declineShortNoticeAndRelease(
+  env: Env,
+  request: Request,
+  body: Record<string, unknown>,
+): Promise<{ status: number; payload: Record<string, unknown> }> {
+  const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE! };
+  const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
+  if ("error" in result) return { status: result.status, payload: { error: result.error } };
+  await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "declined");
+  await appendApprovalAudit(env, String(body.reference ?? ""), "decline", {});
+  return { status: 200, payload: { ...result } };
+}
+
+/** Append-only approval audit (KV list per reference, 90 days). Never throws. */
+async function appendApprovalAudit(
+  env: Env,
+  reference: string,
+  action: string,
+  detail: Record<string, unknown>,
+): Promise<void> {
+  if (!env.TRACKING_STORE || !reference) return;
+  try {
+    const key = `approval-audit:${reference}`;
+    const existing = (await env.TRACKING_STORE.get<unknown[]>(key, "json")) ?? [];
+    const entry = {
+      at: new Date().toISOString(),
+      action,
+      ...(typeof detail.cardHold === "string" ? { cardHold: detail.cardHold } : {}),
+      ...(typeof detail.bookingConfirmed === "boolean" ? { bookingConfirmed: detail.bookingConfirmed } : {}),
+      ...(typeof detail.cardHoldError === "string" ? { error: detail.cardHoldError.slice(0, 200) } : {}),
+    };
+    await env.TRACKING_STORE.put(key, JSON.stringify([...existing, entry]), {
+      expirationTtl: 90 * 24 * 3600,
+    });
+    console.log("Approval audit", JSON.stringify({ reference, ...entry }));
+  } catch (error) {
+    console.error("Approval audit write failed", reference, error instanceof Error ? error.message : "");
+  }
+}
+
+function internalOwnerRequest(env: Env): Request {
+  const key = (env.OWNER_ACCESS_KEY || env.DRIVER_ACCESS_KEY || "").trim();
+  return new Request("https://internal.invalid/owner", { headers: { "X-Owner-Key": key } });
+}
+
+async function handleShortNoticeCaptureFailure(env: Env, reference: string, error: string): Promise<void> {
+  const store = env.TRACKING_STORE;
+  if (!store) return;
+  const record = await getShortNoticeByReference(store, reference);
+  const hold = record?.cardHold;
+  if (!record || !hold || hold.capturedAt) return;
+  let unrecoverable = false;
+  try {
+    const state = await getCheckoutHoldState(hold.checkoutId);
+    // Only a released/expired authorisation is final. "succeeded" means the money
+    // was taken and confirmation must be retried, never declined.
+    unrecoverable = state.paymentIntentStatus === "canceled";
+  } catch {
+    unrecoverable = false;
+  }
+  await notifyOwnerPush(env, {
+    category: "payments",
+    title: "Card could not be charged",
+    body: `${record.booking.customerName || "Customer"} — ${record.reference}. ${
+      unrecoverable ? "The hold was no longer available; the request has been declined." : "Retrying automatically."
+    }`.slice(0, 160),
+    url: "/owner/?ui=mobile#home",
+  }).catch(() => undefined);
+  if (unrecoverable) {
+    console.error("Short-notice capture failed — hold gone, declining", reference, error.slice(0, 200));
+    await declineShortNoticeAndRelease(env, internalOwnerRequest(env), {
+      reference,
+      reason: "card_hold_unavailable",
+    });
+  }
+}
+
+/** Cron: retry approved-but-uncharged holds; decline if still failing 30 min after approval. */
+async function retryApprovedShortNoticeCaptures(env: Env, now: Date): Promise<void> {
+  const store = env.TRACKING_STORE;
+  if (!store) return;
+  const open = await listOpenShortNoticeBookings(store);
+  for (const record of open) {
+    const hold = record.cardHold;
+    if (record.status !== "SHORT_NOTICE_APPROVED" || !hold?.authorisedAt || hold.capturedAt || hold.releasedAt) {
+      continue;
+    }
+    try {
+      const outcome = await captureShortNoticeHoldAndConfirm(env, record);
+      await appendApprovalAudit(env, record.reference, "capture_retry", outcome);
+      if (outcome.cardHold === "capture_failed") {
+        const approvedMs = new Date(record.approvedAt ?? record.updatedAt).getTime();
+        if (now.getTime() - approvedMs > 30 * 60 * 1000) {
+          await declineShortNoticeAndRelease(env, internalOwnerRequest(env), {
+            reference: record.reference,
+            reason: "card_capture_failed",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Approved capture retry failed", record.reference, error instanceof Error ? error.message : "");
+    }
+  }
+}
+
+/**
+ * One-tap owner links (WhatsApp / push / email): POST { token } to preview,
+ * POST { token, action } to decide. The token is verified (HMAC, booking,
+ * expiry); the decision then uses the same lock as the dashboard.
+ */
+async function handleOwnerApprovalLink(
+  request: Request,
+  env: Env,
+  origin: string | null,
+  mode: "preview" | "decide",
+): Promise<Response> {
+  if (!env.TRACKING_STORE) return json({ error: "Storage is not configured" }, 503, origin);
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+  const verified = await verifyOwnerApprovalToken(env, String(body.token ?? ""));
+  if (!verified.ok) return json({ error: verified.error }, 403, origin);
+  const record = await getShortNoticeByReference(env.TRACKING_STORE, verified.reference);
+  if (!record) return json({ error: "Booking request not found." }, 404, origin);
+  if (mode === "preview") {
+    const b = record.booking;
+    return json(
+      {
+        ok: true,
+        reference: record.reference,
+        status: record.status,
+        customerName: b.customerName,
+        tripDate: b.tripDate,
+        tripTime: b.tripTime,
+        pickupLabel: b.pickupLabel,
+        dropoffLabel: b.dropoffLabel,
+        flightNumber: b.flightNumber || "",
+        passengers: b.passengers,
+        amountLabel: record.amountLabel,
+        expiresAt: verified.expiresAt,
+        cardHeld: Boolean(record.cardHold?.authorisedAt && !record.cardHold.releasedAt && !record.cardHold.capturedAt),
+      },
+      200,
+      origin,
+    );
+  }
+  const action = String(body.action ?? "");
+  const internal = internalOwnerRequest(env);
+  if (action === "approve") {
+    const out = await approveShortNoticeAndCapture(
+      env,
+      internal,
+      { reference: record.reference },
+      BUSINESS_WEBSITE,
+    );
+    return json(out.payload, out.status, origin);
+  }
+  if (action === "decline") {
+    const out = await declineShortNoticeAndRelease(env, internal, { reference: record.reference });
+    return json(out.payload, out.status, origin);
+  }
+  return json({ error: "Unknown action" }, 400, origin);
+}
+
 /** Cron: capture due card holds; email the owner the first time one fails. */
 async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
   try {
@@ -4751,6 +4966,7 @@ async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     configureStripe(env);
+    configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -5596,6 +5812,21 @@ export default {
       return json(result, 200, origin);
     }
 
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/owner/approval-link/preview" ||
+        url.pathname === "/api/owner/approval-link/preview" ||
+        url.pathname === "/owner/approval-link/decide" ||
+        url.pathname === "/api/owner/approval-link/decide")
+    ) {
+      return handleOwnerApprovalLink(
+        request,
+        env,
+        origin,
+        url.pathname.endsWith("/decide") ? "decide" : "preview",
+      );
+    }
+
     if (isOwnerShortNoticePath(url.pathname)) {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
@@ -5659,15 +5890,13 @@ export default {
         } catch {
           return json({ error: "Invalid JSON" }, 400, origin);
         }
-        const result = await handleOwnerApproveShortNotice(
+        const out = await approveShortNoticeAndCapture(
+          env,
           request,
-          snEnv,
           body,
           resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
-        if ("error" in result) return json({ error: result.error }, result.status, origin);
-        const holdOutcome = await captureShortNoticeHoldAndConfirm(env, result.record);
-        return json({ ...result, ...holdOutcome }, 200, origin);
+        return json(out.payload, out.status, origin);
       }
       if (
         (url.pathname.endsWith("/decline") || url.pathname.includes("/decline")) &&
@@ -5679,10 +5908,8 @@ export default {
         } catch {
           return json({ error: "Invalid JSON" }, 400, origin);
         }
-        const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
-        if ("error" in result) return json({ error: result.error }, result.status, origin);
-        await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "declined");
-        return json(result, 200, origin);
+        const out = await declineShortNoticeAndRelease(env, request, body);
+        return json(out.payload, out.status, origin);
       }
       if (
         (url.pathname.endsWith("/resend-payment-email") ||
@@ -6602,6 +6829,7 @@ export default {
     // Dashboard staging has no crons; refuse to run scheduled jobs there even if one is added.
     if (STAGING_SANDBOX) return;
     configureStripe(env);
+    configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
@@ -6622,6 +6850,11 @@ export default {
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
       ctx.waitUntil(
+        retryApprovedShortNoticeCaptures(env, new Date(event.scheduledTime)).catch((error) =>
+          console.error("Approved capture retry cron failed", error),
+        ),
+      );
+      ctx.waitUntil(
         sweepShortNoticeCardHolds(env.TRACKING_STORE, {
           emailOwner: async (subject, body) => {
             await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
@@ -6631,6 +6864,7 @@ export default {
               await sendShortNoticeRequestReceivedEmail(env, record);
             }
           },
+          alertOwner: (record) => alertOwnerApprovalRequest(env, record),
         })
           .then((r) => {
             if (r.released || r.authorised) console.log("Short-notice hold sweep", JSON.stringify(r));

@@ -10,6 +10,11 @@
  *   than 15 awake minutes to answer (e.g. a 06:30 pickup requested at 01:00).
  */
 import { nowLondonTime, parseLondonLocalDateTime, todayLondonDate } from "./uk-time";
+import {
+  decideBookingApproval,
+  decideBookingApprovalForTrip,
+  nextApprovalClockStart,
+} from "./approval-policy";
 
 export const OWNER_QUIET_START_HOUR = 22;
 export const OWNER_QUIET_END_HOUR = 7;
@@ -81,41 +86,45 @@ export function latestOwnerAnswerFor(pickupAt: Date): Date {
 }
 
 /**
- * True when a short-notice pickup can't be confirmed in time because the owner
- * is (or will be) asleep. Daytime behaviour is unchanged.
+ * True when an owner-approval request for this pickup could not be answered
+ * before pickup under the 24/7 approval policy (shared/approval-policy.ts),
+ * e.g. a 02:30 pickup requested at 01:00 (approval clock starts at 07:00).
  */
 export function isPickupTooSoonForOwnerOvernight(
   tripDate: string,
   tripTime: string,
   now = new Date(),
 ): boolean {
-  const pickupAt = parseLondonLocalDateTime(tripDate, tripTime);
-  if (!pickupAt || Number.isNaN(pickupAt.getTime())) return false;
-  const answerBy = pickupAt.getTime() - OWNER_RESPONSE_BEFORE_PICKUP_MS;
-  const overnightInvolved = isOwnerQuietTime(now) || isOwnerQuietTime(new Date(answerBy));
-  if (!overnightInvolved) return false;
-  const awake = nextOwnerAwakeAt(now).getTime();
-  return latestOwnerAnswerFor(pickupAt).getTime() < awake + OWNER_MIN_RESPONSE_MS;
+  const decision = decideBookingApprovalForTrip(tripDate, tripTime, now, { forceManual: true });
+  return decision.mode === "reject" && decision.reason === "deadline_after_pickup";
 }
 
-/** Earliest pickup the customer can book short-notice right now (UK time "HH:MM", plus whether it's tomorrow). */
+/** Earliest pickup the customer can book right now (UK time "HH:MM", plus whether it's tomorrow). */
 export function earliestOvernightPickup(now = new Date()): { time: string; tomorrow: boolean } {
-  const awake = nextOwnerAwakeAt(now);
-  const earliest = new Date(awake.getTime() + OWNER_MIN_RESPONSE_MS + OWNER_RESPONSE_BEFORE_PICKUP_MS);
+  // First quarter-hour pickup the approval policy can accept from `now`.
+  const quarter = 15 * 60 * 1000;
+  let candidate = Math.ceil(nextApprovalClockStart(now).getTime() / quarter) * quarter;
+  for (let i = 0; i < 200; i += 1, candidate += quarter) {
+    const pickupAt = new Date(candidate);
+    const decision = decideBookingApproval({ pickupAt, submittedAt: now, forceManual: true });
+    if (decision.mode === "manual") break;
+  }
+  const earliest = new Date(candidate);
   return {
     time: nowLondonTime(earliest),
     tomorrow: todayLondonDate(earliest) !== todayLondonDate(now),
   };
 }
 
+/** Customer wording — never mentions internal approval or overnight rules. */
 export function overnightTooSoonHeading(): string {
-  return "We’ll be back at 7am";
+  return "Please choose a later pickup time";
 }
 
 export function overnightTooSoonBody(now = new Date()): string {
   const { time, tomorrow } = earliestOvernightPickup(now);
   return (
-    `We can’t confirm short-notice pickups this early while we’re closed overnight (10pm–7am).\n\n` +
-    `Please choose a pickup from ${time}${tomorrow ? " tomorrow" : ""}, or later.`
+    `We’re unable to take an online booking for this pickup time.\n\n` +
+    `Please choose a pickup from ${time}${tomorrow ? " tomorrow" : ""} or later, or message us on WhatsApp @belfasttaxi.`
   );
 }

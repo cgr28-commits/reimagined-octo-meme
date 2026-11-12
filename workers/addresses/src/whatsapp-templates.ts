@@ -61,7 +61,8 @@ export type WhatsAppTemplateName =
   | "mat_quote_link"
   | "mat_web_quote_link"
   | "mat_add_flight_number"
-  | "mat_call_followup";
+  | "mat_call_followup"
+  | "mat_owner_booking_approval";
 
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
@@ -370,7 +371,92 @@ export function whatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_R
         },
       ],
     },
+    {
+      // Sent to the OWNER (not customers) when a booking needs approval.
+      // Buttons open a signed, time-limited confirm screen — the message alone never approves.
+      name: "mat_owner_booking_approval",
+      category: "UTILITY",
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Booking request needs your approval.\n\n" +
+            "Ref: {{1}}\nCustomer: {{2}}\nPickup: {{3}}\nFrom: {{4}}\nTo: {{5}}\n" +
+            "Flight: {{6}}\nPassengers: {{7}}\nFare: {{8}}\n\n" +
+            "Respond by {{9}}. If there is no answer by then, the request expires and the card hold is released.",
+          example: {
+            body_text: [[
+              "MATNI-SN-1042",
+              "Sarah Smith",
+              "Fri 13 Nov at 09:30",
+              "12 Main Street, Lisburn",
+              "Belfast International Airport",
+              "EZY123",
+              "2",
+              "£45.00",
+              "07:30",
+            ]],
+          },
+        },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Approve booking",
+              url: `${SITE}/owner/decision/?do=approve&t={{1}}`,
+              example: [`${SITE}/owner/decision/?do=approve&t=abc123`],
+            },
+            {
+              type: "URL",
+              text: "Decline booking",
+              url: `${SITE}/owner/decision/?do=decline&t={{1}}`,
+              example: [`${SITE}/owner/decision/?do=decline&t=abc123`],
+            },
+          ],
+        },
+      ],
+    },
   ];
+}
+
+/**
+ * Owner approval alert. Never throws; WhatsApp failure never affects the
+ * booking (it is already saved as pending before this is called).
+ */
+export async function sendOwnerApprovalWhatsApp(
+  env: WhatsAppTemplateEnv,
+  input: { to: string | null | undefined; bodyParams: string[]; linkToken: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<TemplateSendResult> {
+  try {
+    const to = whatsAppRecipient(input.to);
+    if (!to) return { sent: false, reason: "no_mobile" };
+    if (!resolveWhatsAppProvider(env)) return { sent: false, reason: "disabled_or_not_approved" };
+    if (!(await templateApproved(env, "mat_owner_booking_approval", fetchImpl))) {
+      return { sent: false, reason: "disabled_or_not_approved" };
+    }
+    const payload = {
+      type: "template",
+      template: {
+        name: "mat_owner_booking_approval",
+        language: { code: WHATSAPP_TEMPLATE_LANGUAGE },
+        components: [
+          { type: "body", parameters: input.bodyParams.map((text) => ({ type: "text", text: templateParam(text) })) },
+          { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: input.linkToken }] },
+          { type: "button", sub_type: "url", index: "1", parameters: [{ type: "text", text: input.linkToken }] },
+        ],
+      },
+    };
+    const result = await postWhatsAppMessage(env, to, payload, fetchImpl);
+    if (!result.sent) {
+      console.log(JSON.stringify({ event: "owner_approval_whatsapp_failed", error: result.error }));
+      return { sent: false, reason: "send_failed", error: result.error };
+    }
+    return { sent: true, messageId: result.messageId };
+  } catch (err) {
+    return { sent: false, reason: "send_failed", error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 // ---------------------------------------------------------------------------

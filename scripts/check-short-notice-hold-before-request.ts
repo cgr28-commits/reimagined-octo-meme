@@ -194,8 +194,8 @@ async function main() {
     assert.ok(stored?.cardHold?.authorisedAt);
     assert.equal(
       new Date(stored!.shortNoticeExpiresAt!).getTime(),
-      later.getTime() + 60 * 60_000,
-      "response window restarts when the card is held",
+      later.getTime() + 30 * 60_000,
+      "response window restarts when the card is held (approval policy: 30 minutes for 4–12h)",
     );
     const list2 = await handleOwnerListShortNotice(ownerRequest(), ownerEnv(store));
     assert.ok("bookings" in list2 && list2.bookings.length === 1);
@@ -266,37 +266,25 @@ async function main() {
     console.log("ok 5. Late authorisation after the deadline is released");
   }
 
-  // 6. Respond-by never lands after pickup.
+  // 6. Respond-by follows the 24/7 approval policy and never lands after pickup.
   {
     const pickup = { tripDate: "2026-11-11", tripTime: "20:00" }; // GMT, so 20:00Z
-    // Tonight's case: sent 17:08, 4-hour window → was 21:08; now 19:00 (1 hour before pickup).
-    assert.equal(
-      shortNoticeResponseExpiresAtIso("2026-11-11T17:08:00Z", 4, pickup),
-      "2026-11-11T19:00:00.000Z",
-    );
-    // Plenty of time: the normal window applies.
-    assert.equal(
-      shortNoticeResponseExpiresAtIso("2026-11-11T12:00:00Z", 4, pickup),
-      "2026-11-11T16:00:00.000Z",
-    );
-    // Pickup 70 min away: 15 minutes to answer, not "already expired".
-    assert.equal(
-      shortNoticeResponseExpiresAtIso("2026-11-11T18:50:00Z", 4, pickup),
-      "2026-11-11T19:05:00.000Z",
-    );
-    // Pickup 10 min away: never past pickup.
-    assert.equal(
-      shortNoticeResponseExpiresAtIso("2026-11-11T19:50:00Z", 4, pickup),
-      "2026-11-11T20:00:00.000Z",
-    );
-    // Summer time: 20:00 BST = 19:00Z.
+    // 17:08 → 20:00 (under 4h) → 15 minutes.
+    assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T17:08:00Z", 4, pickup), "2026-11-11T17:23:00.000Z");
+    // 12:00 → 20:00 (4–12h) → 30 minutes.
+    assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T12:00:00Z", 4, pickup), "2026-11-11T12:30:00.000Z");
+    // Pickup 70 min away → 5 minutes.
+    assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T18:50:00Z", 4, pickup), "2026-11-11T18:55:00.000Z");
+    // Pickup 3 min away: can't be answered safely → expires immediately (hold released).
+    assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T19:57:00Z", 4, pickup), "2026-11-11T19:57:00.000Z");
+    // Summer time: 16:00Z = 17:00 BST, pickup 20:00 BST → 15 minutes.
     assert.equal(
       shortNoticeResponseExpiresAtIso("2026-07-01T16:00:00Z", 4, { tripDate: "2026-07-01", tripTime: "20:00" }),
-      "2026-07-01T18:00:00.000Z",
+      "2026-07-01T16:15:00.000Z",
     );
-    // No pickup given: unchanged behaviour.
+    // No pickup given: window hours counted in available time.
     assert.equal(shortNoticeResponseExpiresAtIso("2026-11-11T17:08:00Z", 4), "2026-11-11T21:08:00.000Z");
-    console.log("ok 6. Respond-by is capped at 1 hour before pickup");
+    console.log("ok 6. Respond-by follows the approval policy, never after pickup");
   }
 
   console.log("\nshort-notice hold-before-request checks passed");

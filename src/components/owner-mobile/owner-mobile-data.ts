@@ -279,7 +279,7 @@ export function buildHomeSummary(input: {
     urgent.push({
       id: `sn:${item.reference}`,
       kind: "short_notice",
-      title: "Short-notice request",
+      title: "Pending booking — approve or decline",
       detail: `${item.booking.customerName} · ${item.booking.tripDate.slice(5).split("-").reverse().join("/")} ${item.booking.tripTime}`,
       badge: minsLeft === null ? "Decide" : minsLeft >= 60 ? `${Math.floor(minsLeft / 60)} h left` : `${minsLeft} min`,
       tone: "red",
