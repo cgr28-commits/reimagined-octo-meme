@@ -408,7 +408,7 @@ assertSharedLogo(
 assertSharedLogo(
   "short-notice decline",
   buildShortNoticeDeclineEmail(shortNotice).html,
-  /No payment has been taken/,
+  /No payment has been captured/,
 );
 assertSharedLogo(
   "short-notice expiry",

@@ -22,6 +22,16 @@ import { approvedProductionProfitabilitySettings } from "../src/lib/owner-profit
 async function main() {
   const originalFetch=globalThis.fetch, originalNow=Date.now;
   let now=Date.parse("2026-10-22T12:00:00Z"); Date.now=()=>now;
+  // Pin `new Date()` to the same daytime clock: the 24/7 approval policy treats
+  // overnight (23:00–07:00 UK) requests differently, so this must not depend on when CI runs.
+  const RealDate=Date;
+  class ClockDate extends RealDate {
+    constructor(...args: unknown[]) {
+      if (args.length===0) super(now); else super(...(args as [string]));
+    }
+    static now() { return now; }
+  }
+  globalThis.Date=ClockDate as DateConstructor;
   const origin="https://www.myairporttaxini.co.uk";
   const store=new Map<string,string>();
   const kv={async get(key:string,type?:string){const v=store.get(key);return v==null?null:type==="json"?JSON.parse(v):v;},async put(key:string,value:string){store.set(key,value);},async delete(key:string){store.delete(key);},async list(){return {keys:[],list_complete:true};}} as unknown as KVNamespace;
@@ -122,6 +132,6 @@ async function main() {
     assert.equal(checks,192);assert.ok(routeCalls>0);
 
     console.log(`PASS ${checks} signed browser-quote → SumUp → paid confirmation → stored booking → customer/owner email cases across three airports, both directions, vehicles, return types, short/long fares, signed/unsigned checkout and changed fractional minimum/supplement settings; later settings preserve agreed fares; repeat confirmation is idempotent; passenger routing only; no external writes.`);
-  } finally {globalThis.fetch=originalFetch;Date.now=originalNow;}
+  } finally {globalThis.fetch=originalFetch;globalThis.Date=RealDate;Date.now=originalNow;}
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
