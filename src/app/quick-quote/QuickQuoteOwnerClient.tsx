@@ -537,6 +537,9 @@ export default function QuickQuoteOwnerClient() {
       childSeatRequired: parsed.childSeatRequired.value ?? false,
       flightNumber,
       vehicleChoice: draft.vehicleChoice,
+      // Reading a pasted message keeps whatever event was already picked.
+      eventChoice: draft.eventChoice,
+      eventOther: draft.eventOther,
     };
 
     setPickupPlace(nextPickupPlace);
