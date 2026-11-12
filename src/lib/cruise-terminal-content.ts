@@ -98,12 +98,12 @@ export const CRUISE_TERMINAL_FAQS = [
   {
     question: "How many passengers can travel?",
     answer:
-      "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. Enquire about 7 Seater Minibus availability for larger groups; cruise-terminal pickups are confirmed by enquiry.",
+      "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. Choose up to seven passengers in the quote tool to request the 7 Seater Minibus for larger groups, subject to availability.",
   },
   {
     question: "Can I book a Belfast Cruise Terminal transfer to the airport?",
     answer:
-      "Yes. We arrange private transfers from Belfast Cruise Terminal to Belfast International Airport, George Best Belfast City Airport and Dublin Airport. Message us with the ship and flight details so the timing can be planned around disembarkation.",
+      "Yes. Enter Belfast Cruise Terminal and your airport in the quote tool for a fixed price to Belfast International, George Best Belfast City or Dublin Airport. Choose a pickup time that leaves a generous gap after disembarkation.",
   },
   {
     question: "Do you offer private tours from the cruise port?",

@@ -330,7 +330,7 @@ function knowledgeChunks(): Array<{ title: string; body: string }> {
       `Page: ${SITE.url}${CRUISE_TERMINAL_PATH}`,
       `Typical journeys: ${CRUISE_TERMINAL_JOURNEYS.map((item) => item.title).join("; ")}.`,
       ...CRUISE_TERMINAL_NOTES.map((note) => `${note.title}: ${note.body}`),
-      "Cruise-terminal collections are arranged by enquiry. Do not quote a cruise fare, apply airport waiting-time rules to the harbour, offer shore excursions, or claim we are an official Belfast Harbour or cruise operator.",
+      "Cruise-terminal journeys get a fixed quote like any other journey: use Belfast Cruise Terminal as the pickup or drop-off address. A cruise-terminal pickup is a non-airport pickup (10 minutes complimentary waiting) — do not apply airport waiting-time rules or flight monitoring to the harbour. Do not offer shore excursions or claim we are an official Belfast Harbour or cruise operator.",
     ].join(" "),
   });
 
