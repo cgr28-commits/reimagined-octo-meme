@@ -229,7 +229,20 @@ export default function Header() {
         </div>
 
         <div className="desktop-shell mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
-          <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
+          <Link
+            href="/"
+            aria-label={`${SITE.name} home`}
+            className="shrink-0"
+            onClick={() => {
+              // Already on the homepage (e.g. mid-quote): return to the first screen.
+              // Journey details are kept; nothing is cleared, quoted or charged.
+              try {
+                window.dispatchEvent(new Event("matni-logo-home"));
+              } catch {
+                // ignore
+              }
+            }}
+          >
             {/* Mobile: slightly larger mark without growing the bar; md+ unchanged */}
             <Logo className="quote-header-logo h-[3.25rem] sm:h-16 md:h-20" priority />
           </Link>
