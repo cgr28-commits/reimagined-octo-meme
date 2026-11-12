@@ -383,8 +383,25 @@ function looksLikeAddress(text: string): boolean {
   return k.length >= 3 && k.length <= 200 && /[a-z]/i.test(k);
 }
 
-export function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
+/**
+ * The airport this address names, only when it plainly is one ("Dublin Airport", "DUB",
+ * "Aldergrove", "George Best"). A place in a city ("The Mercantile Hotel, Dublin",
+ * "Belfast city centre") is an address, not the airport (12 Nov 2026: a Dublin hotel
+ * was quoted as Dublin Airport).
+ */
+export function explicitAirportCode(value: string): ReturnType<typeof parseAirportCode> {
+  const n = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   const code = parseAirportCode(value);
+  if (!code) return null;
+  // Just "Dublin" on its own still means the airport, as it always has for this airport service.
+  if (/\bairport\b/.test(n) || /^(?:bfs|bhd|dub|dublin)$/.test(n)) return code;
+  if (code === "BFS" && /\b(?:belfast international|aldergrove)\b/.test(n)) return code;
+  if (code === "BHD" && /\bgeorge best\b/.test(n)) return code;
+  return null;
+}
+
+export function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
+  const code = explicitAirportCode(value);
   if (code) {
     draft.airportCode = code;
     draft.fromAirport = field === "pickupAddress";

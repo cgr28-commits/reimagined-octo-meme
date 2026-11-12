@@ -1295,3 +1295,31 @@ void (async () => {
   console.error(err);
   process.exit(1);
 });
+
+// A hotel in Dublin is an address, not Dublin Airport, and is checked on the map (12 Nov 2026).
+void (async () => {
+  const { applyClaudeLedUpdates } = await import("../shared/whatsapp-claude-led");
+  const { whatsAppAddressFieldToCheck, parseWhatsAppAddressReply } = await import("../shared/whatsapp-address-check");
+  const { newWhatsAppConversation, explicitAirportCode } = await import("../shared/whatsapp-quote-bot");
+  const convo = newWhatsAppConversation(new Date());
+  convo.draft.pickupAddress = "Boucher Playing Fields, Belfast BT12 6LR";
+  convo.draft.pickupPlaceId = "p1";
+  convo.draft.dropoffAddress = "Dublin Airport";
+  convo.draft.airportCode = "DUB";
+  convo.draft.fromAirport = false;
+  applyClaudeLedUpdates(convo.draft, { dropoff: "The Mercantile Hotel, Dublin" });
+  assert.equal(convo.draft.dropoffAddress, "The Mercantile Hotel, Dublin");
+  assert.equal(convo.draft.airportCode, undefined);
+  assert.equal(whatsAppAddressFieldToCheck(convo, { includePostcoded: true }), "dropoffAddress");
+  assert.equal(explicitAirportCode("Dublin Airport"), "DUB");
+  assert.equal(explicitAirportCode("Dublin city centre"), null);
+  const check = { field: "pickupAddress" as const, typed: "x", options: [{ placeId: "a", address: "A" }, { placeId: "b", address: "B" }] };
+  for (const t of ["Number 2.", "2", "option 2", "the second one"]) {
+    const got = parseWhatsAppAddressReply(t, check);
+    assert.equal(got?.kind === "pick" ? got.option.placeId : null, "b", t);
+  }
+  console.log("OK  a Dublin hotel is checked as an address; typed 'Number 2' picks option 2");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
