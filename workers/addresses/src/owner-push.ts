@@ -15,7 +15,7 @@ import {
   type VapidKeys,
 } from "./web-push";
 
-export type OwnerPushEnv = DriverAuthEnv & { TRACKING_STORE?: KVNamespace };
+export type OwnerPushEnv = DriverAuthEnv & { TRACKING_STORE?: KVNamespace; DRIVER_DB?: unknown };
 
 export const PUSH_CATEGORIES = {
   bookings: { label: "New paid bookings", defaultOn: true },
@@ -24,6 +24,8 @@ export const PUSH_CATEGORIES = {
   cancellations: { label: "Cancellations and refunds", defaultOn: true },
   calls: { label: "Phone calls taken by the receptionist", defaultOn: true },
   payments: { label: "Payment problems", defaultOn: true },
+  // Driver portal (Stage 2). Only listed where driver accounts are switched on.
+  drivers: { label: "Driver jobs and urgent driver reports", defaultOn: true },
 } as const;
 export type PushCategory = keyof typeof PUSH_CATEGORIES;
 export type PushPrefs = Record<PushCategory, boolean>;
@@ -192,7 +194,9 @@ export async function handleOwnerPushRequest(
       publicKey: (await getVapid(store)).publicKey,
       devices: subs.map((s) => ({ label: s.label, createdAt: s.createdAt, endpointId: s.endpoint.slice(-16) })),
       prefs: await getPrefs(store),
-      categories: Object.entries(PUSH_CATEGORIES).map(([id, c]) => ({ id, label: c.label })),
+      categories: Object.entries(PUSH_CATEGORIES)
+        .filter(([id]) => id !== "drivers" || Boolean(env.DRIVER_DB))
+        .map(([id, c]) => ({ id, label: c.label })),
     };
   };
 

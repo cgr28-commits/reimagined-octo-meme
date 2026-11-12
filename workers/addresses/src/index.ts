@@ -2,6 +2,8 @@
 import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
+import { handleDriverJobsRequest, raiseUrgentReportEscalation, runDriverJobsMaintenance } from "./driver-jobs";
+import { buildDriverJobsDeps } from "./driver-jobs-wiring";
 import { handleOwnerPushRequest } from "./owner-push";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
@@ -4755,10 +4757,15 @@ export default {
         { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", ...corsHeaders(origin) } },
       );
     }
+    // Stage 2 driver jobs — answers 404 unless a DRIVER_DB binding exists (staging only).
+    const driverJobsDeps = buildDriverJobsDeps(env, { ownerAuthorized: (req) => ownerAuthorized(req, env), corsHeaders });
+    const driverJobsResponse = await handleDriverJobsRequest(request, env, driverJobsDeps);
+    if (driverJobsResponse) return driverJobsResponse;
     // Stage 1 driver accounts — answers 404 unless a DRIVER_DB binding exists (staging only).
     const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
       ownerAuthorized: (req) => ownerAuthorized(req, env),
       corsHeaders,
+      onUrgentReport: (report) => raiseUrgentReportEscalation(env, driverJobsDeps, report),
       // Read-only booking lookup for the suspension review alert.
       findUpcomingBookingsForDriver: async (driver) => {
         if (!env.TRACKING_STORE) return [];
@@ -6590,6 +6597,14 @@ export default {
     if (STAGING_SANDBOX) return;
     configureStripe(env);
     const cron = event.cron;
+    // Driver portal housekeeping (expired offers, repeat alerts). Inert without a DRIVER_DB binding.
+    if (env.DRIVER_DB) {
+      ctx.waitUntil(
+        runDriverJobsMaintenance(env, buildDriverJobsDeps(env, { ownerAuthorized: () => false, corsHeaders })).catch((error) =>
+          console.error("driver jobs maintenance failed", error instanceof Error ? error.message : error),
+        ),
+      );
+    }
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
         processExpiredShortNoticeResponseWindows(env)

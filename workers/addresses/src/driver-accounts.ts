@@ -65,6 +65,8 @@ export type DriverAccountsDeps = {
   /** Read-only: the booking's current state, to verify "replacement confirmed" / "cancelled". */
   checkBookingAssignment?: (reference: string, driver: DriverIdentity) => Promise<BookingAssignmentCheck>;
   corsHeaders: (origin: string | null) => HeadersInit;
+  /** Stage 2: an urgent driver report alerts the owner at once (and repeats until acknowledged). */
+  onUrgentReport?: (report: { messageId: string; driverId: string; driverName: string; categoryLabel: string; body: string }) => Promise<void>;
   now?: () => Date;
   randomToken?: (prefix: string) => string;
 };
@@ -117,7 +119,7 @@ export const MESSAGE_CATEGORIES = {
 export type MessageCategory = keyof typeof MESSAGE_CATEGORIES;
 const MAX_OFFICE_MESSAGES_PER_DAY = 20;
 
-type DriverRow = {
+export type DriverRow = {
   id: string;
   name: string;
   email: string;
@@ -128,11 +130,13 @@ type DriverRow = {
   operator_name: string;
   operator_licence_number: string;
   vehicle_summary: string;
+  /** Stage 2 column; absent on a Stage 1 database. */
+  vehicle_reg: string;
   created_at: string;
   updated_at: string;
 };
 
-type DocumentRow = {
+export type DocumentRow = {
   id: string;
   driver_id: string;
   kind: DocumentKind;
@@ -145,7 +149,7 @@ type DocumentRow = {
   reviewed_at: string | null;
 };
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(
     readonly status: number,
     message: string,
@@ -174,13 +178,13 @@ export async function hashToken(token: string): Promise<string> {
   return bytesToBase64Url(new Uint8Array(digest));
 }
 
-function newId(prefix: string): string {
+export function newId(prefix: string): string {
   const bytes = new Uint8Array(10);
   crypto.getRandomValues(bytes);
   return `${prefix}_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
-function text(value: unknown, max: number): string {
+export function text(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
@@ -204,7 +208,7 @@ function isYmd(value: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
 }
 
-function ymd(date: Date): string {
+export function ymd(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
@@ -308,7 +312,7 @@ function attentionFor(driver: DriverRow, docs: DocumentRow[], today: string): st
 
 // ---------- data access ----------
 
-function auditStatement(
+export function auditStatement(
   db: D1Like,
   at: string,
   actorType: "owner" | "driver" | "system",
@@ -322,11 +326,11 @@ function auditStatement(
     .bind(at, actorType, actorId, action, driverId, JSON.stringify(detail));
 }
 
-async function getDriver(db: D1Like, id: string): Promise<DriverRow | null> {
+export async function getDriver(db: D1Like, id: string): Promise<DriverRow | null> {
   return db.prepare("SELECT * FROM drivers WHERE id = ?").bind(id).first<DriverRow>();
 }
 
-async function getDocuments(db: D1Like, driverId: string): Promise<DocumentRow[]> {
+export async function getDocuments(db: D1Like, driverId: string): Promise<DocumentRow[]> {
   const res = await db
     .prepare("SELECT * FROM driver_documents WHERE driver_id = ? ORDER BY submitted_at DESC")
     .bind(driverId)
@@ -353,7 +357,7 @@ async function getSetting(db: D1Like, key: string): Promise<string> {
 
 // ---------- request handling ----------
 
-async function readJson(request: Request): Promise<Record<string, unknown>> {
+export async function readJson(request: Request): Promise<Record<string, unknown>> {
   try {
     const body = await request.json();
     return body && typeof body === "object" ? (body as Record<string, unknown>) : {};
@@ -362,14 +366,14 @@ async function readJson(request: Request): Promise<Record<string, unknown>> {
   }
 }
 
-function json(body: unknown, status: number, cors: HeadersInit): Response {
+export function json(body: unknown, status: number, cors: HeadersInit): Response {
   const headers = new Headers(cors);
   headers.set("content-type", "application/json");
   headers.set("cache-control", "no-store");
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function corsWithSessionHeader(cors: HeadersInit): HeadersInit {
+export function corsWithSessionHeader(cors: HeadersInit): HeadersInit {
   const headers = new Headers(cors);
   const allow = headers.get("Access-Control-Allow-Headers") || "";
   if (!allow.toLowerCase().includes(DRIVER_ACCOUNT_SESSION_HEADER.toLowerCase())) {
@@ -403,6 +407,7 @@ export async function handleDriverAccountsRequest(
     token: deps.randomToken ?? defaultRandomToken,
     findUpcomingBookingsForDriver: deps.findUpcomingBookingsForDriver,
     checkBookingAssignment: deps.checkBookingAssignment,
+    onUrgentReport: deps.onUrgentReport,
   };
   try {
     if (url.pathname.startsWith("/owner/driver-accounts")) {
@@ -419,13 +424,14 @@ export async function handleDriverAccountsRequest(
   }
 }
 
-type Ctx = {
+export type Ctx = {
   db: D1Like;
   cors: HeadersInit;
   now: () => Date;
   token: (prefix: string) => string;
   findUpcomingBookingsForDriver?: DriverAccountsDeps["findUpcomingBookingsForDriver"];
   checkBookingAssignment?: DriverAccountsDeps["checkBookingAssignment"];
+  onUrgentReport?: DriverAccountsDeps["onUrgentReport"];
 };
 
 // ---------- owner routes ----------
@@ -660,6 +666,15 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
       db.prepare("UPDATE driver_office_messages SET handled_at = ?, read_at = COALESCE(read_at, ?) WHERE id = ?").bind(at, at, msg.id),
       auditStatement(db, at, "owner", "owner", "message.handled", msg.driver_id, { messageId: msg.id, priority: msg.priority }),
     ]);
+    // Stage 2: handling the report also closes its repeating owner alert (if that table exists).
+    try {
+      await db
+        .prepare("UPDATE escalations SET closed_at = ?, close_note = 'Report marked handled', acknowledged_at = COALESCE(acknowledged_at, ?), next_notify_at = NULL WHERE source_type = 'message' AND source_id = ? AND closed_at IS NULL")
+        .bind(at, at, msg.id)
+        .run();
+    } catch {
+      /* Stage 1 database without the Stage 2 tables */
+    }
     return json({ ok: true }, 200, cors);
   }
 
@@ -730,7 +745,7 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
   throw new HttpError(404, "Not found.");
 }
 
-function categoryLabel(category: string): string {
+export function categoryLabel(category: string): string {
   return (MESSAGE_CATEGORIES as Record<string, { label: string }>)[category]?.label ?? "Message";
 }
 
@@ -845,6 +860,26 @@ async function updateReviewItem(ctx: Ctx, itemId: string, status: string, note: 
       email: driver?.email ?? "",
       mobile: driver?.mobile ?? "",
     });
+    // Stage 2: a live portal job for this exact journey is the authority on who has it now.
+    try {
+      const live = await db
+        .prepare("SELECT j.driver_id, d.name FROM driver_jobs j JOIN drivers d ON d.id = j.driver_id WHERE j.booking_reference = ? AND j.leg = ? AND j.status IN ('confirmed','on_the_way','arrived')")
+        .bind(item.booking_reference, item.leg)
+        .first<{ driver_id: string; name: string }>();
+      if (live) {
+        check.assignedToThisDriver = live.driver_id === item.original_driver_id;
+        check.otherDriver = check.assignedToThisDriver ? "" : live.name;
+      } else if (check.found) {
+        const released = await db
+          .prepare("SELECT 1 AS x FROM driver_jobs WHERE booking_reference = ? AND leg = ? AND driver_id = ? AND status = 'released'")
+          .bind(item.booking_reference, item.leg, item.original_driver_id)
+          .first<{ x: number }>();
+        // Released in the portal and nobody else has it yet: not this driver's, and no replacement.
+        if (released) { check.assignedToThisDriver = false; check.otherDriver = ""; }
+      }
+    } catch {
+      /* Stage 1 database without the Stage 2 tables */
+    }
     if (!check.found) throw new HttpError(409, "That booking can't be found. Use Acknowledge with a reason instead.");
     if (next === "cancelled" && !check.cancelled) {
       throw new HttpError(409, "The booking isn't cancelled. Cancel it from the booking first — nothing is cancelled automatically.");
@@ -906,6 +941,7 @@ function ownerDriverView(d: DriverRow) {
     operatorName: d.operator_name,
     operatorLicenceNumber: d.operator_licence_number,
     vehicleSummary: d.vehicle_summary,
+    vehicleReg: d.vehicle_reg ?? "",
     createdAt: d.created_at,
     updatedAt: d.updated_at,
   };
@@ -976,6 +1012,27 @@ async function changeStatus(ctx: Ctx, driver: DriverRow, action: string, reason:
     } catch (error) {
       lookupFailed = true;
       console.error("driver booking lookup failed", error instanceof Error ? error.message : error);
+    }
+    // Stage 2: the driver's own portal jobs are the firmest link of all. Add any not already listed,
+    // and drop a booking leg that the portal shows is now another driver's job.
+    try {
+      const portalJobs = (await db
+        .prepare("SELECT booking_reference, leg, driver_id, trip_date, trip_time, pickup FROM driver_jobs WHERE status IN ('confirmed','on_the_way','arrived') AND trip_date >= ?")
+        .bind(ymd(ctx.now()))
+        .all<{ booking_reference: string; leg: "outbound" | "return"; driver_id: string; trip_date: string; trip_time: string; pickup: string }>()).results ?? [];
+      const others = new Set(portalJobs.filter((j) => j.driver_id !== driver.id).map((j) => `${j.booking_reference}:${j.leg}`));
+      reviewBookings = reviewBookings.filter((b) => !others.has(`${b.reference}:${b.leg}`));
+      const listed = new Set(reviewBookings.map((b) => `${b.reference}:${b.leg}`));
+      for (const j of portalJobs) {
+        if (j.driver_id !== driver.id || listed.has(`${j.booking_reference}:${j.leg}`)) continue;
+        reviewBookings.push({
+          reference: j.booking_reference, tripDate: j.trip_date, tripTime: j.trip_time, pickup: j.pickup, customerName: "", leg: j.leg,
+          matchMethod: "driver_id", assignment: { driverAccountId: driver.id, assignmentStatus: "accepted", source: "driver portal job" },
+        });
+      }
+      reviewBookings.sort((a, b) => `${a.tripDate}T${a.tripTime}`.localeCompare(`${b.tripDate}T${b.tripTime}`));
+    } catch {
+      /* Stage 1 database without the Stage 2 tables */
     }
     if (reviewBookings.length || lookupFailed) {
       const alertId = newId("alr");
@@ -1090,6 +1147,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
           operatorName: driver.operator_name,
           operatorLicenceNumber: driver.operator_licence_number,
           vehicleSummary: driver.vehicle_summary,
+          vehicleReg: driver.vehicle_reg ?? "",
         },
         documents: docs.filter((d) => d.status !== "superseded").map((d) => publicDocument(d, today)),
         summary: documentSummary(docs, today),
@@ -1166,7 +1224,14 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
         category,
       }),
     ]);
-    // Stage 1: stored for the Owner Dashboard only. No notification is sent.
+    if (priority === "urgent" && ctx.onUrgentReport) {
+      try {
+        await ctx.onUrgentReport({ messageId: id, driverId: driver.id, driverName: driver.name, categoryLabel: MESSAGE_CATEGORIES[category].label, body: message });
+      } catch (error) {
+        // The report itself is saved either way.
+        console.error("urgent report alert failed", error instanceof Error ? error.message : error);
+      }
+    }
     return json({ ok: true, messageId: id, priority }, 201, cors);
   }
 
@@ -1220,7 +1285,7 @@ async function createSessionStatements(ctx: Ctx, driverId: string) {
   };
 }
 
-async function requireSession(request: Request, ctx: Ctx): Promise<{ driver: DriverRow; tokenHash: string }> {
+export async function requireSession(request: Request, ctx: Ctx): Promise<{ driver: DriverRow; tokenHash: string }> {
   const token = request.headers.get(DRIVER_ACCOUNT_SESSION_HEADER)?.trim() || "";
   if (!token.startsWith("dacc_")) throw new HttpError(401, "Please sign in.");
   const tokenHash = await hashToken(token);
