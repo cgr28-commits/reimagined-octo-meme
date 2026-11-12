@@ -29,6 +29,11 @@ preview cannot be signed in to until you add a preview owner key (below).
 | `BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY` | Test payments | `pk_test_…` |
 | `BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET` | Test payment confirmations | Signing secret (`whsec_…`) of a **Test mode** webhook endpoint (see below) |
 
+**Stripe keys already in GitHub:** if you add no preview Stripe keys, the preview reuses the
+repository's existing `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`, but **only if they are
+Stripe test keys** (`sk_test_…` / `pk_test_…`). Live keys are never copied to the preview. The
+webhook secret is never reused: the preview has its own address, so it needs its own.
+
 To re-run: GitHub → **Actions** → **Deploy Bespoke Preview (isolated account)** → open the latest run → **Re-run all jobs**.
 
 ### Stripe test webhook (only if you want to test payments)

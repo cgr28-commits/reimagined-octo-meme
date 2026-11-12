@@ -220,6 +220,10 @@ async function main() {
   assert.ok(!/wrangler\.toml|--env production|deploy-worker|github-pages/.test(wf.replace(/^\s*#.*$/gm, "")), "no live Worker config or GitHub Pages in the preview workflow");
   assert.match(wf, /-c "\$WRANGLER_CONFIG"/, "Worker commands use the generated preview config");
   assert.match(wf, /\^\(sk\|rk\)_test_/, "Stripe secret must be a TEST key");
+  // Existing repository Stripe keys are reused only behind the same TEST-key checks; the live webhook secret is never read.
+  assert.match(wf, /EXISTING_STRIPE_SECRET_KEY" \| grep -Eq '\^\(sk\|rk\)_test_'/, "existing secret key reused only if it is a test key");
+  assert.match(wf, /EXISTING_STRIPE_PUBLISHABLE_KEY" \| grep -Eq '\^pk_test_'/, "existing publishable key reused only if it is a test key");
+  assert.ok(!/secrets\.STRIPE_WEBHOOK_SECRET\b/.test(wf), "the live webhook secret is never used by the preview");
   assert.match(wf, /cp scripts\/bespoke-preview-gate\.js out\/_worker\.js/, "website is deployed behind the private link");
   assert.match(wf, /\[ "\$CODE" != "401" \]/, "deploy fails unless the site answers 401 without the link");
   assert.match(wf, /rm -f out\/CNAME/, "live domain marker removed from the preview site");

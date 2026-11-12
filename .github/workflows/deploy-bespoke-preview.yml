@@ -99,6 +99,9 @@ jobs:
           STRIPE_TEST_PUBLISHABLE_KEY: ${{ secrets.BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY }}
           STRIPE_TEST_WEBHOOK_SECRET: ${{ secrets.BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET }}
           PREVIEW_RESEND_API_KEY: ${{ secrets.BESPOKE_PREVIEW_RESEND_API_KEY }}
+          # Existing repository Stripe keys: used ONLY if they are TEST keys (checked below), never if live.
+          EXISTING_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          EXISTING_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           SITE_HOST: ${{ steps.prepare.outputs.site_host }}
         run: |
           set -euo pipefail
@@ -112,6 +115,27 @@ jobs:
           for live in "${LIVE_OWNER_ACCESS_KEY:-}" "${LIVE_DRIVER_ACCESS_KEY:-}"; do
             if [ -n "$live" ] && [ "$PREVIEW_OWNER_KEY" = "$live" ]; then echo "::error::The preview owner key is the same as a live key. Use a new key."; exit 1; fi
           done
+          # No preview-specific Stripe keys? Reuse the repository's existing ones, but only when
+          # they are Stripe TEST keys. A live key is never copied to the preview.
+          if [ -z "${STRIPE_TEST_SECRET_KEY:-}" ] && [ -n "${EXISTING_STRIPE_SECRET_KEY:-}" ]; then
+            if printf '%s' "$EXISTING_STRIPE_SECRET_KEY" | grep -Eq '^(sk|rk)_test_'; then
+              STRIPE_TEST_SECRET_KEY="$EXISTING_STRIPE_SECRET_KEY"
+              echo "::notice::Stripe: reusing the existing STRIPE_SECRET_KEY (it is a TEST key)."
+            else
+              echo "::notice::Stripe: the existing STRIPE_SECRET_KEY is NOT a test key, so it was not used. Add BESPOKE_PREVIEW_STRIPE_SECRET_KEY (sk_test_…) to test payments."
+            fi
+          fi
+          if [ -z "${STRIPE_TEST_PUBLISHABLE_KEY:-}" ] && [ -n "${EXISTING_STRIPE_PUBLISHABLE_KEY:-}" ]; then
+            if printf '%s' "$EXISTING_STRIPE_PUBLISHABLE_KEY" | grep -Eq '^pk_test_'; then
+              STRIPE_TEST_PUBLISHABLE_KEY="$EXISTING_STRIPE_PUBLISHABLE_KEY"
+              echo "::notice::Stripe: reusing the existing STRIPE_PUBLISHABLE_KEY (it is a TEST key)."
+            else
+              echo "::notice::Stripe: the existing STRIPE_PUBLISHABLE_KEY is NOT a test key, so it was not used."
+            fi
+          fi
+          if [ -n "${STRIPE_TEST_SECRET_KEY:-}" ] && [ -z "${STRIPE_TEST_WEBHOOK_SECRET:-}" ]; then
+            echo "::notice::Stripe: no BESPOKE_PREVIEW_STRIPE_WEBHOOK_SECRET yet. Payments can start, but confirmations rely on the page check until the preview webhook is added."
+          fi
           # Stripe: TEST keys only. Anything else stops the deploy before it reaches Cloudflare.
           if [ -n "${STRIPE_TEST_SECRET_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_SECRET_KEY" | grep -Eq '^(sk|rk)_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_SECRET_KEY is not a Stripe TEST key."; exit 1; fi
           if [ -n "${STRIPE_TEST_PUBLISHABLE_KEY:-}" ] && ! printf '%s' "$STRIPE_TEST_PUBLISHABLE_KEY" | grep -Eq '^pk_test_'; then echo "::error::BESPOKE_PREVIEW_STRIPE_PUBLISHABLE_KEY is not a Stripe TEST key."; exit 1; fi
