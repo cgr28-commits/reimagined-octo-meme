@@ -11,8 +11,9 @@
 const ACCESS_CODE_SHA256 = "b984499b56acd05ed31e2b9c70287ecc8fd5ae5b99cfa932b172d97f0e46ab96";
 const COOKIE = "matni_preview";
 const PREVIEW_CSP = [
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.stripe.com",
-  "connect-src 'self' https://*.my-airport-taxi-ni-staging.workers.dev https://challenges.cloudflare.com https://api.stripe.com",
+  // Stripe's card form uses several of its own hosts (js, api, m, r, q, merchant-ui-api, *.stripe.network).
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://*.stripe.com https://*.stripe.network",
+  "connect-src 'self' https://*.my-airport-taxi-ni-staging.workers.dev https://challenges.cloudflare.com https://*.stripe.com https://*.stripe.network",
 ].join("; ");
 const MAX_AGE = 60 * 60 * 24 * 30;
 
