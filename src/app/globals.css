@@ -8758,3 +8758,132 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   }
 }
 }
+@media (min-width: 1200px) {
+@layer base {
+  /* Return journeys: all four date/time fields on one row; passengers, suitcases, hint and button on the next */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule {
+    grid-column: 1 / span 28 !important;
+    grid-row: 2 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.875rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="date"]) > div:has(> label[for="date"]) { grid-column: 1 !important; grid-row: 1 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="date"]) > div:has(> label[for="time"]) { grid-column: 2 !important; grid-row: 1 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="returnDate"]) {
+    grid-column: 3 / span 2 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.875rem !important;
+    align-items: end !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="returnDate"]) > div { align-self: end !important; margin: 0 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule #trip-date-error:not(:empty) { grid-column: 1 / -1 !important; grid-row: 2 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1) { grid-column: 1 / span 7 !important; grid-row: 3 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2) { grid-column: 8 / span 7 !important; grid-row: 3 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements {
+    grid-column: 15 / span 14 !important;
+    grid-row: 3 !important;
+    align-self: end !important;
+    margin: 0 !important;
+    min-height: 3rem !important;
+    display: flex !important;
+    align-items: center !important;
+    padding-left: 0.375rem !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-column: 29 / span 8 !important; grid-row: 3 !important; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* Desktop vehicle + checkout steps (homepage): padded buttons in the mobile style (owner, 12 Nov 2026) */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button {
+    min-height: 3.375rem !important;
+    padding: 0 1.25rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    font-size: 1.125rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75) !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button:not(:disabled):hover { filter: brightness(1.06); }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button:not(:disabled):active { transform: scale(0.985); }
+
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem 0.625rem !important;
+    margin-top: 1rem !important;
+    padding-top: 0.875rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row]::before {
+    content: "Not ready to book yet?";
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #e6edf7;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link),
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4375rem !important;
+    width: 100% !important;
+    min-height: 2.875rem !important;
+    padding: 0.625rem 0.875rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 0.9375rem !important;
+    font-weight: 750 !important;
+    line-height: 1.15 !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    transition: background-color 160ms ease, transform 140ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote] {
+    background: #fff !important;
+    border: 1.5px solid #fff !important;
+    color: #071c38 !important;
+    box-shadow: 0 1px 2px rgba(2, 8, 20, 0.3) !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote]:hover,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote]:hover { background: #eaf0f7 !important; color: #071c38 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link):not([data-results-email-quote]),
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    color: #fff !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link):not([data-results-email-quote]):hover,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button:hover { background: rgba(255, 255, 255, 0.14) !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a):active { transform: scale(0.985); }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-start-new] {
+    color: rgba(255, 255, 255, 0.82) !important;
+    font-size: 0.8125rem !important;
+    padding: 0.375rem 0.5rem !important;
+  }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote] *,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote][data-checkout-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote][data-checkout-email-quote] * {
+    color: #071c38 !important;
+    -webkit-text-fill-color: #071c38 !important;
+  }
+}
+}
