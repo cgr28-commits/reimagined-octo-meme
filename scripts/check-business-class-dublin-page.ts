@@ -47,7 +47,9 @@ console.log("=== Metadata ===");
   assert.match(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /Belfast and Dublin Airport/);
   assert.ok(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION.length <= 160);
   assert.doesNotMatch(BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION, /chauffeur/i);
-  assert.equal(page.match(/<h1\b/g)?.length, 1);
+  // The single H1 is rendered by the shared quote hero at the top of the page.
+  assert.equal(page.match(/<h1\b/g)?.length ?? 0, 0);
+  assert.equal(page.match(/heading=\{BUSINESS_CLASS_DUBLIN_H1\}/g)?.length, 1);
   assert.match(page, /title: \{ absolute: BUSINESS_CLASS_DUBLIN_SEO_TITLE \}/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.match(page, /canonical: BUSINESS_CLASS_DUBLIN_PATH/);
@@ -97,10 +99,9 @@ console.log("\n=== Quote inclusions and booking limits ===");
   assert.match(page, /Extra comfort for your journey/);
   assert.match(page, /Travel in a premium executive car \(a Mercedes, BMW, Lexus or similar\)/);
   assert.match(page, /How to book Business Class/);
-  assert.match(page, /airportCode="DUB"/);
-  assert.match(page, /direction="to-airport"/);
-  assert.match(page, /<LocationQuoteSection/);
-  assert.match(page, /showStickyQuote=\{false\}/);
+  assert.match(page, /airportCode: "DUB"/);
+  assert.match(page, /direction: "to-airport"/);
+  assert.match(page, /<HeroSlideshow/);
   assert.doesNotMatch(page, /chooseExecutive|EXECUTIVE_VEHICLE|initialVehicle|publicExecutiveEnabled=\{false\}/);
   // Owner (Oct 2026): name the class of car, always with "or similar" — never promise one make.
   assert.doesNotMatch(combined, /Audi|Wi-Fi|wifi|limousine|hourly chauffeur/i);
