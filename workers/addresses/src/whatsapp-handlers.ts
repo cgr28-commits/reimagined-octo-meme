@@ -76,11 +76,14 @@ import {
   buildWhatsAppAddressPrompt,
   buildWhatsAppAddressRetry,
   clearStaleWhatsAppPlaces,
+  hasFullPostcode,
   parseWhatsAppAddressReply,
   whatsAppAddressFieldToCheck,
+  whatsAppAddressNotFoundReply,
   whatsAppFullAddress,
 } from "../shared/whatsapp-address-check";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { describeWhatsAppEventForAi, matchWhatsAppEvent } from "../shared/whatsapp-events";
 import {
   applyClaudeLedTurn,
   buildClaudeLedContext,
@@ -233,8 +236,9 @@ export const whatsAppAddressLookup = {
 };
 
 /**
- * Look the typed address up on Google: up to three full addresses with postcode, or null
- * (no key, rate limited, no match, Google down) — then the chat carries on as before.
+ * Look the typed address up on Google: up to three full addresses with postcode;
+ * "not_found" when Google has nothing for it (e.g. a hotel name the customer has wrong);
+ * or null (no key, rate limited, Google down) — then the chat carries on as before.
  */
 async function lookUpWhatsAppAddress(
   env: WhatsAppEnv,
@@ -242,7 +246,7 @@ async function lookUpWhatsAppAddress(
   phone: string,
   conversation: WhatsAppConversation,
   field: WhatsAppAddressField,
-): Promise<WhatsAppAddressCheck | null> {
+): Promise<WhatsAppAddressCheck | "not_found" | null> {
   if (!env.GOOGLE_PLACES_API_KEY?.trim()) return null;
   const typed = conversation.draft[field]!.trim();
   try {
@@ -270,7 +274,7 @@ async function lookUpWhatsAppAddress(
       }))
       .sort((a, b) => b.score - a.score);
     const [top, second] = scored;
-    if (!top) return null;
+    if (!top) return "not_found";
     const clearWinner =
       scored.length === 1 ||
       (top.score >= 0.6 && (!second || top.score - second.score >= 0.25 || second.score < 0.45));
@@ -282,7 +286,7 @@ async function lookUpWhatsAppAddress(
       .filter((p): p is NonNullable<typeof p> => Boolean(p?.placeId))
       .map((p) => ({ placeId: p.placeId, address: whatsAppFullAddress(p) }))
       .filter((o) => o.address);
-    return options.length ? { field, typed, options } : null;
+    return options.length ? { field, typed, options } : "not_found";
   } catch (error) {
     console.error("whatsapp address lookup failed", error instanceof Error ? error.message : error);
     return null;
@@ -842,7 +846,21 @@ async function handleInboundMessage(
     const field = whatsAppAddressFieldToCheck(conversation, { includePostcoded: claudeLed });
     if (field) {
       const check = await lookUpWhatsAppAddress(env, store, phone, conversation, field);
-      if (check) {
+      const typed = conversation.draft[field]!.trim();
+      if (check === "not_found" && !hasFullPostcode(typed)) {
+        // Not on the map (a hotel or place name spelt wrong, or a name that isn't real): ask,
+        // rather than quote for it as typed (12 Nov 2026). If they send the same again, it's
+        // taken as given, so the chat never gets stuck.
+        conversation.addressChecked = [...(conversation.addressChecked ?? []), typed];
+        conversation.stage = "collecting";
+        await store.put(conversationKey(phone), JSON.stringify(conversation), {
+          expirationTtl: CONVERSATION_TTL_SECONDS,
+        });
+        logEvent("whatsapp_address_not_found", phone, { field });
+        await reply(env, phone, whatsAppAddressNotFoundReply(field, typed));
+        return;
+      }
+      if (check && check !== "not_found") {
         conversation.addressCheck = check;
         conversation.stage = "collecting";
         await store.put(conversationKey(phone), JSON.stringify(conversation), {
@@ -1417,7 +1435,22 @@ async function decideWithClaude(
       .map(chatLineForAi)
       .join("\n");
     const bookingInfo = await describeBookingsForAi(store, phone, [said, recentChat]);
-    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName, bookingInfo });
+    // A concert at the pickup / destination on its date: the assistant says so (12 Nov 2026).
+    const d = existing?.draft;
+    const eventMatch = matchWhatsAppEvent({
+      addresses: [d?.pickupAddress, d?.dropoffAddress],
+      dates: [d?.outboundDate, d?.returnDate],
+      text: said,
+    });
+    const eventInfo = eventMatch ? describeWhatsAppEventForAi(eventMatch) : undefined;
+    const context = buildClaudeLedContext({
+      conversation: existing,
+      message: said,
+      recentChat,
+      profileName,
+      bookingInfo,
+      eventInfo,
+    });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
     return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });

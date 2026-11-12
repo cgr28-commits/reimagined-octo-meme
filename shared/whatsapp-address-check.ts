@@ -114,9 +114,14 @@ export function parseWhatsAppAddressReply(
   check: WhatsAppAddressCheck,
 ): { kind: "pick"; option: WhatsAppAddressOption } | { kind: "none" } | null {
   const t = text.replace(/[*_~]/g, "").trim().toLowerCase().replace(/[.!]+$/, "");
-  const m = t.match(/^address (\d)$/);
+  // "address 2" (the list), or typed: "2", "Number 2", "option 2", "no. 2", "the second one".
+  const ordinals: Record<string, number> = { first: 1, second: 2, third: 3, "1st": 1, "2nd": 2, "3rd": 3 };
+  const m =
+    t.match(/^(?:(?:address|number|no|option|choice|#)\s*\.?\s*)?(\d)(?:\s+(?:one|please|thanks|thank you))?$/) ??
+    t.match(/^(?:it'?s\s+|the\s+)?(first|second|third|1st|2nd|3rd)(?:\s+(?:one|address|option))?(?:\s+(?:please|thanks))?$/);
   if (m) {
-    const option = check.options[Number(m[1]) - 1];
+    const n = /^\d$/.test(m[1]!) ? Number(m[1]) : ordinals[m[1]!]!;
+    const option = check.options[n - 1];
     return option ? { kind: "pick", option } : null;
   }
   if (t === ADDRESS_NONE || /^(no|nope|none|none of these|wrong|not right)$/.test(t)) return { kind: "none" };
@@ -140,4 +145,16 @@ export function whatsAppFullAddress(place: {
     address = `${address} ${postcode}`;
   }
   return address;
+}
+
+/**
+ * Sent when Google can't find a typed place (e.g. a hotel name spelt wrong): the customer
+ * is asked to check it rather than being quoted for it as typed (12 Nov 2026).
+ */
+export function whatsAppAddressNotFoundReply(field: WhatsAppAddressField, typed: string): string {
+  const which = field === "pickupAddress" ? "pickup" : "destination";
+  return (
+    `I couldn't find "${typed}" on the map. Could you check the name, or send the ${which} ` +
+    "street address or postcode instead?"
+  );
 }
