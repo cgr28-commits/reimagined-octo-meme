@@ -7947,3 +7947,260 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     }
   }
 }
+/* ── Compact sizing to the owner's mockup: the quote card must not be bigger than the reference ── */
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+    padding: 0.625rem 0.6875rem 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro {
+    padding: 0 0.3125rem !important;
+    margin: 0 0 0.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.6875rem !important;
+    line-height: 1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    font-size: 0.7813rem !important;
+    line-height: 1.32 !important;
+    margin-top: 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d2-rating] {
+    margin-top: 0.5rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    font-size: 0.75rem !important;
+  }
+
+  html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding: 0.75rem 0.75rem 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.0625rem !important;
+    min-height: 2.0625rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 2.5rem !important;
+    font-size: 1rem !important;
+    font-weight: 550 !important;
+    letter-spacing: -0.02em !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    left: 0.6875rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    right: 2.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 0.9375rem !important;
+    height: 0.9375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    margin-top: 0.5625rem !important;
+    height: 2rem !important;
+    padding: 0.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    font-size: 0.9063rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    margin-top: 0.5625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    font-size: 0.7188rem !important;
+    margin-bottom: 0.3125rem !important;
+    line-height: 1.1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 2.125rem !important;
+    min-height: 2.125rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+    font-size: 0.9688rem !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 2.375rem !important;
+    padding: 0 0.3125rem 0 2.375rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    left: 0.625rem;
+    bottom: 0.5rem;
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 1.75rem !important;
+    font-size: 1.0625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding-top: 0.8125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    font-size: 0.7813rem !important;
+    margin-top: 0.5625rem !important;
+    line-height: 1.25 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    margin-top: 1.375rem !important;
+    gap: 0.25rem !important;
+    left: 0.375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    font-size: 0.9688rem !important;
+    line-height: 1.3 !important;
+    font-weight: 750 !important;
+    gap: 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    margin-bottom: 7.25rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 1.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      padding-left: 2rem !important;
+      padding-right: 0.1875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      left: 0.4375rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      bottom: 0.5625rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+      width: 1.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      font-size: 1.125rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 0.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.875rem !important;
+    }
+  }
+}
+@media (min-width: 600px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 4.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      gap: 0.375rem 1.5rem !important;
+    }
+  }
+}
+/* Tablets: same proportions, scaled up modestly — never larger than the live card */
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+      padding: 3.25rem 1.5rem 0 !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.25rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.9375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      padding: 1.125rem 1.125rem 1rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+      height: 2.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+      height: 2.625rem !important;
+      min-height: 2.625rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      bottom: 0.6875rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+      height: 3.375rem !important;
+      min-height: 3.375rem !important;
+      font-size: 1.4375rem !important;
+      border-radius: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 2.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.75rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])),
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div > div.relative {
+    min-height: 0 !important;
+    height: auto !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+  }
+}
