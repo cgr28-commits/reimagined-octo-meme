@@ -13,6 +13,7 @@ import {
   assertQuickQuoteTransferFareFloor,
   buildQuickQuoteCustomerUrl,
   buildQuickQuoteWhatsAppReply,
+  cleanQuickQuoteEventName,
   formatQuickQuoteAmount,
   isQuickQuoteExpired,
   normalizeQuickQuoteId,
@@ -182,6 +183,7 @@ function parseJourney(
     childSeatRequired: body.childSeatRequired === true,
     flightNumber: String(body.flightNumber ?? "").trim() || undefined,
     returnFlightNumber: String(body.returnFlightNumber ?? "").trim() || undefined,
+    ...(cleanQuickQuoteEventName(body.eventName) ? { eventName: cleanQuickQuoteEventName(body.eventName) } : {}),
     vehicleChoice,
   };
 }
@@ -263,9 +265,13 @@ export async function createPricedQuickQuote(
   });
 
   const bookingUrl = buildQuickQuoteCustomerUrl(record.id, siteOrigin(env));
+  // A short hold (e.g. 2 hours) is spelt out, so the customer knows to pay in time.
+  const shortHold = record.expiresAt != null && Date.parse(record.expiresAt) - Date.now() <= 12 * 60 * 60 * 1000;
   const whatsappReply = buildQuickQuoteWhatsAppReply({
     amountLabel: record.quotedAmountLabel,
     bookingUrl,
+    eventName: record.journey.eventName,
+    heldUntil: shortHold ? record.expiresAt : null,
   });
 
   return {
