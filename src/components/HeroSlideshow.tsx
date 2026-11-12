@@ -35,17 +35,17 @@ export default function HeroSlideshow() {
         <HomepageHeroSideRails />
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <h1 className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[2.9rem] xl:text-[3.15rem] xl:leading-[1.06]">
-            <span className="text-white">Belfast &amp; Dublin</span>{" "}
-            <span className="text-emerald md:whitespace-nowrap">Airport Transfers</span>
+            <span className="text-white">Belfast &amp; Dublin Airport Transfers</span>{" "}
+            <span className="text-emerald">&amp; Premium Private Travel</span>
           </h1>
 
           <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            Reliable, pre-booked airport transfers at a fixed price. Travel with confidence across Northern Ireland and beyond.
+            Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price.
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
-          <p className="hidden" data-d3-intro-sub>Reliable, pre-booked airport transfers at a fixed price. Travel with confidence across Northern Ireland and beyond.</p>
+          <p className="hidden" data-d3-intro-sub>Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price.</p>
           <div className="hidden" data-d2-rating>
             <GoogleReviewsBadge variant="compact" />
           </div>
