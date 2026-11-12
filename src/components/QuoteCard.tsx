@@ -9307,6 +9307,7 @@ function QuoteCard({
         }}
         id="quote-availability-confirmation"
         data-quote-presentation={presentation}
+        data-d3-render={mobileDesign3 ? "" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <ShortNoticeRequestReceived
@@ -9349,6 +9350,7 @@ function QuoteCard({
         }}
         id="bookingRequestResult"
         data-quote-presentation={presentation}
+        data-d3-render={mobileDesign3 ? "" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl quote-panel px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -9404,6 +9406,7 @@ function QuoteCard({
     <div
       ref={cardRef}
       data-quote-presentation={presentation}
+      data-d3-render={mobileDesign3 ? "" : undefined}
       data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
       data-d2={design2Home ? (quoteStep >= 2 ? "details" : homepagePriceRequested ? "vehicle" : "journey") : undefined}
       data-d2-schedule={design2Home && homepagePriceRequested && quoteStep === 1 ? (isScheduleComplete ? "set" : "pending") : undefined}
