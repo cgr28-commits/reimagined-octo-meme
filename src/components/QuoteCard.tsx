@@ -1150,6 +1150,12 @@ function QuoteCard({
   const [, setFareCacheVersion] = useState(0);
   /** Desktop (1200px+) quote results: the journey form is folded away until "Edit journey". */
   const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
+  const logoHomeRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const onLogoHome = () => logoHomeRef.current();
+    window.addEventListener("matni-logo-home", onLogoHome);
+    return () => window.removeEventListener("matni-logo-home", onLogoHome);
+  }, []);
   /** Desktop (1200px+) vehicle step: price breakdown in the navy summary, collapsed by default. */
   const [desktopBreakdownOpen, setDesktopBreakdownOpen] = useState(false);
   /** Vercel preview sites: the final Pay / request action is switched off (set after mount). */
@@ -6101,6 +6107,18 @@ function QuoteCard({
     scrollToD3Card();
   }
 
+  /** Header logo pressed while on the homepage: show the first screen again (all devices).
+   * Same back-navigation as Edit journey; details are kept and nothing is created. */
+  logoHomeRef.current = () => {
+    if (presentation !== "homepage") return;
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(false);
+    setDesktopJourneyEditing(false);
+    if (typeof window !== "undefined") {
+      // The step change may scroll to the form; finish at the very top of the page.
+      for (const delay of [80, 450, 900]) window.setTimeout(() => window.scrollTo({ top: 0 }), delay);
+    }
+  };
   function goToVehicleFromD3Steps() {
     if (quoteStep !== 1) navigateQuoteStep(1);
     setHomepagePriceRequested(true);
