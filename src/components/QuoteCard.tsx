@@ -8141,16 +8141,21 @@ function QuoteCard({
           !appliedPersonalQuote &&
           !submitted &&
           !activeOpenCheckout ? (
-            <button
-              type="button"
-              onClick={() => handleSaveQuoteClick()}
-              style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
-              data-checkout-email-quote
-              data-d3-send-quote={mobileDesign3 ? "" : undefined}
-              className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
-            >
-              {mobileDesign3 ? "Send me my quote" : "Email my quote"}
-            </button>
+            <>
+              {mobileDesign3 && saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => handleSaveQuoteClick()}
+                style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                data-checkout-email-quote
+                data-d3-send-quote={mobileDesign3 ? "" : undefined}
+                className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+              >
+                {mobileDesign3 ? "Send me my quote" : "Email my quote"}
+              </button>
+            </>
           ) : null}
 
           {ownerClosed ? null : renderBookingErrorHelp("step3")}
@@ -10090,15 +10095,20 @@ function QuoteCard({
                     {design2Home && liveQuote && !isVehiclePersonalQuote && !appliedPersonalQuote ? (
                       /* Design 3 only (shown by its stylesheet): send the quote link to the
                          customer's WhatsApp or email so they can finish booking later. */
-                      <button
-                        type="button"
-                        className="hidden"
-                        data-d3-send-quote
-                        onClick={() => handleSaveQuoteClick()}
-                        style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
-                      >
-                        Send me my quote
-                      </button>
+                      <>
+                        {saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                          <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="hidden"
+                          data-d3-send-quote
+                          onClick={() => handleSaveQuoteClick()}
+                          style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                        >
+                          Send me my quote
+                        </button>
+                      </>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>

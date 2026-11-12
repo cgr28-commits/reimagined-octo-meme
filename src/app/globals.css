@@ -8261,3 +8261,24 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     outline-offset: 2px;
   }
 }
+
+/* Small prompt under "Send me my quote" (owner, 12 Nov 2026) */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] {
+    display: block !important;
+    margin: 0.875rem 0 0 !important;
+    text-align: center !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.3 !important;
+    font-weight: 500 !important;
+    color: #51607a !important;
+    -webkit-text-fill-color: #51607a !important;
+  }
+}
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note] + button[data-d3-send-quote],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] + button[data-d3-send-quote][data-d3-send-quote] {
+    margin-top: 0.4375rem !important;
+  }
+}
