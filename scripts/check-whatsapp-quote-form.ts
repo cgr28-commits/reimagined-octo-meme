@@ -76,6 +76,19 @@ async function main() {
   assert.equal((last as { terminal?: boolean }).terminal, true);
   console.log("OK  form JSON: screens and routes line up");
 
+  // --- One way by default; the return date/time only show once Return is picked.
+  const details = WHATSAPP_QUOTE_FORM_JSON.screens.find((s) => s.id === "DETAILS")!;
+  const kids = details.layout.children as Array<Record<string, unknown>>;
+  const trip = kids.find((c) => c.name === "trip")!;
+  assert.equal(trip["init-value"], "one_way");
+  const tripOptions = trip["data-source"] as Array<{ id: string; "on-select-action": { payload: { show_return: boolean } } }>;
+  assert.equal(tripOptions.find((o) => o.id === "return")!["on-select-action"].payload.show_return, true);
+  assert.equal(tripOptions.find((o) => o.id === "one_way")!["on-select-action"].payload.show_return, false);
+  for (const name of ["return_date", "return_time"]) {
+    assert.equal(kids.find((c) => c.name === name)!.visible, "${data.show_return}", name);
+  }
+  console.log("OK  return date and time are hidden until Return is picked");
+
   // --- Encrypted endpoint: health check and opening the form, as WhatsApp sends them.
   const { store, kv } = memoryStore();
   const env = { TRACKING_STORE: store };
@@ -123,6 +136,7 @@ async function main() {
   assert.equal((r.response as { screen: string }).screen, "ADDRESSES");
   r = await step("ADDRESSES", { pickup_choice: "p1", dropoff_choice: "d1" });
   assert.equal((r.response as { screen: string }).screen, "DETAILS");
+  assert.equal((r.response as { data: { show_return: boolean } }).data.show_return, false, "opens on one way");
   r = await step("DETAILS", { date: "2027-05-21", time: "23:00", passengers: "4", suitcases: "0", trip: "one_way" });
   assert.equal((r.response as { screen: string }).screen, "SUMMARY");
   const saved = JSON.parse(kv.get(quoteFormSessionKey(token))!) as QuoteFormSession;
