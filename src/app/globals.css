@@ -8961,3 +8961,13 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-column: 27 / span 10 !important; }
 }
 }
+
+/* Stop phones/tablets flashing the previous quote form before the app loads.
+   The static HTML always contains the previous form; Design 3 swaps in once React runs and
+   marks the card with data-d3-render. Until then the card keeps its space but stays invisible.
+   Failsafe: if scripts never load, the card is shown anyway after 2.5s. */
+@keyframes matni-d3-reveal { to { visibility: visible; } }
+html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) {
+  visibility: hidden;
+  animation: matni-d3-reveal 0s linear 2.5s forwards;
+}
