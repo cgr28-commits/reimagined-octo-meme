@@ -5421,9 +5421,9 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --color-navy-light: #ffffff;
     --color-navy-dark: #ffffff;
     --color-white: #071c38;
-    --color-mist: #33445a;
-    --color-ink-muted: rgba(51, 68, 90, 0.78);
-    --color-ink-secondary: #4a5a70;
+    --color-mist: #1c2d49;
+    --color-ink-muted: rgba(28, 45, 73, 0.94);
+    --color-ink-secondary: #24364f;
     --quote-page: #f4f7fa;
     --quote-card-bg: #ffffff;
     --quote-card-border: #e3e9f0;
@@ -5439,10 +5439,10 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --quote-selected-icon: #1f9a36;
     --quote-placeholder: #7a889a;
     --quote-price-ink: #071c38;
-    --quote-secondary-ink: #4a5a70;
+    --quote-secondary-ink: #24364f;
     color-scheme: light;
   }
-  html[data-mobile-light] body { color: #33445a; }
+  html[data-mobile-light] body { color: #1c2d49; }
 
   /* Dark islands keep the original palette. */
   html[data-mobile-light] :is(
@@ -5469,7 +5469,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
   }
   /* Muted greys meant for navy pages. */
-  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #4a5a70; }
+  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #24364f; }
   /* Headings: navy, Manrope, tight. */
   html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     color: #071c38;
@@ -5491,7 +5491,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] section.homepage-hero { background: #f4f7fa !important; }
   html[data-mobile-light] section.homepage-hero h1 { color: #071c38 !important; }
   html[data-mobile-light] section.homepage-hero h1 .text-emerald, html[data-mobile-light] section.homepage-hero h1 [class*="text-emerald"] { color: #1f9a36 !important; }
-  html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { color: #4a5a70 !important; }
+  html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { color: #24364f !important; }
   html[data-mobile-light] :is(.hero-benefit-label, .hero-benefit-label *) { color: #071c38 !important; }
   html[data-mobile-light] .hero-benefits-row > li + li { border-color: #e3e9f0 !important; }
 
@@ -5512,14 +5512,14 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     background-color: #ffffff !important; border-color: #cfd8e3 !important;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23071c38' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
   }
-  html[data-mobile-light] .quote-flow :is(.form-label, label) { color: #33445a !important; }
-  html[data-mobile-light] .quote-flow :is(p, span, small, div, dt, dd, li, summary):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary):not(:is(.btn-primary, .bg-emerald) *):not(.btn-primary):not(.bg-emerald) { color: #4a5a70 !important; }
+  html[data-mobile-light] .quote-flow :is(.form-label, label) { color: #1c2d49 !important; }
+  html[data-mobile-light] .quote-flow :is(p, span, small, div, dt, dd, li, summary):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary):not(:is(.btn-primary, .bg-emerald) *):not(.btn-primary):not(.bg-emerald) { color: #24364f !important; }
   html[data-mobile-light] .quote-flow :is(h1, h2, h3, h4, legend, strong) { color: #071c38 !important; }
   html[data-mobile-light] .btn-primary:disabled, html[data-mobile-light] .btn-primary[aria-disabled="true"] { background: #d6eadb !important; color: #4a6a55 !important; box-shadow: none !important; }
 
   /* Section furniture */
   html[data-mobile-light] main .section-eyebrow { color: #1a7f2e !important; }
-  html[data-mobile-light] main .section-description { color: #4a5a70 !important; }
+  html[data-mobile-light] main .section-description { color: #24364f !important; }
   html[data-mobile-light] main .text-amber-300, html[data-mobile-light] main .text-amber-400 { color: #e8a317 !important; }
   html[data-mobile-light] main [class*="bg-emerald/15"]:is(.text-emerald, [class*="text-emerald"]),
   html[data-mobile-light] main [class*="bg-emerald/10"]:is(.text-emerald, [class*="text-emerald"]) { color: #1a7f2e !important; background-color: #e7f6ea !important; }
@@ -5530,7 +5530,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @layer base {
 @media (max-width: 1199.98px) {
   /* Very faint helper text meant for navy: lift to a readable slate on light. */
-  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #5f6f84 !important; }
+  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #3a4b64 !important; }
   /* Tinted green pills (e.g. "Available on request") read as dark green on pale green. */
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) { background-color: #e7f6ea !important; color: #1a7f2e !important; }
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) :is(span, svg) { color: #1a7f2e; }
@@ -5546,14 +5546,14 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] [data-vehicle-category]:not([class*="border-emerald"]) { border-color: #dbe3ec !important; }
   /* Navy text classes stay navy (the navy variable is the page colour in this theme). */
   html[data-mobile-light] .text-navy:not(:is(header:not(main header), footer) *) { color: #071c38 !important; }
-  html[data-mobile-light] [class*="text-navy/"]:not(:is(header:not(main header), footer) *) { color: #4a5a70 !important; }
+  html[data-mobile-light] [class*="text-navy/"]:not(:is(header:not(main header), footer) *) { color: #24364f !important; }
   /* Price breakdown and quote panels. */
-  html[data-mobile-light] .quote-breakdown-panel { background: #ffffff !important; border: 1px solid #e3e9f0 !important; color: #33445a !important; box-shadow: 0 10px 30px rgba(7,28,56,.12) !important; }
+  html[data-mobile-light] .quote-breakdown-panel { background: #ffffff !important; border: 1px solid #e3e9f0 !important; color: #1c2d49 !important; box-shadow: 0 10px 30px rgba(7,28,56,.12) !important; }
   html[data-mobile-light] .quote-panel { background: #f7f9fb !important; border-color: #e3e9f0 !important; }
   html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(h3, h4, strong, dt, dd) { color: #071c38 !important; }
-  html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(p, li, span, .quote-secondary):not(.text-emerald):not([class*="text-[#14"]) { color: #4a5a70 !important; }
+  html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(p, li, span, .quote-secondary):not(.text-emerald):not([class*="text-[#14"]) { color: #24364f !important; }
   html[data-mobile-light] .quote-breakdown-panel button[class*="border-white"] { color: #071c38 !important; border-color: #cfd8e3 !important; }
-  html[data-mobile-light] main .quote-secondary { color: #4a5a70 !important; }
+  html[data-mobile-light] main .quote-secondary { color: #24364f !important; }
   /* Booking step buttons: pay is the green primary; secondary is white. */
   html[data-mobile-light] .btn-pay { background: #2fbf4a !important; color: #071c38 !important; border-color: #2fbf4a !important; box-shadow: 0 8px 20px rgba(47,191,74,.25) !important; }
   html[data-mobile-light] .btn-pay:disabled { background: #d6eadb !important; color: #4a6a55 !important; box-shadow: none !important; }
@@ -5758,11 +5758,11 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li {
     flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem;
     min-height: 2.1rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em;
-    background: #eef2f6; color: #5f6f84;
+    background: #eef2f6; color: #3a4b64;
   }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li > span {
     display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem;
-    border-radius: 999px; background: #ffffff; color: #5f6f84; font-size: 0.68rem;
+    border-radius: 999px; background: #ffffff; color: #3a4b64; font-size: 0.68rem;
   }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] { background: #071c38; color: #ffffff; }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] > span { background: #2fbf4a; color: #071c38; }
@@ -5878,10 +5878,10 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2-chips] { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
   html[data-mobile-light] [data-d2-chips] li { background: #eef2f6; border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; font-weight: 700; color: #071c38; }
   html[data-mobile-light] [data-d2-segment] { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; background: #eef2f6; border-radius: .8rem; padding: .25rem; }
-  html[data-mobile-light] [data-d2-segment] button { min-height: 3rem; border-radius: .6rem; font-weight: 700; color: #33445a; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+  html[data-mobile-light] [data-d2-segment] button { min-height: 3rem; border-radius: .6rem; font-weight: 700; color: #1c2d49; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
   html[data-mobile-light] [data-d2-segment] button[aria-pressed="true"] { background: #fff; color: #071c38; box-shadow: 0 1px 4px rgba(7,28,56,.12); font-weight: 800; }
   html[data-mobile-light] [data-d2-segment] [data-return-discount-note] { font-size: .72rem; color: #1a7f2e; font-weight: 800; }
-  html[data-mobile-light] [data-d2-schedule-note] { font-size: .86rem; color: #33445a; background: #f3faf4; border: 1px solid #cdebd3; border-radius: .7rem; padding: .7rem .8rem; }
+  html[data-mobile-light] [data-d2-schedule-note] { font-size: .86rem; color: #1c2d49; background: #f3faf4; border: 1px solid #cdebd3; border-radius: .7rem; padding: .7rem .8rem; }
   html[data-mobile-light] [data-d2-vehicle-head] #quote-section-schedule .form-label { font-size: .85rem !important; }
 
   /* Vehicle list (screen 3): compact selectable cards with price on the right. */
@@ -5894,7 +5894,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category]:not([aria-pressed="true"]) [data-vehicle-selection-indicator] { background: #fff; border: 2px solid #c9d3df !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] { background: #2fbf4a !important; color: #071c38 !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-name] { font-size: 1rem !important; font-weight: 800 !important; }
-  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) { font-size: .78rem !important; font-weight: 600 !important; color: #33445a !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) { font-size: .78rem !important; font-weight: 600 !important; color: #1c2d49 !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-on-request] { display: none !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price] { display: flex !important; flex-direction: column; align-items: flex-end; font-size: 1.4rem; font-weight: 800; color: #071c38; line-height: 1.1; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price]::after { content: "fixed price"; font-size: .72rem; font-weight: 600; color: var(--d2-muted); margin-top: .2rem; }
@@ -5978,7 +5978,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) section[data-landing-quote] > div[class*="bg-gradient"],
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) [data-landing-quote-header],
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) [data-landing-mobile-quote] { display: none !important; }
-  html[data-mobile-light] [data-d2-airport-intro-after] { display: block !important; margin: .5rem 0 1rem; font-size: .95rem; line-height: 1.6; color: #33445a; }
+  html[data-mobile-light] [data-d2-airport-intro-after] { display: block !important; margin: .5rem 0 1rem; font-size: .95rem; line-height: 1.6; color: #1c2d49; }
 }
 }
 
@@ -6052,7 +6052,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
   /* Passengers / suitcases */
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important; }
-  html[data-mobile-light] [data-d2-stepper-label] { color: #33445a !important; font-size: .8125rem !important; }
+  html[data-mobile-light] [data-d2-stepper-label] { color: #1c2d49 !important; font-size: .8125rem !important; }
   html[data-mobile-light] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #7d8da3 !important; }
   html[data-mobile-light] [data-d2-stepper-btn]:disabled { opacity: .45 !important; }
   /* Swap button keeps the same outline as the boxes it sits between */
@@ -6112,7 +6112,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] body, html[data-mobile-d3] main { color: #1e293b; }
   html[data-mobile-d3] main :is(h1, h2, h3, h4) { color: #071c38 !important; }
   html[data-mobile-d3] .quote-flow .quote-secondary,
-  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #24364f !important; }
   html[data-mobile-d3] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])),
   html[data-mobile-d3] main label:not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 700 !important; }
 
@@ -6184,7 +6184,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @media (max-width: 1199.98px) {
   /* Meet & Greet card under the vehicles */
   html[data-mobile-d3] .quote-flow[data-quote-results="ready"] [data-results-upgrades] { display: grid !important; gap: .6rem; margin: .9rem 0 .4rem; }
-  html[data-mobile-d3] [data-results-upgrades-heading] { margin: 0 0 0 .15rem; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrades-heading] { margin: 0 0 0 .15rem; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #24364f; }
   html[data-mobile-d3] [data-results-upgrade] {
     position: relative; display: grid; grid-template-columns: 2.5rem minmax(0,1fr) auto; grid-template-areas: "icon copy toggle" "icon copy price";
     column-gap: .75rem; row-gap: .2rem; align-items: center; padding: .85rem .9rem; border-radius: 1rem; cursor: pointer;
@@ -6198,7 +6198,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-results-upgrade-copy] { grid-area: copy; display: grid; gap: .15rem; min-width: 0; }
   html[data-mobile-d3] [data-results-upgrade-copy] > strong { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 800; color: #071c38; }
   html[data-mobile-d3] [data-results-upgrade-copy] > strong > small { padding: .1rem .4rem; border-radius: .35rem; background: #eef2f7; font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #334155; }
-  html[data-mobile-d3] [data-results-upgrade-copy] > span { font-size: .875rem; line-height: 1.4; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { font-size: .875rem; line-height: 1.4; color: #24364f; }
   html[data-mobile-d3] [data-results-upgrade-price] { grid-area: price; justify-self: end; font-size: 1rem; font-weight: 800; color: #071c38; white-space: nowrap; }
   /* The "Add / Added" text becomes a switch: grey when off, green when on (state also in the price colour and border). */
   html[data-mobile-d3] [data-results-upgrade-state] { grid-area: toggle; justify-self: end; position: relative; width: 52px; height: 30px; border-radius: 999px; background: #7d8da3; font-size: 0; color: transparent; overflow: hidden; }
@@ -6245,7 +6245,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-results-upgrade-state] { grid-column: 3; grid-row: 1; align-self: center !important; }
   html[data-mobile-d3] [data-results-upgrade-copy] > span { grid-column: 1 / -1; grid-row: 2; }
   html[data-mobile-d3] [data-results-upgrade-price] { grid-column: 1 / -1; grid-row: 3; justify-self: end; align-self: center !important; }
-  html[data-mobile-d3] [data-results-upgrade-price]::before { content: "Adds "; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade-price]::before { content: "Adds "; font-weight: 600; color: #24364f; }
   /* Design 3: child-seat question keeps its full width; the "seat requested" note wraps underneath. */
   html[data-mobile-d3] .quote-flow [data-child-seats-toggle] { flex-wrap: wrap; row-gap: .4rem; }
   html[data-mobile-d3] .quote-flow [data-child-seats-toggle-label] { flex: 1 1 12rem; min-width: 0; }
@@ -6315,11 +6315,11 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-h2] { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; color: #071c38; margin: .25rem 0 .75rem; }
   html[data-mobile-d3] [data-d3-routes] { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
   html[data-mobile-d3] [data-d3-route] { display: flex; align-items: center; gap: .75rem; min-height: 60px; padding: .75rem .9rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); color: #071c38; text-decoration: none; }
-  html[data-mobile-d3] [data-d3-route] > svg { color: #475569; flex: none; }
+  html[data-mobile-d3] [data-d3-route] > svg { color: #24364f; flex: none; }
   html[data-mobile-d3] [data-d3-route-icon] { width: 2.25rem; height: 2.25rem; border-radius: 999px; background: #eef2f7; display: grid; place-items: center; color: #071c38; flex: none; }
   html[data-mobile-d3] [data-d3-route-text] { flex: 1; min-width: 0; display: grid; }
   html[data-mobile-d3] [data-d3-route-text] strong { font-size: 1rem; font-weight: 800; color: #071c38; }
-  html[data-mobile-d3] [data-d3-route-text] small { font-size: .875rem; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-d3-route-text] small { font-size: .875rem; font-weight: 600; color: #24364f; }
   html[data-mobile-d3] [data-d3-includes] { margin-top: 1.25rem; padding: .9rem 1rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); }
   html[data-mobile-d3] [data-d3-includes] h3 { font-size: 1rem; font-weight: 800; color: #071c38; margin: 0 0 .4rem; }
   html[data-mobile-d3] :is([data-d3-includes] ul, ul[data-d3-included]) { margin: 0; padding: 0; list-style: none; display: grid; gap: .35rem; }
@@ -6374,7 +6374,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     padding: 0 .75rem 0 2.6rem; background: transparent; border: 0; color: #071c38; font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;
   }
   html[data-mobile-d3] [data-d3-time-trigger]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; border-radius: .75rem; }
-  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #475569; font-weight: 500; }
+  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #24364f; font-weight: 500; }
   html[data-mobile-d3] [data-schedule-control="time"]:has([data-d3-time-trigger]) .homepage-schedule-prompt { visibility: hidden; }
   html[data-mobile-d3] [data-d3-time-backdrop] { position: fixed; inset: 0; z-index: 200; background: rgba(7,28,56,.45); display: flex; align-items: flex-end; justify-content: center; }
   html[data-mobile-d3] [data-d3-time-sheet] {
@@ -6384,7 +6384,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-time-head] { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
   html[data-mobile-d3] [data-d3-time-head] p { font-size: 1rem; font-weight: 800; margin: 0; }
   html[data-mobile-d3] [data-d3-time-readout] { font-size: 1.75rem; font-weight: 800; letter-spacing: .02em; color: #071c38; font-variant-numeric: tabular-nums; }
-  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; margin: .6rem 0 .35rem; }
+  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #24364f; margin: .6rem 0 .35rem; }
   html[data-mobile-d3] [data-d3-time-grid] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; }
   html[data-mobile-d3] [data-d3-time-grid] button {
     min-height: 44px; border-radius: .7rem; border: 1.5px solid #7d8da3; background: #fff; color: #071c38; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -6409,7 +6409,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] #homepage-booking-intro h1 { font-weight: 800 !important; font-size: clamp(1.75rem, 7.6vw, 2.15rem) !important; line-height: 1.08 !important; letter-spacing: -0.03em !important; }
   html[data-mobile-d3] #homepage-booking-intro h1 > span:first-child { color: #071c38 !important; -webkit-text-fill-color: #071c38; display: block; }
   html[data-mobile-d3] #homepage-booking-intro h1 > span + span { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36; display: block; }
-  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #24364f !important; }
 
   /* Header: the official WhatsApp button in WhatsApp green (same link and tracking). */
   html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] { background: #25d366 !important; border: 0 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(37,211,102,.35) !important; }
@@ -6461,7 +6461,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @layer base {
   @media (max-width: 1199.98px) {
     html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { display: none !important; }
-    html[data-mobile-d3] #homepage-booking-intro > p[data-d3-intro-sub][data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #475569 !important; max-width: 22rem; }
+    html[data-mobile-d3] #homepage-booking-intro > p[data-d3-intro-sub][data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #24364f !important; max-width: 22rem; }
   }
 }
 
@@ -6576,7 +6576,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 
 /* Readability (all designs): footer secondary text and breadcrumbs meet 4.5:1. */
 footer .text-white\/50 { color: rgba(255, 255, 255, 0.64) !important; }
-html[data-mobile-d3] nav[aria-label="Breadcrumb"], html[data-mobile-d3] nav[aria-label="Breadcrumb"] a { color: #475569 !important; -webkit-text-fill-color: #475569; }
+html[data-mobile-d3] nav[aria-label="Breadcrumb"], html[data-mobile-d3] nav[aria-label="Breadcrumb"] a { color: #24364f !important; -webkit-text-fill-color: #475569; }
 html[data-mobile-d3] nav[aria-label="Breadcrumb"] a:hover { color: #16803c !important; -webkit-text-fill-color: #16803c; }
 
 /* Booking confirmation on the light designs (desktop 1200px+ and mobile Design 3): readable status text. */
@@ -6737,7 +6737,7 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-readout] span { color: #2fbf4a; padding: 0 .1em; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-columns] { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; min-height: 0; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-column] { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-sub] { margin: 0 0 .35rem; text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-sub] { margin: 0 0 .35rem; text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #24364f; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] {
     height: min(13.75rem, 34dvh); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: y proximity; border: 1.5px solid #94a3b8; border-radius: .9rem; background: #fff; padding: .25rem;
@@ -8367,5 +8367,21 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     -webkit-text-fill-color: #4b5b73 !important;
     font-weight: 500 !important;
     opacity: 1 !important;
+  }
+}
+
+/* ── Design 3: darker, heavier supporting text throughout the booking flow (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not([class*="font-medium"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], button) *) {
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], button, [class*="rounded-full"]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]):not([class*="rounded-full"]):not([data-d2-benefits] *) {
+    color: #1c2d49 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] {
+    color: #1c2d49 !important;
+    -webkit-text-fill-color: #1c2d49 !important;
+    font-weight: 600 !important;
   }
 }
