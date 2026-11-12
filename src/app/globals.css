@@ -8887,3 +8887,27 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   }
 }
 }
+@media (min-width: 1200px) {
+@layer base {
+  /* "Start a new quote" on the vehicle step: a proper padded button, like Start over at checkout */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-actions] { display: block !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] button[data-results-start-new] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 2.875rem !important;
+    margin: 0.625rem 0 0 !important;
+    padding: 0.625rem 0.875rem !important;
+    border-radius: 0.75rem !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    color: #fff !important;
+    font-size: 0.9375rem !important;
+    font-weight: 750 !important;
+    text-decoration: none !important;
+    transition: background-color 160ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] button[data-results-start-new]:hover { background: rgba(255, 255, 255, 0.14) !important; }
+}
+}
