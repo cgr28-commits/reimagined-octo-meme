@@ -9943,7 +9943,8 @@ function QuoteCard({
               </p>
             ) : null}
 
-            {isTownGuidePickup ? (
+            {/* Only once a price is on screen, so the journey form stays short. */}
+            {isTownGuidePickup && (presentation !== "homepage" || homepagePriceRequested) ? (
               <p
                 data-town-guide-note
                 className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm leading-relaxed text-white/90"
