@@ -41,6 +41,7 @@ export type OwnerDriver = {
   operatorName: string;
   operatorLicenceNumber: string;
   vehicleSummary: string;
+  vehicleReg?: string;
   createdAt: string;
   documents?: DocumentSummaryItem[];
   attention?: string[];
@@ -149,7 +150,7 @@ export class DriverAccountsError extends Error {
   }
 }
 
-async function request<T>(path: string, init: { method?: string; headers?: Record<string, string>; body?: unknown }): Promise<T> {
+export async function request<T>(path: string, init: { method?: string; headers?: Record<string, string>; body?: unknown }): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${resolveWorkerBaseUrl()}${path}`, {

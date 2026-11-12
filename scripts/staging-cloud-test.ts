@@ -1,5 +1,5 @@
 /**
- * Stage 1 end-to-end tests against the deployed, isolated staging Worker (real Cloudflare D1).
+ * Stage 1 and Stage 2 end-to-end tests against the deployed, isolated staging Worker (real Cloudflare D1).
  * Run by deploy-dashboard-staging.yml. Needs STAGING_URL and STAGING_OWNER_KEY.
  * Refuses to run against anything but the dashboard staging Worker.
  */
@@ -168,6 +168,181 @@ async function main() {
     }
     expect(!JSON.stringify(d.body.audit).includes("07700900456"), "support number leaked into audit");
   });
+
+  // ---------- Stage 2: offers, bids, jobs, changes, alerts ----------
+  const london = (d: Date) => ({
+    ymd: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(d),
+    hm: new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d),
+  });
+  const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  async function newDriver(label: string, reg: string) {
+    const inv = await call("POST", "/owner/driver-accounts/invite", { name: `Cloud ${label}`, email: `cloud-${label.toLowerCase()}-${stamp}@example.com`, mobile: "07700 900124" }, owner);
+    expect(inv.status === 201, `invite ${inv.status}`);
+    const acc = await call("POST", "/driver-portal/account/accept-invite", { token: inv.body.inviteToken, operatorName: "Cloud Cars", operatorLicenceNumber: "OL-2", confirmOwnOperatorLicence: true, vehicleSummary: "Skoda Superb" });
+    expect(acc.status === 200, `apply ${acc.status}`);
+    const token = acc.body.sessionToken as string;
+    for (const kind of ["operator_licence", "phv_driver_licence", "vehicle_licence", "insurance"]) {
+      const d = await call("POST", "/driver-portal/account/documents", { kind, expiresOn: inYears(1), reference: "REF" }, drv(token));
+      expect((await call("POST", "/owner/driver-accounts/document-review", { documentId: d.body.documentId, decision: "accept" }, owner)).status === 200, "doc accept");
+    }
+    expect((await call("POST", "/owner/driver-accounts/status", { driverId: inv.body.driverId, action: "approve" }, owner)).status === 200, "approve");
+    expect((await call("POST", "/driver-portal/account/availability", { available: true }, drv(token))).status === 200, "available");
+    if (reg) expect((await call("POST", "/driver-portal/jobs/vehicle", { vehicleReg: reg }, drv(token))).status === 200, "reg");
+    return { id: inv.body.driverId as string, token };
+  }
+  const testBooking = async (body: Record<string, unknown>) => call("POST", "/staging/test-booking", body, owner);
+  let a = { id: "", token: "" };
+  let b = { id: "", token: "" };
+  let bookingId = "";
+  let bookingId2 = "";
+  let jobId = "";
+  const soon = london(new Date(Date.now() + 3 * 3_600_000));
+  const later = london(new Date(Date.now() + 5 * 3_600_000));
+  const offerWhenReady = async (body: Record<string, unknown>) => {
+    // A new test booking can take a few seconds to be readable everywhere.
+    for (let i = 0; i < 30; i++) {
+      const r = await call("POST", "/owner/driver-jobs/offers", body, owner);
+      if (r.status !== 404) return r;
+      await pause(3000);
+    }
+    throw new Error("test booking never became readable");
+  };
+
+  await check("Stage 2: driver-job routes refuse a missing owner key and a missing driver session", async () => {
+    expect((await call("GET", "/owner/driver-jobs")).status === 401, "owner board open");
+    expect((await call("GET", "/driver-portal/jobs")).status === 401, "driver jobs open");
+    expect((await call("POST", "/staging/test-booking", { action: "create" })).status === 401, "test-booking route open");
+  });
+  await check("Stage 2: two approved test drivers and two staging test bookings", async () => {
+    a = await newDriver("Alpha", "AB12 CDE");
+    b = await newDriver("Bravo", "XY66 ZZZ");
+    const one = await testBooking({ action: "create", tripDate: soon.ymd, tripTime: soon.hm });
+    const two = await testBooking({ action: "create", tripDate: later.ymd, tripTime: later.hm, pickup: "9 Sample Road, Antrim, BT41 1ZZ" });
+    expect(one.status === 201 && two.status === 201, `create ${one.status}/${two.status}`);
+    bookingId = one.body.id;
+    bookingId2 = two.body.id;
+    expect((await testBooking({ action: "delete", id: "MATNI-REAL-1" })).status === 403, "route can touch a non-test booking");
+  });
+  await check("Stage 2: fixed-price offer shows a driver the area and their fee only", async () => {
+    const o = await offerWhenReady({ reference: bookingId, mode: "fixed", feePence: 4500, driverIds: [a.id, b.id] });
+    expect(o.status === 201, `offer ${o.status} ${JSON.stringify(o.body)}`);
+    const res = await fetch(`${BASE}/driver-portal/jobs`, { headers: drv(a.token) });
+    const raw = await res.text();
+    const view = JSON.parse(raw);
+    expect(view.offers.length === 1 && view.offers[0].feeLabel === "£45.00", "offer not shown");
+    for (const secret of ["Test Street", "07700900555", "185", "Staging Test", bookingId]) expect(!raw.includes(secret), `offer leaked ${secret}`);
+  });
+  await check("Stage 2: two drivers accept at the same moment — exactly one gets the job", async () => {
+    const offers = (await call("GET", "/driver-portal/jobs", undefined, drv(a.token))).body.offers;
+    const [x, y] = await Promise.all([
+      call("POST", "/driver-portal/jobs/offer-response", { offerId: offers[0].id, action: "accept" }, drv(a.token)),
+      call("POST", "/driver-portal/jobs/offer-response", { offerId: offers[0].id, action: "accept" }, drv(b.token)),
+    ]);
+    expect([x.status, y.status].sort().join() === "200,409", `got ${x.status}/${y.status}`);
+    if (y.status === 200) [a, b] = [b, a]; // "a" is the driver with the job from here on
+    const mine = await fetch(`${BASE}/driver-portal/jobs`, { headers: drv(a.token) });
+    const raw = await mine.text();
+    const view = JSON.parse(raw);
+    expect(view.jobs.length === 1, "winner has no job");
+    jobId = view.jobs[0].id;
+    expect(view.jobs[0].pickup.includes("Test Street") && view.jobs[0].customerMobile === "07700900555", "winner lacks full details");
+    expect(!raw.includes("185") && !/fare|margin|quotedPrice|amountPaid/i.test(raw), "customer price reached the driver");
+    const other = await call("GET", "/driver-portal/jobs", undefined, drv(b.token));
+    expect(other.body.jobs.length === 0 && other.body.offers.length === 0, "other driver can see the job");
+  });
+  await check("Stage 2: the booking records the driver; the customer email was attempted and blocked by the sandbox", async () => {
+    let read = await testBooking({ action: "read", id: bookingId });
+    for (let i = 0; i < 20 && read.body.driverAccountId !== a.id; i++) {
+      await pause(3000);
+      read = await testBooking({ action: "read", id: bookingId });
+    }
+    expect(read.body.driverAccountId === a.id && read.body.assignment === "accepted", `booking shows ${JSON.stringify(read.body)}`);
+    const board = await call("GET", "/owner/driver-jobs", undefined, owner);
+    const job = board.body.jobs.find((j: any) => j.id === jobId);
+    expect(job, "job not on the owner board");
+    // On staging nothing can leave, so the customer email is recorded as not sent.
+    expect(job.customerToldAt === null, "a customer email left staging");
+  });
+  await check("Stage 2: status buttons in order, own job only; location optional; completion pays nothing", async () => {
+    const set = (token: string, status: string, location?: unknown) => call("POST", "/driver-portal/jobs/status", { jobId, status, location }, drv(token));
+    expect((await set(b.token, "on_the_way")).status === 404, "another driver changed the job");
+    expect((await set(a.token, "completed")).status === 409, "skipped steps");
+    expect((await set(a.token, "on_the_way")).status === 200, "on the way");
+    const arrived = await set(a.token, "arrived", { lat: 54.6181, lng: -5.8725, accuracy: 9 });
+    expect(arrived.body.locationVerified === true, "location not stored");
+    const done = await set(a.token, "completed", null);
+    expect(done.status === 200 && done.body.locationVerified === false, "complete without location failed");
+    const board = await call("GET", "/owner/driver-jobs", undefined, owner);
+    const job = board.body.recent.find((j: any) => j.id === jobId);
+    expect(job?.arrivedLocation?.verified === true && job?.completedLocation?.verified === false, "evidence wrong");
+    expect(/your approval/i.test(job.payment), "payment wording");
+    const mine = await (await fetch(`${BASE}/driver-portal/jobs`, { headers: drv(a.token) })).text();
+    expect(!mine.includes("54.6181") && !mine.includes("07700900555"), "driver sees evidence or old customer phone");
+  });
+  await check("Stage 2: bids are private and the owner chooses (the higher bid here)", async () => {
+    const o = await offerWhenReady({ reference: bookingId2, mode: "bids", driverIds: [a.id, b.id] });
+    expect(o.status === 201, `offer ${o.status} ${JSON.stringify(o.body)}`);
+    const offerId = o.body.offerId;
+    expect((await call("POST", "/driver-portal/jobs/offer-response", { offerId, action: "accept" }, drv(a.token))).status === 409, "accepted a bidding job");
+    expect((await call("POST", "/driver-portal/jobs/offer-response", { offerId, action: "bid", bidPence: 9000 }, drv(a.token))).status === 200, "bid a");
+    expect((await call("POST", "/driver-portal/jobs/offer-response", { offerId, action: "bid", bidPence: 11000 }, drv(b.token))).status === 200, "bid b");
+    const raw = await (await fetch(`${BASE}/driver-portal/jobs`, { headers: drv(b.token) })).text();
+    expect(!raw.includes("9000") && !raw.includes("£90"), "saw another driver's bid");
+    const before = await call("GET", "/owner/driver-jobs", undefined, owner);
+    expect(!before.body.jobs.some((j: any) => j.reference === bookingId2), "awarded automatically");
+    const award = await call("POST", "/owner/driver-jobs/offers/award", { offerId, driverId: b.id }, owner);
+    expect(award.status === 200 && award.body.feeLabel === "£110.00", `award ${award.status}`);
+    expect((await call("POST", "/owner/driver-jobs/offers/award", { offerId, driverId: a.id }, owner)).status === 409, "awarded twice");
+  });
+  await check("Stage 2: booking time change → Can't Do New Time → urgent owner alert; driver stays assigned", async () => {
+    const changed = london(new Date(Date.now() + 6 * 3_600_000));
+    expect((await testBooking({ action: "update", id: bookingId2, tripTime: changed.hm, tripDate: changed.ymd })).status === 200, "update");
+    let job: any;
+    for (let i = 0; i < 20 && !job?.change; i++) {
+      await pause(3000);
+      job = (await call("GET", "/driver-portal/jobs", undefined, drv(b.token))).body.jobs?.find((j: any) => j.reference === bookingId2);
+    }
+    expect(job?.change?.to?.tripTime === changed.hm, "driver not asked about the change");
+    const r = await call("POST", "/driver-portal/jobs/change-response", { changeId: job.change.id, action: "cant_do" }, drv(b.token));
+    expect(r.status === 200 && r.body.stillAssigned === true, "cant_do");
+    const board = await call("GET", "/owner/driver-jobs", undefined, owner);
+    const live = board.body.jobs.find((j: any) => j.reference === bookingId2);
+    expect(live?.status === "confirmed" && live.change?.status === "cant_do", "driver was removed or change not flagged");
+    const esc = board.body.escalations.find((e: any) => /can't do the new time/.test(e.title));
+    expect(esc?.priority === "high" && !esc.acknowledgedAt, "no urgent alert");
+    expect((await call("POST", "/owner/driver-jobs/escalations/close", { id: esc.id, note: "Sorted it" }, owner)).status === 409, "unresolved alert could be closed");
+    expect((await call("POST", "/owner/driver-jobs/escalations/ack", { id: esc.id }, owner)).body.stillOpen === true, "acknowledge");
+    expect((await call("POST", "/owner/driver-jobs/jobs/release", { jobId: live.id, reason: "" }, owner)).status === 400, "released without a reason");
+    const rel = await call("POST", "/owner/driver-jobs/jobs/release", { jobId: live.id, reason: "Cloud test: can't do new time" }, owner);
+    expect(rel.status === 200 && rel.body.bookingChanged === false && rel.body.customerTold === false, "release");
+    const after = await call("GET", "/owner/driver-jobs", undefined, owner);
+    expect(!after.body.escalations.some((e: any) => e.id === esc.id), "alert stayed after release");
+    const read = await testBooking({ action: "read", id: bookingId2 });
+    expect(read.body.status === "paid", "booking was changed");
+  });
+  await check("Stage 2: direct assignment declined → urgent owner alert; urgent driver report alerts at once", async () => {
+    const o = await offerWhenReady({ reference: bookingId2, mode: "direct", feePence: 5000, driverIds: [a.id] });
+    expect(o.status === 201, `direct ${o.status} ${JSON.stringify(o.body)}`);
+    expect((await call("POST", "/driver-portal/jobs/offer-response", { offerId: o.body.offerId, action: "decline" }, drv(a.token))).status === 200, "decline");
+    const msg = await call("POST", "/driver-portal/account/contact-office", { message: "Cloud test breakdown report", category: "breakdown" }, drv(a.token));
+    expect(msg.status === 201, "report");
+    const s = await call("GET", "/owner/driver-jobs/summary", undefined, owner);
+    const declined = s.body.escalations.find((e: any) => /declined/.test(e.title));
+    const report = s.body.escalations.find((e: any) => e.sourceType === "message" && e.sourceId === msg.body.messageId);
+    expect(declined?.priority === "high" && report?.priority === "high", "alerts missing");
+    expect((await call("POST", "/owner/driver-jobs/escalations/ack", { id: declined.id }, owner)).status === 200, "ack");
+    expect((await call("POST", "/owner/driver-jobs/escalations/close", { id: declined.id, note: "Cloud test finished" }, owner)).status === 200, "close");
+    expect((await call("POST", "/owner/driver-accounts/messages/handled", { messageId: msg.body.messageId }, owner)).status === 200, "handled");
+    const s2 = await call("GET", "/owner/driver-jobs/summary", undefined, owner);
+    expect(!s2.body.escalations.some((e: any) => e.id === report.id || e.id === declined.id), "alerts stayed open");
+  });
+  await check("Stage 2: tidy up — test bookings deleted, test drivers removed, audit trail complete", async () => {
+    const d = await call("GET", `/owner/driver-accounts/detail?id=${b.id}`, undefined, owner);
+    const actions = new Set(d.body.audit.map((x: any) => x.action));
+    for (const act of ["offer.bid", "job.confirmed", "job.change_cant_do", "job.released"]) expect(actions.has(act), `audit missing ${act}`);
+    for (const id of [bookingId, bookingId2]) expect((await testBooking({ action: "delete", id })).status === 200, "delete booking");
+    for (const id of [a.id, b.id]) expect((await call("POST", "/owner/driver-accounts/status", { driverId: id, action: "remove", reason: "Cloud test finished" }, owner)).status === 200, "remove driver");
+  });
   await check("Staging sent nothing out during the tests", async () => {
     const r = await call("GET", "/staging/sandbox-status");
     expect(r.body.sandbox === true, "sandbox off");
@@ -175,12 +350,12 @@ async function main() {
   });
 
   const failed = results.filter((r) => !r.ok);
-  console.log(`\nSTAGE 1 CLOUD RESULT: ${results.length - failed.length}/${results.length} passed — ${failed.length ? "NO-GO" : "GO"}`);
+  console.log(`\nSTAGE 1 + 2 CLOUD RESULT: ${results.length - failed.length}/${results.length} passed — ${failed.length ? "NO-GO" : "GO"}`);
   if (failed.length) {
-    console.log(`::error::Stage 1 cloud tests: ${failed.length} failed — ${failed.map((f) => f.name).join("; ")}`);
+    console.log(`::error::Stage 1 + 2 cloud tests: ${failed.length} failed — ${failed.map((f) => f.name).join("; ")}`);
     process.exit(1);
   }
-  console.log(`::notice::Stage 1 cloud tests: ${results.length}/${results.length} passed (GO)`);
+  console.log(`::notice::Stage 1 + 2 cloud tests: ${results.length}/${results.length} passed (GO)`);
 }
 
 main().catch((error) => {

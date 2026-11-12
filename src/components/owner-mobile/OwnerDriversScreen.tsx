@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "./OwnerMobile.module.css";
 import { BackIcon, ChevronIcon } from "./OwnerMobileIcons";
+import OwnerDriverJobsPanel from "./OwnerDriverJobsPanel";
 import {
   DriverAccountsError,
   STATUS_LABEL,
@@ -90,8 +91,9 @@ export default function OwnerDriversScreen({
   onBack,
   onToast,
   initialDriverId,
+  initialTab,
   onOpenBooking,
-}: Props & { initialDriverId?: string; onOpenBooking?: OpenBooking }) {
+}: Props & { initialDriverId?: string; initialTab?: "drivers" | "jobs"; onOpenBooking?: OpenBooking }) {
   const [drivers, setDrivers] = useState<OwnerDriver[] | null>(null);
   const [alerts, setAlerts] = useState<OwnerAlert[]>([]);
   const [urgent, setUrgent] = useState<UrgentReport[]>([]);
@@ -100,6 +102,7 @@ export default function OwnerDriversScreen({
   const [selected, setSelected] = useState<string | null>(initialDriverId ?? null);
   const [inviting, setInviting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tab, setTab] = useState<"drivers" | "jobs">(initialTab ?? "drivers");
 
   const load = useCallback(async () => {
     try {
@@ -149,6 +152,10 @@ export default function OwnerDriversScreen({
     return <SupportContactSettings ownerKey={ownerKey} onBack={() => setSettingsOpen(false)} onToast={onToast} />;
   }
 
+  const jobsPanel = (
+    <OwnerDriverJobsPanel ownerKey={ownerKey} onToast={onToast} onOpenDriver={setSelected} onOpenBooking={onOpenBooking} />
+  );
+
   const attentionCount = (drivers ?? []).filter((d) => (d.attention?.length ?? 0) > 0 || (d.unreadMessages ?? 0) > 0).length;
 
   return (
@@ -174,6 +181,15 @@ export default function OwnerDriversScreen({
           </div>
         ) : (
           <>
+            <div className={styles.segmented} role="tablist" aria-label="Drivers or jobs">
+              {(["drivers", "jobs"] as const).map((t) => (
+                <button key={t} type="button" role="tab" aria-selected={tab === t} className={`${styles.segment} ${tab === t ? styles.segmentActive : ""}`} onClick={() => setTab(t)} data-drivers-tab={t}>
+                  {t === "drivers" ? "Drivers" : "Jobs"}
+                </button>
+              ))}
+            </div>
+            {tab === "jobs" ? jobsPanel : (
+            <>
             {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
             {alerts.map((a) => (
               <AlertCard
@@ -245,8 +261,10 @@ export default function OwnerDriversScreen({
               </button>
             </section>
             <p style={{ margin: "0 4px", fontSize: 13, color: "#5B6B80" }}>
-              Stage 1: accounts and approvals only. No jobs, payments or notifications are sent.
+              Links are copied and shared by you. Drivers never use your owner sign-in.
             </p>
+            </>
+            )}
           </>
         )}
       </main>
@@ -653,6 +671,7 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Pr
               <Kv label="Operator" value={d.operatorName || "—"} />
               <Kv label="Operator licence" value={d.operatorLicenceNumber || "—"} />
               <Kv label="Vehicle" value={d.vehicleSummary || "—"} />
+              <Kv label="Registration" value={d.vehicleReg || "Not added yet"} />
               <Kv label="Email" value={d.email} />
               <Kv label="Mobile" value={d.mobile || "—"} />
               {d.statusReason ? <Kv label="Reason" value={d.statusReason} /> : null}

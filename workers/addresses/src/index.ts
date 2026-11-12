@@ -4,6 +4,7 @@ import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
 import { handleDriverJobsRequest, raiseUrgentReportEscalation, runDriverJobsMaintenance } from "./driver-jobs";
 import { buildDriverJobsDeps } from "./driver-jobs-wiring";
+import { handleStagingTestBooking } from "./staging-test-booking";
 import { handleOwnerPushRequest } from "./owner-push";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
@@ -4756,6 +4757,11 @@ export default {
         JSON.stringify({ sandbox: STAGING_SANDBOX, recentBlocked: STAGING_SANDBOX ? recentBlockedOutbound() : [] }),
         { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", ...corsHeaders(origin) } },
       );
+    }
+    // Staging-only test bookings (never present in the live build).
+    if (STAGING_SANDBOX) {
+      const stagingTest = await handleStagingTestBooking(request, env, ownerAuthorized(request, env), corsHeaders(origin));
+      if (stagingTest) return stagingTest;
     }
     // Stage 2 driver jobs — answers 404 unless a DRIVER_DB binding exists (staging only).
     const driverJobsDeps = buildDriverJobsDeps(env, { ownerAuthorized: (req) => ownerAuthorized(req, env), corsHeaders });

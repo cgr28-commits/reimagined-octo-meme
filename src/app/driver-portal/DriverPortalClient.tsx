@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Driver portal — Stage 1 (individual accounts).
+ * Driver portal — individual accounts (Stage 1) and jobs (Stage 2, see DriverJobs).
  * Sign in with a single-use link from the office, apply, add documents, set availability,
- * contact the office. Jobs and earnings arrive in later stages.
+ * answer offers, run jobs and contact the office. Earnings arrive in a later stage.
  */
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "@/components/owner-mobile/OwnerMobile.module.css";
@@ -18,6 +18,7 @@ import {
   storeDriverSession,
   type DriverMe,
 } from "@/lib/driver-accounts-api";
+import DriverJobs from "./DriverJobs";
 
 type Phase =
   | { kind: "loading" }
@@ -257,6 +258,8 @@ function Home({
   const [error, setError] = useState("");
   const [addingDoc, setAddingDoc] = useState(false);
   const attention = me.summary.filter((s) => s.required && s.state !== "valid");
+  const [tab, setTab] = useState<"jobs" | "account">("jobs");
+  const showAccount = !approved || tab === "account";
 
   async function toggleAvailable() {
     setBusy(true);
@@ -274,6 +277,15 @@ function Home({
 
   return (
     <>
+      {approved ? (
+        <div className={styles.segmented} role="tablist" aria-label="Jobs or account">
+          {(["jobs", "account"] as const).map((t) => (
+            <button key={t} type="button" role="tab" aria-selected={tab === t} className={`${styles.segment} ${tab === t ? styles.segmentActive : ""}`} onClick={() => setTab(t)} data-portal-tab={t}>
+              {t === "jobs" ? "Jobs" : `Account${attention.length ? ` · ${attention.length}` : ""}`}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
       {!approved ? (
         <div className={`${styles.notice} ${styles.amber}`}>
@@ -300,12 +312,24 @@ function Home({
               <span style={{ position: "absolute", top: 4, left: d.available ? 32 : 4, width: 36, height: 36, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(7,28,56,0.25)", transition: "left 150ms" }} />
             </button>
           </div>
-          <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Jobs and offers arrive in a later update.</p>
+          <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>This only affects new offers. Jobs you already have stay yours.</p>
         </section>
       )}
 
-      {approved ? <ContactOffice me={me} session={session} onToast={onToast} /> : null}
+      {approved && tab === "jobs" ? (
+        <>
+          {attention.length ? (
+            <div className={`${styles.notice} ${styles.amber}`}>
+              {attention.length} document{attention.length === 1 ? "" : "s"} need sorting before you can take new work. See Account.
+            </div>
+          ) : null}
+          <DriverJobs session={session} onToast={onToast} />
+          <ContactOffice me={me} session={session} onToast={onToast} />
+        </>
+      ) : null}
 
+      {showAccount ? (
+      <>
       <section className={styles.card} style={{ overflow: "hidden" }}>
         <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
           Documents{attention.length ? ` · ${attention.length} to sort` : ""}
@@ -354,6 +378,7 @@ function Home({
         <Row label="Operator" value={d.operatorName || "—"} />
         <Row label="Operator licence" value={d.operatorLicenceNumber || "—"} />
         <Row label="Vehicle" value={d.vehicleSummary || "—"} />
+        {approved ? <Row label="Registration" value={d.vehicleReg || "Not added yet"} /> : null}
         <Row label="Mobile" value={d.mobile || "—"} />
         <Row label="Email" value={d.email} />
         <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>To change these, contact the office.</p>
@@ -369,6 +394,8 @@ function Home({
       >
         Sign out of this phone
       </button>
+      </>
+      ) : null}
     </>
   );
 }

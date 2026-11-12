@@ -20,6 +20,7 @@ name: Deploy Dashboard Staging (isolated account)
   push:
     branches:
       - claude/owner-dashboard-mobile
+      - claude/driver-portal-stage2
 
 concurrency:
   group: dashboard-staging
@@ -105,6 +106,7 @@ jobs:
         run: |
           npx --yes tsx@4 scripts/check-staging-sandbox.ts
           npx --yes tsx@4 scripts/check-driver-accounts.ts
+          npx --yes tsx@4 scripts/check-driver-jobs.ts
 
       - name: Deploy staging Worker (staging account only)
         if: steps.secrets.outputs.ready == 'true'
@@ -140,7 +142,7 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Staging Worker (isolated account): $URL"
 
-      - name: Stage 1 cloud tests (real Worker + D1 in the staging account)
+      - name: Stage 1 + 2 cloud tests (real Worker + D1 in the staging account)
         if: steps.secrets.outputs.ready == 'true'
         env:
           STAGING_URL: ${{ steps.deploy.outputs.url }}

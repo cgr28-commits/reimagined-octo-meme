@@ -68,7 +68,46 @@ Not in Stage 1: jobs, offers, assignment, earnings, payments, notifications, doc
 (needs a private R2 bucket — to be approved), httpOnly cookie sessions (need a same-site domain; Stage 1
 uses an individual session token header, revoked on suspend/remove).
 
+## Stage 2 scope (built on staging 12 Nov 2026 — not live)
+
+Routes `/owner/driver-jobs*` and `/driver-portal/jobs*` (`workers/addresses/src/driver-jobs.ts`), tables in
+`migrations/driver-db/0004_stage2_offers_jobs.sql`. All answer 404 without a `DRIVER_DB` binding.
+
+- **Offers** — one per booking leg. *Fixed price*: owner sets the driver fee, first invited driver to accept gets
+  it (a conditional update plus a unique "one live job per leg" index make a double award impossible).
+  *Bids*: private prices; the owner always chooses, the lowest never wins automatically. *Direct*: one named
+  driver accepts or declines. Offers only go to approved, available drivers with in-date documents (direct may
+  go to an approved driver switched to unavailable). Offers never stay open past the pickup time.
+- **What a driver sees** — before the job is theirs: date, time, area (no street, no full postcode), passengers,
+  their fee. After: full addresses, customer first name and mobile, flight, notes, their fee. Never the customer
+  fare or the margin; never another driver's bid. Customer phone disappears once the job is finished.
+- **Customer email** — when a driver takes a job, the existing "Your driver details" email (first name, mobile,
+  partial registration) is sent. Drivers must add a vehicle registration before they can accept.
+- **Status** — On the way → Arrived → Complete, in order, own jobs only. Arrived and Complete store the phone's
+  position, accuracy and server time privately for the owner; if the phone won't share it the status still
+  updates and the record says "location not verified". Completion never pays anyone.
+- **Changes** — if the booking's date, time, pickup or drop-off no longer matches the job, the driver must
+  choose Accept Change or Can't Do New Time. Until then (and after "can't do") the driver stays assigned on the
+  old details; only the owner can release them (reason required). A cancelled booking closes the job.
+- **Owner alerts** (`escalations`) — urgent driver reports, a declined direct assignment, "can't do the new
+  time", an unanswered change, an offer nobody took. High-priority ones go to the phone at once and repeat after
+  2, 5, 10, 15… minutes until acknowledged, with an email from the second reminder. Acknowledging stops the
+  reminders only; it never changes a job or booking.
+- **Booking record** — `driver-jobs-wiring.ts` writes the driver (with `driverAccountId`) onto the booking when
+  a job is confirmed and clears it on release. It leaves alone a booking arranged through the older email flow.
+- **Staging-only test bookings** — `POST /staging/test-booking` (owner key; compiled out of the live build; can
+  only touch ids starting `stg-test-`).
+
+Before this can go live: add a D1 database and `DRIVER_DB` binding to the live Worker, a cron for
+`runDriverJobsMaintenance` (already hooked into `scheduled`, inert without the binding), and the owner's approval.
+On staging there are no crons, so reminders fire when a dispatch screen is opened.
+
+Not in Stage 2: any payment or Stripe Connect work (Stage 3), earnings screen, document photo upload.
+
 ## Checks
+
+```
+npx tsx scripts/check-driver-jobs.ts       # Node 22 — full Stage 2 flow on real SQLite
 
 ```
 npx tsx scripts/check-driver-accounts.ts   # Node 22 (node:sqlite) — full Stage 1 flow on real SQLite

@@ -156,6 +156,14 @@ export function areaLabel(label: string): string {
     .replace(/^\d+[a-z]?\s+/i, "");
 }
 
+/** "2026-11-14", "06:30" → "14 Nov 2026 at 06:30" for emails and alerts. */
+export function whenLabel(dateYmd: string, hm: string): string {
+  const [y, m, d] = dateYmd.split("-");
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const date = y && m && d ? `${Number(d)} ${months[Number(m) - 1] ?? m} ${y}` : dateYmd;
+  return hm ? `${date} at ${hm}` : date;
+}
+
 function legOf(booking: DispatchBooking, leg: "outbound" | "return"): DispatchLeg | null {
   return leg === "outbound" ? booking.outbound : booking.return;
 }
@@ -284,8 +292,8 @@ async function maintenance(ctx: Ctx): Promise<{ expiredOffers: number; reminders
       priority: soon ? "high" : "normal",
       title: `No driver yet for ${offer.booking_reference}`,
       body: Number(bids?.n ?? 0)
-        ? `The offer closed with ${bids?.n} bid(s) and no driver chosen. Pickup ${offer.trip_date} ${offer.trip_time}.`
-        : `The offer closed and nobody took it. Pickup ${offer.trip_date} ${offer.trip_time}.`,
+        ? `The offer closed with ${bids?.n} bid(s) and no driver chosen. Pickup ${whenLabel(offer.trip_date, offer.trip_time)}.`
+        : `The offer closed and nobody took it. Pickup ${whenLabel(offer.trip_date, offer.trip_time)}.`,
     });
   }
 
@@ -363,7 +371,7 @@ async function syncJob(ctx: Ctx, job: JobRow, booking: DispatchBooking | null): 
     ]);
     if (driver) {
       await safely("driver email", async () =>
-        ctx.deps.emailDriver?.(driver, `Job cancelled — ${job.trip_date} ${job.trip_time}`, `Hi ${firstName(driver.name)},\n\nThe customer booking for ${job.trip_date} at ${job.trip_time} has been cancelled, so this job is off. Open your driver portal for details.`),
+        ctx.deps.emailDriver?.(driver, `Job cancelled — ${whenLabel(job.trip_date, job.trip_time)}`, `Hi ${firstName(driver.name)},\n\nThe customer booking for ${whenLabel(job.trip_date, job.trip_time)} has been cancelled, so this job is off. Open your driver portal for details.`),
       );
     }
     return;
@@ -407,8 +415,8 @@ async function syncJob(ctx: Ctx, job: JobRow, booking: DispatchBooking | null): 
     await safely("driver email", async () =>
       ctx.deps.emailDriver?.(
         driver,
-        `Change to your job on ${current.tripDate} — please answer`,
-        `Hi ${firstName(driver.name)},\n\nA job you have accepted has changed.\n\nWas: ${current.tripDate} ${current.tripTime}, ${areaLabel(current.pickup)}\nNow: ${wanted.tripDate} ${wanted.tripTime}, ${areaLabel(wanted.pickup)}\n\nPlease open your driver portal and choose Accept Change or Can't Do New Time.`,
+        `Change to your job on ${whenLabel(current.tripDate, "")} — please answer`,
+        `Hi ${firstName(driver.name)},\n\nA job you have accepted has changed.\n\nWas: ${whenLabel(current.tripDate, current.tripTime)}, ${areaLabel(current.pickup)}\nNow: ${whenLabel(wanted.tripDate, wanted.tripTime)}, ${areaLabel(wanted.pickup)}\n\nPlease open your driver portal and choose Accept Change or Can't Do New Time.`,
       ),
     );
   }
@@ -492,13 +500,13 @@ async function confirmJob(ctx: Ctx, offer: OfferRow, driver: DriverRow, feePence
     await safely("owner notice", async () =>
       ctx.deps.notifyOwner?.({
         title: `${assigned.firstName} accepted ${offer.booking_reference}`,
-        body: `${offer.trip_date} ${offer.trip_time} · driver fee ${feeLabel(feePence)}`,
+        body: `${whenLabel(offer.trip_date, offer.trip_time)} · driver fee ${feeLabel(feePence)}`,
         url: "/owner/?ui=mobile#drivers", tag: jobId, priority: "normal",
       }),
     );
   } else {
     await safely("driver email", async () =>
-      ctx.deps.emailDriver?.(driver, `You have the job on ${offer.trip_date} at ${offer.trip_time}`, `Hi ${assigned.firstName},\n\nYou have been given the job on ${offer.trip_date} at ${offer.trip_time}. Your fee: ${feeLabel(feePence)}.\n\nFull details are in your driver portal.`),
+      ctx.deps.emailDriver?.(driver, `You have the job on ${whenLabel(offer.trip_date, offer.trip_time)}`, `Hi ${assigned.firstName},\n\nYou have been given the job on ${whenLabel(offer.trip_date, offer.trip_time)}. Your fee: ${feeLabel(feePence)}.\n\nFull details are in your driver portal.`),
     );
   }
   return job;
@@ -761,8 +769,8 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
       await safely("driver email", async () =>
         ctx.deps.emailDriver?.(
           d,
-          mode === "direct" ? `Job for you on ${info.tripDate} at ${info.tripTime} — please accept` : `New job offer for ${info.tripDate} at ${info.tripTime}`,
-          `Hi ${firstName(d.name)},\n\n${mode === "direct" ? "You have been asked to do this job" : mode === "bids" ? "A job is open for your price" : "A job is on offer"}:\n${info.tripDate} at ${info.tripTime}\n${areaLabel(info.pickup)} → ${areaLabel(info.dropoff)}\n${feePence != null ? `Your fee: ${feeLabel(feePence)}\n` : ""}\nOpen your driver portal to answer. The offer closes ${expiresAt}.`,
+          mode === "direct" ? `Job for you on ${whenLabel(info.tripDate, info.tripTime)} — please accept` : `New job offer for ${whenLabel(info.tripDate, info.tripTime)}`,
+          `Hi ${firstName(d.name)},\n\n${mode === "direct" ? "You have been asked to do this job" : mode === "bids" ? "A job is open for your price" : "A job is on offer"}:\n${whenLabel(info.tripDate, info.tripTime)}\n${areaLabel(info.pickup)} → ${areaLabel(info.dropoff)}\n${feePence != null ? `Your fee: ${feeLabel(feePence)}\n` : ""}\nOpen your driver portal to answer. The offer closes ${new Date(expiresAt).toLocaleString("en-GB", { timeZone: "Europe/London", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.`,
         ),
       );
     }
@@ -816,7 +824,7 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
     const driver = await getDriver(db, job.driver_id);
     if (driver) {
       await safely("driver email", async () =>
-        ctx.deps.emailDriver?.(driver, `You are no longer on the job for ${job.trip_date} at ${job.trip_time}`, `Hi ${firstName(driver.name)},\n\nThe office has taken you off the job on ${job.trip_date} at ${job.trip_time}.\n\nIf you have questions, use Contact Office in your driver portal.`),
+        ctx.deps.emailDriver?.(driver, `You are no longer on the job for ${whenLabel(job.trip_date, job.trip_time)}`, `Hi ${firstName(driver.name)},\n\nThe office has taken you off the job on ${whenLabel(job.trip_date, job.trip_time)}.\n\nIf you have questions, use Contact Office in your driver portal.`),
       );
     }
     // The customer is not told automatically, and the booking itself is unchanged.
@@ -962,7 +970,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
         await raiseEscalation(ctx, {
           sourceType: "offer", sourceId: offer.id, driverId: offer.mode === "direct" ? driver.id : null, priority: "high",
           title: offer.mode === "direct" ? `${firstName(driver.name)} declined ${offer.booking_reference}` : `Every driver declined ${offer.booking_reference}`,
-          body: `Pickup ${offer.trip_date} ${offer.trip_time}. The booking is unchanged and still needs a driver.`,
+          body: `Pickup ${whenLabel(offer.trip_date, offer.trip_time)}. The booking is unchanged and still needs a driver.`,
         });
       }
       return json({ ok: true, state: "declined" }, 200, cors);
@@ -979,7 +987,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
         auditStatement(db, at, "driver", driver.id, "offer.bid", driver.id, { offerId: offer.id, reference: offer.booking_reference, bidPence, previousBidPence: mine.bid_pence }),
       ]);
       await safely("owner notice", async () =>
-        ctx.deps.notifyOwner?.({ title: `Bid on ${offer.booking_reference}: ${feeLabel(bidPence)}`, body: `${firstName(driver.name)} · ${offer.trip_date} ${offer.trip_time}. You choose the driver.`, url: "/owner/?ui=mobile#drivers", tag: `${offer.id}-${driver.id}`, priority: "normal" }),
+        ctx.deps.notifyOwner?.({ title: `Bid on ${offer.booking_reference}: ${feeLabel(bidPence)}`, body: `${firstName(driver.name)} · ${whenLabel(offer.trip_date, offer.trip_time)}. You choose the driver.`, url: "/owner/?ui=mobile#drivers", tag: `${offer.id}-${driver.id}`, priority: "normal" }),
       );
       // A bid is private: nothing about other drivers' bids is ever returned.
       return json({ ok: true, state: "bid", bidPence, bidLabel: feeLabel(bidPence) }, 200, cors);
@@ -1030,7 +1038,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
     ]);
     if (next === "completed") {
       await safely("owner notice", async () =>
-        ctx.deps.notifyOwner?.({ title: `${firstName(driver.name)} completed ${job.booking_reference}`, body: `${job.trip_date} ${job.trip_time}. Nothing is paid until you approve it.`, url: "/owner/?ui=mobile#drivers", tag: `${job.id}-done`, priority: "normal" }),
+        ctx.deps.notifyOwner?.({ title: `${firstName(driver.name)} completed ${job.booking_reference}`, body: `${whenLabel(job.trip_date, job.trip_time)}. Nothing is paid until you approve it.`, url: "/owner/?ui=mobile#drivers", tag: `${job.id}-done`, priority: "normal" }),
       );
     }
     return json({ ok: true, status: next, locationVerified: next === "on_the_way" ? null : located }, 200, cors);
@@ -1055,7 +1063,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
       ]);
       await closeEscalations(ctx, "change", change.id, "Driver accepted the change");
       await safely("owner notice", async () =>
-        ctx.deps.notifyOwner?.({ title: `${firstName(driver.name)} accepted the change to ${change.booking_reference}`, body: `Now ${to.tripDate} ${to.tripTime}.`, url: "/owner/?ui=mobile#drivers", tag: change.id, priority: "normal" }),
+        ctx.deps.notifyOwner?.({ title: `${firstName(driver.name)} accepted the change to ${change.booking_reference}`, body: `Now ${whenLabel(to.tripDate, to.tripTime)}.`, url: "/owner/?ui=mobile#drivers", tag: change.id, priority: "normal" }),
       );
       return json({ ok: true, status: "accepted" }, 200, cors);
     }
@@ -1069,7 +1077,7 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
       await raiseEscalation(ctx, {
         sourceType: "change", sourceId: change.id, driverId: driver.id, priority: "high",
         title: `${firstName(driver.name)} can't do the new time for ${change.booking_reference}`,
-        body: `Changed to ${to.tripDate} ${to.tripTime}. They are still assigned on the old details until you choose what to do.`,
+        body: `Changed to ${whenLabel(to.tripDate, to.tripTime)}. They are still assigned on the old details until you choose what to do.`,
       });
       return json({ ok: true, status: "cant_do", stillAssigned: true }, 200, cors);
     }

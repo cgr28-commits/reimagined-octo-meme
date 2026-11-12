@@ -66,6 +66,7 @@ import { isPreviewHost, sampleOwnerData } from "./owner-mobile-sample";
 import OwnerDriversScreen from "./OwnerDriversScreen";
 import OwnerNotificationsScreen from "./OwnerNotificationsScreen";
 import { ownerDrivers, type DriversSummary } from "@/lib/driver-accounts-api";
+import { ownerJobs, type DispatchSummary } from "@/lib/driver-jobs-api";
 import type { OwnerDashboardToolTab } from "@/components/OwnerDashboardToolSwitcher";
 import { buildOwnerOutgoingEmail, type InboxMessage } from "../../../shared/owner-inbox";
 import {
@@ -89,7 +90,7 @@ type View =
   | { kind: "email"; threadKey: string }
   | { kind: "whatsapp"; phone: string }
   | { kind: "customer"; id: string }
-  | { kind: "drivers"; driverId?: string }
+  | { kind: "drivers"; driverId?: string; jobs?: boolean }
   | { kind: "notifications" };
 
 export type OwnerMobileAppProps = {
@@ -209,6 +210,8 @@ export default function OwnerMobileApp({
         setTab(target);
         setView({ kind: "tab" });
       }
+      // Driver job alerts (staging only) open Drivers → Jobs.
+      if (target === "drivers") setView({ kind: "drivers", jobs: true });
     };
     go(window.location.hash ? `#${window.location.hash.slice(1)}` : "");
     const onMessage = (event: MessageEvent) => {
@@ -230,6 +233,8 @@ export default function OwnerMobileApp({
   const [profileFirstName, setProfileFirstName] = useState("");
   /** Stage 1 driver accounts (staging only). Null when not switched on. */
   const [driversSummary, setDriversSummary] = useState<DriversSummary | null>(null);
+  /** Stage 2 driver jobs (staging only). Null when not switched on. */
+  const [jobsSummary, setJobsSummary] = useState<DispatchSummary | null>(null);
   /** Staging preview only: show clearly-labelled sample data instead of the (empty) staging data. */
   const [sample, setSample] = useState(false);
   const [previewHost, setPreviewHost] = useState(false);
@@ -265,6 +270,10 @@ export default function OwnerMobileApp({
       .summary(ownerKey)
       .then(setDriversSummary)
       .catch(() => setDriversSummary(null));
+    void ownerJobs
+      .summary(ownerKey)
+      .then(setJobsSummary)
+      .catch(() => setJobsSummary(null));
     // Each part shows as soon as it arrives: bookings never wait for emails or WhatsApp.
     const errors: string[] = [];
     const part = <T,>(promise: Promise<T>, apply: (value: T) => void, label: string) =>
@@ -434,10 +443,12 @@ export default function OwnerMobileApp({
       <OwnerDriversScreen
         ownerKey={ownerKey}
         initialDriverId={view.driverId}
+        initialTab={view.jobs ? "jobs" : undefined}
         onOpenBooking={(ref, leg, driverId) => setView({ kind: "booking", ref, leg, fromDriverId: driverId })}
         onBack={() => {
           setView({ kind: "tab" });
           void ownerDrivers.summary(ownerKey).then(setDriversSummary).catch(() => undefined);
+          void ownerJobs.summary(ownerKey).then(setJobsSummary).catch(() => undefined);
         }}
         onToast={setToast}
       />
@@ -455,7 +466,12 @@ export default function OwnerMobileApp({
         onOpenUrgent={openUrgent}
         onOpenTab={openTab}
         offerSample={previewHost && !sample && loaded && bookings.length === 0 && threads.length === 0 && chats.length === 0}
-        driverAlert={<DriverAlertBanner summary={driversSummary} onOpen={() => setView({ kind: "drivers" })} />}
+        driverAlert={
+          <>
+            <DriverJobsBanner summary={jobsSummary} onOpen={() => setView({ kind: "drivers", jobs: true })} />
+            <DriverAlertBanner summary={driversSummary} onOpen={() => setView({ kind: "drivers" })} />
+          </>
+        }
         onShowSample={() => setSample(true)}
       />
     );
@@ -2250,6 +2266,47 @@ function MoreScreen({
 }
 
 /** Home banner for driver reports and booking reviews. Urgent first; nothing shown when all clear. */
+/** Stage 2: driver job alerts not yet acknowledged, or bids waiting for a decision. */
+function DriverJobsBanner({ summary, onOpen }: { summary: DispatchSummary | null; onOpen: () => void }) {
+  if (!summary) return null;
+  // Urgent driver reports already have their own banner below.
+  const waiting = summary.escalations.filter((e) => !e.acknowledgedAt && e.sourceType !== "message");
+  if (!waiting.length && !summary.bids) return null;
+  const critical = waiting.some((e) => e.priority === "high");
+  const first = waiting[0];
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-driver-jobs-banner={critical ? "urgent" : "info"}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        display: "grid",
+        gap: 4,
+        padding: "14px 16px",
+        minHeight: 64,
+        marginBottom: 12,
+        borderRadius: 18,
+        border: critical ? "2px solid #D92D20" : "1px solid #CFE0F5",
+        background: critical ? "#FEF3F2" : "#EEF4FC",
+        color: "#071C38",
+        cursor: "pointer",
+      }}
+    >
+      <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: critical ? "#B42318" : "#1D4F91" }}>
+        {first ? (critical ? "Driver job needs you" : "Driver jobs") : "Driver bids"}
+      </span>
+      <span style={{ fontSize: 16, fontWeight: 800 }}>
+        {first ? `${first.title}${waiting.length > 1 ? ` (+${waiting.length - 1} more)` : ""}` : `${summary.bids} bid${summary.bids === 1 ? "" : "s"} waiting — you choose the driver`}
+      </span>
+      <span style={{ fontSize: 14, color: "#33445C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {first ? first.body || "Open Jobs to deal with it." : "Open Jobs to compare them."}
+      </span>
+    </button>
+  );
+}
+
 function DriverAlertBanner({ summary, onOpen }: { summary: DriversSummary | null; onOpen: () => void }) {
   if (!summary) return null;
   const urgent = summary.urgent.length;
