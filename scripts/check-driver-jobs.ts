@@ -491,6 +491,14 @@ async function main() {
   ]) assert.ok(actions.has(expected), `audit missing ${expected}`);
   assert.throws(() => sqlite.prepare("DELETE FROM audit_log").run(), /append-only/);
 
+  // ----- the Worker entry must call the Stage 2 handler, not its older same-named "My Jobs" function -----
+  const entry = readFileSync("workers/addresses/src/index.ts", "utf8");
+  assert.match(entry, /handleDriverJobsRequest as handleDriverPortalStage2Request/);
+  assert.match(entry, /await handleDriverPortalStage2Request\(request, env, driverJobsDeps\)/);
+  for (const name of ["buildDriverJobsDeps", "handleStagingTestBooking", "raiseUrgentReportEscalation", "runDriverJobsMaintenance", "handleDriverPortalStage2Request"]) {
+    assert.ok(!new RegExp(`\\n(?:async )?function ${name}\\b`).test(entry), `${name} is also declared inside index.ts`);
+  }
+
   console.log("check-driver-jobs: all checks passed");
 }
 

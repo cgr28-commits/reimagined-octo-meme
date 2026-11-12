@@ -2,7 +2,8 @@
 import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
-import { handleDriverJobsRequest, raiseUrgentReportEscalation, runDriverJobsMaintenance } from "./driver-jobs";
+// Aliased: this file already has its own (older) handleDriverJobsRequest for the assigned-driver "My Jobs" list.
+import { handleDriverJobsRequest as handleDriverPortalStage2Request, raiseUrgentReportEscalation, runDriverJobsMaintenance } from "./driver-jobs";
 import { buildDriverJobsDeps } from "./driver-jobs-wiring";
 import { handleStagingTestBooking } from "./staging-test-booking";
 import { handleOwnerPushRequest } from "./owner-push";
@@ -4765,7 +4766,7 @@ export default {
     }
     // Stage 2 driver jobs — answers 404 unless a DRIVER_DB binding exists (staging only).
     const driverJobsDeps = buildDriverJobsDeps(env, { ownerAuthorized: (req) => ownerAuthorized(req, env), corsHeaders });
-    const driverJobsResponse = await handleDriverJobsRequest(request, env, driverJobsDeps);
+    const driverJobsResponse = await handleDriverPortalStage2Request(request, env, driverJobsDeps);
     if (driverJobsResponse) return driverJobsResponse;
     // Stage 1 driver accounts — answers 404 unless a DRIVER_DB binding exists (staging only).
     const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
