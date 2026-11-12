@@ -7580,3 +7580,11 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     body:has([data-bespoke-request-form]) .address-suggestions-overlay button span:first-child { color: #0b1f3a !important; -webkit-text-fill-color: #0b1f3a; }
   }
 }
+
+/* Owner Dashboard → Event & Business Class / Belfast events panels only: on the light phone and
+   tablet design, warning and error text must be dark enough to read on the pale boxes. */
+@layer base {
+  html[data-mobile-light] [data-bespoke-owner-panel] :is(.text-amber-50, .text-amber-100, .text-amber-200, [class*="text-amber-100/"]) { color: #7a4b00 !important; -webkit-text-fill-color: #7a4b00; }
+  html[data-mobile-light] [data-bespoke-owner-panel] :is(.text-red-100, .text-red-300) { color: #b42318 !important; -webkit-text-fill-color: #b42318; }
+  html[data-mobile-light] [data-bespoke-owner-panel] .text-emerald { color: #16803c !important; -webkit-text-fill-color: #16803c; }
+}

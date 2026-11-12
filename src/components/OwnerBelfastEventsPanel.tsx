@@ -200,7 +200,7 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
   if (editing) {
     const record = editing === "new" ? null : editing;
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-bespoke-owner-panel>
         <button type="button" className="min-h-11 text-sm font-semibold text-emerald" onClick={() => { setEditing(null); setNotice(""); setError(""); }}>
           ← All events
         </button>
@@ -358,7 +358,7 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-bespoke-owner-panel>
       <p className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-white/75">
         Public Belfast events page is switched <strong className="text-white">{publicEnabled ? "on" : "off"}</strong>. Only events you approve and publish are shown.
       </p>
