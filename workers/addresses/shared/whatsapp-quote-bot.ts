@@ -1182,7 +1182,7 @@ export function buildWhatsAppUnavailableReply(input: {
   if (input.reason === "overnight") {
     const earliest = earliestOvernightPickup(input.now ?? new Date());
     return (
-      `Sorry, we can't confirm a ${legLabel} at ${when} as we're closed overnight (10pm–7am).\n\n` +
+      `Sorry, we can't confirm a ${legLabel} at ${when}.\n\n` +
       `The earliest pickup we can take is ${earliest.time}${earliest.tomorrow ? " tomorrow" : ""}. ` +
       `Please send me that time or later.`
     );

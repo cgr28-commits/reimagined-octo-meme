@@ -147,8 +147,13 @@ async function main(){
     }
     throw new Error("Unexpected external request in isolated checkout test: "+url);
   };
+  const realDateNow=Date.now;
+  // Tomorrow at 12:00 UTC (UK daytime all year).
+  const pinnedNow=(()=>{const d=new Date(realDateNow());d.setUTCDate(d.getUTCDate()+1);d.setUTCHours(12,0,0,0);return d.getTime();})();
   try {
     const payEnv={TRACKING_STORE:payments.store,SUMUP_API_KEY:"test-only",SUMUP_MERCHANT_CODE:"test-merchant",GOOGLE_PLACES_API_KEY:"test-google",OWNER_ACCESS_KEY:"test-owner",PUBLIC_SITE_ORIGIN:"https://www.myairporttaxini.co.uk"};
+    // Pin a UK-daytime clock: overnight (23:00–07:00) requests need owner approval under the 24/7 policy.
+    Date.now=()=>pinnedNow;
     const date=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
     for(const address of addresses)for(const [airportCode,saloon] of [["DUB",245],["BFS",55],["BHD",35]] as const)for(const vehicle of [S,E]){
       const fare=saloon+(vehicle===E?approvedPricing.estate.upliftGbp:0);

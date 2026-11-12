@@ -15,7 +15,6 @@ import {
   businessEmailClientMeta,
   businessEmailLogoHtml, BUSINESS_LANDLINE_DISPLAY
 } from "./business-email";
-import { MINIMUM_BOOKING_NOTICE_HOURS } from "./booking-notice";
 import { MINIBUS_NOTICE_BODY, MINIBUS_NOTICE_HEADING } from "./availability-resource";
 import {
   LUGGAGE_CAPACITY_RECEIVED_BODY,
@@ -69,25 +68,19 @@ export function buildShortNoticeRequestReceivedEmail(
   const firstName = customerFirstName(details.customerName);
   const subject = details.minibusNotice
     ? MINIBUS_NOTICE_HEADING
-    : details.cardHeld
-      ? "We’ve received your booking — we’ll confirm shortly"
-      : "We’ve received your booking request";
-  const noticeHours = details.noticeHours ?? MINIMUM_BOOKING_NOTICE_HOURS;
+    : "Booking Request Received";
   const luggageHold = hasLuggageCapacityHold(details.holdReasons);
+  // Never reveals internal approval rules or thresholds.
   const reasonParagraph = luggageHold
     ? LUGGAGE_CAPACITY_RECEIVED_BODY
     : details.minibusNotice
       ? MINIBUS_NOTICE_BODY
-      : details.cardHeld
-        ? `Your journey is within our ${noticeHours}-hour short-notice period, so we’re just checking a driver is free. We’ll confirm your booking shortly.`
-        : `Because your requested journey is within our ${noticeHours}-hour advance booking period, we need to confirm availability before your booking can be accepted.`;
+      : "Your booking request has been received and is awaiting confirmation. Your transfer is not yet confirmed.";
   const paymentLine = details.cardHeld
-    ? `Your card is held for ${details.amountLabel} — nothing is charged until we confirm. If we’re unable to complete your booking, the funds are released right away.`
+    ? `A temporary authorisation of ${details.amountLabel} has been placed on your card. This is not a charge — payment is only taken once your booking is confirmed. If we can’t confirm it, the authorisation is cancelled and you won’t be charged.`
     : "No payment has been taken.";
-  const nextLine = details.cardHeld
-    ? "You’ll get your booking confirmation by email as soon as we confirm."
-    : "We’ll email you once your request has been reviewed.";
-
+  const nextLine =
+    "Your transfer is confirmed once you receive your booking confirmation email. Please check your inbox, including your spam or junk folder.";
   const text =
     `Hi ${firstName},\n\n` +
     `${details.cardHeld ? "Thanks for your booking." : "Thanks for your booking request."}\n\n` +

@@ -50,6 +50,7 @@ import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-off
 import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
+import { notifyOwnerPush } from "./owner-push";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
 import {
   PAYMENT_METHOD_DEPOSIT_CASH,
@@ -719,6 +720,13 @@ async function finalizePaidCheckoutOnce(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerEmailResult.sent;
+  // Direct phone alert (doesn't wait for the email to be forwarded into the inbox). Never throws.
+  await notifyOwnerPush(env as never, {
+    category: "bookings",
+    title: "New confirmed booking",
+    body: `${booking.customerName || "Customer"} — ${booking.tripDate} ${booking.tripTime}`.slice(0, 140),
+    url: "/owner/?ui=mobile#bookings",
+  }).catch(() => undefined);
 
   // Keep the real email outcome with the booking, so a later refresh of the confirmation
   // page reports what actually happened instead of assuming the emails went out.

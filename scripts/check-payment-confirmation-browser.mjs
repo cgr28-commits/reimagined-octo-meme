@@ -35,7 +35,7 @@ try {
    await page.getByRole('heading',{name:'Confirming payment',exact:true}).waitFor();
    assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
    if(test==='paid'||test==='deposit') {
-    await page.getByRole('heading',{name:'Booking confirmed',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).waitFor();
     assert.match(await page.locator('[data-confirmed-booking-number]').innerText(),/Your booking number\s+MAT-1234/i);
     assert.ok(await page.locator('[data-confirmed-booking-number]').isVisible());
     assert.match(await page.locator('main').innerText(),/Payment reference: SUMUP-EXAMPLE/);
@@ -48,7 +48,7 @@ try {
    } else {
     await page.getByRole('heading',{name:test==='pending'?'Payment processing':'Payment check',exact:true}).waitFor();
     assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
-    assert.equal(await page.getByRole('heading',{name:'Booking confirmed',exact:true}).count(),0);
+    assert.equal(await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).count(),0);
    }
   }
   console.log(`PASS ${width}px: direct visit/loading/pending/error cannot show success; verified paid/deposit show MAT number, payment reference and correct balances; no overflow`);

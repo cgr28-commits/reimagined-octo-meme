@@ -137,7 +137,7 @@ try {
    await fullPay.click();
    await page.waitForTimeout(500);
    assert.equal(q.requests.length,2);assert.equal(q.requests[1].amount,68);assert.equal(q.requests[1].paymentMethod,'FULL_ONLINE');assert.equal(q.requests[1].cashAgreementAccepted,undefined);
-   assert.equal(await page.getByRole('heading',{name:'Booking confirmed',exact:true}).count(),0);
+   assert.equal(await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).count(),0);
    let confirmed=false;
    await q.context.route('**/payments/confirm',async route=> {
     if(!confirmed)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Payment has not been completed'})});
@@ -148,7 +148,7 @@ try {
    assert.equal(await page.locator('[data-confirmation-cancellation-policy]').count(),0);
    confirmed=true;
    await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=isolated-confirmed`);
-   await page.getByRole('heading',{name:'Booking confirmed',exact:true}).waitFor();
+   await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).waitFor();
    assert.match(await page.locator('[data-confirmation-cancellation-policy]').innerText(),/at least 24 hours.*100% refund/);
    assert.match(await page.locator('main').innerText(),/£53.00/);
    await page.screenshot({path:`${output}/390-confirmation.png`,fullPage:true});

@@ -190,6 +190,7 @@ export const WHATSAPP_QUOTE_FORM_JSON = {
         suitcase_options: optionArraySchema(SUITCASES.slice(0, 2)),
         notice: { type: "string", __example__: "" },
         has_notice: { type: "boolean", __example__: false },
+        show_return: { type: "boolean", __example__: false },
       },
       layout: {
         type: "SingleColumnLayout",
@@ -217,23 +218,36 @@ export const WHATSAPP_QUOTE_FORM_JSON = {
             label: "Trip",
             required: true,
             "init-value": "one_way",
+            // One way is the default. Picking Return shows the return date and time
+            // straight away (update_data runs on the phone, no round trip to us).
             "data-source": [
-              { id: "one_way", title: "One way" },
-              { id: "return", title: "Return" },
+              {
+                id: "one_way",
+                title: "One way",
+                "on-select-action": { name: "update_data", payload: { show_return: false } },
+              },
+              {
+                id: "return",
+                title: "Return",
+                description: "Book your return too and save 5%",
+                "on-select-action": { name: "update_data", payload: { show_return: true } },
+              },
             ],
           },
           {
             type: "DatePicker",
             name: "return_date",
-            label: "Return date (return trips only)",
+            label: "Return date",
             required: false,
+            visible: "${data.show_return}",
             "min-date": "${data.min_date}",
           },
           {
             type: "Dropdown",
             name: "return_time",
-            label: "Return pickup time (return trips only)",
+            label: "Return pickup time",
             required: false,
+            visible: "${data.show_return}",
             "data-source": "${data.times}",
           },
           {
@@ -318,7 +332,7 @@ export function quoteFormJourneyScreen(session: QuoteFormSession, notice = ""): 
   };
 }
 
-function detailsScreen(now: Date, notice = ""): QuoteFormReply {
+function detailsScreen(now: Date, notice = "", showReturn = false): QuoteFormReply {
   return {
     screen: "DETAILS",
     data: {
@@ -328,6 +342,7 @@ function detailsScreen(now: Date, notice = ""): QuoteFormReply {
       suitcase_options: SUITCASES,
       notice,
       has_notice: Boolean(notice),
+      show_return: showReturn,
     },
   };
 }
@@ -485,9 +500,9 @@ export async function nextQuoteFormScreen(
     const time = String(data.time ?? "");
     const returnDate = formDate(data.return_date);
     const returnTime = String(data.return_time ?? "");
-    if (!date || !/^\d{2}:\d{2}$/.test(time)) return detailsScreen(now, "Please choose the pickup date and time.");
+    if (!date || !/^\d{2}:\d{2}$/.test(time)) return detailsScreen(now, "Please choose the pickup date and time.", returnTrip);
     if (returnTrip && (!returnDate || !/^\d{2}:\d{2}$/.test(returnTime))) {
-      return detailsScreen(now, "For a return trip, please choose the return date and time too.");
+      return detailsScreen(now, "For a return trip, please choose the return date and time too.", true);
     }
     const draft = quoteFormDraft(session.pickup, session.dropoff, {
       date,
@@ -501,7 +516,7 @@ export async function nextQuoteFormScreen(
     });
     // The same checks as the chat: not in the past, return after the outward trip, etc.
     const problem = validateWhatsAppDraft(draft, now);
-    if (problem) return detailsScreen(now, plainText(problem.message));
+    if (problem) return detailsScreen(now, plainText(problem.message), returnTrip);
     session.draft = draft;
     return { screen: "SUMMARY", data: { summary: plainText(buildWhatsAppSummary(draft)) } };
   }
