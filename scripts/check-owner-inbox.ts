@@ -255,6 +255,48 @@ async function main() {
   );
   assert.equal(res.status, 400);
 
+  // The new "thread" parameter opens the same conversation as the old "key" one.
+  res = await handleOwnerInboxThread(new Request(`https://w/owner/inbox/thread?thread=${encodeURIComponent(threadKey)}`, { headers: ownerHeaders }), env, null);
+  assert.equal(res.status, 200);
+
+  // Duplicate-send guard: the same sendId twice sends one email; a new sendId sends again.
+  const before = sent.length;
+  const replyOnce = () =>
+    handleOwnerInboxReply(
+      new Request("https://w/owner/inbox/reply", {
+        method: "POST",
+        headers: ownerHeaders,
+        body: JSON.stringify({ threadKey, message: "See you at 5.", sendId: "send-abc" }),
+      }),
+      env,
+      null,
+      fakeFetch,
+    );
+  res = await replyOnce();
+  assert.equal(res.status, 200);
+  res = await replyOnce();
+  assert.equal(res.status, 200);
+  assert.equal(((await res.json()) as { duplicate?: boolean }).duplicate, true);
+  assert.equal(sent.length, before + 1, "double tap sends one email");
+  // A failed send releases the sendId so it can be retried.
+  const failingFetch = async (url: string, init?: RequestInit) =>
+    url === "https://api.resend.com/emails" ? new Response("{}", { status: 500 }) : fakeFetch(url, init);
+  res = await handleOwnerInboxReply(
+    new Request("https://w/owner/inbox/reply", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey, message: "Retry me", sendId: "send-retry" }) }),
+    env,
+    null,
+    failingFetch,
+  );
+  assert.notEqual(res.status, 200);
+  res = await handleOwnerInboxReply(
+    new Request("https://w/owner/inbox/reply", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey, message: "Retry me", sendId: "send-retry" }) }),
+    env,
+    null,
+    fakeFetch,
+  );
+  assert.equal(res.status, 200);
+  assert.equal(sent.length, before + 2);
+
   // Our own BCC copy coming back through the GoDaddy forward is ignored.
   assert.equal(
     inboundToMessage({ from: "My Airport Taxi NI <bookings@myairporttaxini.co.uk>", to: ["sarah@example.com"], subject: "Re: x", text: "y" }, "em-2", "bookings@myairporttaxini.co.uk"),
@@ -284,8 +326,8 @@ async function main() {
     fakeFetch,
   );
   assert.equal(res.status, 200);
-  assert.equal(sent[1]!.subject, draft.subject);
-  assert.match(String(sent[1]!.html), /Flight:<\/span> EZY123/);
+  assert.equal(sent[sent.length - 1]!.subject, draft.subject);
+  assert.match(String(sent[sent.length - 1]!.html), /Flight:<\/span> EZY123/);
 
   // Archive hides the thread; a new email from the customer brings it back.
   await handleOwnerInboxArchive(new Request("https://w/owner/inbox/archive", { method: "POST", headers: ownerHeaders, body: JSON.stringify({ threadKey }) }), env, null);

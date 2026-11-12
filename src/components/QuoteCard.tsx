@@ -1,5 +1,6 @@
 "use client";
 
+import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import CallUsButton from "@/components/CallUsButton";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
@@ -284,6 +285,7 @@ import {
   isWithinMinimumBookingNotice,
   OWNER_NO_AVAILABILITY_MESSAGE,
   tooSoonRequestBody,
+  isBelowMinimumShortNoticeLead,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
@@ -2138,6 +2140,11 @@ function QuoteCard({
     pickupLeadWindow === "too_soon" &&
     !ownerNoAvailabilityBlocked &&
     !closedAvailabilityMessage;
+  // Too soon only because we're closed overnight (22:00–07:00), not the normal lead time.
+  const isOvernightTooSoon =
+    isTooSoonPickup &&
+    Boolean(tripDate && tripTime) &&
+    !isBelowMinimumShortNoticeLead(tripDate, tripTime, new Date(), minimumShortNoticeLeadHours);
   const isMinimumNoticeRequest =
     !isMinibusQuote &&
     pickupLeadWindow === "short_notice" &&
@@ -4912,7 +4919,11 @@ function QuoteCard({
       return;
     }
     if (isTooSoonPickup) {
-      setPaymentError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      setPaymentError(
+        isOvernightTooSoon
+          ? overnightTooSoonBody()
+          : tooSoonRequestBody(minimumShortNoticeLeadHours),
+      );
       handleChooseAnotherTime();
       return;
     }
@@ -7849,6 +7860,7 @@ function QuoteCard({
             <TooSoonCheckoutNotice
               leadHours={minimumShortNoticeLeadHours}
               onChooseAnotherTime={handleChooseAnotherTime}
+              overnight={isOvernightTooSoon}
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
@@ -8060,7 +8072,7 @@ function QuoteCard({
                   {previewPaymentsOff
                     ? "Payments are switched off on this preview"
                     : paymentLoading
-                    ? isAvailabilityRequest
+                    ? isAvailabilityRequest && !isMinimumNoticeRequest
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
                     : testChargeAmount !== null
@@ -8068,7 +8080,7 @@ function QuoteCard({
                       : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
-                          ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                          ? `Book Now — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                           : selectedCardBalance && cardBalanceOffer
                             ? cardBalancePayButtonLabel(cardBalanceOffer.depositGbp)
                             : showDepositCashChoice && depositCashOffer
@@ -8137,7 +8149,7 @@ function QuoteCard({
               data-d3-send-quote={mobileDesign3 ? "" : undefined}
               className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
             >
-              {mobileDesign3 ? "Send me my quote to finish later" : "Email my quote"}
+              {mobileDesign3 ? "Send me my quote" : "Email my quote"}
             </button>
           ) : null}
 
@@ -10085,7 +10097,7 @@ function QuoteCard({
                         onClick={() => handleSaveQuoteClick()}
                         style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
                       >
-                        Send me my quote to finish later
+                        Send me my quote
                       </button>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (

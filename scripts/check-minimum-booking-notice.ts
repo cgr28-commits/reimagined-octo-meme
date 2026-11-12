@@ -300,7 +300,7 @@ check("Smart Availability rest-of-day does not hard-block under-12h checkout", (
   assert.match(card, /result\.blocked && !isMinimumNoticeRequest/);
   assert.match(card, /!isMinimumNoticeRequest &&/);
   assert.match(card, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /Need a quick answer\? WhatsApp us/);
   assert.match(card, /ShortNoticeCheckoutNotice/);
   assert.match(read("src/components/ShortNoticeCheckoutNotice.tsx"), /minimumNoticeRequestHeading/);
@@ -321,7 +321,7 @@ check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () =
   const saved = read("src/app/quote/SavedQuoteCustomerClient.tsx");
   const bookQuote = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
 
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /Your transfer is reserved for your selected pickup time/);
   assert.match(card, /classifyPickupLeadWindow/);
   assert.match(index, /shouldForceShortNotice/);
@@ -340,9 +340,9 @@ check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () =
   assert.match(pay, /shortNoticeToken/);
   assert.match(accept, /Accept alternative time/);
   assert.match(accept, /Decline alternative/);
-  assert.match(saved, /Request Short-Notice Booking/);
+  assert.match(saved, /Book Now — /);
   assert.doesNotMatch(saved, /window\.location\.href = checkout\.whatsappUrl/);
-  assert.match(bookQuote, /Request Short-Notice Booking/);
+  assert.match(bookQuote, /Book Now — /);
   assert.doesNotMatch(bookQuote, /window\.location\.href = checkout\.whatsappUrl/);
 });
 

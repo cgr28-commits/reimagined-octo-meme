@@ -3,6 +3,10 @@ import { updateSaveQuoteSettings } from "./booking-settings-store";
  * Short-notice booking: create / list / approve / decline / pay-via-SumUp.
  */
 
+import {
+  isPickupTooSoonForOwnerOvernight,
+  overnightTooSoonBody,
+} from "../shared/owner-quiet-hours";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import {
   DEFAULT_DEPOSIT_MINIMUM_GBP,
@@ -384,6 +388,9 @@ async function sendResponseExpiryEmailOnce(
   if (!isShortNoticeResponseExpiredRecord(record) || record.responseExpiryEmailSentAt) {
     return { record, sent: false };
   }
+  // The customer never finished the card hold, so the owner never saw the
+  // request — no "we couldn't confirm in time" email.
+  if (record.awaitingCardHold) return { record, sent: false };
   const store = env.TRACKING_STORE;
   const key = shortNoticeExpiryEmailKey(record.reference);
   const existingClaim = await store.get(key);
@@ -786,7 +793,7 @@ async function createMinibusNoticeRequest(
   const createdAt = now.toISOString();
   const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
   const shortNoticeExpiresAt = underMinimumNotice
-    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours, options.booking)
     : undefined;
   const record: ShortNoticeBookingRecord = {
     reference,
@@ -875,6 +882,17 @@ export async function createShortNoticeRequest(options: {
   ) {
     throw new PickupTooSoonError(leadHours);
   }
+  if (
+    isWithinMinimumBookingNotice(
+      options.booking.tripDate,
+      options.booking.tripTime,
+      now,
+      settings.minimumBookingNoticeHours,
+    ) &&
+    isPickupTooSoonForOwnerOvernight(options.booking.tripDate, options.booking.tripTime, now)
+  ) {
+    throw new PickupTooSoonError(leadHours, overnightTooSoonBody(now));
+  }
   const blocking = findRequestOnlyBlockingPeriod(
     options.booking.tripDate,
     options.booking.tripTime,
@@ -921,7 +939,7 @@ export async function createShortNoticeRequest(options: {
   const createdAt = now.toISOString();
   const confirmationWindowHours = settings.shortNoticeConfirmationWindowHours;
   const shortNoticeExpiresAt = underMinimumNotice
-    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours)
+    ? shortNoticeResponseExpiresAtIso(createdAt, confirmationWindowHours, options.booking)
     : undefined;
 
   const record: ShortNoticeBookingRecord = {
@@ -982,6 +1000,7 @@ export async function sendShortNoticeRequestReceivedEmail(
     noticeHours: record.minimumNoticeHoursApplied ?? MINIMUM_BOOKING_NOTICE_HOURS,
     holdReasons: record.holdReasons,
     minibusNotice: record.minibusNotice === true,
+    cardHeld: Boolean(record.cardHold?.authorisedAt && !record.cardHold.releasedAt),
   });
   const result = await trySendBrandedCustomerEmail(env, {
     to: record.booking.customerEmail.trim(),
@@ -1029,6 +1048,8 @@ export async function shouldForceShortNotice(
   minimumNoticeHours: number;
   minimumShortNoticeLeadHours: number;
   tooSoon: boolean;
+  /** Too soon only because the owner is asleep (22:00–07:00). */
+  overnightTooSoon?: boolean;
   luggageCapacity: boolean;
   /** Separate 7-Seater notice. Owner short-notice hours are not used. */
   minibusNotice: boolean;
@@ -1147,7 +1168,12 @@ export async function shouldForceShortNotice(
     noticeHours,
   );
   const activePeriods = listActiveUnavailablePeriods(periods, now);
+  const overnightTooSoon =
+    !tooSoon &&
+    underMinimumNotice &&
+    isPickupTooSoonForOwnerOvernight(booking.tripDate, booking.tripTime, now);
   return {
+    overnightTooSoon,
     shortNotice: Boolean(blocking) || Boolean(smartBlock) || clashHold || underMinimumNotice,
     noAvailability: false,
     gateActive: activePeriods.length > 0 || Boolean(smartBlock) || clashHold || underMinimumNotice,
@@ -1162,7 +1188,7 @@ export async function shouldForceShortNotice(
     underMinimumNotice,
     minimumNoticeHours: noticeHours,
     minimumShortNoticeLeadHours: leadHours,
-    tooSoon,
+    tooSoon: tooSoon || overnightTooSoon,
     luggageCapacity,
     minibusNotice: false,
   };
@@ -1176,7 +1202,11 @@ export async function handleOwnerListShortNotice(
     return { error: "Unauthorized — owner access required.", status: 401 };
   }
   await processExpiredShortNoticeResponseWindows(env);
-  const bookings = await listOpenShortNoticeBookings(env.TRACKING_STORE);
+  // Requests still waiting for the customer's card hold are not shown — they
+  // reach the owner (email + dashboard) only once the card is held.
+  const bookings = (await listOpenShortNoticeBookings(env.TRACKING_STORE)).filter(
+    (record) => !record.awaitingCardHold,
+  );
   return { ok: true, bookings };
 }
 
@@ -1302,6 +1332,13 @@ export async function handleOwnerApproveShortNotice(
     return { error: SHORT_NOTICE_RESPONSE_EXPIRED_ADMIN_MESSAGE, status: 409 };
   }
   const existing = expiry.record;
+  if (existing.awaitingCardHold) {
+    return {
+      error:
+        "The customer hasn't finished authorising their card yet, so there is nothing to approve.",
+      status: 409,
+    };
+  }
   if (existing.status === "SHORT_NOTICE_ALTERNATIVE_OFFERED") {
     return {
       error: "An alternative time is already offered — withdraw it first, or wait for the customer to accept.",

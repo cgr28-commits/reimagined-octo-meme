@@ -1,5 +1,6 @@
 "use client";
 
+import { overnightTooSoonBody } from "../../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { formatUkDateTime } from "../../../shared/uk-time";
 import { emailAddressProblem } from "../../../shared/email-typo";
@@ -59,6 +60,7 @@ import {
   isOwnerNoAvailabilityMessage,
   isWithinMinimumBookingNotice,
   tooSoonRequestBody,
+  isBelowMinimumShortNoticeLead,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 
@@ -293,6 +295,11 @@ function BookQuoteInner() {
       : "unknown";
   const isMinibusQuote = isPublicMinibusVehicle(journey?.vehicleType);
   const isTooSoonPickup = !isMinibusQuote && pickupLeadWindow === "too_soon";
+  // Too soon only because we're closed overnight (22:00–07:00), not the normal lead time.
+  const isOvernightTooSoon =
+    isTooSoonPickup &&
+    Boolean(tripDate && tripTime) &&
+    !isBelowMinimumShortNoticeLead(tripDate, tripTime, new Date(), minimumShortNoticeLeadHours);
   const isMinimumNoticeRequest = !isMinibusQuote && pickupLeadWindow === "short_notice";
   const isMinibusNoticeRequest =
     isMinibusQuote &&
@@ -369,7 +376,11 @@ function BookQuoteInner() {
   async function pay() {
     setError("");
     if (isTooSoonPickup) {
-      setError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      setError(
+        isOvernightTooSoon
+          ? overnightTooSoonBody()
+          : tooSoonRequestBody(minimumShortNoticeLeadHours),
+      );
       focusBookQuoteTime();
       return;
     }
@@ -450,6 +461,12 @@ function BookQuoteInner() {
           ? { paymentMethod: "DEPOSIT_CARD_BALANCE" as const, cardBalanceAgreementAccepted: true }
           : {}),
       });
+      if (checkout.shortNotice && checkout.reference && checkout.cardHoldUrl) {
+        // Stripe: the customer authorises a card hold now; the owner's approval
+        // charges it and confirms the booking.
+        window.location.assign(checkout.cardHoldUrl);
+        return;
+      }
       if (checkout.shortNotice && checkout.reference && checkout.whatsappUrl) {
         setShortNoticeResult({
           reference: checkout.reference,
@@ -781,6 +798,7 @@ function BookQuoteInner() {
           <TooSoonCheckoutNotice
             leadHours={minimumShortNoticeLeadHours}
             onChooseAnotherTime={focusBookQuoteTime}
+            overnight={isOvernightTooSoon}
           />
         ) : null}
         {isMinibusNoticeRequest && !isOwnerNoAvailabilityMessage(error) ? (
@@ -843,7 +861,7 @@ function BookQuoteInner() {
             className="min-h-12 w-full max-w-full break-words rounded-xl bg-emerald px-4 py-3 text-base font-semibold leading-snug text-navy disabled:opacity-50"
           >
             {paying
-              ? isAvailabilityRequest
+              ? isAvailabilityRequest && !isMinimumNoticeRequest
                 ? "Submitting booking request…"
                 : "Starting secure payment…"
               : isMinibusNoticeRequest
@@ -853,7 +871,7 @@ function BookQuoteInner() {
                       : quote.quotedAmountLabel
                   }`
                 : isMinimumNoticeRequest
-                ? `Request Short-Notice Booking — ${
+                ? `Book Now — ${
                     displayPricing
                       ? formatQuickQuoteAmount(displayPricing.totalGbp)
                       : quote.quotedAmountLabel

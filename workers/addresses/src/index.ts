@@ -1,3 +1,9 @@
+// Must stay first: disables all outbound requests on the dashboard staging build only.
+import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
+import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
+import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
+import { handleOwnerPushRequest } from "./owner-push";
+import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { isStagingInnerRequest, stagingGuardActive, stagingGuardFetch } from "./staging-guard";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
 import { supersedeEarlierCheckouts } from "./supersede-checkout";
@@ -163,7 +169,7 @@ import {
   handleDriverAcceptConfirmRequest,
   handleDriverAcceptLookupRequest,
 } from "./booking-job-handlers";
-import { bookingJobStoreConfigured } from "./booking-job-store";
+import { bookingJobStoreConfigured, getBookingJob, listAllBookingJobs } from "./booking-job-store";
 import {
   handleCustomerLocationRequest,
   handleCustomerSharingRequest,
@@ -666,6 +672,8 @@ type Env = {
   /** Minutes after journey completion before automated Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
+  /** Stage 1 driver accounts (D1). Bound on dashboard staging only. */
+  DRIVER_DB?: D1Like;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
@@ -3537,7 +3545,9 @@ async function handlePaymentRequest(
     if (notice.tooSoon) {
       return json(
         {
-          error: tooSoonRequestBody(notice.minimumShortNoticeLeadHours),
+          error: notice.overnightTooSoon
+            ? overnightTooSoonBody()
+            : tooSoonRequestBody(notice.minimumShortNoticeLeadHours),
           code: TOO_SOON_BOOKING_CODE,
           minimumShortNoticeLeadHours: notice.minimumShortNoticeLeadHours,
         },
@@ -3599,27 +3609,36 @@ async function handlePaymentRequest(
               : `SHORT-NOTICE · ${created.record.reference}`,
         });
         const pickupRemaining = formatHoursUntilPickupLabel(booking.tripDate, booking.tripTime);
-        const respondBy = created.record.shortNoticeExpiresAt
-          ? formatLondonClockTime(created.record.shortNoticeExpiresAt)
-          : "";
-        const shortNoticeUrgency =
-          created.record.underMinimumNotice && respondBy
-            ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
-            : "";
-        const ownerSubject = minibusRequest
-          ? `7-Seater availability request — ${created.record.reference}`
-          : luggageCapacity && !notice.shortNotice
-            ? `New luggage capacity confirmation request — ${created.record.reference}`
-            : created.record.underMinimumNotice && respondBy
-              ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
-              : pickupRemaining && pickupRemaining !== "pickup time has passed"
-                ? `New short-notice booking request — pickup in ${pickupRemaining}`
-                : `New short-notice booking request — ${created.record.reference}`;
-        await trySendOwnerOperationalEmail(env, {
-          to: ownerInbox(env),
-          subject: ownerSubject,
-          body:
-            `${shortNoticeUrgency}${attemptEmail.body}\n\n` +
+        // Card hold started: the owner is only told once the card is actually held
+        // (noteShortNoticeHoldAuthorised), so every request he sees is already paid for.
+        const deferUntilHeld = Boolean(cardHoldUrl);
+        const composeOwnerEmail = (respondBy: string, cardHeldNote: string) => {
+          const shortNoticeUrgency =
+            created.record.underMinimumNotice && respondBy
+              ? `SHORT-NOTICE BOOKING REQUEST\nRespond by ${respondBy}\n\n`
+              : "";
+          const subject = minibusRequest
+            ? `7-Seater availability request — ${created.record.reference}`
+            : luggageCapacity && !notice.shortNotice
+              ? `New luggage capacity confirmation request — ${created.record.reference}`
+              : created.record.underMinimumNotice && respondBy
+                ? `SHORT-NOTICE BOOKING REQUEST — respond by ${respondBy}`
+                : pickupRemaining && pickupRemaining !== "pickup time has passed"
+                  ? `New short-notice booking request — pickup in ${pickupRemaining}`
+                  : `New short-notice booking request — ${created.record.reference}`;
+          const detailsBody = deferUntilHeld
+            ? attemptEmail.body
+                .replace(
+                  /^A customer entered their details and started online card payment[^\n]*\n/,
+                  "A customer sent a short-notice request and their card is now held for the quoted fare.\n",
+                )
+                .replace(
+                  /^Payment is NOT confirmed yet[^\n]*\n/m,
+                  "Nothing is charged until you approve. Decline or no answer releases the hold.\n",
+                )
+            : attemptEmail.body;
+          const body =
+            `${shortNoticeUrgency}${cardHeldNote}${detailsBody}\n\n` +
             `Action required: ${
               luggageCapacity && !created.record.underMinimumNotice
                 ? LUGGAGE_CAPACITY_OWNER_REASON
@@ -3650,14 +3669,44 @@ async function handlePaymentRequest(
             `Unavailable period: ${notice.blockingPeriodLabel ?? notice.blockingPeriodId ?? "—"}\n` +
             `Under ${notice.minimumNoticeHours}-hour notice: ${notice.underMinimumNotice ? "yes" : "no"}\n` +
             `Open the Owner Dashboard (Booking Availability) to Approve, Offer alternative time, or Decline.` +
-            (cardHoldUrl
-              ? `\n\nCard hold: the customer has been asked to authorise ${amountLabel} on their card. ` +
-                `You'll get a "Card held" email when they do. Approve → charged and confirmed automatically. ` +
+            (deferUntilHeld
+              ? `\n\nCard held: ${amountLabel} is authorised on the customer's card (not charged yet). ` +
+                `Approve → charged and confirmed automatically. ` +
                 `Decline or no answer → released, customer pays nothing.`
-              : ""),
-        });
-        if (created.record.underMinimumNotice || luggageCapacity) {
-          await sendShortNoticeRequestReceivedEmail(env, created.record);
+              : "");
+          return { subject, body };
+        };
+        if (deferUntilHeld) {
+          const latest =
+            (await getShortNoticeByReference(env.TRACKING_STORE, created.record.reference)) ??
+            created.record;
+          await saveShortNoticeBooking(env.TRACKING_STORE, {
+            ...latest,
+            awaitingCardHold: true,
+            deferredOwnerEmail: composeOwnerEmail(
+              created.record.underMinimumNotice ? "{{RESPOND_BY}}" : "",
+              `CARD HELD — ${amountLabel} authorised, not charged yet.\n\n`,
+            ),
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          const respondBy = created.record.shortNoticeExpiresAt
+            ? formatLondonClockTime(created.record.shortNoticeExpiresAt)
+            : "";
+          const ownerEmail = composeOwnerEmail(
+            respondBy,
+            stripePaymentsActive(env, booking ?? null)
+              ? `NO CARD HOLD — the card could not be held, so approving sends the customer a payment link.\n\n`
+              : "",
+          );
+          await trySendOwnerOperationalEmail(env, {
+            to: ownerInbox(env),
+            subject: ownerEmail.subject,
+            body: ownerEmail.body,
+          });
+          if (created.record.underMinimumNotice || luggageCapacity) {
+            await sendShortNoticeRequestReceivedEmail(env, created.record);
+          }
         }
         return json(
           {
@@ -4144,6 +4193,11 @@ async function handlePaymentWebhookRequest(
           pending: pendingHold,
           emailOwner: async (subject, body) => {
             await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+          },
+          sendCustomerRequestReceived: async (record) => {
+            if (record.underMinimumNotice || hasLuggageCapacityHold(record.holdReasons)) {
+              await sendShortNoticeRequestReceivedEmail(env, record);
+            }
           },
         });
       } catch (error) {
@@ -4726,6 +4780,33 @@ export default {
     const url = new URL(request.url);
     const route = routePath(url.pathname);
 
+    if (url.pathname === "/staging/sandbox-status" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({ sandbox: STAGING_SANDBOX, recentBlocked: STAGING_SANDBOX ? recentBlockedOutbound() : [] }),
+        { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", ...corsHeaders(origin) } },
+      );
+    }
+    // Stage 1 driver accounts — answers 404 unless a DRIVER_DB binding exists (staging only).
+    const driverAccountsResponse = await handleDriverAccountsRequest(request, env, {
+      ownerAuthorized: (req) => ownerAuthorized(req, env),
+      corsHeaders,
+      // Read-only booking lookup for the suspension review alert.
+      findUpcomingBookingsForDriver: async (driver) => {
+        if (!env.TRACKING_STORE) return [];
+        return upcomingBookingsForDriver(await listAllBookingJobs(env.TRACKING_STORE), driver, londonTodayYmd());
+      },
+      // Read-only: current state of one booking, to verify the owner's update.
+      checkBookingAssignment: async (reference, driver) => {
+        if (!env.TRACKING_STORE) return { found: false, cancelled: false, assignedToThisDriver: false, otherDriver: "" };
+        let job = await getBookingJob(env.TRACKING_STORE, reference);
+        if (!job) {
+          job = (await listAllBookingJobs(env.TRACKING_STORE)).find((j) => (j.paymentReference || "").trim() === reference) ?? null;
+        }
+        return checkBookingAssignment(job, driver);
+      },
+    });
+    if (driverAccountsResponse) return driverAccountsResponse;
+
     // Stripe webhook (server-to-server, signature-verified inside).
     if (
       (url.pathname === "/payments/stripe-webhook" || url.pathname === "/api/payments/stripe-webhook") &&
@@ -5288,6 +5369,12 @@ export default {
       return json(result, 200, origin);
     }
 
+    // Owner Dashboard phone notifications (subscribe, preferences, test).
+    {
+      const pushResponse = await handleOwnerPushRequest(request, env, origin);
+      if (pushResponse) return pushResponse;
+    }
+
     // Owner inbox: emails copied in from bookings@ via Resend receiving, replies, email-a-customer.
     {
       const inboxRoutes: Record<string, { method: string; run: () => Promise<Response> }> = {
@@ -5381,13 +5468,18 @@ export default {
       if (!ownerAuthorized(request, env)) {
         return json({ error: "Unauthorized — owner access required." }, 401, origin);
       }
-      const body = (await request.json().catch(() => ({}))) as { phone?: unknown; text?: unknown; action?: unknown };
+      const body = (await request.json().catch(() => ({}))) as {
+        phone?: unknown;
+        text?: unknown;
+        action?: unknown;
+        sendId?: unknown;
+      };
       const phone = String(body.phone ?? "");
       if (body.action === "resume") {
         await resumeWhatsAppAssistant(env, phone);
         return json({ ok: true, assistantPaused: false }, 200, origin);
       }
-      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""));
+      const result = await ownerReplyToWhatsAppChat(env, phone, String(body.text ?? ""), new Date(), String(body.sendId ?? ""));
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
     }
@@ -6525,6 +6617,8 @@ export default {
   },
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    // Dashboard staging has no crons; refuse to run scheduled jobs there even if one is added.
+    if (STAGING_SANDBOX) return;
     configureStripe(env);
     const cron = event.cron;
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
@@ -6546,9 +6640,18 @@ export default {
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
       ctx.waitUntil(
-        sweepShortNoticeCardHolds(env.TRACKING_STORE)
+        sweepShortNoticeCardHolds(env.TRACKING_STORE, {
+          emailOwner: async (subject, body) => {
+            await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+          },
+          sendCustomerRequestReceived: async (record) => {
+            if (record.underMinimumNotice || hasLuggageCapacityHold(record.holdReasons)) {
+              await sendShortNoticeRequestReceivedEmail(env, record);
+            }
+          },
+        })
           .then((r) => {
-            if (r.released) console.log("Short-notice hold sweep", JSON.stringify(r));
+            if (r.released || r.authorised) console.log("Short-notice hold sweep", JSON.stringify(r));
           })
           .catch((error) => console.error("Short-notice hold sweep failed", error)),
       );

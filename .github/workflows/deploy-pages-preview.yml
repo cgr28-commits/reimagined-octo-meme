@@ -30,6 +30,8 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
+      # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
+      # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
 concurrency:
   group: pages-preview
@@ -86,6 +88,16 @@ jobs:
           put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
           put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
           put_secret WEB3FORMS_ACCESS_KEY "${WEB3FORMS_ACCESS_KEY:-}"
+          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ]; then
+            # The preview Worker shares the live booking store (TRACKING_STORE), so it must NOT
+            # hold the owner key: remove it so the staging dashboard can't read or change live data.
+            echo "y" | npx wrangler secret delete OWNER_ACCESS_KEY --env preview || true
+            if npx wrangler secret list --env preview | grep -q '"OWNER_ACCESS_KEY"'; then
+              echo "::error::OWNER_ACCESS_KEY is still set on the preview Worker"
+              exit 1
+            fi
+            echo "::notice::OWNER_ACCESS_KEY is not set on the preview Worker."
+          fi
           if [ -n "${SUMUP_API_KEY:-}" ] && [ -n "${SUMUP_MERCHANT_CODE:-}" ]; then
             put_secret SUMUP_API_KEY "$SUMUP_API_KEY"
             put_secret SUMUP_MERCHANT_CODE "$SUMUP_MERCHANT_CODE"
@@ -143,6 +155,10 @@ jobs:
           GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
+          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ]; then
+            # Owner dashboard staging: no Google Ads tracking on previews.
+            GOOGLE_ADS_ID=""
+          fi
           WORKER_PREVIEW="${{ needs.preview-worker.outputs.url }}"
           if [ -n "$WORKER_PREVIEW" ]; then
             BOOKINGS_API_URL="${WORKER_PREVIEW%/}/bookings"

@@ -90,7 +90,8 @@ import {
 import { claudeLedClient } from "./whatsapp-claude-led";
 import { voiceAddressMatchScore } from "../shared/voice-address-search";
 import { collectVoiceAddressSuggestions } from "./voice-address";
-import { isBelowMinimumShortNoticeLead } from "../shared/booking-notice";
+import { isBelowMinimumShortNoticeLead, isWithinMinimumBookingNotice } from "../shared/booking-notice";
+import { isPickupTooSoonForOwnerOvernight } from "../shared/owner-quiet-hours";
 import type { PaidBookingDetails } from "../shared/booking-notifications";
 import { formatExpressDropOffGbp, resolveExpressDropOff } from "../shared/express-drop-off";
 import { getBookingSettings } from "./booking-settings-store";
@@ -107,6 +108,7 @@ import {
   markWhatsAppChatEmailed,
 } from "./whatsapp-chat-log";
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
+import { displayBookingReference, normalizeCustomerBookingReference } from "../shared/customer-booking-reference";
 import { getPaidBookingRecordByCustomerReference, listUpcomingPaidBookings } from "./paid-booking-store";
 import {
   WHATSAPP_BOOKING_NOT_FOUND_REPLY,
@@ -124,7 +126,6 @@ import {
 import { buildManageBookingUrl } from "../shared/manage-booking-token";
 import { consumeQuickQuoteCreateQuota, getQuickQuote } from "./quick-quote-store";
 import {
-  buildWhatsAppFollowUpDiscountText,
   buildWhatsAppFollowUpText,
   cancelWhatsAppFollowUp,
   deferWhatsAppFollowUp,
@@ -758,10 +759,19 @@ async function handleInboundMessage(
     await replyWithPickupInfo(env, store, phone, bookingRef);
     return;
   }
-  // "Can you check my booking?" or a booking reference: the booking's details.
+  // "Can you check my booking?" or a booking reference on its own: the booking's details.
+  // A reference sent with something to discuss (a change, a question) goes to Claude with the
+  // booking looked up, and so does one that isn't theirs or can't be found, so the customer
+  // is never asked again for the reference they just sent (11 Nov 2026).
   if (bookingRef || isWhatsAppBookingCheckQuestion(message.text)) {
-    await replyWithBookingDetails(env, store, phone, bookingRef);
-    return;
+    const discuss =
+      whatsAppClaudeLedEnabled(env, phone) &&
+      Boolean(bookingRef) &&
+      (!isBookingRefOnlyMessage(message.text) || !(await isOwnBookingRef(store, phone, bookingRef!)));
+    if (!discuss) {
+      await replyWithBookingDetails(env, store, phone, bookingRef);
+      return;
+    }
   }
 
   const stored = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
@@ -1111,7 +1121,7 @@ type AvailabilityResult =
   | {
       ok: false;
       leg: WhatsAppJourneyLeg;
-      reason: "booked" | "closed" | "notice";
+      reason: "booked" | "closed" | "notice" | "overnight";
       text: string;
       buttons?: WhatsAppReplyButton[];
     };
@@ -1149,6 +1159,25 @@ export async function checkWhatsAppAvailability(
             reason: "notice",
             noticeHours: settings.minimumShortNoticeLeadHours,
             hasAlternatives: false,
+          }),
+        };
+      }
+      // Overnight (22:00–07:00) the owner can't confirm an early short-notice pickup in time.
+      if (
+        leg === "outbound" &&
+        isWithinMinimumBookingNotice(date, time, now, settings.minimumBookingNoticeHours) &&
+        isPickupTooSoonForOwnerOvernight(date, time, now)
+      ) {
+        return {
+          ok: false,
+          leg,
+          reason: "overnight",
+          text: buildWhatsAppUnavailableReply({
+            leg,
+            draft,
+            reason: "overnight",
+            hasAlternatives: false,
+            now,
           }),
         };
       }
@@ -1279,14 +1308,90 @@ async function notifyOwnerOfHandoff(
   }
 }
 
-/** A short, private summary of the customer's next booking(s) for the assistant. */
-function summariseBookingsForAi(bookings: PaidBookingRecord[]): string | undefined {
-  const lines = bookings.slice(0, 2).map((b) => {
-    const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
-    const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
-    const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
-    return `- ${b.customerReference ?? "Booking"}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}`;
-  });
+/** One booking line for the assistant (the customer's own booking: full journey details). */
+function bookingLineForAi(b: PaidBookingRecord): string {
+  const when = [b.tripDate, b.tripTime].filter(Boolean).join(" at ");
+  const back = b.returnJourney ? `; return ${[b.returnDate, b.returnTime].filter(Boolean).join(" at ")}` : "";
+  const flight = b.flightNumber ? `, flight ${b.flightNumber}` : "";
+  const who = b.customerName ? `, booked by ${b.customerName}` : "";
+  const people = b.passengers ? `, ${b.passengers} passenger${b.passengers === 1 ? "" : "s"}` : "";
+  const status =
+    b.status === "cancelled" || b.status === "refunded" ? " (CANCELLED)" : b.status === "partially_refunded" ? " (part refunded)" : "";
+  return `- ${displayBookingReference(b)}${status}: ${b.pickupLabel} to ${b.dropoffLabel}, ${when}${flight}${back}${people}${who}`;
+}
+
+/** Customer booking references (MAT-1234) in these texts, newest text first, no repeats. */
+export function bookingRefsIn(texts: Array<string | undefined>): string[] {
+  const refs: string[] = [];
+  for (const text of texts) {
+    for (const m of String(text ?? "").matchAll(/\bMAT\s*-?\s*(\d{4})\b/gi)) {
+      const ref = normalizeCustomerBookingReference(`MAT-${m[1]}`);
+      if (ref && !refs.includes(ref)) refs.push(ref);
+    }
+  }
+  return refs.slice(0, 3);
+}
+
+/** A message that is just a booking reference (maybe with hi / thanks), nothing to discuss. */
+export function isBookingRefOnlyMessage(text: string): boolean {
+  const rest = text
+    .replace(/\bMAT\s*-?\s*\d{4}\b/gi, " ")
+    .toLowerCase()
+    .replace(/\b(hi|hello|hey|thanks|thank you|cheers|please|my|booking|ref|reference|is|it's|its|here|number|no)\b/g, " ")
+    .replace(/[^a-z]+/g, "");
+  return rest.length === 0 || isWhatsAppBookingCheckQuestion(text);
+}
+
+async function isOwnBookingRef(store: KVNamespace, phone: string, ref: string): Promise<boolean> {
+  try {
+    const paid = await getPaidBookingRecordByCustomerReference(store, ref);
+    return Boolean(paid && sameCustomerPhone(paid.mobileNumber, phone));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What the assistant knows about the customer's bookings: their upcoming bookings on this
+ * WhatsApp number, plus any MAT- reference they have sent, looked up (11 Nov 2026 — the
+ * bot used to say it couldn't find a booking even after being given the reference).
+ * A reference booked under another mobile is confirmed without personal details: the
+ * references are short, so details are only shared with the number that booked.
+ */
+export async function describeBookingsForAi(
+  store: KVNamespace,
+  phone: string,
+  texts: Array<string | undefined>,
+): Promise<string | undefined> {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const b of (await findCustomerUpcomingBookings(store, phone)).slice(0, 3)) {
+    seen.add(displayBookingReference(b));
+    lines.push(bookingLineForAi(b));
+  }
+  for (const ref of bookingRefsIn(texts)) {
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    let paid: PaidBookingRecord | null = null;
+    try {
+      paid = await getPaidBookingRecordByCustomerReference(store, ref);
+    } catch (err) {
+      logEvent("whatsapp_booking_lookup_failed", phone, { error: err instanceof Error ? err.message : String(err) });
+    }
+    if (paid && sameCustomerPhone(paid.mobileNumber, phone)) {
+      lines.push(bookingLineForAi(paid));
+    } else if (paid) {
+      const when = paid.tripDate ? ` for ${paid.tripDate}` : "";
+      lines.push(
+        `- ${ref}: a real booking${when}, but made with a different mobile number. Tell them you've found it, but don't share its addresses, name or other details. Changes or questions about it go to the team (handoff), who will check it with them.`,
+      );
+    } else {
+      lines.push(
+        `- ${ref}: no booking found with this reference (it may be mistyped, or booked another way). Don't ask for the reference again: say you couldn't find it and the team will check it for them (handoff).`,
+      );
+    }
+  }
+  logEvent("whatsapp_booking_context", phone, { lines: lines.length });
   return lines.length ? lines.join("\n") : undefined;
 }
 
@@ -1311,7 +1416,8 @@ async function decideWithClaude(
       .slice(-CHAT_HISTORY_FOR_AI - 1, -1)
       .map(chatLineForAi)
       .join("\n");
-    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName });
+    const bookingInfo = await describeBookingsForAi(store, phone, [said, recentChat]);
+    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName, bookingInfo });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
     return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
@@ -1339,7 +1445,7 @@ async function answerCustomerQuestion(
     const draft = conversation.draft;
     const collected = describeWhatsAppDraft(draft);
     // Their booking, so a flight update is passed on without asking for a reference (7 Nov 2026).
-    const booking = summariseBookingsForAi(await findCustomerUpcomingBookings(store, phone));
+    const booking = await describeBookingsForAi(store, phone, [message, recentChat]);
     const answer = await answerWhatsAppQuestion(env, message, {
       recentChat,
       booking,
@@ -1561,6 +1667,7 @@ export async function ownerReplyToWhatsAppChat(
   rawPhone: string,
   rawText: string,
   now: Date = new Date(),
+  sendId = "",
 ): Promise<OwnerWhatsAppReplyResult> {
   const store = env.TRACKING_STORE;
   if (!store || !whatsAppCloudConfigured(env)) return { error: "WhatsApp is not configured", status: 503 };
@@ -1580,8 +1687,20 @@ export async function ownerReplyToWhatsAppChat(
       status: 409,
     };
   }
+  // Duplicate-send guard (double tap / retry): one WhatsApp message per dashboard sendId.
+  const guardKey = sendId.trim() ? `whatsapp:owner-send:${sendId.trim().slice(0, 80)}` : "";
+  if (guardKey) {
+    const previous = await store.get(guardKey);
+    if (previous === "sending") return { error: "This message is already being sent.", status: 409 };
+    if (previous) return { ok: true, assistantPaused: true };
+    await store.put(guardKey, "sending", { expirationTtl: 60 * 60 * 24 });
+  }
   const sent = await sendWhatsAppText(env, phone, text);
   await appendWhatsAppChat(store, phone, { from: "team", text, failed: !sent.sent });
+  if (guardKey) {
+    if (sent.sent) await store.put(guardKey, "sent", { expirationTtl: 60 * 60 * 24 });
+    else await store.delete(guardKey);
+  }
   if (!sent.sent) {
     logEvent("whatsapp_owner_reply_failed", phone, { error: sent.error });
     return { error: `WhatsApp didn't accept the message: ${String(sent.error ?? "unknown error")}`, status: 502 };
@@ -1628,29 +1747,10 @@ export async function processWhatsAppFollowUps(
       result.skipped += 1;
       continue;
     }
-    // Still not booked after the wait: one-time 5% "book now" offer, unless they've had it.
-    const conversation = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
-    const offer =
-      conversation && conversation.stage === "quoted" && !conversation.discountOffered
-        ? await createWhatsAppDiscountOffer(env, store, phone, conversation)
-        : null;
-    if (conversation && offer) {
-      const previousAmountLabel = conversation.lastQuoteAmountLabel ?? record.amountLabel;
-      conversation.discountOffered = true;
-      conversation.lastQuoteUrl = offer.bookingUrl;
-      conversation.lastQuoteAmountLabel = offer.amountLabel;
-      await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
-      await reply(
-        env,
-        phone,
-        buildWhatsAppFollowUpDiscountText(record, { ...offer, previousAmountLabel, journey: conversation.draft }),
-        WHATSAPP_QUOTED_BUTTONS,
-      );
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: offer.quoteId.slice(-6), discount: true });
-    } else {
-      await reply(env, phone, buildWhatsAppFollowUpText(record));
-      logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
-    }
+    // Still not booked after the wait: a plain reminder only. No 5% "book now" offer here —
+    // the owner stopped discounting customers who simply haven't booked yet (11 Nov 2026).
+    await reply(env, phone, buildWhatsAppFollowUpText(record));
+    logEvent("whatsapp_follow_up_sent", phone, { idSuffix: record.quoteId.slice(-6), discount: false });
     result.sent += 1;
   }
   return result;

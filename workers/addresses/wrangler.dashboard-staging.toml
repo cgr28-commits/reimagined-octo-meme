@@ -1,0 +1,94 @@
+# Isolated Owner Dashboard + Driver Portal staging Worker.
+#
+# Lives in the separate "My Airport Taxi NI Staging" Cloudflare account, so it can never
+# read or write the live booking store, live Durable Objects or live secrets.
+#
+# Safety rules (see docs/dashboard-staging.md):
+# - No production KV, D1, Durable Object or secret is bound here. All ids below were created
+#   in the staging account on 10 Nov 2026.
+# - No cron triggers. scheduled() also returns immediately on this build.
+# - __MATNI_STAGING_SANDBOX__ blocks every outbound HTTP request (email, WhatsApp, Stripe,
+#   Google Ads, address lookups…). Nothing can reach a real customer or driver.
+# - No send_email binding, no email / WhatsApp / Stripe / Google Ads secrets.
+# - The only secret is STAGING owner key OWNER_ACCESS_KEY, which must NOT be the live key.
+#
+# Deploy only via .github/workflows/deploy-dashboard-staging.yml.
+
+name = "matni-dashboard-staging"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+account_id = "ecad568dc411e28a3e435ef40b36c2b5" # My Airport Taxi NI Staging (not the live account)
+workers_dev = true
+
+[define]
+__MATNI_STAGING_SANDBOX__ = "true"
+
+[build]
+command = "node ../../scripts/sync-worker-shared.mjs"
+
+[observability]
+enabled = true
+
+# Explicitly no scheduled jobs.
+[triggers]
+crons = []
+
+[[kv_namespaces]]
+binding = "TRACKING_STORE"
+id = "8d133016934944c0979535a0fb823108" # DASHBOARD_STAGING_TRACKING_STORE (staging account)
+
+[[kv_namespaces]]
+binding = "BOOKING_COUNTER"
+id = "b4e416eddd674adfb402643d50884663" # DASHBOARD_STAGING_BOOKING_COUNTER (staging account)
+
+# Stage 1 driver accounts, documents metadata, approvals and the append-only audit log.
+[[d1_databases]]
+binding = "DRIVER_DB"
+database_name = "dashboard-staging-drivers"
+database_id = "8771026d-d11a-49cf-9af2-eb3683c3a355"
+migrations_dir = "migrations/driver-db"
+
+[[durable_objects.bindings]]
+name = "REFUND_COORDINATOR"
+class_name = "RefundCoordinator"
+
+[[durable_objects.bindings]]
+name = "QUOTE_LEAD_COORDINATOR"
+class_name = "QuoteLeadCoordinator"
+
+[[durable_objects.bindings]]
+name = "MEET_GREET_COORDINATOR"
+class_name = "MeetGreetCoordinator"
+
+[[durable_objects.bindings]]
+name = "CONSENT_LEDGER"
+class_name = "ConsentLedger"
+
+[[durable_objects.bindings]]
+name = "WHATSAPP_REPLY_RUNNER"
+class_name = "WhatsAppReplyRunner"
+
+[[migrations]]
+tag = "v1-refund-coordinator"
+new_sqlite_classes = ["RefundCoordinator"]
+
+[[migrations]]
+tag = "v2-quote-lead-coordinator"
+new_sqlite_classes = ["QuoteLeadCoordinator"]
+
+[[migrations]]
+tag = "v3-meet-greet-coordinator"
+new_sqlite_classes = ["MeetGreetCoordinator"]
+
+[[migrations]]
+tag = "v4-consent-ledger"
+new_sqlite_classes = ["ConsentLedger"]
+
+[[migrations]]
+tag = "v5-whatsapp-reply-runner"
+new_sqlite_classes = ["WhatsAppReplyRunner"]
+
+[vars]
+DASHBOARD_STAGING = "1"
+WHATSAPP_BOT_ENABLED = "false"
+VOICE_ENABLE_BOOKING_TOOLS = "0"

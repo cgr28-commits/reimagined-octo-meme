@@ -25,7 +25,12 @@ export function isAdminPortalPath(pathname: string | null | undefined): boolean 
 /** Driver ops dashboard — same public-chrome conflict as owner on mobile. */
 export function isDriverPortalPath(pathname: string | null | undefined): boolean {
   const path = normalizePortalPath(pathname);
-  return path === "/driver" || path.startsWith("/driver/");
+  return (
+    path === "/driver" ||
+    path.startsWith("/driver/") ||
+    path === "/driver-portal" ||
+    path.startsWith("/driver-portal/")
+  );
 }
 
 /** Hide public WhatsApp / quote assistant FABs on private ops + checkout routes. */

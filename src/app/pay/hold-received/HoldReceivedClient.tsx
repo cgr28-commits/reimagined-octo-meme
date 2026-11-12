@@ -22,18 +22,19 @@ export default function HoldReceivedClient() {
       data-hold-received
       className="rounded-3xl border border-white/15 bg-white/[0.04] p-6 text-white sm:p-8"
     >
-      <h1 className="text-2xl font-bold">Request received — your card is held</h1>
+      <h1 className="text-2xl font-bold">Booking received — we’ll confirm shortly</h1>
       <p className="mt-3 text-sm leading-relaxed text-white/85">
-        Thanks. We&apos;re checking a driver is free for your journey. As soon as we confirm,
-        your card is charged and you&apos;ll get your booking confirmation by email.
+        Thanks. Your journey is within our short-notice period, so we&apos;re just checking a
+        driver is free. As soon as we confirm, your card is charged and your booking confirmation
+        is emailed to you.
       </p>
       <p className="mt-3 text-sm leading-relaxed text-white/85">
-        If we can&apos;t take the booking, the hold is released and you pay nothing. Some banks
-        take a few days to remove a released hold from your statement.
+        If we&apos;re unable to complete your booking, the funds are released right away and you
+        pay nothing. Some banks take a few days to remove a released hold from your statement.
       </p>
       {reference ? (
         <p className="mt-4 text-sm text-white/70">
-          Request reference: <span className="font-semibold text-white">{reference}</span>
+          Booking reference: <span className="font-semibold text-white">{reference}</span>
         </p>
       ) : null}
       <p className="mt-6 text-sm text-white/70">
