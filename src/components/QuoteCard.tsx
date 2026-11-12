@@ -6115,7 +6115,8 @@ function QuoteCard({
     setHomepagePriceRequested(false);
     setDesktopJourneyEditing(false);
     if (typeof window !== "undefined") {
-      window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 60);
+      // The step change may scroll to the form; finish at the very top of the page.
+      for (const delay of [80, 450, 900]) window.setTimeout(() => window.scrollTo({ top: 0 }), delay);
     }
   };
   function goToVehicleFromD3Steps() {
