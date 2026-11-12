@@ -1323,3 +1323,27 @@ void (async () => {
   console.error(err);
   process.exit(1);
 });
+
+// A pickup at Boucher Road on a Garth Brooks date is recognised as the concert (12 Nov 2026).
+void (async () => {
+  const { matchWhatsAppEvent, describeWhatsAppEventForAi } = await import("../shared/whatsapp-events");
+  const now = new Date("2026-11-12T12:00:00Z");
+  const onTheNight = matchWhatsAppEvent(
+    { addresses: ["Boucher Playing Fields, Belfast BT12 6LR", "The Mercantile Hotel, Dublin"], dates: ["2027-05-21"] },
+    now,
+  );
+  assert.equal(onTheNight?.event.id, "garth-brooks-belfast-2027");
+  assert.equal(onTheNight?.date, "2027-05-21");
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /availability is limited/);
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /21 May 2027/);
+  const noDateYet = matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, now);
+  assert.equal(noDateYet?.date, null);
+  assert.doesNotMatch(describeWhatsAppEventForAi(noDateYet!), /availability is limited/);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: ["2027-06-10"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Europa Hotel, Belfast"], dates: ["2027-05-21"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, new Date("2027-06-01T00:00:00Z")), null);
+  console.log("OK  Garth Brooks at Boucher Road is recognised from the journey");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

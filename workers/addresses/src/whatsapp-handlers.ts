@@ -83,6 +83,7 @@ import {
   whatsAppFullAddress,
 } from "../shared/whatsapp-address-check";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { describeWhatsAppEventForAi, matchWhatsAppEvent } from "../shared/whatsapp-events";
 import {
   applyClaudeLedTurn,
   buildClaudeLedContext,
@@ -1434,7 +1435,22 @@ async function decideWithClaude(
       .map(chatLineForAi)
       .join("\n");
     const bookingInfo = await describeBookingsForAi(store, phone, [said, recentChat]);
-    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName, bookingInfo });
+    // A concert at the pickup / destination on its date: the assistant says so (12 Nov 2026).
+    const d = existing?.draft;
+    const eventMatch = matchWhatsAppEvent({
+      addresses: [d?.pickupAddress, d?.dropoffAddress],
+      dates: [d?.outboundDate, d?.returnDate],
+      text: said,
+    });
+    const eventInfo = eventMatch ? describeWhatsAppEventForAi(eventMatch) : undefined;
+    const context = buildClaudeLedContext({
+      conversation: existing,
+      message: said,
+      recentChat,
+      profileName,
+      bookingInfo,
+      eventInfo,
+    });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
     return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
