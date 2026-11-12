@@ -380,7 +380,8 @@ async function syncJob(ctx: Ctx, job: JobRow, booking: DispatchBooking | null): 
   const current = legValues(job);
   const wanted = legValues(leg);
   const latest = await db
-    .prepare("SELECT * FROM job_change_requests WHERE job_id = ? ORDER BY created_at DESC, id DESC LIMIT 1")
+    // rowid = insertion order, so two changes in the same millisecond still sort correctly.
+    .prepare("SELECT * FROM job_change_requests WHERE job_id = ? ORDER BY rowid DESC LIMIT 1")
     .bind(job.id)
     .first<ChangeRow>();
   const latestWanted = latest ? parse(latest.new_values, current) : null;
@@ -595,7 +596,8 @@ async function openEscalations(db: D1Like) {
 }
 
 async function ownerJobView(ctx: Ctx, job: JobRow & { driver_name: string; driver_status: string; driver_mobile: string }, changes: ChangeRow[]) {
-  const latest = changes.filter((c) => c.job_id === job.id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  // `changes` arrives oldest first (rowid order); the last one for this job is the latest.
+  const latest = changes.filter((c) => c.job_id === job.id).pop();
   return {
     id: job.id, reference: job.booking_reference, leg: job.leg, driverId: job.driver_id, driverName: job.driver_name,
     driverStatus: job.driver_status, driverMobile: job.driver_mobile,
@@ -651,7 +653,7 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
          WHERE j.status IN ${LIVE} OR j.trip_date >= ? ORDER BY j.trip_date, j.trip_time`,
       ).bind(ymd(new Date(now.getTime() - 14 * 86_400_000))),
     );
-    const changes = await rows<ChangeRow>(db.prepare("SELECT c.* FROM job_change_requests c JOIN driver_jobs j ON j.id = c.job_id WHERE c.status IN ('pending','cant_do')"));
+    const changes = await rows<ChangeRow>(db.prepare("SELECT c.* FROM job_change_requests c JOIN driver_jobs j ON j.id = c.job_id WHERE c.status IN ('pending','cant_do') ORDER BY c.rowid"));
     const offerView = (o: OfferRow) => ({
       id: o.id, reference: o.booking_reference, leg: o.leg, mode: o.mode, feePence: o.fee_pence, feeLabel: feeLabel(o.fee_pence),
       tripDate: o.trip_date, tripTime: o.trip_time, pickup: o.pickup, dropoff: o.dropoff, note: o.owner_note,
