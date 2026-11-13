@@ -1,3 +1,4 @@
+import { polishCustomerEmailHtml } from "../shared/email-polish";
 import {
   customerTransactionBcc,
   isDeterministicResendBccRejection,
@@ -455,6 +456,7 @@ export async function trySendBrandedCustomerEmail(
 
   return trySendEmail(env, {
     ...options,
+    htmlBody: polishCustomerEmailHtml(options.htmlBody),
     requireHtml: true,
     customerDelivery: true,
   });
@@ -507,6 +509,7 @@ export async function trySendResendOnlyCustomerEmail(
 
   return trySendResendOnlyEmail(env, {
     ...options,
+    htmlBody: polishCustomerEmailHtml(options.htmlBody),
     requireHtml: true,
     customerDelivery: true,
   });
