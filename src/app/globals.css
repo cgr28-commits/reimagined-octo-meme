@@ -9383,6 +9383,8 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
       font-size: 0 !important;
       line-height: 1.15 !important;
       white-space: nowrap !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action]::before {
       content: "Request availability" !important;
@@ -9424,29 +9426,6 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
-/* Wide phones (400px+): request cards keep the button on the right like the prices */
-@media (min-width: 400px) and (max-width: 767.98px) {
-  @layer base {
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
-      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
-      grid-template-areas: "art copy action" !important;
-    }
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
-      justify-self: end !important;
-      flex-direction: column !important;
-      align-items: flex-end !important;
-      text-align: right !important;
-    }
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
-      align-items: flex-end !important;
-    }
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request-action] {
-      white-space: normal !important;
-      max-width: 6.5rem !important;
-      text-align: center !important;
-    }
-  }
-}
 /* 340px and narrower: prices move under the text too, so the name and lines keep their width */
 @media (max-width: 339.98px) {
   @layer base {
@@ -9458,6 +9437,11 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
       width: 4.75rem !important;
       max-width: 4.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action] {
+      white-space: normal !important;
+      padding: 0.5rem 0.625rem !important;
+      text-align: center !important;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-desktop-price] {
       justify-self: start !important;
