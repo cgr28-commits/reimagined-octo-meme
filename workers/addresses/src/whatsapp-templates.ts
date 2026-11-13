@@ -67,8 +67,50 @@ export type WhatsAppTemplateName =
 export const WHATSAPP_TEMPLATE_LANGUAGE = "en_GB";
 const SITE = "https://www.myairporttaxini.co.uk";
 
+/**
+ * Branded versions (owner, 13 Nov 2026): the same message with the logo-on-navy banner as an image
+ * header. Each is a separate template ("<name>_v2"), so the plain one keeps sending until Meta
+ * approves the branded one.
+ */
+export const WHATSAPP_BRAND_HEADER_URL = `${SITE}/whatsapp/header.jpg`;
+export type WhatsAppTemplateId = WhatsAppTemplateName | `${WhatsAppTemplateName}_v2`;
+const UNBRANDED_TEMPLATES: ReadonlySet<WhatsAppTemplateName> = new Set(["mat_owner_booking_approval"]);
+
+export function brandedTemplateName(name: WhatsAppTemplateName): `${WhatsAppTemplateName}_v2` {
+  return `${name}_v2`;
+}
+
+/** The branded copy of a definition: image banner first; a text header moves to the top of the body. */
+function brandedTemplateDefinition(def: TemplateDefinition): TemplateDefinition {
+  const header = def.components.find((c) => c.type === "HEADER") as { text?: string } | undefined;
+  const components = def.components
+    .filter((c) => c.type !== "HEADER")
+    .map((c) =>
+      c.type === "BODY" && header?.text ? { ...c, text: `*${header.text}*\n\n${String(c.text ?? "")}` } : c,
+    );
+  return {
+    ...def,
+    name: brandedTemplateName(def.name as WhatsAppTemplateName),
+    components: [
+      { type: "HEADER", format: "IMAGE", example: { header_handle: [WHATSAPP_BRAND_HEADER_URL] } },
+      ...components,
+    ],
+  };
+}
+
+/** Plain templates plus their branded copies — everything that can be submitted. */
+export function allWhatsAppTemplateDefinitions(reviewUrl: string = DEFAULT_GOOGLE_REVIEW_URL): TemplateDefinition[] {
+  const plainDefs = whatsAppTemplateDefinitions(reviewUrl);
+  return [
+    ...plainDefs,
+    ...plainDefs
+      .filter((def) => !UNBRANDED_TEMPLATES.has(def.name as WhatsAppTemplateName))
+      .map(brandedTemplateDefinition),
+  ];
+}
+
 type TemplateDefinition = {
-  name: WhatsAppTemplateName;
+  name: WhatsAppTemplateId;
   category: "UTILITY" | "MARKETING";
   components: Array<Record<string, unknown>>;
 };
@@ -525,7 +567,7 @@ const SENT_MARKER_TTL_SECONDS = 60 * 60 * 24 * 400;
 const TEMPLATE_HTTP_MAX_ATTEMPTS = 3;
 const TEMPLATE_HTTP_RETRY_BASE_MS = 200;
 
-type TemplateStatusMap = Partial<Record<WhatsAppTemplateName, string>>;
+type TemplateStatusMap = Partial<Record<WhatsAppTemplateId, string>>;
 
 function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -537,7 +579,7 @@ function recordMatTemplateStatus(
 ): void {
   if (!tpl.name || !tpl.name.startsWith("mat_")) return;
   if (tpl.language && tpl.language !== WHATSAPP_TEMPLATE_LANGUAGE) return;
-  out[tpl.name as WhatsAppTemplateName] = String(tpl.status ?? "unknown").toLowerCase();
+  out[tpl.name as WhatsAppTemplateId] = String(tpl.status ?? "unknown").toLowerCase();
 }
 
 async function fetch360dialogTemplateStatuses(
@@ -628,7 +670,7 @@ export async function getTemplateStatuses(
 
 async function templateApproved(
   env: WhatsAppTemplateEnv,
-  name: WhatsAppTemplateName,
+  name: WhatsAppTemplateId,
   fetchImpl: typeof fetch,
 ): Promise<boolean> {
   if (env.WHATSAPP_TEMPLATES_ENABLED?.trim().toLowerCase() === "false") return false;
@@ -645,13 +687,16 @@ export type TemplateSendResult =
   | { sent: false; reason: "disabled_or_not_approved" | "no_mobile" | "already_sent" | "no_store" | "send_failed"; error?: string };
 
 export function buildTemplatePayload(
-  name: WhatsAppTemplateName,
+  name: WhatsAppTemplateId,
   bodyParams: string[],
   urlButtonParam?: string,
+  headerImageUrl?: string,
 ): Record<string, unknown> {
-  const components: Array<Record<string, unknown>> = [
+  const components: Array<Record<string, unknown>> = [];
+  if (headerImageUrl) components.push({ type: "header", parameters: [{ type: "image", image: { link: headerImageUrl } }] });
+  components.push(
     { type: "body", parameters: bodyParams.map((text) => ({ type: "text", text: templateParam(text) })) },
-  ];
+  );
   if (urlButtonParam) {
     components.push({
       type: "button",
@@ -695,7 +740,9 @@ async function sendTemplate(
   const to = whatsAppRecipient(input.mobile);
   if (!to) return { sent: false, reason: "no_mobile" };
   if (!resolveWhatsAppProvider(env)) return { sent: false, reason: "disabled_or_not_approved" };
-  if (!(await templateApproved(env, input.name, fetchImpl))) return { sent: false, reason: "disabled_or_not_approved" };
+  // The branded copy (logo banner) once Meta has approved it; until then the plain template.
+  const branded = !UNBRANDED_TEMPLATES.has(input.name) && (await templateApproved(env, brandedTemplateName(input.name), fetchImpl));
+  if (!branded && !(await templateApproved(env, input.name, fetchImpl))) return { sent: false, reason: "disabled_or_not_approved" };
 
   const markerKey = `whatsapp:tpl:${input.name}:${input.jobKey}`;
   if (await store.get(markerKey)) return { sent: false, reason: "already_sent" };
@@ -705,7 +752,9 @@ async function sendTemplate(
   const result = await postWhatsAppMessage(
     env,
     to,
-    buildTemplatePayload(input.name, input.bodyParams, input.urlButtonParam),
+    branded
+      ? buildTemplatePayload(brandedTemplateName(input.name), input.bodyParams, input.urlButtonParam, WHATSAPP_BRAND_HEADER_URL)
+      : buildTemplatePayload(input.name, input.bodyParams, input.urlButtonParam),
     fetchImpl,
   );
   if (!result.sent) {
@@ -720,7 +769,7 @@ async function sendTemplate(
     return { sent: false, reason: "send_failed", error: result.error };
   }
   await store.put(markerKey, new Date().toISOString(), { expirationTtl: SENT_MARKER_TTL_SECONDS });
-  console.log(JSON.stringify({ event: "whatsapp_template_sent", template: input.name, phoneSuffix: to.slice(-4) }));
+  console.log(JSON.stringify({ event: "whatsapp_template_sent", template: input.name, branded, phoneSuffix: to.slice(-4) }));
   // In the chat too, so the assistant knows what the customer was sent (e.g. their booking confirmation).
   await appendWhatsAppChat(store, to, { from: "assistant", text: templateChatText(input.name, input.bodyParams) });
   return { sent: true, messageId: result.messageId };
@@ -1124,7 +1173,7 @@ export async function handleWhatsAppTemplates(
   }
   const url = new URL(request.url);
   const reviewUrl = env.GOOGLE_REVIEW_URL?.trim() || DEFAULT_GOOGLE_REVIEW_URL;
-  const definitions = whatsAppTemplateDefinitions(reviewUrl);
+  const definitions = allWhatsAppTemplateDefinitions(reviewUrl);
   const lines: string[] = [];
 
   if (url.searchParams.get("submit") === "1") {
