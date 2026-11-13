@@ -9014,7 +9014,35 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
    Tall screens keep the full 13rem photo. Desktop (1200px+) only; mobile/tablet unchanged. */
 @media (min-width: 1200px) {
   html :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide img {
-    height: clamp(8rem, calc(100vh - 556px), 13rem) !important;
+    height: clamp(8rem, calc(100vh - 572px), 13rem) !important;
     object-position: center;
   }
+}
+
+/* Desktop hero breathing room (Nov 2026): the heading sat only a few pixels under the
+   header and the intro and quote tool were tightly stacked. Tall desktop monitors get
+   generous spacing; shorter laptop windows get a smaller lift so the whole photo cards
+   still fit (photo height below accounts for it). Desktop (1200px+) only, first step only.
+   In @layer base so it outranks the layered !important compact-hero rules above. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding-top: 1.875rem !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin-top: 0.625rem !important;
+  }
+}
+}
+@media (min-width: 1200px) and (min-height: 820px) {
+@layer base {
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding-top: 3.25rem !important;
+    row-gap: 1.875rem !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin-top: 0.875rem !important;
+    line-height: 1.55 !important;
+  }
+}
 }
