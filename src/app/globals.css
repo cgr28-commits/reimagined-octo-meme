@@ -9690,4 +9690,12 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child :is(h1, h2) { color: #ffffff !important; }
   html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child p { color: rgba(255, 255, 255, 0.82) !important; }
   html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child [data-change-journey] { color: #2fbf4a !important; }
+  /* Cards solid white on the navy page (the pale theme leaves them see-through). */
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]):not([data-stripe-pay]) {
+    background-color: #ffffff !important;
+    border-color: #dde4ec !important;
+  }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]) :is(section, div, li, details):is([class*="bg-white/"], .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]) {
+    background-color: #f7f9fc !important;
+  }
 }
