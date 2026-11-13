@@ -8386,10 +8386,10 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
 
 /* ── Design 3: darker, heavier supporting text throughout the booking flow (owner, 12 Nov 2026) ── */
 @layer base {
-  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not([class*="font-medium"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], button) *) {
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not([class*="font-medium"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], [data-quote-route-strip], button) *) {
     font-weight: 500 !important;
   }
-  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], button, [class*="rounded-full"]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]):not([class*="rounded-full"]):not([data-d2-benefits] *) {
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], [data-quote-route-strip], button, [class*="rounded-full"]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]):not([class*="rounded-full"]):not([data-d2-benefits] *) {
     color: #1c2d49 !important;
   }
   html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note],
