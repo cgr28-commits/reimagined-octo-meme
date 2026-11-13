@@ -1666,6 +1666,10 @@ export default function OwnerPaidBookingsPanel({
                 {booking.cameFromGoogleAd ? "Yes" : "No / not known"}
               </span>
             </p>
+            <p className="text-sm text-white/70" data-owner-heard-about>
+              How they heard about us:{" "}
+              <span className="font-semibold text-white">{booking.heardAbout || "Not answered"}</span>
+            </p>
             <p className="text-sm text-white/70">
               Paid booking conversion:{" "}
               <span className="font-semibold text-white">
