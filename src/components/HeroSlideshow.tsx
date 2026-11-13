@@ -36,7 +36,7 @@ type Props = {
     dropoffPlace: SelectedPlace;
     dropoffHint?: string;
   };
-  /** Extra block under the intro (saved-quote summary and Book button). */
+  /** Saved-quote summary and Book button, shown above the quote tool at every step. */
   belowIntro?: ReactNode;
 };
 
@@ -90,7 +90,6 @@ export default function HeroSlideshow({ heading, intro, journey, navId, restore,
           <p data-homepage-intro={intro ? undefined : true} className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             {introText}
           </p>
-          {belowIntro}
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
@@ -108,6 +107,7 @@ export default function HeroSlideshow({ heading, intro, journey, navId, restore,
           className="homepage-hero-quote order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
+          {belowIntro ? <div data-saved-quote-banner className="relative z-10 mb-4 min-w-0">{belowIntro}</div> : null}
           <HeroBenefitsRow />
           <QuoteCard
             presentation="homepage"

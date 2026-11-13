@@ -33,20 +33,20 @@ export default function SavedQuoteCustomerClient() {
     placeName: (pickup ? j.pickupPlaceName : j.dropoffPlaceName) || null,
     streetNumber: (pickup ? j.pickupStreetNumber : j.dropoffStreetNumber) || null,
   });
-  const summary = <div data-saved-quote-summary className="mx-auto mt-4 max-w-xl rounded-2xl border border-white/20 bg-white/[0.06] p-4 text-left text-white sm:p-5">
+  const summary = <div data-saved-quote-summary className="mx-auto flex max-w-[1400px] flex-col gap-3 rounded-2xl border border-emerald/40 bg-[#0b2a52] p-4 text-left text-white sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:p-5">
     {quote.heldPrice ? <>
-      <p className="break-words text-sm text-white/80">{quote.reference}</p>
-      <p className="mt-1 text-lg font-bold">Fixed price {quote.heldPrice.amountLabel}</p>
-      <p className="mt-1 text-sm text-white/85">Your price is held until {quote.heldPrice.heldUntilLabel}. Your journey is not booked yet.</p>
-      <a className="btn-primary mt-4 block w-full text-center" href={quote.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book at {quote.heldPrice.amountLabel}</a>
-      <p className="mt-3 text-xs text-white/70">Need to change the date, time or other details? Edit your journey below. A changed journey is priced again.</p>
-    </> : <>
-      <p className="break-words text-sm text-white/80">{quote.reference}</p>
-      <p className="mt-1 text-lg font-bold">Original fare {quote.amountLabel}</p>
-      <p className="mt-1 text-sm text-white/85">{savedQuoteHasSchedule(j)
-        ? `Retrieve until ${quote.expiresAtLabel}. Your fare is recalculated using current prices. Your journey is not booked yet.`
-        : `Retrieve until ${quote.expiresAtLabel}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY} Your journey is not booked yet.`}</p>
-    </>}
+      <div className="min-w-0">
+        <p className="text-base font-bold">Your saved quote · {quote.heldPrice.amountLabel}</p>
+        <p className="mt-1 text-sm text-white/85">Ref {quote.reference}. Price held until {quote.heldPrice.heldUntilLabel}. Not booked yet.</p>
+        <p className="mt-1 text-xs text-white/70">Want to change something? Edit your journey below; a changed journey is priced again.</p>
+      </div>
+      <a className="btn-primary block shrink-0 text-center sm:inline-block" href={quote.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book at {quote.heldPrice.amountLabel}</a>
+    </> : <div className="min-w-0">
+      <p className="text-base font-bold">Your saved quote · original fare {quote.amountLabel}</p>
+      <p className="mt-1 text-sm text-white/85">Ref {quote.reference}. {savedQuoteHasSchedule(j)
+        ? `Retrieve until ${quote.expiresAtLabel}. Your fare is recalculated using current prices. Not booked yet.`
+        : `Retrieve until ${quote.expiresAtLabel}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY} Not booked yet.`}</p>
+    </div>}
   </div>;
   return <HeroSlideshow
     heading="Your saved quote"
