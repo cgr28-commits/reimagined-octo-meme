@@ -9649,3 +9649,13 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+
+/* Desktop: while an address box is empty, drop the right-hand room kept for the clear (x) button so
+   the full hint "Destination address, postcode or airport" fits on small laptops (owner, 13 Nov 2026). */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero #quote > [data-quote-presentation="homepage"] > form :is(#pickup, #dropoff):placeholder-shown {
+    padding-right: 0.75rem !important;
+  }
+}
+}
