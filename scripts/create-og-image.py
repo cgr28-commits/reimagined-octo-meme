@@ -1,4 +1,5 @@
-"""Generate social share image (Open Graph) with readable branding on navy background."""
+"""Generate social share image (Open Graph) with readable branding on navy background.
+Uses the side-by-side brand logo (owner, 13 Nov 2026)."""
 
 from __future__ import annotations
 
@@ -46,10 +47,10 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 
 
 def main() -> None:
-    logo = trim_transparent(Image.open(PUBLIC / "logo.png").convert("RGBA"))
+    logo = trim_transparent(Image.open(PUBLIC / "logo-header-wide.webp").convert("RGBA"))
 
-    max_logo_w = int(OG_WIDTH * 0.62)
-    max_logo_h = int(OG_HEIGHT * 0.52)
+    max_logo_w = int(OG_WIDTH * 0.8)
+    max_logo_h = int(OG_HEIGHT * 0.4)
     scale = min(max_logo_w / logo.width, max_logo_h / logo.height)
     logo = logo.resize(
         (max(1, int(logo.width * scale)), max(1, int(logo.height * scale))),
@@ -78,13 +79,13 @@ def main() -> None:
     # Square crop-friendly variant for apps that prefer 1:1 previews
     square_size = 1200
     square = Image.new("RGB", (square_size, square_size), NAVY)
-    sq_logo = trim_transparent(Image.open(PUBLIC / "logo.png").convert("RGBA"))
-    sq_scale = min(square_size * 0.72 / sq_logo.width, square_size * 0.55 / sq_logo.height)
+    sq_logo = trim_transparent(Image.open(PUBLIC / "logo-header-wide.webp").convert("RGBA"))
+    sq_scale = min(square_size * 0.84 / sq_logo.width, square_size * 0.4 / sq_logo.height)
     sq_logo = sq_logo.resize(
         (max(1, int(sq_logo.width * sq_scale)), max(1, int(sq_logo.height * sq_scale))),
         Image.Resampling.LANCZOS,
     )
-    paste_centered(square, sq_logo, y_offset=40)
+    paste_centered(square, sq_logo, y_offset=-20)
     sq_font = load_font(30)
     sq_tagline = "Premium Airport Transfers · Northern Ireland"
     sq_bbox = draw.textbbox((0, 0), sq_tagline, font=sq_font)

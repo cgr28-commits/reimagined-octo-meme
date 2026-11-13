@@ -38,7 +38,7 @@ export default function HoldingPage() {
 
       <div className="relative z-10 mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 py-16 text-center sm:px-8">
         <div className="holding-fade-up mx-auto mb-10">
-          <Logo className="mx-auto h-20 sm:h-24" theme="dark" />
+          <Logo wide className="mx-auto h-12 max-w-full sm:h-16" theme="dark" />
         </div>
 
         <p className="holding-fade-up holding-fade-up-delay-1 text-sm font-semibold uppercase tracking-[0.2em] text-emerald">

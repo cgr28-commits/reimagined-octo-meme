@@ -34,15 +34,15 @@ export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): strin
 }
 
 /**
- * Original high-resolution PNG artwork for all email headers.
- * Compatible with Gmail, Outlook, and Apple Mail.
+ * Current side-by-side brand logo (white wordmark for the navy email header), as PNG so
+ * Gmail, Outlook and Apple Mail all show it (owner, 13 Nov 2026; replaced the stacked logo.png).
  * Public HTTPS URL — the file is not attached to the message.
  */
-export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo.png`;
+export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo-email-wide.png`;
 export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
-/** Display size. Original source artwork is 697×541, over 3× the default display width. */
-export const BUSINESS_EMAIL_LOGO_WIDTH = 124;
-export const BUSINESS_EMAIL_LOGO_HEIGHT = 96;
+/** Display size. Source artwork is 600×105, over 2.5× the display width for sharp retina screens. */
+export const BUSINESS_EMAIL_LOGO_WIDTH = 228;
+export const BUSINESS_EMAIL_LOGO_HEIGHT = 40;
 
 /** Accepted card / wallet marks for payment-link emails (PNG — email clients don't show SVG). */
 export const BUSINESS_EMAIL_PAYMENT_METHODS_URL = `${BUSINESS_WEBSITE}/email/payment-methods.png`;
@@ -107,7 +107,7 @@ function emailHeaderRanges(html: string): EmailHeaderRange[] {
       }
       continue;
     }
-    if (tag === "img" && /\/(?:logo|google-business-logo)\.png(?:["?])/i.test(token)) {
+    if (tag === "img" && /\/(?:logo|logo-email-wide|google-business-logo)\.png(?:["?])/i.test(token)) {
       const header = [...stack].reverse().find(node =>
         node.tag === "td" || (node.tag === "div" && /\bmatni-header\b/.test(node.opening)));
       if (header) headers.add(header);
@@ -134,8 +134,8 @@ function setHeaderStyle(tag: string, properties: Record<string, string>): string
 function customerHeaderBlock(header: string): string {
   if (header.includes('data-matni-customer-header="true"')) return header;
   // The linked original artwork is over five times its 124px display width.
-  const logo = businessEmailLogoHtml(124).match(/<img\b[^>]*>/)![0];
-  let result = header.replace(/<img\b[^>]*src="[^"]*\/(?:logo|google-business-logo)\.png"[^>]*>/gi, logo);
+  const logo = businessEmailLogoHtml().match(/<img\b[^>]*>/)![0];
+  let result = header.replace(/<img\b[^>]*src="[^"]*\/(?:logo|logo-email-wide|google-business-logo)\.png"[^>]*>/gi, logo);
   let first = true;
   const source = result;
   result = result.replace(/<(td|div|p|h[1-6]|span|a)\b[^>]*>/gi, (tag, name: string, offset: number) => {

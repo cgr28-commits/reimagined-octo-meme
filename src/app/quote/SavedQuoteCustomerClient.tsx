@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import QuoteCard from "@/components/QuoteCard";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { fetchSavedQuoteByToken, type SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { SAVED_QUOTE_ADD_SCHEDULE_COPY, savedQuoteHasSchedule } from "../../../shared/saved-quote";
@@ -20,8 +20,8 @@ export default function SavedQuoteCustomerClient() {
     }).catch(() => { if (!cancelled) setError("We couldn’t retrieve your quote. Please try again."); });
     return () => { cancelled = true; };
   }, []);
-  if (error) return <div className="mx-auto max-w-lg text-white"><p role="alert">{error}</p><Link className="btn-primary mt-4 inline-block" href="/#quote">Get a new quote</Link></div>;
-  if (!quote) return <p role="status" className="text-center text-white">Retrieving your quote…</p>;
+  if (error) return <div className="mx-auto max-w-lg px-4 pb-16 pt-36 text-center text-white md:pt-40"><p role="alert">{error}</p><Link className="btn-primary mt-4 inline-block" href="/#quote">Get a new quote</Link></div>;
+  if (!quote) return <p role="status" className="px-4 pb-16 pt-36 text-center text-white md:pt-40">Retrieving your quote…</p>;
   const j = quote.journey;
   const place = (pickup: boolean): SelectedPlace => ({
     placeId: (pickup ? j.pickupPlaceId : j.dropoffPlaceId) || "",
@@ -33,25 +33,36 @@ export default function SavedQuoteCustomerClient() {
     placeName: (pickup ? j.pickupPlaceName : j.dropoffPlaceName) || null,
     streetNumber: (pickup ? j.pickupStreetNumber : j.dropoffStreetNumber) || null,
   });
-  return <div className="mx-auto max-w-3xl">
-    <div className="mb-4 rounded-xl border border-white/20 p-4 text-white">
-      <h1 className="text-xl font-bold">Your saved quote</h1>
-      {quote.heldPrice ? <>
-        <p className="mt-2 break-words">{quote.reference} · Fixed price {quote.heldPrice.amountLabel}</p>
-        <p className="mt-2 text-sm">Your price of {quote.heldPrice.amountLabel} is held until {quote.heldPrice.heldUntilLabel}. Your journey is not booked yet.</p>
-        <a className="btn-primary mt-4 block w-full text-center sm:inline-block sm:w-auto" href={quote.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book at {quote.heldPrice.amountLabel}</a>
-        <p className="mt-3 text-xs text-white/70">Need to change the date, time or other details? Edit your journey below. A changed journey is priced again.</p>
-      </> : <>
-        <p className="mt-2 break-words">{quote.reference} · Original fare {quote.amountLabel}</p>
-        <p className="mt-2 text-sm">{savedQuoteHasSchedule(j)
-          ? `Retrieve until ${quote.expiresAtLabel}. Your fare is recalculated using current prices. Your journey is not booked yet.`
-          : `Retrieve until ${quote.expiresAtLabel}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY} Your journey is not booked yet.`}</p>
-      </>}
-    </div>
-    <QuoteCard restoredQuote={quote} initialAirportCode={j.airportCode || ""}
-      initialDirection={j.isFromAirport ? "from-airport" : "to-airport"}
-      initialJourneyIntent={j.isAirportTrip ? j.isFromAirport ? "from-airport" : "to-airport" : "address-to-address"}
-      initialPickupPlace={place(true)} initialDropoffPlace={place(false)}
-      initialAddressHint={j.isFromAirport ? j.dropoffLabel : j.pickupLabel} initialDropoffHint={j.dropoffLabel}/>
+  const summary = <div data-saved-quote-summary className="mx-auto mt-4 max-w-xl rounded-2xl border border-white/20 bg-white/[0.06] p-4 text-left text-white sm:p-5">
+    {quote.heldPrice ? <>
+      <p className="break-words text-sm text-white/80">{quote.reference}</p>
+      <p className="mt-1 text-lg font-bold">Fixed price {quote.heldPrice.amountLabel}</p>
+      <p className="mt-1 text-sm text-white/85">Your price is held until {quote.heldPrice.heldUntilLabel}. Your journey is not booked yet.</p>
+      <a className="btn-primary mt-4 block w-full text-center" href={quote.heldPrice.bookingUrl} referrerPolicy="no-referrer">Book at {quote.heldPrice.amountLabel}</a>
+      <p className="mt-3 text-xs text-white/70">Need to change the date, time or other details? Edit your journey below. A changed journey is priced again.</p>
+    </> : <>
+      <p className="break-words text-sm text-white/80">{quote.reference}</p>
+      <p className="mt-1 text-lg font-bold">Original fare {quote.amountLabel}</p>
+      <p className="mt-1 text-sm text-white/85">{savedQuoteHasSchedule(j)
+        ? `Retrieve until ${quote.expiresAtLabel}. Your fare is recalculated using current prices. Your journey is not booked yet.`
+        : `Retrieve until ${quote.expiresAtLabel}. ${SAVED_QUOTE_ADD_SCHEDULE_COPY} Your journey is not booked yet.`}</p>
+    </>}
   </div>;
+  return <HeroSlideshow
+    heading="Your saved quote"
+    intro="Your journey details are filled in below."
+    belowIntro={summary}
+    journey={{
+      airportCode: j.airportCode || "",
+      direction: j.isFromAirport ? "from-airport" : "to-airport",
+      addressHint: j.isFromAirport ? j.dropoffLabel : j.pickupLabel,
+    }}
+    restore={{
+      quote,
+      journeyIntent: j.isAirportTrip ? j.isFromAirport ? "from-airport" : "to-airport" : "address-to-address",
+      pickupPlace: place(true),
+      dropoffPlace: place(false),
+      dropoffHint: j.dropoffLabel,
+    }}
+  />;
 }

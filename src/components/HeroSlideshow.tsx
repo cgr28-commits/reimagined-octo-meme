@@ -6,7 +6,8 @@ import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 import type { ReactNode } from "react";
-import type { TownGuidePickup } from "@/lib/selected-place";
+import type { SelectedPlace, TownGuidePickup } from "@/lib/selected-place";
+import type { SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 
 /** Journey details a landing page hands to the quote tool (the homepage passes none). */
 export type QuoteHeroJourney = {
@@ -27,6 +28,16 @@ type Props = {
   journey?: QuoteHeroJourney;
   /** Marks the H1 as the menu's scroll/focus target for this page. */
   navId?: string;
+  /** Saved-quote link: the quote to restore into the tool. */
+  restore?: {
+    quote: SavedQuotePublicSummary;
+    journeyIntent: "to-airport" | "from-airport" | "address-to-address";
+    pickupPlace: SelectedPlace;
+    dropoffPlace: SelectedPlace;
+    dropoffHint?: string;
+  };
+  /** Extra block under the intro (saved-quote summary and Book button). */
+  belowIntro?: ReactNode;
 };
 
 const HOMEPAGE_INTRO =
@@ -37,7 +48,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, journey, navId }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, journey, navId, restore, belowIntro }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -79,6 +90,7 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
           <p data-homepage-intro={intro ? undefined : true} className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             {introText}
           </p>
+          {belowIntro}
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
@@ -107,6 +119,13 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
             initialGuidePickup={journey?.guidePickup ?? null}
             preferMinibus={journey?.preferMinibus ?? false}
             businessClassAnyRoute={journey?.businessClassAnyRoute ?? false}
+            {...(restore ? {
+              restoredQuote: restore.quote,
+              initialJourneyIntent: restore.journeyIntent,
+              initialPickupPlace: restore.pickupPlace,
+              initialDropoffPlace: restore.dropoffPlace,
+              initialDropoffHint: restore.dropoffHint,
+            } : {})}
           />
           <QuoteHelpContact />
           <div className="mt-4 flex justify-center" data-hero-reviews-badge>

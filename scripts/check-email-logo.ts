@@ -67,7 +67,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.match(html, /alt="My Airport Taxi NI"/);
   assert.match(html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
   assert.match(html, /max-width:100%/);
-  assert.match(html, /width:124px/);
+  assert.match(html, /width:228px/);
   if (!airportCollection) {
     assert.match(html, /data-matni-customer-header="true"/);
     assert.match(html, /background-color:#071c38 !important/);
@@ -95,9 +95,9 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
 
 const logo = businessEmailLogoHtml();
 assert.equal(BUSINESS_EMAIL_LOGO_ALT, "My Airport Taxi NI");
-assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo.png");
-assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 124);
-assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 96);
+assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo-email-wide.png");
+assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 228);
+assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 40);
 assert.equal(logo.match(/<img\b/g)?.length, 1);
 assert.match(logo, /color:#ffffff/);
 console.log("OK  shared header helper");
