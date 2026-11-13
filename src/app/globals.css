@@ -9009,13 +9009,13 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones only (below 768px);
-   tablets and desktop unchanged. Bigger wide logo, first intro sentence only, card title with
+   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones and tablets (below 1200px; tablets added 13 Nov 2026 at owner request);
+   desktop unchanged. Bigger wide logo, first intro sentence only, card title with
    an Instant Quote chip, navy One way / Return, chevron on the quote button, lock on the
    caption, benefits as four icon columns.
    ─────────────────────────────────────────────────────────────────────────── */
 [data-d2-benefit-icon] { display: none; }
-@media (max-width: 767.98px) {
+@media (max-width: 1199.98px) {
   @layer base {
     /* Header: the logo gets the space; buttons stay 44px touch targets, tight gaps (owner, 13 Nov 2026) */
     html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
@@ -9256,6 +9256,20 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+/* Tablets (768-1199px): benefits clear the card, slightly larger logo. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 9rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
+      max-width: 17.5rem !important;
+    }
+  }
+}
 /* Very narrow phones: the title keeps the row, the chip steps aside. */
 @media (max-width: 373.98px) {
   @layer base {
@@ -9266,12 +9280,12 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones only (below 768px).
+   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones and tablets (below 1200px).
    Picture in its own column (never under the text), bigger name, capacity lines beneath,
    price / request on the right; on narrow cards the request button moves under the text.
    Layout and wording only: selection, availability and request behaviour are unchanged.
    ─────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 767.98px) {
+@media (max-width: 1199.98px) {
   @layer base {
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-quote-vehicle-categories] [role="list"] {
       gap: 0.625rem !important;
@@ -9423,6 +9437,35 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
       align-items: flex-start !important;
+    }
+  }
+}
+/* Tablets (768-1199px): cards are wide, so the request button sits on the right like the prices. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
+      grid-template-areas: "art copy action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
+      justify-self: end !important;
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      align-items: flex-end !important;
+      text-align: right !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
+      align-items: flex-end !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 6.5rem !important;
+      max-width: 6.5rem !important;
+      height: 3.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 6.5rem minmax(0, 1fr) auto !important;
+      column-gap: 1rem !important;
     }
   }
 }
@@ -9589,4 +9632,20 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     max-width: min(64em, 100%) !important;
   }
 }
+}
+
+/* Phones and tablets (below 1200px): the hero and footer stay the site's navy (#071c38) to the
+   bottom instead of fading to near-black (owner, 13 Nov 2026). Desktop unchanged. */
+@media (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero {
+      background:
+        radial-gradient(120% 60% at 85% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+        radial-gradient(140% 70% at 0% 8%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+        #071c38 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] footer.bg-navy-dark {
+      background-color: #071c38 !important;
+    }
+  }
 }
