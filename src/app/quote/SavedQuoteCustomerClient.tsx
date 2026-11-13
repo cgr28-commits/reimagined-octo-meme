@@ -10,12 +10,29 @@ export default function SavedQuoteCustomerClient() {
   const [error,setError] = useState("");
   useEffect(() => {
     // Fragment tokens never reach static hosting logs or referrer headers. Old query links still work.
-    const token = new URLSearchParams(location.hash.slice(1)).get("t") || new URLSearchParams(location.search).get("t") || "";
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const token = hash.get("t") || new URLSearchParams(location.search).get("t") || "";
+    // "Change my journey" from the payment page comes back with edit=1: show the editable quote.
+    const editing = hash.get("edit") === "1";
     if (location.search) history.replaceState(null,"",`${location.pathname}#t=${encodeURIComponent(token)}`);
     let cancelled = false;
     fetchSavedQuoteByToken(token).then(result => {
       if (cancelled) return;
-      if (result.ok) setQuote(result.quote);
+      if (result.ok) {
+        // A price still held: go straight to the payment page (owner, 13 Nov 2026), keeping a way back.
+        const held = result.quote.heldPrice;
+        if (held?.bookingUrl && !editing) {
+          try {
+            const target = new URL(held.bookingUrl, location.origin);
+            const sameSite = target.origin === location.origin || /(^|\.)myairporttaxini\.co\.uk$/.test(target.hostname);
+            if (sameSite) {
+              location.replace(`${location.origin}${target.pathname}${target.search}#change=${encodeURIComponent(token)}`);
+              return;
+            }
+          } catch { /* fall through to the quote page */ }
+        }
+        setQuote(result.quote);
+      }
       else setError(result.error === "expired" ? "Your saved quote has expired. Please get a new quote." : result.message || "This saved quote is unavailable. Please get a new quote.");
     }).catch(() => { if (!cancelled) setError("We couldn’t retrieve your quote. Please try again."); });
     return () => { cancelled = true; };

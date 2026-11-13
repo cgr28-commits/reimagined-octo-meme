@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import BookQuoteCustomerClient from "./BookQuoteCustomerClient";
+import ChangeJourneyLink from "./ChangeJourneyLink";
 import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function BookQuotePage() {
         </Link>
         <h1 className="mt-3 break-words font-display text-3xl text-white">Your fixed quote</h1>
         <p className="mt-1 text-sm text-white/65">Pre-booked driver · Fixed price · Secure card payment</p>
+        <ChangeJourneyLink />
       </div>
       <BookQuoteCustomerClient />
     </main>
