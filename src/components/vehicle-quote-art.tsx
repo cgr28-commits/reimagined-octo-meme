@@ -42,7 +42,7 @@ export function VehicleQuoteArt({
       data-vehicle-art-size={size}
     >
       <picture className="contents">
-        <source media="(max-width: 767px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        <source media="(max-width: 1199px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
         <DesktopVehicleSources vehicle={vehicle} sizes={size === "option" ? "256px" : "(min-width: 1440px) 672px, 65vw"} />
         <Image
           src={src}

@@ -9440,6 +9440,35 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+/* Tablets (768-1199px): cards are wide, so the request button sits on the right like the prices. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
+      grid-template-areas: "art copy action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
+      justify-self: end !important;
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      align-items: flex-end !important;
+      text-align: right !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
+      align-items: flex-end !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 6.5rem !important;
+      max-width: 6.5rem !important;
+      height: 3.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 6.5rem minmax(0, 1fr) auto !important;
+      column-gap: 1rem !important;
+    }
+  }
+}
 /* 340px and narrower: prices move under the text too, so the name and lines keep their width */
 @media (max-width: 339.98px) {
   @layer base {
