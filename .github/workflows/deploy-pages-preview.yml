@@ -30,6 +30,7 @@ name: Deploy Pages Preview
       - cursor/business-class-dublin-seo-514b
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
+      - claude/empty-run-discount
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
@@ -116,7 +117,13 @@ jobs:
             openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
             echo "QUOTE_RECEIPT_SECRET created on the preview Worker."
           fi
-          npx wrangler deploy --env preview
+          if [ "${GITHUB_REF_NAME:-}" = "claude/empty-run-discount" ]; then
+            # Empty Run test: discount ON for this preview Worker only. The live switch
+            # (stored in the shared booking store) is not touched.
+            npx wrangler deploy --env preview --var EMPTY_RUN_PREVIEW_FORCE_ON:true
+          else
+            npx wrangler deploy --env preview
+          fi
           echo "url=$PREVIEW_WORKER" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview Worker (not production traffic): $PREVIEW_WORKER"
 

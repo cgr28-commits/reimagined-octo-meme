@@ -30,6 +30,17 @@ export type ServerFarePartyParts = {
   suitcases: number;
   /** Opaque Worker signature. Absent while profitability protection is off. */
   quoteReceipt?: string;
+  /** Empty Run discount already in amountGbp. */
+  emptyRunSavingGbp?: number;
+  emptyRunNormalAmountGbp?: number;
+  /** Cheaper pickup time the same day. */
+  emptyRunOffer?: {
+    tripDate: string;
+    tripTime: string;
+    direction: "earlier" | "later";
+    estimatedAmountGbp: number;
+    estimatedSavingGbp: number;
+  };
 } & ServerFareScheduleParts;
 
 function sameScheduleField(left?: string | null, right?: string | null): boolean {

@@ -2724,6 +2724,10 @@ function QuoteCard({
           passengers: requestedPassengers,
           suitcases: requestedSuitcases,
           ...(result.quoteReceipt ? { quoteReceipt: result.quoteReceipt } : {}),
+          ...(result.emptyRunSavingGbp
+            ? { emptyRunSavingGbp: result.emptyRunSavingGbp, emptyRunNormalAmountGbp: result.emptyRunNormalAmountGbp }
+            : {}),
+          ...(result.emptyRunOffer ? { emptyRunOffer: result.emptyRunOffer } : {}),
           outboundDate: tripDate.trim(),
           outboundTime: tripTime.trim(),
           returnJourney,
@@ -9089,8 +9093,54 @@ function QuoteCard({
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
+      {renderEmptyRunNotice()}
       {businessClassUpgrade}
       </>
+    );
+  }
+
+  /** Empty Run: show the saving already applied, or a cheaper time the same day. */
+  function renderEmptyRunNotice() {
+    const parts = currentServerFareParts;
+    if (!parts || authoritativeQuoteFailed) return null;
+    const gbp = (n: number) => `£${n % 1 ? n.toFixed(2) : n.toFixed(0)}`;
+    if (parts.emptyRunSavingGbp && parts.emptyRunNormalAmountGbp) {
+      return (
+        <div
+          data-empty-run-applied
+          className="mt-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-white"
+        >
+          <p className="font-bold text-emerald-200">Special price: you save {gbp(parts.emptyRunSavingGbp)}</p>
+          <p className="mt-0.5 text-white/80">
+            Our car is already heading that way at this time, so we&apos;ve lowered your fare from{" "}
+            <span className="line-through">{gbp(parts.emptyRunNormalAmountGbp)}</span>.
+          </p>
+        </div>
+      );
+    }
+    const offer = parts.emptyRunOffer;
+    if (!offer) return null;
+    const clock = formatCustomerClock(offer.tripTime) || offer.tripTime;
+    return (
+      <div
+        data-empty-run-offer
+        className="mt-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-white"
+      >
+        <p className="font-bold text-emerald-200">
+          Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} at {clock}
+        </p>
+        <p className="mt-0.5 text-white/80">
+          Our car is already heading that way, so a {clock} pickup is about {gbp(offer.estimatedAmountGbp)}.
+        </p>
+        <button
+          type="button"
+          className="mt-2 inline-flex min-h-11 items-center rounded-xl bg-emerald-500 px-4 font-bold text-white"
+          disabled={selectingAlternativeTime != null}
+          onClick={() => void handleSelectAvailabilityAlternative({ tripDate: offer.tripDate, tripTime: offer.tripTime })}
+        >
+          {selectingAlternativeTime === offer.tripTime ? "Updating…" : `Switch to ${clock}`}
+        </button>
+      </div>
     );
   }
 
