@@ -267,7 +267,6 @@ ${businessEmailClientMeta()}</head>
           <p style="margin:0 0 24px;text-align:center;">
             <a href="${escapeHtml(details.payUrl)}" style="display:inline-block;background:${ACCENT};color:${NAVY};text-decoration:none;font-weight:700;padding:14px 28px;border-radius:999px;font-size:16px;">${escapeHtml(ctaLabel)}</a>${paymentMethodsEmailHtml()}
           </p>
-          <p style="margin:0;font-size:12px;color:#9fb0c0;text-align:center;">Secure card payment.</p>
           <p style="margin:16px 0 0;font-size:12px;color:#9fb0c0;text-align:center;">Ref ${escapeHtml(details.reference)}</p>
         </td></tr>
       </table>
