@@ -9463,7 +9463,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo { display: none !important; }
   html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide {
     display: block !important;
-    height: 2.875rem !important;
+    height: 4.6rem !important; /* 60% bigger (owner, 13 Nov 2026) */
     width: auto !important;
     aspect-ratio: 1011 / 177;
     background: url("/logo-header-wide.webp") left center / contain no-repeat;
@@ -9535,19 +9535,33 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
 }
 }
-/* Wide logo needs room: on laptops under 1440px the logo, menu gaps and menu text tighten a little so nothing overlaps. */
+/* Bigger logo (60% up, owner 13 Nov 2026): the header becomes two rows on desktop.
+   Row 1: logo left, phone + Get a Quote right. Row 2: the menu, full width. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 1.5rem !important;
+    row-gap: 0.5rem !important;
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > a:has(> .quote-header-logo-wide) { grid-column: 1 !important; grid-row: 1 !important; align-self: center !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-content: center !important;
+    column-gap: 1.75rem !important;
+    padding-top: 0.5rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav + div { grid-column: 2 !important; grid-row: 1 !important; justify-self: end !important; align-self: center !important; }
+}
+}
 @media (min-width: 1200px) and (max-width: 1439.98px) {
 @layer base {
-  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 2.125rem !important; }
-  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) { column-gap: 1.25rem !important; }
-  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 0.75rem !important; }
-  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav :is(a, button) { font-size: 0.84375rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 3.4rem !important; }
 }
-}
-@media (min-width: 1200px) and (max-width: 1299.98px) {
-@layer base {
-  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 1.75rem !important; }
-  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 0.75rem !important; }
-  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav :is(a, button) { font-size: 0.8125rem !important; }
 }
 }
