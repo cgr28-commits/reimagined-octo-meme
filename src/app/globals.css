@@ -9459,17 +9459,18 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
    toggle, and the four benefit symbols. Desktop only; phones and tablets unchanged.
    ─────────────────────────────────────────────────────────────────────────── */
 @media (min-width: 1200px) {
-  html:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo { display: none !important; }
-  html:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo { display: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide {
     display: block !important;
-    height: 3.25rem !important;
+    height: 2.875rem !important;
     width: auto !important;
     aspect-ratio: 1011 / 177;
     background: url("/logo-header-wide.webp") left center / contain no-repeat;
   }
 
   /* card title row */
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head] {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head] {
     display: flex !important;
     align-items: center !important;
     gap: 0.625rem !important;
@@ -9477,15 +9478,15 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     grid-row: 1 !important;
     margin: 0 0 -0.125rem !important;
   }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-icon] { color: #2fbf4a !important; flex: none !important; }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-title] {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-icon] { color: #2fbf4a !important; flex: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-title] {
     color: #071c38 !important;
     font-size: 1.1875rem !important;
     font-weight: 800 !important;
     letter-spacing: -0.01em !important;
     line-height: 1.2 !important;
   }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-chip] {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-chip] {
     display: inline-flex !important;
     align-items: center !important;
     gap: 0.3rem !important;
@@ -9499,35 +9500,38 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     white-space: nowrap !important;
   }
   /* the field rows move down one row under the title */
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]),
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]),
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child { grid-row: 2 !important; }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule,
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1),
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2),
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-row: 3 !important; }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements { grid-row: 4 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child { grid-row: 2 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule,
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-row: 3 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements { grid-row: 4 !important; }
 
   /* trip toggle: selected option in navy with white text, as on the phone */
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"],
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] * {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"],
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] * {
     background: #071c38 !important;
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
     box-shadow: 0 1px 3px rgba(7, 28, 56, 0.25) !important;
   }
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] [data-return-discount-note] {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] [data-return-discount-note] {
     background: #2fbf4a !important;
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
   }
 
   /* benefit symbols: a little larger, labels may wrap on narrower laptops */
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
     width: 1.625rem !important;
     height: 1.625rem !important;
   }
 }
+}
 @media (min-width: 1200px) and (max-width: 1365.98px) {
-  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
+}
 }
