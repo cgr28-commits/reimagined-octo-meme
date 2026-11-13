@@ -9333,7 +9333,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
       color: #071c38 !important;
       margin: 0 0 0.25rem !important;
     }
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]):not(.hidden):not([aria-hidden]) {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]):not([data-vehicle-on-request]):not([data-vehicle-desktop-badge]):not(.hidden):not([aria-hidden]) {
       display: flex !important;
       align-items: flex-start !important;
       gap: 0.3125rem !important;
