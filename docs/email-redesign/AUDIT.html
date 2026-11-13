@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang=en-GB><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Customer email redesign — audit and proposal</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel=stylesheet>
+<style>
+:root{--navy:#071C38;--em:#2FBF4A;--bg:#F5F7FA;--line:#E3E8EF;--mut:#55657A}
+*{box-sizing:border-box}body{margin:0;font:15px/1.55 Manrope,Helvetica,Arial,sans-serif;color:var(--navy);background:var(--bg)}
+header{background:var(--navy);color:#fff;padding:36px 20px 30px}header div,main{max-width:1080px;margin:0 auto}
+header small{color:var(--em);font-weight:800;letter-spacing:2px;text-transform:uppercase;font-size:11px}
+header h1{margin:6px 0 8px;font-size:30px;line-height:1.2}header p{margin:0;color:#B7C4D6;max-width:720px}
+main{padding:24px 20px 60px}h2{font-size:21px;margin:38px 0 10px}h3{margin:0 0 12px;font-size:16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+.stop{border-left:5px solid #B45309;background:#FFF6E5}
+ul{margin:6px 0;padding-left:20px}li{margin:4px 0}
+.tw{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{background:var(--navy);color:#fff;font-size:12px;position:sticky;top:0}td.g{color:var(--mut);white-space:nowrap}td.s{font-family:ui-monospace,Menlo,monospace;font-size:12px}td.f{color:var(--mut);font-size:12px}td.v{font-size:12px}
+.pair{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:16px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}figure{margin:0}figcaption{font-weight:800;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+.pair img{width:100%;border-radius:10px;border:1px solid var(--line);max-height:900px;object-fit:cover;object-position:top}
+.mob{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px}.mob img{width:240px;border-radius:12px;border:1px solid var(--line)}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid var(--line)}
+@media(max-width:640px){.cols{grid-template-columns:1fr}header h1{font-size:24px}}
+</style></head><body>
+<header><div><small>My Airport Taxi NI · Phase 1–2 for approval</small><h1>Customer email redesign — audit and proposal</h1>
+<p>Nothing has been changed, sent or deployed. This is the audit and the proposed design for you to approve before any template is rebuilt.</p></div></header>
+<main>
+<div class="card stop"><h3>Waiting for your approval</h3>Nothing will be built until you approve. Reply with ‘approved’, or tell me what to change. Three decisions are listed at the bottom.</div>
+
+<h2>What I found</h2>
+<div class=card><ul>
+<li><b>27 automated customer emails</b> are live in the system (table below). There are also driver-only and owner-only emails; I've left those out.</li>
+<li><b>No customer ‘flight update’ email exists</b>, so I won't add one. Flight alerts go to you only. There's also no direct ‘payment failed’ email to the customer. The nearest is ‘Your booking isn't finished yet’.</li>
+<li><b>The 38-preview and 67-variant redesigns aren't in the repo.</b> They're not in the branches or in any pull request. The closest earlier work is open PR #925 ‘Premium customer email typography’ (12–13 Nov, not live). That PR only changes fonts and buttons, and has before/after screenshots of 21 emails. There's also a set of 13 static preview pages in <code>public/email-previews/</code>.</li>
+<li><b>Styling is copied by hand in 14 separate files</b>, with 31 hard-coded navy colour values. Most emails use Arial, and a shared footer only exists in one file. Three ‘clean-up’ passes rewrite the HTML with pattern matching after it's built: the header swap, the white theme and the PR #925 polish. That's why the emails look slightly different from each other, and why they're fragile.</li>
+<li>Two builders aren't used by the live system: the old ‘Refund confirmation’ and ‘request expired’ emails. The 5% return offer is built but paused.</li>
+</ul></div>
+
+<h2>Things to fix that I found along the way</h2>
+<div class=card><ul>
+<li>The <b>airport collection email shows the full wa.me link</b>, which includes 07549 815538, as text under the WhatsApp button. You've asked for customers to see @belfasttaxi only.</li>
+<li>The stale <code>public/email-previews/dublin-meet-greet-collection.html</code> is published on the live site. It shows <b>07549 815538 as the ‘Business Line’</b> and a Dublin map for a Meet &amp; Greet customer. The live email itself is already correct. I'd take these old previews off the public site.</li>
+<li>‘Driver arrived’ for airport pickups uses the heading <code>✈️ Airport Pick-Up</code>. Your brief asks for <b>‘Your driver will meet you inside Arrivals’</b> on Meet &amp; Greet emails. I'll change the heading in the email body only. Subjects stay as they are unless you approve a change.</li>
+<li>Open PRs #458 (‘Remove landline’) and #623 are out of date and go against the current rules. I won't merge them.</li>
+</ul></div>
+
+<h2>Inventory of customer emails</h2>
+<div class=tw><table><thead><tr><th>Group</th><th>Email</th><th>Trigger</th><th>Subject (unchanged)</th><th>Code</th><th>Variants / notes</th></tr></thead><tbody><tr><td class=g>Booking & payment</td><td><b>Invoice & booking confirmation</b></td><td>Stripe payment verified; owner resend; browser fallback</td><td class=s>Invoice &amp; booking confirmed — {ref}</td><td class=f>booking-notifications.ts · buildCustomerConfirmationEmail</td><td class=v>Full payment, Deposit + Cash, 20% card deposit, return, Meet & Greet, airport / non-airport</td></tr><tr><td class=g>Booking & payment</td><td><b>Updated booking confirmation</b></td><td>Amendment / owner edit / Meet & Greet added</td><td class=s>Updated Booking Confirmation – {ref}</td><td class=f>booking-notifications.ts · buildUpdatedBookingConfirmationEmail</td><td class=v></td></tr><tr><td class=g>Booking & payment</td><td><b>Booking Request Received <b>(pending)</b></b></td><td>Short-notice, luggage-capacity, 7-seater or overnight request</td><td class=s>Booking Request Received / 7-seater heading</td><td class=f>short-notice-request-received-email.ts</td><td class=v>No payment / card authorised / luggage / minibus</td></tr><tr><td class=g>Booking & payment</td><td><b>Request accepted — pay link</b></td><td>Owner approves a request that has no card hold</td><td class=s>Your My Airport Taxi NI booking request has been accepted</td><td class=f>short-notice-payment-email.ts</td><td class=v></td></tr><tr><td class=g>Booking & payment</td><td><b>Alternative pickup time</b></td><td>Owner offers another time</td><td class=s>Alternative pickup time available — My Airport Taxi NI</td><td class=f>short-notice-alternative-email.ts</td><td class=v></td></tr><tr><td class=g>Booking & payment</td><td><b>Request unavailable</b></td><td>Owner declines, or response window expires (cron)</td><td class=s>Booking Request Unavailable</td><td class=f>short-notice-decline-email.ts</td><td class=v></td></tr><tr><td class=g>Booking & payment</td><td><b>Personalised quote / alternative offer</b></td><td>Owner sends airport-to-airport / specialist quote</td><td class=s>Your personalised quote £X — valid for … / Alternative journey offer …</td><td class=f>a2a-quote-payment-email.ts</td><td class=v>Offer / counter-offer</td></tr><tr><td class=g>Booking & payment</td><td><b>Card-deposit balance due</b></td><td>7 days before pickup, then reminders</td><td class=s>Your balance of £X is now due · Reminder · Final reminder ({ref})</td><td class=f>workers/…/card-balance.ts (inline HTML)</td><td class=v>3 stages</td></tr><tr><td class=g>Booking & payment</td><td><b>Balance received</b></td><td>Balance paid</td><td class=s>Balance received — you&#x27;re all paid ({ref})</td><td class=f>workers/…/card-balance.ts</td><td class=v></td></tr><tr><td class=g>Booking & payment</td><td><b>Finish your booking</b></td><td>Checkout started but not paid (≈10 min)</td><td class=s>Your booking isn&#x27;t finished yet — My Airport Taxi NI</td><td class=f>unfinished-payment.ts</td><td class=v>Closest thing to a customer ‘payment failed’ email</td></tr><tr><td class=g>Booking & payment</td><td><b>Add Meet & Greet offer</b></td><td>Eligible airport pickup</td><td class=s>Add Meet &amp; Greet to your {airport} pickup — {ref}</td><td class=f>meet-greet-upgrade.ts</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Saved quote</b></td><td>Customer taps Save my quote</td><td class=s>Your Airport Transfer Quote — My Airport Taxi NI</td><td class=f>saved-quote-emails.ts</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Saved quote reminder</b></td><td>Cron</td><td class=s>Your My Airport Taxi NI quote is still available</td><td class=f>saved-quote-emails.ts</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Saved quote final reminder</b></td><td>Cron</td><td class=s>Your airport transfer quote expires soon</td><td class=f>saved-quote-emails.ts</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Quote follow-up</b></td><td>Quote contact left, no booking</td><td class=s>Your transfer quote is waiting — My Airport Taxi NI</td><td class=f>workers/…/quote-contact-followup.ts</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Website ‘email my quote’</b></td><td>Customer asks for the quote by email</td><td class=s>Your quote — £X — My Airport Taxi NI</td><td class=f>src/lib/quote-assistant-submit.ts (sent from the browser)</td><td class=v></td></tr><tr><td class=g>Quotes</td><td><b>Phone booking link</b></td><td>Fonio receptionist sends link by email</td><td class=s>Your transfer booking link — My Airport Taxi NI</td><td class=f>workers/…/voice-quote.ts (inline HTML)</td><td class=v></td></tr><tr><td class=g>Cancellation & refund</td><td><b>Cancellation / refund</b></td><td>Owner refund tool, customer cancel, unpaid balance</td><td class=s>Booking Cancellation Confirmed – {ref} · Cancellation &amp; Refund – {ref} · Full Refund Issued – … (7 wordings)</td><td class=f>booking-notifications.ts · buildCustomerCancellationEmails</td><td class=v>Full / partial / late / leg-only / booking stays confirmed</td></tr><tr><td class=g>Journey</td><td><b>Driver details</b></td><td>Driver accepts, or you self-assign</td><td class=s>Your driver details — {date time} — My Airport Taxi NI</td><td class=f>booking-job.ts · buildCustomerDriverDetailsEmail</td><td class=v>With / without Meet & Greet</td></tr><tr><td class=g>Journey</td><td><b>Journey reminder</b></td><td>Cron before pickup</td><td class=s>{Leg} reminder — {ref}</td><td class=f>journey-reminder.ts</td><td class=v>Outbound / return</td></tr><tr><td class=g>Journey</td><td><b>Airport collection information</b></td><td>Journey day, before an airport pickup</td><td class=s>Important information about your airport collection</td><td class=f>airport-pickup-reminder.ts</td><td class=v>BFS / BHD (Express, Long Stay), Dublin T1/T2, Meet & Greet, Derry</td></tr><tr><td class=g>Journey</td><td><b>Tracking available</b></td><td>Driver starts tracking</td><td class=s>Your driver tracking is now available | My Airport Taxi NI</td><td class=f>booking-notifications.ts · buildTrackingReminderEmail</td><td class=v>Website tracking is retired — check if still wanted</td></tr><tr><td class=g>Journey</td><td><b>Driver on the way</b></td><td>Driver taps On the way</td><td class=s>Your driver is on the way — My Airport Taxi NI</td><td class=f>booking-notifications.ts · buildDriverOnTheWayEmail</td><td class=v></td></tr><tr><td class=g>Journey</td><td><b>Driver arrived</b></td><td>Driver taps Arrived</td><td class=s>Your driver has arrived — … / ✈️ Airport Pick-Up — …</td><td class=f>booking-notifications.ts · buildDriverArrivedPickupEmail</td><td class=v>Address / airport pickup</td></tr><tr><td class=g>After the journey</td><td><b>Google review request</b></td><td>2 h after Complete (hourly cron) or manual</td><td class=s>How was your journey with My Airport Taxi NI?</td><td class=f>booking-notifications.ts · buildGoogleReviewRequestEmail</td><td class=v></td></tr><tr><td class=g>After the journey</td><td><b>5% return offer</b></td><td>Cron — <b>currently paused</b></td><td class=s>Need your journey home? / Need a transfer back to the airport? Save £X</td><td class=f>return-offer-emails.ts</td><td class=v>Paused in return-offer-config.json</td></tr><tr><td class=g>Account</td><td><b>Sign-in code</b></td><td>Customer account login</td><td class=s>{code} is your My Airport Taxi NI sign-in code</td><td class=f>customer-account.ts</td><td class=v></td></tr></tbody></table></div>
+
+<h2>Proposed shared design system</h2>
+<div class=card>
+<p><span class=sw style="background:#071C38"></span>Navy #071C38 header and footer &nbsp; <span class=sw style="background:#2FBF4A"></span>Emerald #2FBF4A buttons and accents &nbsp; <span class=sw style="background:#fff"></span>White content area &nbsp; <span class=sw style="background:#F5F7FA"></span>#F5F7FA background</p>
+<ul>
+<li><b>One layout file</b> (<code>shared/email-kit.ts</code>) used by every customer email. It contains:
+<ul>
+<li>Header: the logo from the website, a small green label, and the title.</li>
+<li>Body: greeting, a status banner, booking reference, a journey card (pickup → drop-off, date and time), detail rows, a price block, the green button, information panels, ‘Need help?’, and the footer.</li>
+</ul></li>
+<li><b>Pending vs confirmed are clearly different.</b> Pending requests get an amber ‘Awaiting confirmation — not yet confirmed’ banner and a ‘Not charged’ label. Only real confirmations get the green ‘Booking confirmed’ banner and ‘Paid in full’.</li>
+<li><b>Empty fields are skipped.</b> Rows with no value aren't shown, so there are no blank lines or ‘undefined’ (for example, a missing flight number).</li>
+<li><b>Fonts:</b> Manrope for text and Cormorant Garamond for prices, matching the website. Where web fonts are blocked (Gmail, Outlook), they fall back to Helvetica/Arial and Georgia.</li>
+<li><b>Footer:</b> My Airport Taxi NI · website · 028 9602 2952 · bookings@ · Terms, Cancellation Policy and Privacy. ‘Need help?’ shows WhatsApp as @belfasttaxi, linking to the website’s contact page, not the number. Your personal name and Rinkel don't appear.</li>
+<li><b>Built to work in email apps:</b>
+<ul>
+<li>Table layout, 600px wide, inline styles and a plain-text version.</li>
+<li>Outlook-safe buttons, alt text on images and no JavaScript.</li>
+<li>Works down to 320px wide.</li>
+<li>Light dark-mode adjustments.</li>
+</ul></li>
+<li><b>Wording, subjects, triggers, recipients, links and tracking stay the same.</b> Only the layout around them changes. The existing regex clean-up passes get retired for emails moved to the kit.</li>
+</ul></div>
+
+<h2>Before and after (fictional data)</h2>
+
+<h3 style="margin-top:26px">Proposed — mobile (360px)</h3>
+<p>Mockups: docs/email-redesign/mockups/</p>
+
+<h2>Tests (baseline, before any change)</h2>
+<div class=card>
+I ran 14 existing email checks on the current main branch. <b>10 passed:</b> logo, confirmation, cancellation, both Meet &amp; Greet checks, review request, tracking, saved quote, amendment and booking-preview.
+<p><b>3 were already failing before I touched anything:</b></p>
+<ul>
+<li>check-short-notice-payment-email: a SumUp-related code check</li>
+<li>check-driver-on-the-way: expects old WhatsApp text</li>
+<li>check-minimum-booking-notice</li>
+</ul>
+<p>The 14th, the browser readability check, needs rendered previews first, so it will run with the gallery.</p>
+<p>I'll keep those three as they are and make sure nothing new fails. Package installs are blocked in this session, so I used the tools already installed.</p></div>
+
+<h2>Decisions for you</h2>
+<div class=card><ol>
+<li><b>Approve the design</b> as shown, or tell me what to change (colours, spacing, the amber pending banner).</li>
+<li><b>Remove the old public preview pages</b> in <code>public/email-previews/</code>? They show the WhatsApp number.</li>
+<li><b>What to do with PR #925</b> (font-only polish): close it in favour of this redesign, which includes the same fonts? I recommend closing it.</li>
+</ol>
+After you approve, I'll build it on a separate branch. Then I'll send you a full preview gallery of every email and variant, with desktop and mobile views and test results. Nothing will be merged or deployed until you say go live.</div>
+</main></body></html>
