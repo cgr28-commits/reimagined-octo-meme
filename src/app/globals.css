@@ -9579,3 +9579,14 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body { --desktop-header-extra: 2.6875rem; }
 }
 }
+
+/* Desktop homepage intro (owner, 13 Nov 2026): a measured width so the first line ends at
+   "Whether you're travelling to the airport," and "attending an event" starts line two.
+   Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero p[data-homepage-intro] {
+    max-width: min(64em, 100%) !important;
+  }
+}
+}
