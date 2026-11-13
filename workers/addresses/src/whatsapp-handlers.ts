@@ -445,7 +445,7 @@ const BUSINESS_PROFILE = {
   vertical: "TRAVEL",
 };
 // New logo, words centred under the car and plane so it fits the round photo (owner, 13 Nov 2026).
-const PROFILE_LOGO_PATH = "/whatsapp/profile.jpg";
+const PROFILE_LOGO_PATH = "/whatsapp/profile.png";
 
 async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise<string[]> {
   const lines: string[] = [];
@@ -466,14 +466,18 @@ async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise
   } catch {
     lines.push("Logo could not be downloaded. You can add it in 360dialog → Profile.");
   }
-  const updated = await update360dialogBusinessProfile(apiKey, {
-    ...BUSINESS_PROFILE,
-    ...(pictureHandle ? { profile_picture_handle: pictureHandle } : {}),
-  });
+  // Photo on its own first, so a rejected photo can't block the profile text (and the reason shows).
+  let photoSet = false;
+  if (pictureHandle) {
+    const photo = await update360dialogBusinessProfile(apiKey, { profile_picture_handle: pictureHandle });
+    photoSet = photo.ok;
+    lines.push(photo.ok ? "Profile photo updated ✅" : `Profile photo not accepted: ${photo.error ?? "unknown error"}`);
+  }
+  const updated = await update360dialogBusinessProfile(apiKey, BUSINESS_PROFILE);
   if (updated.ok) {
-    lines.unshift(`Business profile updated ✅${pictureHandle ? " (with logo)" : ""}`);
+    lines.unshift(`Business profile updated ✅${photoSet ? " (with logo)" : ""}`);
   } else {
-    lines.unshift(`Business profile not updated: ${updated.error ?? "unknown error"}`);
+    lines.unshift(`Business profile text not updated: ${updated.error ?? "unknown error"}`);
   }
   return lines;
 }
