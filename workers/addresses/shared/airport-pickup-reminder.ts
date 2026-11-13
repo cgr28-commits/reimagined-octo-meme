@@ -23,6 +23,7 @@ import {
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE,
   businessEmailLogoHtml,
+  brandFrameEmailHtml,
   businessWhatsAppChatUrl, BUSINESS_LANDLINE_DISPLAY, BUSINESS_LANDLINE_TEL
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
@@ -584,7 +585,7 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
 
   // Match the original booking confirmation header and palette. Do not run this
   // template through lightCustomerEmailHtml, which replaces the navy header.
-  return `<!DOCTYPE html>
+  return brandFrameEmailHtml(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Important information about your airport collection</title>
 <style type="text/css">
@@ -601,7 +602,7 @@ ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
 <tr><td style="background:${navy};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry</td></tr>
-</table></td></tr></table></body></html>`;
+</table></td></tr></table></body></html>`);
 }
 
 export function airportPickupReminderUsesCompanyVoice(message: string): boolean {

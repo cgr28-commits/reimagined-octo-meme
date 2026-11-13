@@ -6,6 +6,8 @@
  * so the Worker and the website agree on shapes.
  */
 
+import { brandFrameEmailHtml, businessEmailLogoHtml } from "./business-email";
+
 export const CUSTOMER_LOGIN_CODE_LENGTH = 6;
 export const CUSTOMER_LOGIN_CODE_TTL_SECONDS = 10 * 60;
 export const CUSTOMER_LOGIN_MAX_VERIFY_ATTEMPTS = 5;
@@ -87,15 +89,15 @@ export function buildCustomerLoginCodeEmail(input: {
     `<!doctype html><html><body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1d2433;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 12px;"><tr><td align="center">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;">` +
-    `<tr><td style="background:#0b1b33;color:#ffffff;padding:18px 24px;font-size:18px;font-weight:bold;">My Airport Taxi NI</td></tr>` +
+    `<tr><td bgcolor="#071c38" style="background:#071c38;padding:22px 24px;text-align:center;">${businessEmailLogoHtml()}</td></tr>` +
     `<tr><td style="padding:24px;font-size:15px;line-height:1.55;">` +
     `<p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>` +
     `<p style="margin:0 0 14px;">Your code to sign in to <strong>My bookings</strong> is:</p>` +
-    `<p style="margin:0 0 18px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#0b1b33;">${escapeHtml(input.code)}</p>` +
+    `<p style="margin:0 0 18px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#071c38;">${escapeHtml(input.code)}</p>` +
     `<p style="margin:0 0 14px;">It expires in 10 minutes.</p>` +
     `<p style="margin:0;color:#6b7280;font-size:13px;">If you didn't ask for this, you can ignore this email — nobody can sign in without the code.</p>` +
     `</td></tr></table></td></tr></table></body></html>`;
-  return { subject, text, html };
+  return { subject, text, html: brandFrameEmailHtml(html) };
 }
 
 function escapeHtml(value: string): string {

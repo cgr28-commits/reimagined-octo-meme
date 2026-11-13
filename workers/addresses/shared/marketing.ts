@@ -1,3 +1,4 @@
+import { brandFrameEmailHtml, businessEmailLogoHtml } from "./business-email";
 export const MARKETING_CONSENT_VERSION = "August 2026";
 
 export type MarketingOptInSource =
@@ -102,14 +103,14 @@ export function buildMarketingEmail(input: {
     `<!doctype html><html><body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1d2433;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 12px;"><tr><td align="center">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">` +
-    `<tr><td style="background:#0b1b33;color:#ffffff;padding:18px 24px;font-size:18px;font-weight:bold;">My Airport Taxi NI</td></tr>` +
+    `<tr><td bgcolor="#071c38" style="background:#071c38;padding:22px 24px;text-align:center;">${businessEmailLogoHtml()}</td></tr>` +
     `<tr><td style="padding:24px;font-size:15px;line-height:1.55;">` +
     `<p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>${paragraphs}` +
-    `<p style="margin:22px 0 6px;"><a href="${escapeHtml(site)}/" style="display:inline-block;background:#2fbf4a;color:#0b1b33;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px;">Get a fixed-price quote</a></p>` +
+    `<p style="margin:22px 0 6px;"><a href="${escapeHtml(site)}/" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:8px;">Get a fixed-price quote</a></p>` +
     `</td></tr>` +
     `<tr><td style="padding:16px 24px;border-top:1px solid #e6e9ee;font-size:12px;line-height:1.5;color:#6b7280;">` +
     `You're receiving this because you opted in to marketing updates from My Airport Taxi NI. ` +
     `<a href="${escapeHtml(input.unsubscribeUrl)}" style="color:#6b7280;">Unsubscribe</a>` +
     `</td></tr></table></td></tr></table></body></html>`;
-  return { subject: input.subject.trim(), text, html };
+  return { subject: input.subject.trim(), text, html: brandFrameEmailHtml(html) };
 }

@@ -31,7 +31,7 @@ for (const name of ['  Sarah   Johnson ','Sarah']) {
 const safeName=evaluateJourneyReminder({...base,customerName:'<Sarah> Johnson'},due);assert.ok(safeName.eligible);assert.match(safeName.html,/Hi &lt;Sarah&gt;,/);
 assert.match(reminder.text, /Booking reference: MAT-4827/);
 assert.match(reminder.text, /Suitcases: 0/);
-assert.match(reminder.html, /class="matni-light"/);
+assert.match(reminder.html, /class="matni-light\b/);
 assert.ok(!reminder.html.includes(BELFAST_CITY_MAP_IMAGE_URL));
 assert.doesNotMatch(reminder.html, /\.pdf|full-size map/);
 assert.equal(evaluateJourneyReminder(base, new Date(due.getTime()-1)).eligible, false);
