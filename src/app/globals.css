@@ -9585,7 +9585,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
    Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */
 @media (min-width: 1200px) {
 @layer base {
-  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero p[data-homepage-intro] {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero #homepage-booking-intro > p[data-homepage-intro] {
     max-width: min(64em, 100%) !important;
   }
 }
