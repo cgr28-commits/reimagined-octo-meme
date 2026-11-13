@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check } from "lucide-react";
+import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -259,11 +259,11 @@ function Design2Stepper({
   );
 }
 
-const DESIGN2_BENEFITS = [
-  "Fixed price, no meter",
-  "Flight monitoring",
-  "60 mins free airport waiting",
-  "Free cancellation up to 24 hrs",
+const DESIGN2_BENEFITS: ReadonlyArray<{ label: string; icon: LucideIcon }> = [
+  { label: "Fixed price, no meter", icon: Tag },
+  { label: "Flight monitoring", icon: Plane },
+  { label: "60 mins free airport waiting", icon: Clock },
+  { label: "Free cancellation up to 24 hrs", icon: CalendarCheck },
 ];
 
 export default function HomepageQuoteFields({
@@ -351,6 +351,17 @@ export default function HomepageQuoteFields({
 
   return (
     <div data-homepage-quote-fields data-d2-fields={design2 ? "" : undefined}>
+      {design3 ? (
+        /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
+        <div className="hidden" data-d3-card-head aria-hidden="true">
+          <Plane size={22} strokeWidth={2.2} data-d3-card-head-icon />
+          <span data-d3-card-head-title>Get Your Fixed Airport Fare</span>
+          <span data-d3-card-head-chip>
+            <Zap size={13} strokeWidth={2.4} />
+            Instant Quote
+          </span>
+        </div>
+      ) : null}
       <div className="space-y-1" data-homepage-quote-scroll>
       <div hidden={design2}>
         <p className="form-label mb-1">Journey type</p>
@@ -399,7 +410,7 @@ export default function HomepageQuoteFields({
         id="pickup"
         name="pickup"
         label={design2 ? "Pickup" : "Pickup location"}
-        placeholder={design2 ? "Address, postcode or airport" : "Enter pickup address or airport"}
+        placeholder={design2 ? "Pickup address, postcode or airport" : "Enter pickup address or airport"}
         value={pickupAddress}
         onChange={onPickupChange}
         onSelectPlace={onPickupPlaceSelect}
@@ -453,7 +464,7 @@ export default function HomepageQuoteFields({
         id="dropoff"
         name="dropoff"
         label={design2 ? "Drop-off" : "Drop-off location"}
-        placeholder={design2 ? "Where are you going?" : "Enter destination address or airport"}
+        placeholder={design2 ? "Destination address, postcode or airport" : "Enter destination address or airport"}
         value={dropoffAddress}
         onChange={onDropoffChange}
         onSelectPlace={onDropoffPlaceSelect}
@@ -612,10 +623,11 @@ export default function HomepageQuoteFields({
             <>
               <p data-d2-caption>No payment needed for a quote · Instant price</p>
               <ul data-d2-benefits>
-                {DESIGN2_BENEFITS.map((item) => (
-                  <li key={item}>
-                    <Check size={16} strokeWidth={2.6} aria-hidden="true" />
-                    {item}
+                {DESIGN2_BENEFITS.map(({ label, icon: Icon }) => (
+                  <li key={label}>
+                    <Check size={16} strokeWidth={2.6} aria-hidden="true" data-d2-benefit-check />
+                    <Icon size={22} strokeWidth={2.2} aria-hidden="true" data-d2-benefit-icon />
+                    <span>{label}</span>
                   </li>
                 ))}
               </ul>
