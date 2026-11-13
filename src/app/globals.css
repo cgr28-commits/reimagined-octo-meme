@@ -9014,7 +9014,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
    Tall screens keep the full 13rem photo. Desktop (1200px+) only; mobile/tablet unchanged. */
 @media (min-width: 1200px) {
   html :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide img {
-    height: clamp(8rem, calc(100vh - 572px), 13rem) !important;
+    height: clamp(7rem, calc(100vh - 584px), 13rem) !important;
     object-position: center;
   }
 }
@@ -9043,6 +9043,99 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
     margin-top: 0.875rem !important;
     line-height: 1.55 !important;
+  }
+}
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Header + homepage layout refinement (Nov 2026, owner request). Layout only:
+   no colours, text, images, navigation items or booking logic change.
+   Homepage and hub pages (section.homepage-hero), first step only — quote
+   results and checkout keep their own header. In @layer base so it outranks
+   the earlier layered !important desktop rules.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  /* Logo ~60% larger on desktop (4rem → 6.5rem tall from 1440px wide), same artwork and
+     aspect ratio (124:96). Between 1200px and 1440px it scales a little smaller (5.25rem at
+     1200px) so the seven links and both buttons never squeeze or overlap.
+     The logo now spans the full header height: the small trust line sits in the top-right
+     corner beside it, and the links and buttons are centred on the logo. That keeps the
+     header only ~15px taller than before instead of ~40px. */
+  html:root:root:root:root {
+    --matni-header-logo-h: clamp(5.25rem, calc(5.25rem + (100vw - 1200px) / 12), 6.5rem);
+    --matni-header-logo-w: calc(var(--matni-header-logo-h) * 1.2917);
+    --matni-header-gap: clamp(1.25rem, calc(1.25rem + (100vw - 1200px) / 20), 2rem);
+  }
+  html:root:root:root:root body:has(main section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] .quote-header-logo {
+    height: var(--matni-header-logo-h) !important;
+    width: auto !important;
+  }
+  /* Header rows share the hero's 1200px content width, so the logo lines up with the
+     heading and Get a Quote with the right edge of the quote form. */
+  html:root:root:root:root body:has(main section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] > div:first-child {
+    position: absolute !important;
+    inset: 0 0 auto 0 !important;
+    z-index: 1;
+    pointer-events: none;
+  }
+  html:root:root:root:root body:has(main section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] > div:first-child > div {
+    max-width: 80rem !important;
+    padding-left: calc(2.5rem + var(--matni-header-logo-w) + var(--matni-header-gap)) !important;
+    padding-right: 2.5rem !important;
+    pointer-events: auto;
+  }
+  html:root:root:root:root body:has(main section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] > div:nth-child(2) {
+    max-width: 80rem !important;
+    padding: 0.375rem 2.5rem !important;
+    column-gap: var(--matni-header-gap) !important;
+    align-items: center !important;
+  }
+  html:root:root:root:root body:has(main section.homepage-hero):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] nav[aria-label="Main navigation"] {
+    column-gap: clamp(0.875rem, calc(0.875rem + (100vw - 1200px) / 48), 1.375rem) !important;
+    align-items: center !important;
+  }
+  /* Hero starts below the new header height (logo + 0.75rem). */
+  html:root:root:root:root body:has(main section.homepage-hero) main section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) {
+    padding-top: calc(var(--matni-header-logo-h) + 0.75rem) !important;
+  }
+
+  /* Quote form (one-way): 40 even columns so the second row lines up under the first —
+     date + time under pickup, passengers + suitcases under drop-off, all four the same
+     width; One Way/Return and Get My Fixed Price share the right-hand column.
+     Return trips keep their existing layout. */
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) { grid-template-columns: repeat(40, minmax(0, 1fr)) !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) { grid-column: 1 / span 14 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) { grid-column: 15 / span 14 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) [data-homepage-quote-scroll] > div:first-child { grid-column: 29 / span 12 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) #quote-section-schedule { grid-column: 1 / span 14 !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) #passenger-luggage-section > div:nth-child(1) { grid-column: 15 / span 7 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) #passenger-luggage-section > div:nth-child(2) { grid-column: 22 / span 7 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#returnDate)) [data-quote-price-action] { grid-column: 29 / span 12 !important; }
+
+  /* Trust strip and Google reviews line up with the quote card's edges. */
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-desktop-quote-benefits] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    align-items: center !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-desktop-quote-benefits] [data-desktop-benefits-list] {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-desktop-quote-benefits] [data-reviews-panel] {
+    margin-right: 0 !important;
+  }
+}
+}
+/* Laptop-height windows: keep the whole photo cards on screen under the taller header. */
+@media (min-width: 1200px) and (max-height: 819.98px) {
+@layer base {
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding-top: 1.25rem !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin-top: 0.375rem !important;
   }
 }
 }
