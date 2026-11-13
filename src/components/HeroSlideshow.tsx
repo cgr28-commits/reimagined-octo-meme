@@ -70,6 +70,10 @@ export default function HeroSlideshow({ heading, intro, journey, navId, restore,
         <div className="homepage-hero-scrim absolute inset-0" />
       </div>
 
+      {belowIntro ? (
+        <div data-saved-quote-banner className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-3 sm:px-6 md:pt-0 lg:max-w-[1400px] lg:px-10 xl:px-12">{belowIntro}</div>
+      ) : null}
+
       {/* Mobile: short heading, then the benefit icons, then the quote form.
           Tablet (md): quote first, then the heading.
           Desktop (lg+): heading, then benefits above a centred quote form. */}
@@ -107,7 +111,6 @@ export default function HeroSlideshow({ heading, intro, journey, navId, restore,
           className="homepage-hero-quote order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
-          {belowIntro ? <div data-saved-quote-banner className="relative z-10 mb-4 min-w-0">{belowIntro}</div> : null}
           <HeroBenefitsRow />
           <QuoteCard
             presentation="homepage"
