@@ -620,7 +620,6 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
   );
   const evening = draft.evening ?? DEFAULT_EVENING_PRICING;
   const christmas = draft.christmas ?? DEFAULT_CHRISTMAS_PRICING;
-  /** Stored as MM-DD; shown and typed as DD/MM. */
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
