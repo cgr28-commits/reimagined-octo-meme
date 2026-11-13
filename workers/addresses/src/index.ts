@@ -3112,7 +3112,7 @@ async function handlePaymentRequest(
           pickup: routeOutcome.pickup ?? null,
           dropoff: routeOutcome.dropoff ?? null,
           airportCode: airportContext.airportCode ?? null,
-          fromAirport: Boolean(airportContext.fromAirport),
+          fromAirport: Boolean(airportContext.fromAirport) || Boolean(airportContext.pickupAirportCode),
           tripDate: String(booking.tripDate ?? ""),
           tripTime: String(booking.tripTime ?? ""),
           durationMinutes: routeMetrics.durationMinutes,

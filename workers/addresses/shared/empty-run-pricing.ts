@@ -33,6 +33,9 @@ import { parseLondonLocalDateTime } from "./uk-time";
 
 export const EMPTY_RUN_CONFIG_KEY = "smart-ops:empty-run:v1";
 
+/** Free waiting included on airport pickups (minutes). */
+export const AIRPORT_PICKUP_WAIT_MINUTES = 60;
+
 export type EmptyRunSettings = {
   enabled: boolean;
   maxDiscountPercent: number;
@@ -194,7 +197,10 @@ export function matchEmptyRun(input: {
   const reqStart = parseLondonLocalDateTime(request.tripDate, request.tripTime);
   if (!reqPickup || !reqDropoff || !reqStart || !(request.durationMinutes > 0)) return null;
   if (roadMilesEstimate(base, reqPickup) > settings.maxPickupFromBaseMiles) return null;
-  const durationMs = request.durationMinutes * 60_000;
+  // Airport pickups: the time is the flight landing time and up to 60 minutes'
+  // free waiting is included, so plan for leaving the airport an hour later.
+  const airportWaitMinutes = request.fromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
+  const durationMs = (request.durationMinutes + airportWaitMinutes) * 60_000;
   const arrivalMs = reqStart.getTime() + durationMs;
   const reqResource = availabilityResourceForVehicle(request.vehicle);
   // Suggested times must leave at least 2 hours' notice.

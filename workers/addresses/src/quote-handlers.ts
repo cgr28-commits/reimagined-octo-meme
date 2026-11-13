@@ -714,7 +714,8 @@ export async function handleQuoteCalculateRequest(
         pickup: serverPickup ?? (Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null),
         dropoff: serverDropoff ?? (Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null),
         airportCode: airportCode ?? null,
-        fromAirport: Boolean(fromAirport),
+        // Pickup at an airport (incl. airport-to-airport): time is the landing time.
+        fromAirport: Boolean(fromAirport) || Boolean(addressAirport.ok && addressAirport.context.pickupAirportCode),
         tripDate: schedule.outboundDate,
         tripTime: schedule.outboundTime,
         durationMinutes: routeMetrics.durationMinutes,
