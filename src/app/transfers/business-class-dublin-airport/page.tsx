@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     title: BUSINESS_CLASS_DUBLIN_SEO_TITLE,
     description: BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
     url: BUSINESS_CLASS_DUBLIN_PATH,
-    images: [{ url: "/og-image-square.png?v=20261113", alt: SITE.name }],
+    images: [{ url: "/og-image-square.png?v=20261113b", alt: SITE.name }],
   },
 };
 
