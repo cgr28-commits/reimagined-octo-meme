@@ -115,6 +115,12 @@ console.log("10:00 with Smart Availability → offer", real10.offer);
 // Airport to airport: George Best Belfast City → Dublin Airport counts.
 const BHD = { lat: 54.6181, lng: -5.8725 };
 assert.equal(run(req("14:00", { pickupLabel: "George Best Belfast City Airport", pickup: BHD })).applied, true);
+// Airport pickup times are landing times: allow the 60 minutes' free waiting.
+// Landing 14:30 + 60 min wait + 115 min drive = 17:25, too late for 17:30 → earlier landing offered.
+const bhd1430 = run(req("14:30", { pickupLabel: "George Best Belfast City Airport", pickup: BHD, fromAirport: true, airportCode: "BHD" }));
+assert.equal(bhd1430.reason, "EMPTY_RUN_OFFER_OTHER_TIME");
+assert.equal(bhd1430.offer!.tripTime, "13:30");
+assert.equal(run(req("13:30", { pickupLabel: "George Best Belfast City Airport", pickup: BHD, fromAirport: true, airportCode: "BHD" })).applied, true);
 // Belfast International too.
 assert.equal(run(req("14:00", { pickupLabel: "Belfast International Airport", pickup: { lat: 54.6575, lng: -6.2158 } })).applied, true);
 
