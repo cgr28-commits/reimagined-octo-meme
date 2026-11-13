@@ -9540,7 +9540,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 @layer base {
   html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 2.125rem !important; }
   html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) { column-gap: 1.25rem !important; }
-  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 0.875rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 0.75rem !important; }
   html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav :is(a, button) { font-size: 0.84375rem !important; }
 }
 }
