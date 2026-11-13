@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   previews:
@@ -36,3 +36,12 @@ jobs:
         with:
           name: email-style-previews
           path: test-results/email-shots
+      - name: Publish screenshots to the email-previews branch (review only, never deployed)
+        run: |
+          cp -r test-results/email-shots /tmp/email-shots
+          cd /tmp/email-shots
+          git init -q
+          git checkout -q -b email-previews
+          git add -A
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -q -m "Email style previews for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" email-previews
