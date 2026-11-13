@@ -26,6 +26,7 @@ import {
 } from "../../shared/quote-display-gate";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import MarketingOptIn from "@/components/MarketingOptIn";
+import { HEARD_ABOUT_OPTIONS } from "../../shared/heard-about";
 import {
   BookingErrorHelpCluster,
   StartNewQuoteControls,
@@ -1252,6 +1253,7 @@ function QuoteCard({
   const expressRemovalAckWasCheckedRef = useRef(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [heardAbout, setHeardAbout] = useState("");
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
   const [appliedPersonalQuote, setAppliedPersonalQuote] =
@@ -4606,6 +4608,7 @@ function QuoteCard({
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
       ...buildMarketingOptInFields(marketingOptIn),
+      ...(heardAbout ? { heardAbout } : {}),
     };
   }
 
@@ -7529,6 +7532,27 @@ function QuoteCard({
                     {emailAddressError}
                   </p>
                 ) : null}
+              </div>
+              <div data-heard-about>
+                <label htmlFor="heard-about" className="form-label">
+                  How did you hear about us? <span className="font-normal opacity-70">(optional)</span>
+                </label>
+                <select
+                  id="heard-about"
+                  name="heardAbout"
+                  value={heardAbout}
+                  onChange={(e) => setHeardAbout(e.target.value)}
+                  className={bookingTextFieldClass(
+                    fieldState({ hasError: false, complete: Boolean(heardAbout), activeStep: quoteStep >= 2 }),
+                  )}
+                >
+                  <option value="">Choose one</option>
+                  {HEARD_ABOUT_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
               {bookingMeetGreetEligible ? (
                 <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet data-offered-at-vehicle-step={offeredAtVehicleStep("dub-meet-greet") ? "true" : undefined}>
