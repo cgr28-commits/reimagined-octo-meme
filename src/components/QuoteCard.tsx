@@ -9134,7 +9134,8 @@ function QuoteCard({
         </p>
         <button
           type="button"
-          className="mt-2 inline-flex min-h-11 items-center rounded-xl bg-emerald-700 px-4 font-bold text-white"
+          className="mt-2 inline-flex min-h-11 items-center rounded-xl px-4 font-bold"
+          style={{ backgroundColor: "#047857", color: "#ffffff" }}
           disabled={selectingAlternativeTime != null}
           onClick={() => void handleSelectAvailabilityAlternative({ tripDate: offer.tripDate, tripTime: offer.tripTime })}
         >
