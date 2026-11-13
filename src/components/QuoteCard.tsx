@@ -9108,10 +9108,10 @@ function QuoteCard({
       return (
         <div
           data-empty-run-applied
-          className="mt-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-white"
+          className="mt-3 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
         >
-          <p className="font-bold text-emerald-200">Special price: you save {gbp(parts.emptyRunSavingGbp)}</p>
-          <p className="mt-0.5 text-white/80">
+          <p className="text-base font-extrabold text-emerald-800">Special price: you save {gbp(parts.emptyRunSavingGbp)}</p>
+          <p className="mt-0.5 text-slate-800">
             Our car is already heading that way at this time, so we&apos;ve lowered your fare from{" "}
             <span className="line-through">{gbp(parts.emptyRunNormalAmountGbp)}</span>.
           </p>
@@ -9124,17 +9124,17 @@ function QuoteCard({
     return (
       <div
         data-empty-run-offer
-        className="mt-3 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm text-white"
+        className="mt-3 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
       >
-        <p className="font-bold text-emerald-200">
+        <p className="text-base font-extrabold text-emerald-800">
           Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} at {clock}
         </p>
-        <p className="mt-0.5 text-white/80">
+        <p className="mt-0.5 text-slate-800">
           Our car is already heading that way, so a {clock} pickup is about {gbp(offer.estimatedAmountGbp)}.
         </p>
         <button
           type="button"
-          className="mt-2 inline-flex min-h-11 items-center rounded-xl bg-emerald-500 px-4 font-bold text-white"
+          className="mt-2 inline-flex min-h-11 items-center rounded-xl bg-emerald-700 px-4 font-bold text-white"
           disabled={selectingAlternativeTime != null}
           onClick={() => void handleSelectAvailabilityAlternative({ tripDate: offer.tripDate, tripTime: offer.tripTime })}
         >
