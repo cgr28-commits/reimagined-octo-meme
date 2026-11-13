@@ -9495,3 +9495,19 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+
+/* Phones and tablets (below 1200px): the hero and footer stay the site's navy (#071c38) to the
+   bottom instead of fading to near-black (owner, 13 Nov 2026). Desktop unchanged. */
+@media (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero {
+      background:
+        radial-gradient(120% 60% at 85% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+        radial-gradient(140% 70% at 0% 8%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+        #071c38 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] footer.bg-navy-dark {
+      background-color: #071c38 !important;
+    }
+  }
+}
