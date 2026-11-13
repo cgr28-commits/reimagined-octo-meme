@@ -31,6 +31,7 @@ name: Deploy Pages Preview
       - cursor/vito-group-transfers-514b
       - cursor/homepage-quote-form-514b
       - claude/empty-run-discount
+      - claude/empty-run-top-and-price-details
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

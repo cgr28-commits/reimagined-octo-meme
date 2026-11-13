@@ -1158,6 +1158,7 @@ function QuoteCard({
   }, []);
   /** Desktop (1200px+) vehicle step: price breakdown in the navy summary, collapsed by default. */
   const [desktopBreakdownOpen, setDesktopBreakdownOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   /** Vercel preview sites: the final Pay / request action is switched off (set after mount). */
   const [previewPaymentsOff, setPreviewPaymentsOff] = useState(false);
   useEffect(() => {
@@ -8613,8 +8614,8 @@ function QuoteCard({
    * remainder after the other lines, so the lines always add up to the total shown. Shown only
    * when that breakdown is exactly the price on screen.
    */
-  function renderDesktopResultsBreakdown() {
-    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+  /** Price breakdown lines for the vehicle step (desktop panel and the mobile Price details sheet). */
+  function resultsBreakdownData(): { rows: Array<[string, string]>; total: number } | null {
     if (!openWebsiteFareBreakdown || testChargeAmount != null || appliedPersonalQuote) return null;
     if (publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly) return null;
     if (paymentAmount == null || !Number.isFinite(paymentAmount) || !mayPaintNumericFare || vehicleFareUpdating) return null;
@@ -8626,12 +8627,14 @@ function QuoteCard({
     const fixed = pence(fare.airportFixedCostsGbp);
     const returnSaving = pence(fare.returnJourneySavingGbp);
     const offerSaving = pence(fare.returnOfferSavingGbp);
-    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving);
+    const specialSaving = pence(currentServerFareParts?.emptyRunSavingGbp ?? 0);
+    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving + specialSaving);
     if (!(vehicleFare > 0)) return null;
     const total = pence(paymentAmount + upgrades.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0));
     const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
     const rows: Array<[string, string]> = [
       [fare.returnJourney ? `${vehicleName} fare, both journeys` : `${vehicleName} fare`, formatQuote(vehicleFare)],
+      ...(specialSaving > 0 ? [["Special price saving", `−${formatQuote(specialSaving)}`] as [string, string]] : []),
       ...(returnSaving > 0 ? [["5% return discount", `−${formatQuote(returnSaving)}`] as [string, string]] : []),
       ...(offerSaving > 0 ? [[`Return saving (${fare.returnOfferDiscountPercentLabel})`, `−${formatQuote(offerSaving)}`] as [string, string]] : []),
       ...(fixed > 0 ? [["Airport charges", `+${formatQuote(fixed)}`] as [string, string]] : []),
@@ -8644,6 +8647,76 @@ function QuoteCard({
           ] as [string, string],
       ),
     ];
+    return { rows, total };
+  }
+
+  /** Mobile: "Price details" in the bottom bar opens this sheet. */
+  function renderPriceDetailsSheet() {
+    const data = resultsBreakdownData();
+    if (!data) return null;
+    const close = () => setPriceSheetOpen(false);
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Price details"
+        data-price-details-sheet
+        className="fixed inset-0 z-[80] flex items-end justify-center"
+        style={{ backgroundColor: "rgba(7, 28, 56, 0.55)" }}
+        onClick={close}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") close();
+        }}
+      >
+        <div
+          className="w-full max-w-md rounded-t-3xl px-5 pb-8 pt-5 shadow-2xl"
+          style={{ backgroundColor: "#ffffff", color: "#071c38" }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-extrabold" style={{ color: "#071c38" }}>Price details</h3>
+            <button
+              type="button"
+              autoFocus
+              onClick={close}
+              className="min-h-11 rounded-xl border px-4 text-sm font-bold"
+              style={{ borderColor: "#cbd5e1", color: "#071c38", backgroundColor: "#ffffff" }}
+            >
+              Close
+            </button>
+          </div>
+          <dl className="space-y-2 text-base">
+            {data.rows.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt style={{ color: "#334155" }}>{label}</dt>
+                <dd
+                  className="shrink-0 tabular-nums font-semibold"
+                  style={{ color: value.startsWith("−") ? "#047857" : "#071c38" }}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+            <div className="flex justify-between gap-4 border-t pt-3" style={{ borderColor: "#e2e8f0" }}>
+              <dt className="font-extrabold" style={{ color: "#071c38" }}>Total</dt>
+              <dd className="shrink-0 tabular-nums text-lg font-extrabold" style={{ color: "#071c38" }}>
+                {formatQuote(data.total)}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-sm" style={{ color: "#475569" }}>
+            Fixed price. Night, weekend and bank holiday rates are included in the vehicle fare.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderDesktopResultsBreakdown() {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+    const data = resultsBreakdownData();
+    if (!data) return null;
+    const { rows, total } = data;
     return (
       <div className="hidden" data-results-breakdown data-open={desktopBreakdownOpen ? "true" : "false"}>
         <button
@@ -8962,6 +9035,8 @@ function QuoteCard({
       return null;
     }
     return (
+      <>
+      {renderEmptyRunNotice()}
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
@@ -8975,6 +9050,7 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
+      </>
     );
   }
 
@@ -9093,7 +9169,6 @@ function QuoteCard({
         layoutBusinessClassInclusions={layoutBusinessClassInclusions}
         bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
-      {renderEmptyRunNotice()}
       {businessClassUpgrade}
       </>
     );
@@ -9108,7 +9183,7 @@ function QuoteCard({
       return (
         <div
           data-empty-run-applied
-          className="mt-3 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
+          className="mb-3 mt-1 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
         >
           <p className="text-base font-extrabold text-emerald-800">Special price: you save {gbp(parts.emptyRunSavingGbp)}</p>
           <p className="mt-0.5 text-slate-800">
@@ -9124,7 +9199,7 @@ function QuoteCard({
     return (
       <div
         data-empty-run-offer
-        className="mt-3 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
+        className="mb-3 mt-1 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
       >
         <p className="text-base font-extrabold text-emerald-800">
           Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} at {clock}
@@ -10219,8 +10294,10 @@ function QuoteCard({
                                 <button
                                   type="button"
                                   data-d2-price-details
+                                  aria-haspopup="dialog"
                                   onClick={() => {
-                                    quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    if (resultsBreakdownData()) setPriceSheetOpen(true);
+                                    else quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                                   }}
                                 >
                                   Price details
@@ -10230,6 +10307,7 @@ function QuoteCard({
                             {renderStep1BookButton({ instantTransferLabel: true })}
                           </div>
                         ) : null}
+                        {design2Home && priceSheetOpen ? renderPriceDetailsSheet() : null}
                         {isVehiclePersonalQuote ? (
                           <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
                         ) : null}
