@@ -7156,7 +7156,7 @@ function QuoteCard({
   function checkoutTimeLabel(leg: "outbound" | "return" = "outbound"): string {
     const fromAirport =
       leg === "return" ? !isFromAirport && returnJourney : isFromAirport;
-    return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
+    return fromAirport ? "Flight arrival time" : "Pickup time";
   }
 
   function renderQuoteScheduleFields(variant: "quote" | "checkout", homepageInline = false) {
