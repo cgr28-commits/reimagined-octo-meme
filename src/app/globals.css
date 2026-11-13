@@ -9017,7 +9017,13 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 [data-d2-benefit-icon] { display: none; }
 @media (max-width: 767.98px) {
   @layer base {
-    /* Header: wide logo lockup, slightly slimmer buttons so it can grow */
+    /* Header: the logo gets the space; buttons stay 44px touch targets, tight gaps (owner, 13 Nov 2026) */
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      min-height: 3.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+      gap: 0.625rem !important;
+      align-items: center !important;
+    }
     html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] a:has(> .quote-header-logo-wide) {
       flex: 1 1 auto !important;
       min-width: 0 !important;
@@ -9030,32 +9036,37 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
       display: block !important;
       width: 100% !important;
-      max-width: 11.75rem !important;
-      aspect-ratio: 829 / 144;
+      max-width: 15rem !important;
+      aspect-ratio: 1011 / 177;
       background: url("/logo-header-wide.webp") left center / contain no-repeat;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
-      gap: 0.375rem !important;
+      gap: 0.3125rem !important;
       flex: none !important;
+      align-items: center !important;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
-      width: 2.625rem !important;
-      min-width: 2.625rem !important;
-      height: 2.625rem !important;
-      min-height: 2.625rem !important;
+      width: 2.75rem !important;
+      min-width: 2.75rem !important;
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
       padding: 0 !important;
+      margin: 0 !important;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] {
       border-radius: 999px !important;
       border-color: rgba(75, 224, 60, 0.75) !important;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
-      height: 2.625rem !important;
-      min-height: 2.625rem !important;
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+      min-width: 2.75rem !important;
       padding: 0 0.625rem !important;
+      margin: 0 !important;
       font-size: 0.875rem !important;
-      gap: 0.375rem !important;
+      gap: 0.3125rem !important;
+      justify-content: center !important;
     }
 
     /* Intro: first sentence only */
@@ -9203,6 +9214,41 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
     html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
       margin-bottom: 8.25rem !important;
+    }
+  }
+}
+/* Phones under 400px: Call Us becomes a round phone button (still labelled "Call Us" for
+   screen readers) so the logo keeps its size instead of shrinking. */
+@media (max-width: 399.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+      width: 2.75rem !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] [data-phone-label] {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+  }
+}
+/* 320px phones: a little less side padding so nothing touches */
+@media (max-width: 339.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      padding: 0.5rem 0.5rem !important;
+      gap: 0.5rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+      gap: 0.25rem !important;
     }
   }
 }
