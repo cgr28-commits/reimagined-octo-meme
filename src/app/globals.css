@@ -9496,6 +9496,144 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   Desktop (1200px+) brought in line with the phone design (owner, 13 Nov 2026):
+   wide logo lockup, quote card title + Instant Quote chip, navy selected trip
+   toggle, and the four benefit symbols. Desktop only; phones and tablets unchanged.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo { display: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide {
+    display: block !important;
+    height: 4.6rem !important; /* 60% bigger (owner, 13 Nov 2026) */
+    width: auto !important;
+    aspect-ratio: 1011 / 177;
+    background: url("/logo-header-wide.webp") left center / contain no-repeat;
+  }
+
+  /* card title row */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head] {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.625rem !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    margin: 0 0 -0.125rem !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-icon] { color: #2fbf4a !important; flex: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-title] {
+    color: #071c38 !important;
+    font-size: 1.1875rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.2 !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-chip] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
+    margin-left: 0.25rem !important;
+    padding: 0.25rem 0.625rem !important;
+    border-radius: 999px !important;
+    background: #e6f7e9 !important;
+    color: #13892a !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+  /* the field rows move down one row under the title */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child { grid-row: 2 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule,
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-row: 3 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements { grid-row: 4 !important; }
+
+  /* return journeys: title row 1, addresses row 2, the four dates/times row 3, passengers/suitcases/button row 4 */
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule { grid-row: 3 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements,
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-row: 4 !important; }
+
+  /* trip toggle: selected option in navy with white text, as on the phone */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"],
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] * {
+    background: #071c38 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.25) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] [data-return-discount-note] {
+    background: #2fbf4a !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
+  /* benefit symbols: a little larger, labels may wrap on narrower laptops */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
+    width: 1.625rem !important;
+    height: 1.625rem !important;
+  }
+}
+}
+@media (min-width: 1200px) and (max-width: 1365.98px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
+}
+}
+/* Bigger logo (60% up, owner 13 Nov 2026): the header becomes two rows on desktop.
+   Row 1: logo left, phone + Get a Quote right. Row 2: the menu, full width. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 1.5rem !important;
+    row-gap: 0.1875rem !important;
+    padding: 0.25rem 2.5rem 0.1875rem !important; /* side padding lines the logo up with the page content */
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > a:has(> .quote-header-logo-wide) { grid-column: 1 !important; grid-row: 1 !important; align-self: center !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-content: center !important;
+    column-gap: 1.75rem !important;
+    padding: 0.25rem 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  /* the taller header pushes every page down by the extra height (navy band behind it) */
+  html:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body {
+    --desktop-header-extra: 3.9375rem;
+    padding-top: var(--desktop-header-extra) !important;
+    background-image: linear-gradient(#071c38, #071c38) !important;
+    background-size: 100% var(--desktop-header-extra) !important;
+    background-repeat: no-repeat !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav + div { grid-column: 2 !important; grid-row: 1 !important; justify-self: end !important; align-self: center !important; }
+}
+}
+@media (min-width: 1200px) and (max-width: 1439.98px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 3.4rem !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body { --desktop-header-extra: 2.6875rem; }
+}
+}
+
+/* Desktop homepage intro (owner, 13 Nov 2026): a measured width so the first line ends at
+   "Whether you're travelling to the airport," and "attending an event" starts line two.
+   Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero #homepage-booking-intro > p[data-homepage-intro] {
+    max-width: min(64em, 100%) !important;
+  }
+}
+}
+
 /* Phones and tablets (below 1200px): the hero and footer stay the site's navy (#071c38) to the
    bottom instead of fading to near-black (owner, 13 Nov 2026). Desktop unchanged. */
 @media (max-width: 1199.98px) {

@@ -76,7 +76,7 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
             )}
           </h1>
 
-          <p className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
+          <p data-homepage-intro={intro ? undefined : true} className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
             {introText}
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
