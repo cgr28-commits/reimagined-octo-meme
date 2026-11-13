@@ -9661,3 +9661,14 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   }
 }
 }
+
+/* Saved-quote page: once the vehicle/checkout step shows on desktop, keep the saved-quote banner
+   clear of the slimmer checkout header. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:has([data-quote-results], [data-checkout-aside]) > [data-saved-quote-banner] {
+    padding-top: 3.75rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+}
+}
