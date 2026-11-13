@@ -9007,3 +9007,14 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   background-size: 1rem 1rem !important;
   padding-right: 2.5rem !important;
 }
+
+/* Laptop screens (desktop layout, short window): the photo cards under the quote tool
+   used to show only their top edge before scrolling. Shrink the photo with the window
+   height so the whole photo sits above the fold (card text follows on scroll).
+   Tall screens keep the full 13rem photo. Desktop (1200px+) only; mobile/tablet unchanged. */
+@media (min-width: 1200px) {
+  html :is(section.homepage-hero, [data-hub-quote]):not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-rail-slide img {
+    height: clamp(8rem, calc(100vh - 556px), 13rem) !important;
+    object-position: center;
+  }
+}
