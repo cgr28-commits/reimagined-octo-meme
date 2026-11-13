@@ -444,7 +444,8 @@ const BUSINESS_PROFILE = {
   websites: ["https://www.myairporttaxini.co.uk"],
   vertical: "TRAVEL",
 };
-const PROFILE_LOGO_PATH = "/facebook-profile-logo-navy.png";
+// New logo, words centred under the car and plane so it fits the round photo (owner, 13 Nov 2026).
+const PROFILE_LOGO_PATH = "/whatsapp/profile.jpg";
 
 async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise<string[]> {
   const lines: string[] = [];
