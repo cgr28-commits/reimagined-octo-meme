@@ -87,24 +87,16 @@ def main() -> None:
     # Square crop-friendly variant for apps that prefer 1:1 previews
     square_size = 1200
     square = Image.new("RGB", (square_size, square_size), NAVY)
-    sq_logo = trim_transparent(load_wide_logo())
-    sq_scale = min(square_size * 0.84 / sq_logo.width, square_size * 0.4 / sq_logo.height)
+    # Square previews (WhatsApp shows a small square thumbnail): the stacked logo reads far better
+    # than the wide one at that size, so it fills most of the square with no small print.
+    png = subprocess.run(["rsvg-convert", "-w", "2400", str(PUBLIC / "logo-stacked.svg")], check=True, capture_output=True).stdout
+    sq_logo = trim_transparent(Image.open(io.BytesIO(png)).convert("RGBA"))
+    sq_scale = min(square_size * 0.78 / sq_logo.width, square_size * 0.66 / sq_logo.height)
     sq_logo = sq_logo.resize(
         (max(1, int(sq_logo.width * sq_scale)), max(1, int(sq_logo.height * sq_scale))),
         Image.Resampling.LANCZOS,
     )
-    paste_centered(square, sq_logo, y_offset=-20)
-    sq_font = load_font(30)
-    sq_tagline = "Premium Airport Transfers · Northern Ireland"
-    sq_bbox = draw.textbbox((0, 0), sq_tagline, font=sq_font)
-    sq_text_w = sq_bbox[2] - sq_bbox[0]
-    sq_draw = ImageDraw.Draw(square)
-    sq_draw.text(
-        ((square_size - sq_text_w) // 2, square_size - 96),
-        sq_tagline,
-        fill=GOLD,
-        font=sq_font,
-    )
+    paste_centered(square, sq_logo, y_offset=0)
     square_out = PUBLIC / "og-image-square.png"
     square.save(square_out, format="PNG", optimize=True)
     print(f"Created {square_out} ({square_size}x{square_size})")

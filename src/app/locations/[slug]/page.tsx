@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           ]
         : [
             {
-              url: withBasePath("/og-image-square.png?v=20261113"),
+              url: withBasePath("/og-image-square.png?v=20261113b"),
               width: 1024,
               height: 1024,
               alt: SITE.name,
