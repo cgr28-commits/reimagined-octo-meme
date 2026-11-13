@@ -2103,7 +2103,7 @@ const ADVANCED_TOOLS: Array<{ tool: OwnerDashboardToolTab; label: string }> = [
   { tool: "a2a-quotes", label: "A2A Quotes" },
   { tool: "personal-quotes", label: "Personal Quotes" },
   { tool: "same-fare", label: "Same Fare Test" },
-  { tool: "empty-legs", label: "Empty Legs (preview)" },
+  { tool: "empty-legs", label: "Empty Legs & discount" },
 ];
 
 function MoreScreen({

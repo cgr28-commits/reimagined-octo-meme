@@ -24,6 +24,7 @@ import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { emptyRunPreviewForced, evaluateEmptyRunSafely } from "./empty-run-handlers";
 import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { signQuoteReceipt, LEGACY_QUOTE_RECEIPT_FORMAT, QUOTE_RECEIPT_FORMAT } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
@@ -699,6 +700,49 @@ export async function handleQuoteCalculateRequest(
     }
   }
 
+  // Empty Run: cheaper fare when this journey fills the empty drive to a
+  // confirmed far-away pickup. Owner switch, OFF by default, fail-open.
+  let emptyRun: Awaited<ReturnType<typeof evaluateEmptyRunSafely>> = null;
+  if (result.ok && !ownerMode && !isAirportToAirport) {
+    emptyRun = await evaluateEmptyRunSafely({
+      store: env?.TRACKING_STORE,
+      forceEnabled: emptyRunPreviewForced(env),
+      request: {
+        pickupLabel: pickupAddress,
+        dropoffLabel: dropoffAddress,
+        pickup: serverPickup ?? (Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null),
+        dropoff: serverDropoff ?? (Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null),
+        airportCode: airportCode ?? null,
+        fromAirport: Boolean(fromAirport),
+        tripDate: schedule.outboundDate,
+        tripTime: schedule.outboundTime,
+        durationMinutes: routeMetrics.durationMinutes,
+        returnJourney,
+        vehicle: result.vehicleType,
+      },
+      fare: {
+        amountGbp: result.amount,
+        journeyFareGbp: result.journeyFareGbp ?? result.amount - (result.airportFixedCostsGbp ?? 0),
+        airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
+      },
+    });
+    if (emptyRun?.applied && emptyRun.fare) {
+      result = {
+        ...result,
+        amount: emptyRun.fare.amountGbp,
+        amountLabel: formatQuote(emptyRun.fare.amountGbp),
+        journeyFareGbp: emptyRun.fare.journeyFareGbp,
+        airportFixedCostsGbp: emptyRun.fare.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: emptyRun.fare.nightWeekendSurchargeGbp,
+        outboundOneWayBeforeAccessGbp:
+          typeof result.outboundOneWayBeforeAccessGbp === "number"
+            ? Math.round((result.outboundOneWayBeforeAccessGbp - (emptyRun.savingGbp ?? 0)) * 100) / 100
+            : undefined,
+      };
+    }
+  }
+
   const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;
   const diagnostics = {
     pickupAddress,
@@ -760,6 +804,10 @@ export async function handleQuoteCalculateRequest(
 
   const quoteBody: Record<string, unknown> = {
     ...result,
+    ...(emptyRun?.applied
+      ? { emptyRunSavingGbp: emptyRun.savingGbp, emptyRunNormalAmountGbp: emptyRun.normalAmountGbp }
+      : {}),
+    ...(emptyRun?.offer ? { emptyRunOffer: emptyRun.offer } : {}),
     nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing, [schedule.outboundDate, schedule.returnDate]),
     nightWeekendSurchargeExplanation: nightWeekendSurchargeExplanation(pricing),
     vehicleChoice: resolved.vehicleChoice,

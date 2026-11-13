@@ -612,6 +612,7 @@ import {
 } from "./profitability-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { emptyRunPreviewForced, evaluateEmptyRunSafely, handleOwnerEmptyRun, isOwnerEmptyRunPath } from "./empty-run-handlers";
 import {
   QUOTE_RECEIPT_REFRESH_MESSAGE,
   decideQuoteReceiptPayment,
@@ -3099,6 +3100,47 @@ async function handlePaymentRequest(
       };
     }
 
+    // Empty Run discount when payment re-quotes without a signed receipt, so the
+    // customer pays the same cheaper fare they were quoted. Fail-open.
+    if (!receiptClaims && !airportContext.isAirportToAirport) {
+      const emptyRun = await evaluateEmptyRunSafely({
+        store: env.TRACKING_STORE,
+        forceEnabled: emptyRunPreviewForced(env),
+        request: {
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          pickup: routeOutcome.pickup ?? null,
+          dropoff: routeOutcome.dropoff ?? null,
+          airportCode: airportContext.airportCode ?? null,
+          fromAirport: Boolean(airportContext.fromAirport),
+          tripDate: String(booking.tripDate ?? ""),
+          tripTime: String(booking.tripTime ?? ""),
+          durationMinutes: routeMetrics.durationMinutes,
+          returnJourney: Boolean(booking.returnJourney),
+          vehicle: vehicleType,
+        },
+        fare: {
+          amountGbp: authoritativeQuote.amountGbp,
+          journeyFareGbp: authoritativeQuote.journeyFareGbp,
+          airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
+          nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+        },
+      });
+      if (emptyRun?.applied && emptyRun.fare) {
+        authoritativeQuote = {
+          ...authoritativeQuote,
+          amountGbp: emptyRun.fare.amountGbp,
+          journeyFareGbp: emptyRun.fare.journeyFareGbp,
+          airportFixedCostsGbp: emptyRun.fare.airportFixedCostsGbp,
+          nightWeekendSurchargeGbp: emptyRun.fare.nightWeekendSurchargeGbp,
+          outboundOneWayBeforeAccessGbp:
+            typeof authoritativeQuote.outboundOneWayBeforeAccessGbp === "number"
+              ? Math.round((authoritativeQuote.outboundOneWayBeforeAccessGbp - (emptyRun.savingGbp ?? 0)) * 100) / 100
+              : undefined,
+        };
+      }
+    }
+
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
       legacyNiAccess: legacyAccess,
       clientTransferAmountGbp: transferPrePromo,
@@ -5478,6 +5520,15 @@ export default {
         return json(result, 200, origin);
       }
       return json({ error: "Method not allowed" }, 405, origin);
+    }
+
+    if (isOwnerEmptyRunPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const result = await handleOwnerEmptyRun(request, { ...env, TRACKING_STORE: env.TRACKING_STORE });
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
     }
 
     if (isOwnerSmartOpsPath(url.pathname)) {
