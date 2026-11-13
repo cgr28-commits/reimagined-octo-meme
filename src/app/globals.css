@@ -9256,6 +9256,20 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+/* Tablets (768-1199px): benefits clear the card, slightly larger logo. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 9rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
+      max-width: 17.5rem !important;
+    }
+  }
+}
 /* Very narrow phones: the title keeps the row, the chip steps aside. */
 @media (max-width: 373.98px) {
   @layer base {
