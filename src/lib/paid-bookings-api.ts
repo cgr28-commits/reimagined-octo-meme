@@ -156,6 +156,8 @@ export type OwnerPaidBookingSummary = Pick<
   googleAdsClickIdCaptured?: boolean;
   /** Visitor arrived from a Google ad (recorded even without cookie consent, no click ID). */
   cameFromGoogleAd?: boolean;
+  /** Optional "How did you hear about us?" answer. */
+  heardAbout?: string;
   returnOffer?: {
     eligible: boolean;
     reason?: string;

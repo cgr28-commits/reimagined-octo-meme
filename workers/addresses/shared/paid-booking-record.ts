@@ -231,6 +231,8 @@ export type PaidBookingRecord = {
   cancellationPolicyVersion?: string;
   /** Consented campaign attribution retained for owner reporting. */
   attribution?: AdsAttribution;
+  /** Optional "How did you hear about us?" answer from the booking form. */
+  heardAbout?: string;
   /**
    * Server-side Google Ads Paid Booking click conversion (UploadClickConversions).
    * Set only after SumUp PAID finalize attempts an upload — used for idempotency.

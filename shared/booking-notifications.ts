@@ -5,6 +5,7 @@ import {
 } from "./deposit-card-balance";
 import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
+import { formatHeardAboutLine } from "./heard-about";
 import {
   BRAND_EMERALD,
   BRAND_NAVY,
@@ -146,6 +147,8 @@ export type PaidBookingDetails = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  /** Optional "How did you hear about us?" answer from the booking form. */
+  heardAbout?: string;
   /** Consented, non-PII campaign attribution; owner/server use only. */
   attribution?: AdsAttribution;
   /** Quote session id for the daily owner quote report. */
@@ -1006,6 +1009,10 @@ export function buildOwnerPaidBookingEmail(
     (() => {
       const marketingLine = formatMarketingOptInLine(details);
       return marketingLine ? `\n${marketingLine}` : "";
+    })() +
+    (() => {
+      const heardLine = formatHeardAboutLine(details);
+      return heardLine ? `\n${heardLine}` : "";
     })() +
     formatOwnerAttributionBlock(details);
 

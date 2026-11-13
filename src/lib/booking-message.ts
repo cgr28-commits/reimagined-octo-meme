@@ -77,6 +77,8 @@ export type BookingDetails = {
   termsVersion?: string;
   cancellationPolicyVersion?: string;
   marketingOptIn?: boolean;
+  /** Optional "How did you hear about us?" answer. */
+  heardAbout?: string;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
   /** Consented, non-PII campaign attribution; never rendered in customer copy. */

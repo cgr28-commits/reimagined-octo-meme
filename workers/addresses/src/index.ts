@@ -44,6 +44,7 @@ import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
 import { quoteOptionalMeetGreet } from "../shared/meet-greet";
+import { parseHeardAbout } from "../shared/heard-about";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
@@ -1430,6 +1431,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
+    ...(parseHeardAbout(details.heardAbout) ? { heardAbout: parseHeardAbout(details.heardAbout) } : {}),
     attribution: sanitizeAdsAttribution(details.attribution),
   };
 
