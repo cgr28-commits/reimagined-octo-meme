@@ -54,8 +54,11 @@ function req(time: string, extra: Partial<EmptyRunRequest> = {}): EmptyRunReques
 const run = (r: EmptyRunRequest, settings = on, occupied = [sundayDublinPickup]) =>
   evaluateEmptyRunDiscount({ request: r, fare, occupied, base: BASE, settings, now: NOW });
 
-// OFF by default → nothing changes.
-assert.equal(run(req("14:00"), DEFAULT_EMPTY_RUN_SETTINGS).reason, "EMPTY_RUN_DISABLED");
+// ON by default; the owner switch OFF → nothing changes.
+assert.equal(DEFAULT_EMPTY_RUN_SETTINGS.enabled, true);
+assert.equal(run(req("14:00"), normalizeEmptyRunSettings({ ...DEFAULT_EMPTY_RUN_SETTINGS, enabled: false })).reason, "EMPTY_RUN_DISABLED");
+// A stored "OFF" from the dashboard must stay off.
+assert.equal(normalizeEmptyRunSettings({ enabled: false }).enabled, false);
 
 // 14:00 Belfast → Dublin Airport arrives ~15:55, 95 min before the 17:30 pickup → discounted.
 const at14 = run(req("14:00"));

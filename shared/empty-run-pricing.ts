@@ -45,9 +45,12 @@ export type EmptyRunSettings = {
   updatedAt: string;
 };
 
-/** Approved preview assumptions: 25% off, £185 floor. OFF by default. */
+/**
+ * 25% off, £185 floor. ON by default (owner approved go-live, 13 Nov 2026);
+ * the owner switch in Empty Legs saves an override that turns it off.
+ */
 export const DEFAULT_EMPTY_RUN_SETTINGS: EmptyRunSettings = {
-  enabled: false,
+  enabled: true,
   maxDiscountPercent: 25,
   minFareGbp: 185,
   maxPickupFromBaseMiles: 15,

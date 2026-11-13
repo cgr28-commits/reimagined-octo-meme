@@ -8978,3 +8978,18 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 @media (min-width: 1024px) {
   section.homepage-hero .homepage-hero-copy > p { white-space: normal; max-width: 62rem; }
 }
+
+/* Empty Run offer: gentle glow on the "Switch to" button to draw the eye. */
+@keyframes empty-run-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55), 0 0 6px 1px rgba(16, 185, 129, 0.35); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0), 0 0 22px 6px rgba(16, 185, 129, 0.6); }
+}
+.empty-run-glow {
+  animation: empty-run-glow 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .empty-run-glow {
+    animation: none;
+    box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.5);
+  }
+}
