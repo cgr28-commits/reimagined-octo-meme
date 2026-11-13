@@ -9429,7 +9429,8 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 /* 340px and narrower: prices move under the text too, so the name and lines keep their width */
 @media (max-width: 339.98px) {
   @layer base {
-    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
       grid-template-columns: 4.75rem minmax(0, 1fr) !important;
       grid-template-areas: "art copy" ". action" !important;
       column-gap: 0.625rem !important;
