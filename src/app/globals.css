@@ -9509,6 +9509,13 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-row: 3 !important; }
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements { grid-row: 4 !important; }
 
+  /* return journeys: title row 1, addresses row 2, the four dates/times row 3, passengers/suitcases/button row 4 */
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule { grid-row: 3 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements,
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-row: 4 !important; }
+
   /* trip toggle: selected option in navy with white text, as on the phone */
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"],
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] * {
