@@ -9009,13 +9009,13 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones only (below 768px);
+   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones and tablets (below 1200px; tablets added 13 Nov 2026 at owner request);
    tablets and desktop unchanged. Bigger wide logo, first intro sentence only, card title with
    an Instant Quote chip, navy One way / Return, chevron on the quote button, lock on the
    caption, benefits as four icon columns.
    ─────────────────────────────────────────────────────────────────────────── */
 [data-d2-benefit-icon] { display: none; }
-@media (max-width: 767.98px) {
+@media (max-width: 1199.98px) {
   @layer base {
     /* Header: the logo gets the space; buttons stay 44px touch targets, tight gaps (owner, 13 Nov 2026) */
     html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
@@ -9266,12 +9266,12 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones only (below 768px).
+   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones and tablets (below 1200px).
    Picture in its own column (never under the text), bigger name, capacity lines beneath,
    price / request on the right; on narrow cards the request button moves under the text.
    Layout and wording only: selection, availability and request behaviour are unchanged.
    ─────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 767.98px) {
+@media (max-width: 1199.98px) {
   @layer base {
     html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-quote-vehicle-categories] [role="list"] {
       gap: 0.625rem !important;
