@@ -34,8 +34,8 @@ export default function Logo({
   const compact = size === "header";
   const src = wide
     ? theme === "light"
-      ? withBasePath("/logo-wide-light.webp")
-      : withBasePath("/logo-header-wide.webp")
+      ? withBasePath("/logo-wide-light.svg")
+      : withBasePath("/logo-wide.svg")
     : compact
     ? theme === "light"
       ? withBasePath("/logo-light-header.webp")

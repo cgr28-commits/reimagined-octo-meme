@@ -5241,7 +5241,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > a.inline-block:has(img[src*="logo"]),
     body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > div > a:has(img[src*="logo"]) { display: none !important; }
     main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
-    main[data-customer-standalone] img[src*="logo-header-wide.webp"] { content: url("/logo-wide-light.webp"); }
+    main[data-customer-standalone] img[src*="logo-wide.svg"] { content: url("/logo-wide-light.svg"); }
     main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
     /* Decorative glows and dark gradient layers. */
     main[data-customer-standalone] > div.absolute.inset-0,
@@ -5577,7 +5577,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     /* The brand bar carries the logo, so the page's own top logo steps aside (in-card logos swap to
        the official light-background logo instead). */
     main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
-    main[data-customer-standalone] img[src*="logo-header-wide.webp"] { content: url("/logo-wide-light.webp"); }
+    main[data-customer-standalone] img[src*="logo-wide.svg"] { content: url("/logo-wide-light.svg"); }
     main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
     /* Decorative glows and dark gradient layers. */
     main[data-customer-standalone] > div.absolute.inset-0,
@@ -9040,7 +9040,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
       width: 100% !important;
       max-width: 15rem !important;
       aspect-ratio: 1011 / 177;
-      background: url("/logo-header-wide.webp") left center / contain no-repeat;
+      background: url("/logo-wide.svg") left center / contain no-repeat;
     }
     html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
       gap: 0.3125rem !important;
@@ -9511,7 +9511,7 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     height: 4.6rem !important; /* 60% bigger (owner, 13 Nov 2026) */
     width: auto !important;
     aspect-ratio: 1011 / 177;
-    background: url("/logo-header-wide.webp") left center / contain no-repeat;
+    background: url("/logo-wide.svg") left center / contain no-repeat;
   }
 
   /* card title row */

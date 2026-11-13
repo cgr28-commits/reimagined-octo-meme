@@ -4,6 +4,8 @@ Uses the side-by-side brand logo (owner, 13 Nov 2026)."""
 from __future__ import annotations
 
 from pathlib import Path
+import io
+import subprocess
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -36,6 +38,12 @@ def paste_centered(canvas: Image.Image, logo: Image.Image, y_offset: int = 0) ->
     canvas.paste(logo, (x, y), logo)
 
 
+def load_wide_logo() -> Image.Image:
+    """Render the vector brand logo (public/logo-wide.svg) at high resolution."""
+    png = subprocess.run(["rsvg-convert", "-w", "2400", str(PUBLIC / "logo-wide.svg")], check=True, capture_output=True).stdout
+    return Image.open(io.BytesIO(png)).convert("RGBA")
+
+
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     for path in (
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -47,7 +55,7 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 
 
 def main() -> None:
-    logo = trim_transparent(Image.open(PUBLIC / "logo-header-wide.webp").convert("RGBA"))
+    logo = trim_transparent(load_wide_logo())
 
     max_logo_w = int(OG_WIDTH * 0.8)
     max_logo_h = int(OG_HEIGHT * 0.4)
@@ -79,7 +87,7 @@ def main() -> None:
     # Square crop-friendly variant for apps that prefer 1:1 previews
     square_size = 1200
     square = Image.new("RGB", (square_size, square_size), NAVY)
-    sq_logo = trim_transparent(Image.open(PUBLIC / "logo-header-wide.webp").convert("RGBA"))
+    sq_logo = trim_transparent(load_wide_logo())
     sq_scale = min(square_size * 0.84 / sq_logo.width, square_size * 0.4 / sq_logo.height)
     sq_logo = sq_logo.resize(
         (max(1, int(sq_logo.width * sq_scale)), max(1, int(sq_logo.height * sq_scale))),
