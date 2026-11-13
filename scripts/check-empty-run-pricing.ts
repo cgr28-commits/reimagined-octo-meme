@@ -112,4 +112,10 @@ const real10 = withAvail(req("10:00"));
 assert.equal(real10.offer!.direction, "later");
 console.log("10:00 with Smart Availability → offer", real10.offer);
 
+// Airport to airport: George Best Belfast City → Dublin Airport counts.
+const BHD = { lat: 54.6181, lng: -5.8725 };
+assert.equal(run(req("14:00", { pickupLabel: "George Best Belfast City Airport", pickup: BHD })).applied, true);
+// Belfast International too.
+assert.equal(run(req("14:00", { pickupLabel: "Belfast International Airport", pickup: { lat: 54.6575, lng: -6.2158 } })).applied, true);
+
 console.log("empty-run pricing: all checks passed");
