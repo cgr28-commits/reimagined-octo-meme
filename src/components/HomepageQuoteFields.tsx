@@ -361,7 +361,17 @@ export default function HomepageQuoteFields({
             Instant Quote
           </span>
         </div>
-      ) : null}
+      ) : (
+        /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
+        <div className="hidden" data-desktop-card-head aria-hidden="true">
+          <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />
+          <span data-desktop-card-head-title>Get Your Fixed Airport Fare</span>
+          <span data-desktop-card-head-chip>
+            <Zap size={14} strokeWidth={2.4} />
+            Instant Quote
+          </span>
+        </div>
+      )}
       <div className="space-y-1" data-homepage-quote-scroll>
       <div hidden={design2}>
         <p className="form-label mb-1">Journey type</p>
@@ -410,7 +420,7 @@ export default function HomepageQuoteFields({
         id="pickup"
         name="pickup"
         label={design2 ? "Pickup" : "Pickup location"}
-        placeholder={design2 ? "Pickup address, postcode or airport" : "Enter pickup address or airport"}
+        placeholder="Pickup address, postcode or airport"
         value={pickupAddress}
         onChange={onPickupChange}
         onSelectPlace={onPickupPlaceSelect}
@@ -464,7 +474,7 @@ export default function HomepageQuoteFields({
         id="dropoff"
         name="dropoff"
         label={design2 ? "Drop-off" : "Drop-off location"}
-        placeholder={design2 ? "Destination address, postcode or airport" : "Enter destination address or airport"}
+        placeholder="Destination address, postcode or airport"
         value={dropoffAddress}
         onChange={onDropoffChange}
         onSelectPlace={onDropoffPlaceSelect}
