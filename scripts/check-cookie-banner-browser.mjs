@@ -89,17 +89,19 @@ try {
           assert.ok(m.banner.bottom<=m.viewport.visualTop+m.viewport.visualHeight+1);
           for (const button of m.buttons) assert.equal(button.hit,true,`${variant}: ${button.label} obstructed`);
           if (variant==='after') {
-            // Required-choice modal stacks Accept all / Reject optional full-width.
-            assert.ok(m.buttons[0].y < m.buttons[1].y,'buttons stacked in the consent modal');
+            // Owner (13 Nov 2026): a slim bar along the bottom of every page; no grey-out, no pop-up.
+            assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),0,'no overlay over the page');
+            assert.ok(m.banner.bottom>=m.viewport.visualTop+m.viewport.visualHeight-24,'banner sits at the bottom of the screen');
+            assert.ok(m.banner.height<=(width>=768?120:190),'banner stays slim');
+            assert.equal(m.buttons[0].y,m.buttons[1].y,'buttons side by side');
             assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
             assert.equal(m.buttons[0].height,m.buttons[1].height,'equal button height');
-            // Accept all (primary) is intentionally bolder than Reject optional (secondary).
             assert.equal(m.buttons[0].font,m.buttons[1].font,'same size text: font');
             assert.match(await banner.innerText(),/Can we see which of our Google ads brought you here\? It helps us keep our prices down\. Booking works either way\./);
-            assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'a choice is required before using the site');
-            for (const button of m.buttons) { assert.ok(button.height>=44);assert.ok(Number.parseFloat(button.font)>=13); }
-            if(width>=768) {assert.ok(m.banner.width<=640);assert.ok(m.banner.x>=12);assert.ok(m.banner.height<=560,'desktop modal stays within the viewport budget');}
-            else assert.ok(m.banner.height<=560,'mobile modal stays within the viewport budget');
+            for (const button of m.buttons) { assert.ok(button.height>=40);assert.ok(Number.parseFloat(button.font)>=13); }
+            // The quote form is usable while the bar is showing.
+            const pickup=page.locator('#pickup').first();
+            if (await pickup.count()) { await pickup.click(); assert.equal(await pickup.evaluate(el=>el===document.activeElement),true,'quote form usable with the bar showing'); await pickup.blur(); }
           }
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
           // Keyboard users can reach both choices; focus is visibly indicated.

@@ -938,13 +938,13 @@ main {
 }
 
 .cookie-consent-banner {
-  padding: 0.125rem max(0.5rem, env(safe-area-inset-right, 0px))
-    calc(0.125rem + env(safe-area-inset-bottom, 0px))
-    max(0.5rem, env(safe-area-inset-left, 0px));
+  padding: 0.5rem max(0.75rem, env(safe-area-inset-right, 0px))
+    calc(0.5rem + env(safe-area-inset-bottom, 0px))
+    max(0.75rem, env(safe-area-inset-left, 0px));
 }
 
 .cookie-consent-inner {
-  gap: 0;
+  gap: 0.5rem;
 }
 
 .cookie-consent-copy {
@@ -957,6 +957,7 @@ main {
   gap: 0.5rem;
 }
 
+.cookie-consent-actions .btn-primary,
 .cookie-consent-actions .btn-secondary {
   min-height: 2.75rem;
   min-width: 0;
@@ -992,12 +993,14 @@ main {
     width: 18rem;
   }
 
+  .cookie-consent-actions .btn-primary,
   .cookie-consent-actions .btn-secondary {
     min-height: 2.5rem;
   }
 }
 
 @media (min-width: 768px) and (pointer: coarse) {
+  .cookie-consent-actions .btn-primary,
   .cookie-consent-actions .btn-secondary { min-height: 2.75rem; }
 }
 

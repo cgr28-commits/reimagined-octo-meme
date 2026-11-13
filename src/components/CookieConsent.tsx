@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   readCookieConsent,
@@ -15,9 +14,8 @@ const COOKIE_BANNER_OFFSET_VAR = "--matni-cookie-banner-offset";
 export default function CookieConsent() {
   const [choice, setChoice] = useState<CookieConsentChoice | null | "loading">("loading");
   const bannerRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname() ?? "";
-  // Visitors must choose before using the site; the Privacy Policy stays readable.
-  const requireChoice = !/^\/privacy\/?$/.test(pathname);
+  // Owner (13 Nov 2026): a slim bar along the bottom on every page — never a
+  // pop-up that greys out the page — so the quote tool can be used straight away.
 
   useEffect(() => {
     setChoice(readCookieConsent());
@@ -31,10 +29,6 @@ export default function CookieConsent() {
 
     const el = bannerRef.current;
     if (!el) return;
-    if (requireChoice) {
-      document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
-      return;
-    }
 
     const syncOffset = () => {
       document.documentElement.style.setProperty(
@@ -51,7 +45,7 @@ export default function CookieConsent() {
       window.removeEventListener("resize", syncOffset);
       document.documentElement.style.removeProperty(COOKIE_BANNER_OFFSET_VAR);
     };
-  }, [choice, requireChoice]);
+  }, [choice]);
 
   if (choice === "loading" || choice !== null) {
     return null;
@@ -64,28 +58,15 @@ export default function CookieConsent() {
   }
 
   return (
-    <>
-    {requireChoice ? (
-      <div
-        className="fixed inset-0 z-[69] bg-navy-dark/75 backdrop-blur-[2px]"
-        aria-hidden="true"
-        data-cookie-consent-overlay
-      />
-    ) : null}
     <div
       ref={bannerRef}
-      className={
-        requireChoice
-          ? "cookie-consent-banner cookie-consent-banner--modal fixed z-[70] bg-navy-dark shadow-[0_24px_64px_rgba(2,8,20,0.6)]"
-          : "cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
-      }
+      className="cookie-consent-banner fixed inset-x-0 bottom-0 z-[70] border-t border-white/12 bg-navy-dark/96 shadow-[0_-8px_32px_rgba(2,8,20,0.45)] backdrop-blur-xl"
       role="dialog"
-      aria-modal={requireChoice ? true : undefined}
       aria-label="Cookie consent"
     >
       <div className="cookie-consent-inner flex flex-col">
         <div className="min-w-0 flex-1">
-          <p className="cookie-consent-copy text-white/70">
+          <p className="cookie-consent-copy text-white/80">
             <strong className="font-semibold text-white">
               We&apos;re a small local firm. Can we see which of our Google ads brought you here?
             </strong>{" "}
@@ -97,44 +78,14 @@ export default function CookieConsent() {
           </p>
         </div>
         <div className="cookie-consent-actions flex shrink-0 flex-row">
-          {requireChoice ? (
-            <>
-              <button
-                type="button"
-                onClick={() => choose("accepted")}
-                className="btn-primary flex-1"
-              >
-                Accept all
-              </button>
-              <button
-                type="button"
-                onClick={() => choose("rejected")}
-                className="btn-secondary flex-1"
-              >
-                Reject optional
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => choose("rejected")}
-                className="btn-secondary flex-1"
-              >
-                Reject optional
-              </button>
-              <button
-                type="button"
-                onClick={() => choose("accepted")}
-                className="btn-secondary flex-1"
-              >
-                Accept
-              </button>
-            </>
-          )}
+          <button type="button" onClick={() => choose("rejected")} className="btn-secondary flex-1">
+            Reject optional
+          </button>
+          <button type="button" onClick={() => choose("accepted")} className="btn-primary flex-1">
+            Accept all
+          </button>
         </div>
       </div>
     </div>
-    </>
   );
 }
