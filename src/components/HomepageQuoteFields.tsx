@@ -354,7 +354,7 @@ export default function HomepageQuoteFields({
       {design3 ? (
         /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-d3-card-head aria-hidden="true">
-          <Plane size={22} strokeWidth={2.2} data-d3-card-head-icon />
+          <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />
           <span data-d3-card-head-title>Get Your Fixed Airport Fare</span>
           <span data-d3-card-head-chip>
             <Zap size={13} strokeWidth={2.4} />
