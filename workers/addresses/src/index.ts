@@ -3102,7 +3102,7 @@ async function handlePaymentRequest(
 
     // Empty Run discount when payment re-quotes without a signed receipt, so the
     // customer pays the same cheaper fare they were quoted. Fail-open.
-    if (!receiptClaims && !airportContext.isAirportToAirport) {
+    if (!receiptClaims) {
       const emptyRun = await evaluateEmptyRunSafely({
         store: env.TRACKING_STORE,
         forceEnabled: emptyRunPreviewForced(env),

@@ -703,7 +703,8 @@ export async function handleQuoteCalculateRequest(
   // Empty Run: cheaper fare when this journey fills the empty drive to a
   // confirmed far-away pickup. Owner switch, OFF by default, fail-open.
   let emptyRun: Awaited<ReturnType<typeof evaluateEmptyRunSafely>> = null;
-  if (result.ok && !ownerMode && !isAirportToAirport) {
+  // Airport-to-airport one-ways count too (e.g. Belfast City → Dublin Airport).
+  if (result.ok && !ownerMode) {
     emptyRun = await evaluateEmptyRunSafely({
       store: env?.TRACKING_STORE,
       forceEnabled: emptyRunPreviewForced(env),
