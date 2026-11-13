@@ -11,7 +11,6 @@ import {
   suitableVehicleTypesForParty,
 } from "@/lib/vehicle-selection";
 import {
-  EXECUTIVE_CUSTOMER_CAPACITY,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
   MINIBUS_CUSTOMER_DESCRIPTION,
@@ -19,6 +18,7 @@ import {
   SALOON_CUSTOMER_DESCRIPTION,
   SALOON_CUSTOMER_NAME,
 } from "../../shared/vehicle-display";
+import { BUSINESS_CLASS_MAX_PASSENGERS } from "../../shared/passenger-limits";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
@@ -27,7 +27,10 @@ import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-lin
  * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
  */
 const SALOON_LUGGAGE_CAPACITY = <>2 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
-const ESTATE_LUGGAGE_CAPACITY = <>Up to 4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
+const ESTATE_LUGGAGE_CAPACITY = <>4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
+
+/** Card wording (owner, 13 Nov 2026). Booking records and emails keep EXECUTIVE_CUSTOMER_CAPACITY. */
+const BUSINESS_CLASS_CARD_CAPACITY = `Up to ${BUSINESS_CLASS_MAX_PASSENGERS} passengers`;
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -71,7 +74,7 @@ const CATEGORIES = [
     id: "executive" as const,
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
-    capacity: EXECUTIVE_CUSTOMER_CAPACITY,
+    capacity: BUSINESS_CLASS_CARD_CAPACITY,
     luggage: "2 suitcases",
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,

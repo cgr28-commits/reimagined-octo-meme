@@ -9007,3 +9007,448 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   background-size: 1rem 1rem !important;
   padding-right: 2.5rem !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones only (below 768px);
+   tablets and desktop unchanged. Bigger wide logo, first intro sentence only, card title with
+   an Instant Quote chip, navy One way / Return, chevron on the quote button, lock on the
+   caption, benefits as four icon columns.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-d2-benefit-icon] { display: none; }
+@media (max-width: 767.98px) {
+  @layer base {
+    /* Header: the logo gets the space; buttons stay 44px touch targets, tight gaps (owner, 13 Nov 2026) */
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      min-height: 3.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+      gap: 0.625rem !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] a:has(> .quote-header-logo-wide) {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
+      display: block !important;
+      width: 100% !important;
+      max-width: 15rem !important;
+      aspect-ratio: 1011 / 177;
+      background: url("/logo-header-wide.webp") left center / contain no-repeat;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+      gap: 0.3125rem !important;
+      flex: none !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
+      width: 2.75rem !important;
+      min-width: 2.75rem !important;
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] {
+      border-radius: 999px !important;
+      border-color: rgba(75, 224, 60, 0.75) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+      min-width: 2.75rem !important;
+      padding: 0 0.625rem !important;
+      margin: 0 !important;
+      font-size: 0.875rem !important;
+      gap: 0.3125rem !important;
+      justify-content: center !important;
+    }
+
+    /* Intro: first sentence only */
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-more] {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.875rem !important;
+      line-height: 1.4 !important;
+    }
+
+    /* Card title row */
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote [data-d2="journey"] [data-d3-card-head] {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.4375rem !important;
+      margin: 0.125rem 0.125rem 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-icon] {
+      flex: none;
+      color: var(--pm-green) !important;
+      transform: rotate(-30deg);
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-title] {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--pm-ink) !important;
+      font-size: 0.9375rem !important;
+      line-height: 1.2 !important;
+      font-weight: 800 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      letter-spacing: -0.015em !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-chip] {
+      flex: none;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.125rem !important;
+      padding: 0.25rem 0.4375rem !important;
+      border-radius: 999px !important;
+      background: #dff7e1 !important;
+      color: #0a7a1c !important;
+      font-size: 0.6563rem !important;
+      font-weight: 750 !important;
+      white-space: nowrap !important;
+    }
+
+    /* Address boxes: typed text stays 16px (smaller makes iPhone zoom the page sideways on tap);
+       only the grey hint text is smaller so it fits without clipping. */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      text-overflow: ellipsis !important;
+      font-size: 16px !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff)::placeholder {
+      font-size: 0.875rem !important;
+    }
+
+    /* One way / Return: selected side in navy */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+      background: #edf1f6 !important;
+      box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.08) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+      color: var(--pm-ink) !important;
+      font-weight: 650 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button[aria-pressed="true"] {
+      background: #0b2547 !important;
+      color: #fff !important;
+      font-weight: 750 !important;
+      box-shadow: 0 2px 6px -1px rgba(7, 28, 56, 0.45) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+      color: #0a6b19 !important;
+      background: #b9f0b4 !important;
+    }
+
+    /* Quote button: chevron after the label */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]::after {
+      content: "";
+      width: 1.25rem;
+      height: 1.25rem;
+      flex: none;
+      background: #fff;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+
+    /* Caption: small lock in front */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.375rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption]::before {
+      content: "";
+      width: 0.875rem;
+      height: 0.875rem;
+      flex: none;
+      background: var(--pm-ink);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='10' width='16' height='12' rx='2.5' fill='black'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3' fill='none' stroke='black' stroke-width='2.6'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='10' width='16' height='12' rx='2.5' fill='black'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3' fill='none' stroke='black' stroke-width='2.6'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+
+    /* Benefits: four icon columns with thin dividers */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      margin-top: 1.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 0.375rem !important;
+      padding: 0 0.25rem !important;
+      text-align: center !important;
+      color: #fff !important;
+      font-size: 0.75rem !important;
+      line-height: 1.25 !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.005em !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li + li {
+      border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li > svg[data-d2-benefit-check] {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li > svg[data-d2-benefit-icon] {
+      display: block !important;
+      width: 1.625rem !important;
+      height: 1.625rem !important;
+      stroke-width: 2.2 !important;
+      color: var(--pm-green-bright) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 8.25rem !important;
+    }
+  }
+}
+/* Phones under 400px: Call Us becomes a round phone button (still labelled "Call Us" for
+   screen readers) so the logo keeps its size instead of shrinking. */
+@media (max-width: 399.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+      width: 2.75rem !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] [data-phone-label] {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+  }
+}
+/* 320px phones: a little less side padding so nothing touches */
+@media (max-width: 339.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      padding: 0.5rem 0.5rem !important;
+      gap: 0.5rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+      gap: 0.25rem !important;
+    }
+  }
+}
+/* Very narrow phones: the title keeps the row, the chip steps aside. */
+@media (max-width: 373.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-chip] {
+      display: none !important;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones only (below 768px).
+   Picture in its own column (never under the text), bigger name, capacity lines beneath,
+   price / request on the right; on narrow cards the request button moves under the text.
+   Layout and wording only: selection, availability and request behaviour are unchanged.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-quote-vehicle-categories] [role="list"] {
+      gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category] {
+      min-height: 0 !important;
+      height: auto !important;
+      padding: 0.875rem 0.875rem 0.875rem 0.75rem !important;
+      overflow: hidden !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] {
+      display: grid !important;
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
+      grid-template-areas: "art copy action" !important;
+      column-gap: 0.75rem !important;
+      row-gap: 0.625rem !important;
+      align-items: center !important;
+      width: 100% !important;
+    }
+    /* Picture: fixed column, scaled to fit, never wider than its column */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      grid-area: art !important;
+      align-self: center !important;
+      width: 5.5rem !important;
+      max-width: 5.5rem !important;
+      min-width: 0 !important;
+      height: 3.25rem !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] picture {
+      display: flex !important;
+      width: 100% !important;
+      height: 100% !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] img {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+      transform: none !important;
+      scale: 1 !important;
+      translate: none !important;
+    }
+    /* Text */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] {
+      grid-area: copy !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] [data-vehicle-name] {
+      font-size: 1.125rem !important;
+      line-height: 1.2 !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.015em !important;
+      color: #071c38 !important;
+      margin: 0 0 0.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]):not([data-vehicle-on-request]):not([data-vehicle-desktop-badge]):not(.hidden):not([aria-hidden]) {
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: 0.3125rem !important;
+      margin: 0.1875rem 0 0 !important;
+      font-size: 0.875rem !important;
+      line-height: 1.3 !important;
+      font-weight: 600 !important;
+      color: #24385a !important;
+      overflow-wrap: anywhere;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span svg {
+      flex: none !important;
+      width: 0.9375rem !important;
+      height: 0.9375rem !important;
+      margin-top: 0.125rem !important;
+    }
+    /* Price / request on the right */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > :is([data-vehicle-desktop-price], [data-vehicle-desktop-request]) {
+      grid-area: action !important;
+      justify-self: end !important;
+      align-self: center !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-width: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-price] {
+      font-size: 1.375rem !important;
+      white-space: nowrap !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request] {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-end !important;
+      gap: 0.375rem !important;
+      text-align: right !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action] {
+      order: -1;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 2.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+      border: 1.5px solid #071c38 !important;
+      border-radius: 0.75rem !important;
+      background: #fff !important;
+      font-size: 0 !important;
+      line-height: 1.15 !important;
+      white-space: nowrap !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action]::before {
+      content: "Request availability" !important;
+      font-size: 0.875rem !important;
+      font-weight: 800 !important;
+      color: #071c38 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-from] {
+      font-size: 0.8125rem !important;
+      line-height: 1.25 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-from] small {
+      font-size: 0.75rem !important;
+      font-weight: 600 !important;
+      color: #3d4f6b !important;
+      white-space: nowrap !important;
+    }
+    /* Selected tick / empty circle: small, in the picture's top-left corner */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-selection-indicator] {
+      left: 0.5rem !important;
+      top: 0.5rem !important;
+    }
+    /* Request cards: the button sits under the text so nothing is squeezed */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 5.5rem minmax(0, 1fr) !important;
+      grid-template-areas: "art copy" ". action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
+      justify-self: stretch !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.375rem 0.75rem !important;
+      text-align: left !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
+      align-items: flex-start !important;
+    }
+  }
+}
+/* 340px and narrower: prices move under the text too, so the name and lines keep their width */
+@media (max-width: 339.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 4.75rem minmax(0, 1fr) !important;
+      grid-template-areas: "art copy" ". action" !important;
+      column-gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 4.75rem !important;
+      max-width: 4.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action] {
+      white-space: normal !important;
+      padding: 0.5rem 0.625rem !important;
+      text-align: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-desktop-price] {
+      justify-self: start !important;
+      flex-direction: row !important;
+      align-items: baseline !important;
+      gap: 0.375rem !important;
+    }
+  }
+}

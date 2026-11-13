@@ -303,7 +303,7 @@ async function main() {
     assert.match(showcase, /2 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
     const categories = read("src/components/QuoteVehicleCategories.tsx");
     assert.match(categories, /SALOON_LUGGAGE_CAPACITY = <>2 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
-    assert.match(categories, /ESTATE_LUGGAGE_CAPACITY = <>Up to 4 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
+    assert.match(categories, /ESTATE_LUGGAGE_CAPACITY = <>4 suitcases \+ <span className="whitespace-nowrap">2 small bags<\/span>/);
   });
 
   check("12. Luggage quantity does not block SumUp", () => {

@@ -39,6 +39,10 @@ const HOMEPAGE_INTRO =
  */
 export default function HeroSlideshow({ heading, intro, journey, navId }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
+  // Homepage only: split after the first sentence so phones can show the short version.
+  const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
+  const introLead = introSplit ? introSplit[1] : introText;
+  const introMore = introSplit ? introSplit[2] : "";
   return (
     <section className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
       <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
@@ -78,7 +82,11 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
-          <p className="hidden" data-d3-intro-sub>{introText}</p>
+          {/* Phones show only the first sentence (data-d3-intro-more is hidden by CSS below 768px). */}
+          <p className="hidden" data-d3-intro-sub>
+            {introLead}
+            {introMore ? <span data-d3-intro-more> {introMore}</span> : null}
+          </p>
           <div className="hidden" data-d2-rating>
             <GoogleReviewsBadge variant="compact" />
           </div>
