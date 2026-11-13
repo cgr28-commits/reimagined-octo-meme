@@ -84,7 +84,7 @@ export function getLocalBusinessJsonLd() {
     // Ties the website to the Google Business Profile (reviews, Maps listing).
     sameAs: [GOOGLE_BUSINESS_PROFILE_URL],
     logo: `${SITE.url}/logo.png`,
-    image: `${SITE.url}/og-image-square.png`,
+    image: `${SITE.url}/og-image-square.png?v=20261113`,
     email: SITE.email,
     telephone: SITE.officeLandline,
     areaServed: {

@@ -121,8 +121,8 @@ export default function Header() {
                 <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
                   {/* The menu panel turns light under html[data-mobile-light]; swap to the
                       navy-text logo there so the wordmark stays visible. */}
-                  <Logo className="menu-logo-dark h-14" />
-                  <Logo className="menu-logo-light hidden h-14" theme="light" />
+                  <Logo wide className="menu-logo-dark h-10 max-w-[70vw]" />
+                  <Logo wide className="menu-logo-light hidden h-10 max-w-[70vw]" theme="light" />
                 </Link>
                 <button
                   type="button"

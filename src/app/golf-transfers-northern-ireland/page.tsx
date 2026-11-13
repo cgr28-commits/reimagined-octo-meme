@@ -66,7 +66,7 @@ export const metadata: Metadata = {
     title: GOLF_TRANSFERS_SEO_TITLE,
     description: GOLF_TRANSFERS_SEO_DESCRIPTION,
     url: GOLF_TRANSFERS_PATH,
-    images: [{ url: "/og-image-square.png", alt: SITE.name }],
+    images: [{ url: "/og-image-square.png?v=20261113", alt: SITE.name }],
   },
 };
 

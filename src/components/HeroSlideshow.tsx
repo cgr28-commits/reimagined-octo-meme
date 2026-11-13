@@ -6,7 +6,8 @@ import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 import type { ReactNode } from "react";
-import type { TownGuidePickup } from "@/lib/selected-place";
+import type { SelectedPlace, TownGuidePickup } from "@/lib/selected-place";
+import type { SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 
 /** Journey details a landing page hands to the quote tool (the homepage passes none). */
 export type QuoteHeroJourney = {
@@ -27,6 +28,16 @@ type Props = {
   journey?: QuoteHeroJourney;
   /** Marks the H1 as the menu's scroll/focus target for this page. */
   navId?: string;
+  /** Saved-quote link: the quote to restore into the tool. */
+  restore?: {
+    quote: SavedQuotePublicSummary;
+    journeyIntent: "to-airport" | "from-airport" | "address-to-address";
+    pickupPlace: SelectedPlace;
+    dropoffPlace: SelectedPlace;
+    dropoffHint?: string;
+  };
+  /** Saved-quote summary and Book button, shown above the quote tool at every step. */
+  belowIntro?: ReactNode;
 };
 
 const HOMEPAGE_INTRO =
@@ -37,7 +48,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, journey, navId }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, journey, navId, restore, belowIntro }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -58,6 +69,10 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
         />
         <div className="homepage-hero-scrim absolute inset-0" />
       </div>
+
+      {belowIntro ? (
+        <div data-saved-quote-banner className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-3 sm:px-6 md:pt-0 lg:max-w-[1400px] lg:px-10 xl:px-12">{belowIntro}</div>
+      ) : null}
 
       {/* Mobile: short heading, then the benefit icons, then the quote form.
           Tablet (md): quote first, then the heading.
@@ -107,6 +122,13 @@ export default function HeroSlideshow({ heading, intro, journey, navId }: Props 
             initialGuidePickup={journey?.guidePickup ?? null}
             preferMinibus={journey?.preferMinibus ?? false}
             businessClassAnyRoute={journey?.businessClassAnyRoute ?? false}
+            {...(restore ? {
+              restoredQuote: restore.quote,
+              initialJourneyIntent: restore.journeyIntent,
+              initialPickupPlace: restore.pickupPlace,
+              initialDropoffPlace: restore.dropoffPlace,
+              initialDropoffHint: restore.dropoffHint,
+            } : {})}
           />
           <QuoteHelpContact />
           <div className="mt-4 flex justify-center" data-hero-reviews-badge>

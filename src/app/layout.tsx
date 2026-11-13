@@ -43,7 +43,7 @@ const description = offlineActive
     : `${SITE_PUBLIC_SEO_DESCRIPTION} ${getPublicUnapprovedPriceLabel()} — request a quote online.`;
 
 const ogImage = {
-  url: absoluteSiteUrl("/og-image-square.png"),
+  url: absoluteSiteUrl("/og-image-square.png?v=20261113"),
   width: 1200,
   height: 1200,
   alt: `${SITE.name} — Premium Airport Transfers`,

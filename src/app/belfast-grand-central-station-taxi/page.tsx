@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     description,
     url: path,
     type: "website",
-    images: [{ url: absoluteSiteUrl("/og-image-square.png"), width: 1200, height: 1200, alt: SITE.name }],
+    images: [{ url: absoluteSiteUrl("/og-image-square.png?v=20261113"), width: 1200, height: 1200, alt: SITE.name }],
   },
-  twitter: { card: "summary", title, description, images: [absoluteSiteUrl("/og-image-square.png")] },
+  twitter: { card: "summary", title, description, images: [absoluteSiteUrl("/og-image-square.png?v=20261113")] },
 };
 
 const routes = [

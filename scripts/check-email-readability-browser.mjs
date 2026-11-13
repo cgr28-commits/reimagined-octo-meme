@@ -17,7 +17,7 @@ try {
     for (const file of files) {
       const html = await fs.readFile(`${output}/${file}`, 'utf8');
       await page.setContent(html);
-      if (!html.includes('class="matni-light"')) continue;
+      if (!/class="matni-light\b/.test(html)) continue;
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${file}: mobile overflow`);
       const colours = await page.evaluate(() => ({
         background: getComputedStyle(document.body).backgroundColor,

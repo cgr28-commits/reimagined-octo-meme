@@ -51,7 +51,7 @@ export function generateMetadata(): Metadata {
       type: "website",
       images: [
         {
-          url: withBasePath("/og-image-square.png"),
+          url: withBasePath("/og-image-square.png?v=20261113"),
           width: 1200,
           height: 1200,
           alt: "My Airport Taxi NI",
@@ -62,7 +62,7 @@ export function generateMetadata(): Metadata {
       card: "summary_large_image",
       title: EMERGE_BELFAST_META.ogTitle,
       description: EMERGE_BELFAST_META.ogDescription,
-      images: [absoluteSiteUrl("/og-image-square.png")],
+      images: [absoluteSiteUrl("/og-image-square.png?v=20261113")],
     },
   };
 }

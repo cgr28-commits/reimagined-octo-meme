@@ -18,7 +18,7 @@ export default function Footer() {
         >
           {/* 1024-1199px: brand on its own row, then three columns, so nothing is squeezed. */}
           <div className="sm:col-span-2 lg:col-span-3 min-[1200px]:col-span-1">
-            <Logo className="h-16" />
+            <Logo wide className="h-12 max-w-full" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
               {SITE_PUBLIC_SEO_BLURB}
             </p>

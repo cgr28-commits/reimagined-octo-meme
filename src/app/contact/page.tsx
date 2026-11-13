@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     url: absoluteSiteUrl("/contact/"),
     images: [
       {
-        url: absoluteSiteUrl("/og-image-square.png"),
+        url: absoluteSiteUrl("/og-image-square.png?v=20261113"),
         width: 1200,
         height: 1200,
         alt: `${SITE.name} contact card`,

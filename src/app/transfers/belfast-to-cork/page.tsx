@@ -7,6 +7,6 @@ const path = "/transfers/belfast-to-cork/";
 export const metadata: Metadata = {
   title: `${page.title} | ${SITE.name}`, description: page.description,
   alternates: { canonical: path },
-  openGraph: { title: page.title, description: page.description, url: path, images: [{ url: "/og-image-square.png", alt: SITE.name }] },
+  openGraph: { title: page.title, description: page.description, url: path, images: [{ url: "/og-image-square.png?v=20261113", alt: SITE.name }] },
 };
 export default function Page() { return <CorkTransferLanding direction="belfast-to-cork" />; }

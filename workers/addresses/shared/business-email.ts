@@ -34,15 +34,15 @@ export function businessWhatsAppPublicPageUrl(siteUrl = BUSINESS_WEBSITE): strin
 }
 
 /**
- * Original high-resolution PNG artwork for all email headers.
- * Compatible with Gmail, Outlook, and Apple Mail.
+ * Current side-by-side brand logo (white wordmark for the navy email header), as PNG so
+ * Gmail, Outlook and Apple Mail all show it (owner, 13 Nov 2026; replaced the stacked logo.png).
  * Public HTTPS URL — the file is not attached to the message.
  */
-export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo.png`;
+export const BUSINESS_EMAIL_LOGO_URL = `${BUSINESS_WEBSITE}/logo-email-wide.png`;
 export const BUSINESS_EMAIL_LOGO_ALT = "My Airport Taxi NI";
-/** Display size. Original source artwork is 697×541, over 3× the default display width. */
-export const BUSINESS_EMAIL_LOGO_WIDTH = 124;
-export const BUSINESS_EMAIL_LOGO_HEIGHT = 96;
+/** Display size. Source artwork is 600×105, over 2.5× the display width for sharp retina screens. */
+export const BUSINESS_EMAIL_LOGO_WIDTH = 228;
+export const BUSINESS_EMAIL_LOGO_HEIGHT = 40;
 
 /** Accepted card / wallet marks for payment-link emails (PNG — email clients don't show SVG). */
 export const BUSINESS_EMAIL_PAYMENT_METHODS_URL = `${BUSINESS_WEBSITE}/email/payment-methods.png`;
@@ -107,7 +107,7 @@ function emailHeaderRanges(html: string): EmailHeaderRange[] {
       }
       continue;
     }
-    if (tag === "img" && /\/(?:logo|google-business-logo)\.png(?:["?])/i.test(token)) {
+    if (tag === "img" && /\/(?:logo|logo-email-wide|google-business-logo)\.png(?:["?])/i.test(token)) {
       const header = [...stack].reverse().find(node =>
         node.tag === "td" || (node.tag === "div" && /\bmatni-header\b/.test(node.opening)));
       if (header) headers.add(header);
@@ -134,8 +134,10 @@ function setHeaderStyle(tag: string, properties: Record<string, string>): string
 function customerHeaderBlock(header: string): string {
   if (header.includes('data-matni-customer-header="true"')) return header;
   // The linked original artwork is over five times its 124px display width.
-  const logo = businessEmailLogoHtml(124).match(/<img\b[^>]*>/)![0];
-  let result = header.replace(/<img\b[^>]*src="[^"]*\/(?:logo|google-business-logo)\.png"[^>]*>/gi, logo);
+  const logo = businessEmailLogoHtml().match(/<img\b[^>]*>/)![0];
+  let result = header.replace(/<img\b[^>]*src="[^"]*\/(?:logo|logo-email-wide|google-business-logo)\.png"[^>]*>/gi, logo);
+  // The logo already says the business name: drop a separate "My Airport Taxi NI" label line.
+  result = result.replace(/<(div|p|span)\b[^>]*>\s*My Airport Taxi NI\s*<\/\1>/gi, "");
   let first = true;
   const source = result;
   result = result.replace(/<(td|div|p|h[1-6]|span|a)\b[^>]*>/gi, (tag, name: string, offset: number) => {
@@ -144,6 +146,8 @@ function customerHeaderBlock(header: string): string {
     const properties: Record<string, string> = {
       color: color + " !important",
       "-webkit-text-fill-color": color + " !important",
+      // One house style: logo and heading centred in the navy header (owner, 13 Nov 2026).
+      "text-align": "center !important",
     };
     if (first) {
       first = false;
@@ -157,7 +161,7 @@ function customerHeaderBlock(header: string): string {
     const font = /font-size:\s*(\d+)px/i.exec(tag)?.[1];
     const nextText = source.slice(offset + tag.length).split("<", 1)[0].trim();
     if (font && Number(font) >= 20 && /^(div|p|h[1-6])$/i.test(name) && !/^[£€$]\d/.test(nextText)) {
-      properties["font-size"] = "16px";
+      properties["font-size"] = "18px";
       tag = /\bmatni-customer-title\b/.test(tag) ? tag : /class="/.test(tag)
         ? tag.replace(/class="/, 'class="matni-customer-title ')
         : tag.replace(/>$/, ' class="matni-customer-title">');
@@ -182,11 +186,115 @@ export function customerEmailHeaderHtml(html: string, originalHtml = html): stri
   }
   if (!result.includes('id="matni-customer-header-style"')) {
     result = result.replace(/<\/head>/i, `<style id="matni-customer-header-style" type="text/css">
-@media only screen and (max-width:480px) { .matni-customer-title { font-size:11px !important; } }
-@media only screen and (max-width:360px) { .matni-customer-title { font-size:10px !important; } }
+@media only screen and (max-width:480px) { .matni-customer-title { font-size:16px !important; } }
+@media only screen and (max-width:360px) { .matni-customer-title { font-size:15px !important; } }
 </style></head>`);
   }
-  return result;
+  return brandFrameEmailHtml(result);
+}
+
+const BRAND_FRAME_STYLE_ID = "matni-brand-frame-style";
+
+/** The one footer every customer email ends with: site navy, white name, green contact links. */
+export function standardEmailFooterHtml(contacts: { phone?: boolean; email?: boolean; whatsApp?: boolean } = { phone: true, email: true, whatsApp: true }): string {
+  const link = (href: string, label: string) =>
+    `<a href="${href}" style="color:${BRAND_EMERALD};-webkit-text-fill-color:${BRAND_EMERALD};text-decoration:none;font-weight:bold;">${label}</a>`;
+  const dot = `<span style="color:#8fa3bd;-webkit-text-fill-color:#8fa3bd;">&nbsp;· </span>`;
+  return `<tr><td class="matni-footer matni-frame" bgcolor="${BRAND_NAVY}" align="center" style="background-color:${BRAND_NAVY};padding:22px 24px 24px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.7;color:#ffffff;">
+<p style="margin:0 0 6px;font-size:14px;font-weight:bold;color:#ffffff;-webkit-text-fill-color:#ffffff;">${BUSINESS_NAME}</p>
+<p style="margin:0 0 10px;color:#ffffff;-webkit-text-fill-color:#ffffff;">${[
+    link(`${BUSINESS_WEBSITE}/`, "myairporttaxini.co.uk"),
+    contacts.phone ? link(`tel:${BUSINESS_LANDLINE_TEL}`, `Call&nbsp;${BUSINESS_LANDLINE_DISPLAY.replace(/ /g, "&nbsp;")}`) : "",
+    contacts.whatsApp ? link(businessWhatsAppChatUrl(), `WhatsApp&nbsp;${BUSINESS_WHATSAPP_TEXT_ROUTE}`) : "",
+    contacts.email ? link(`mailto:${BUSINESS_MAILBOX}`, BUSINESS_MAILBOX) : "",
+  ].filter(Boolean).join(dot)}</p>
+<p style="margin:0;font-size:11px;color:#c9d4e2;-webkit-text-fill-color:#c9d4e2;">Fixed-price airport transfers across Northern Ireland and Ireland${dot}${link(`${BUSINESS_WEBSITE}/terms/`, "Terms")}${dot}${link(`${BUSINESS_WEBSITE}/privacy/`, "Privacy")}</p>
+</td></tr>`;
+}
+
+/**
+ * Swap the card's own sign-off row ("My Airport Taxi NI" + contact links) for the standard
+ * footer, or add the standard footer when the email has none. Only a simple row (no nested
+ * table) is replaced.
+ */
+function standardFooterEmailHtml(html: string): string {
+  if (html.includes("matni-footer")) return html;
+  // The footer offers only the contact routes the email itself already gives (reminders, for
+  // example, deliberately leave out the office phone or mailbox).
+  const contacts = {
+    phone: /href="tel:/i.test(html),
+    email: html.includes(BUSINESS_MAILBOX),
+    whatsApp: /wa\.me\/|@belfasttaxi/i.test(html),
+  };
+  // The old one-line tagline is part of the standard footer now.
+  html = html
+    .replace(/<tr\b[^>]*>\s*<td\b[^>]*>\s*Premium airport transfers across Northern Ireland[^<]*<\/td>\s*<\/tr>/gi, "")
+    .replace(/<p\b[^>]*>\s*Premium airport transfers across Northern Ireland[^<]*<\/p>/gi, "");
+  const footer = standardEmailFooterHtml(contacts);
+  const rows = [...html.matchAll(/<tr\b[^>]*>\s*<td\b[^>]*>/gi)];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const start = rows[i].index!;
+    const end = html.indexOf("</tr>", start);
+    if (end < 0) continue;
+    const row = html.slice(start, end + 5);
+    if (/<table\b/i.test(row)) continue;
+    const text = row.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (/^My Airport Taxi NI\b/.test(text) && /Questions\?/.test(text)) break; // keep its help row; add the footer below
+    if (/^My Airport Taxi NI\b/.test(text) && text.length < 420 && /myairporttaxini\.co\.uk/.test(text)) {
+      return html.slice(0, start) + footer + html.slice(end + 5);
+    }
+    if (/^My Airport Taxi NI$/.test(text)) return html.slice(0, start) + footer + html.slice(end + 5);
+  }
+  // No sign-off row: add the footer as the card's last row (the card closes just before the outer table).
+  const closes = [...html.matchAll(/<\/table>/gi)];
+  if (closes.length < 2) return html;
+  const cardClose = closes[closes.length - 2].index!;
+  return html.slice(0, cardClose) + footer + html.slice(cardClose);
+}
+
+/**
+ * House style for every customer email (owner, 13 Nov 2026): the site's three colours — the page
+ * around the email is site navy, the email itself a white card, buttons and labels site green — with
+ * the logo always on navy (the header). Recolours only the outer page (body, the full-width outer
+ * table and its first cell); the card and everything inside it are untouched. Idempotent.
+ */
+export function brandFrameEmailHtml(html: string): string {
+  const bodyAt = html.search(/<body\b/i);
+  if (bodyAt < 0) return html;
+  const wanted = ["body", "table", "td"];
+  let index = 0;
+  const head = html.slice(0, bodyAt);
+  let cardFollows = false;
+  const rest = html.slice(bodyAt).replace(/<(body|table|td)\b[^>]*>/gi, (tag, name: string, offset: number, whole: string) => {
+    if (index >= wanted.length || name.toLowerCase() !== wanted[index]) return tag;
+    // Only the classic layout is framed: an outer cell that holds the email card table.
+    if (index === 2) cardFollows = /^\s*<table\b/i.test(whole.slice(offset + tag.length));
+    index += 1;
+    let next = tag
+      .replace(/\sbgcolor="[^"]*"/gi, "")
+      .replace(/style="([^"]*)"/i, (_attribute: string, style: string) =>
+        `style="${style.replace(/(^|;)\s*background(?:-color|-image)?\s*:[^;]*/gi, "$1")};background-color:${BRAND_NAVY};background-image:linear-gradient(${BRAND_NAVY},${BRAND_NAVY});"`);
+    if (!/style="/i.test(next)) next = next.replace(/>$/, ` style="background-color:${BRAND_NAVY};">`);
+    if (!/matni-frame/.test(next)) {
+      next = /class="/i.test(next)
+        ? next.replace(/class="([^"]*)"/i, 'class="$1 matni-frame"')
+        : next.replace(/>$/, ' class="matni-frame">');
+    }
+    return next.replace(/>$/, ` bgcolor="${BRAND_NAVY}">`);
+  });
+  if (index < wanted.length || !cardFollows) return html;
+  const withFooter = standardFooterEmailHtml(head + rest);
+  const style = `<style id="${BRAND_FRAME_STYLE_ID}" type="text/css">
+  .matni-footer, .matni-footer td { background-color: ${BRAND_NAVY} !important; }
+  .matni-footer, .matni-footer p, .matni-footer div, .matni-footer span, .matni-footer strong,
+  .matni-footer.matni-footer p, .matni-footer.matni-footer span, .matni-footer.matni-footer strong { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+  .matni-footer a, .matni-footer.matni-footer a { color: ${BRAND_EMERALD} !important; -webkit-text-fill-color: ${BRAND_EMERALD} !important; background-color: transparent !important; }
+  .matni-frame, .matni-frame.matni-frame, body.matni-frame, table.matni-frame, td.matni-frame { background-color: ${BRAND_NAVY} !important; background-image: linear-gradient(${BRAND_NAVY},${BRAND_NAVY}) !important; }
+  @media (prefers-color-scheme: dark) { .matni-frame, table.matni-frame, td.matni-frame { background-color: ${BRAND_NAVY} !important; } }
+</style>`;
+  const framed = withFooter;
+  if (framed.includes(BRAND_FRAME_STYLE_ID)) return framed;
+  return /<\/head>/i.test(framed) ? framed.replace(/<\/head>/i, `${style}</head>`) : framed.replace(/<body\b/i, `${style}<body`);
 }
 
 /** Always bookings@ — ignore env overrides that point elsewhere. */

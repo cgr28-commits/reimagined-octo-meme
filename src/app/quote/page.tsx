@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Logo from "@/components/Logo";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import SavedQuoteCustomerClient from "./SavedQuoteCustomerClient";
-import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
 export const metadata: Metadata = {
   title: "Your saved quote | My Airport Taxi NI",
@@ -12,21 +11,18 @@ export const metadata: Metadata = {
 };
 
 /**
- * Static-export friendly (GitHub Pages): token is read from ?t= in the client.
+ * Static-export friendly (GitHub Pages): token is read from the URL in the client.
  * Fare is never taken from the URL — only the opaque token; price comes from KV.
+ * Same header, quote tool and footer as the homepage (owner, 13 Nov 2026).
  */
 export default function SavedQuotePage() {
   return (
     <>
-    <StandaloneBrandBar />
-    <main data-customer-standalone className="min-h-screen bg-navy px-4 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto mb-6 max-w-lg text-center sm:mb-8">
-        <Link href="/" aria-label="My Airport Taxi NI — home" className="inline-block">
-          <Logo className="mx-auto h-20 w-auto" priority />
-        </Link>
-      </div>
-      <SavedQuoteCustomerClient />
-    </main>
+      <Header />
+      <main className="overflow-x-clip bg-navy">
+        <SavedQuoteCustomerClient />
+      </main>
+      <Footer />
     </>
   );
 }

@@ -57,7 +57,7 @@ function read(rel: string): string {
 function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   const airportCollection = /Important information about your airport collection/.test(html);
   if (name !== "booking confirmation" && name !== "updated booking confirmation" && !airportCollection) {
-    assert.match(html, /class="matni-light"/, `${name} should use the white customer theme`);
+    assert.match(html, /class="matni-light\b/, `${name} should use the white customer theme`);
   }
   const logoUrl = BUSINESS_EMAIL_LOGO_URL;
   const logos = html.split(logoUrl).slice(1);
@@ -67,13 +67,13 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.match(html, /alt="My Airport Taxi NI"/);
   assert.match(html, /href="https:\/\/www\.myairporttaxini\.co\.uk\/"/);
   assert.match(html, /max-width:100%/);
-  assert.match(html, /width:124px/);
+  assert.match(html, /width:228px/);
   if (!airportCollection) {
     assert.match(html, /data-matni-customer-header="true"/);
     assert.match(html, /background-color:#071c38 !important/);
   }
   assert.match(html, /#071c38/);
-  if (html.includes('class="matni-light"')) {
+  if (/class="matni-light\b/.test(html)) {
     assert.match(html, /name="color-scheme" content="light"/);
     assert.match(html, /bgcolor="#ffffff"/);
     assert.match(html, /color:#071c38/);
@@ -85,7 +85,7 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
   assert.doesNotMatch(html, /google-business-logo\.png/);
   assert.doesNotMatch(html, /cid:/i);
   assert.doesNotMatch(html, /data:image/i);
-  assert.match(html, />My Airport Taxi NI</);
+  assert.match(html, /My Airport Taxi NI/);
   if (process.env.EMAIL_PREVIEW_OUTPUT) {
     mkdirSync(process.env.EMAIL_PREVIEW_OUTPUT, { recursive: true });
     writeFileSync(join(process.env.EMAIL_PREVIEW_OUTPUT, name.replace(/[^a-z0-9]+/gi, "-") + ".html"), html);
@@ -95,9 +95,9 @@ function assertSharedLogo(name: string, html: string, preserved: RegExp): void {
 
 const logo = businessEmailLogoHtml();
 assert.equal(BUSINESS_EMAIL_LOGO_ALT, "My Airport Taxi NI");
-assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo.png");
-assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 124);
-assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 96);
+assert.equal(BUSINESS_EMAIL_LOGO_URL, "https://www.myairporttaxini.co.uk/logo-email-wide.png");
+assert.equal(BUSINESS_EMAIL_LOGO_WIDTH, 228);
+assert.equal(BUSINESS_EMAIL_LOGO_HEIGHT, 40);
 assert.equal(logo.match(/<img\b/g)?.length, 1);
 assert.match(logo, /color:#ffffff/);
 console.log("OK  shared header helper");
