@@ -9535,3 +9535,12 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
 }
 }
+/* Wide logo needs room: on laptops under 1440px the logo, menu gaps and menu text tighten a little so nothing overlaps. */
+@media (min-width: 1200px) and (max-width: 1439.98px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 2.125rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) { column-gap: 1.25rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 0.875rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav :is(a, button) { font-size: 0.84375rem !important; }
+}
+}
