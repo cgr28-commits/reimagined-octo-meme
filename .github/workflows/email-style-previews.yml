@@ -1,0 +1,37 @@
+name: Email style previews
+
+on:
+  pull_request:
+    paths:
+      - "shared/email-polish.ts"
+      - "scripts/render-email-previews.ts"
+      - "scripts/screenshot-email-previews.mjs"
+      - ".github/workflows/email-style-previews.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  previews:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build raw customer emails
+        run: EMAIL_PREVIEW_OUTPUT=test-results/email-raw node --import tsx scripts/check-email-logo.ts
+      - name: Apply premium typography (before/after)
+        run: node --import tsx scripts/render-email-previews.ts test-results/email-raw test-results/email-previews
+      - name: Screenshot (web fonts loaded)
+        run: |
+          node scripts/screenshot-email-previews.mjs test-results/email-previews/before test-results/email-shots/before
+          node scripts/screenshot-email-previews.mjs test-results/email-previews/after test-results/email-shots/after
+      - uses: actions/upload-artifact@v4
+        with:
+          name: email-style-previews
+          path: test-results/email-shots
