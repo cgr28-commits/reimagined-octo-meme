@@ -9882,6 +9882,22 @@ function QuoteCard({
                     {mobileDesign3 && journeyMode === "return" && returnDate && returnTime ? (
                       <li data-chip="return">Return {formatD3ChipDate(returnDate)}, {returnTime}</li>
                     ) : null}
+                    {mobileDesign3 && quoteDirectionsHref() ? (
+                      <li data-chip="route">
+                        <button
+                          type="button"
+                          data-d3-view-route
+                          aria-haspopup="dialog"
+                          onClick={() => setQuoteActionOpen("route")}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />
+                            <path d="M9 4v14M15 6v14" />
+                          </svg>
+                          View route
+                        </button>
+                      </li>
+                    ) : null}
                   </ul>
                 </div>
                 {mobileDesign3 ? null : (<>

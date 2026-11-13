@@ -6721,6 +6721,10 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-journey-stops]::before { background: rgba(255, 255, 255, 0.35) !important; }
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-edit] { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; }
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li { background: rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-color: transparent !important; }
+  /* View route chip: tappable, green outline so it reads as a button, opens the route map. */
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li[data-chip="route"] { padding: 0 !important; background: transparent !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d3-view-route] { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .3rem .75rem; border: 1.5px solid #2fbf4a; border-radius: 999px; background: rgba(47, 191, 74, 0.12); color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; font: inherit; font-weight: 800; cursor: pointer; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d3-view-route]:active { background: rgba(47, 191, 74, 0.25); }
 }
 
 /* Design 3 pickup-time selector (compact): Hour and Minute columns side by side, a large
