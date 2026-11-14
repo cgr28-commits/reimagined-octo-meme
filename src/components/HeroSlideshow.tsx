@@ -28,6 +28,8 @@ type Props = {
   intro?: string;
   /** Town-to-airport landing pages: intro shown instead when opened with ?from=airport. */
   introFromAirport?: string;
+  /** The ?from= value that switches to introFromAirport (default "airport"). */
+  introFromValue?: string;
   journey?: QuoteHeroJourney;
   /** Marks the H1 as the menu's scroll/focus target for this page. */
   navId?: string;
@@ -51,7 +53,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, journey, navId, restore, belowIntro }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -95,14 +97,14 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, journe
           </h1>
 
           <p data-homepage-intro={intro ? undefined : true} className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            <FromAirportText text={introText} fromAirportText={introFromAirport} />
+            <FromAirportText text={introText} fromAirportText={introFromAirport} fromValue={introFromValue} />
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
           {/* Phones show only the first sentence (data-d3-intro-more is hidden by CSS below 768px). */}
           <p className="hidden" data-d3-intro-sub>
-            <FromAirportText text={introLead} fromAirportText={introSplit ? undefined : introFromAirport} />
+            <FromAirportText text={introLead} fromAirportText={introSplit ? undefined : introFromAirport} fromValue={introFromValue} />
             {introMore ? <span data-d3-intro-more> {introMore}</span> : null}
           </p>
           <div className="hidden" data-d2-rating>
