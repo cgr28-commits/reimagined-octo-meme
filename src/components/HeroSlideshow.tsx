@@ -114,8 +114,8 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
               <span className="text-white">{heading}</span>
             ) : (
               <>
-                <span className="text-white">Airport, Port &amp; Event Transfers</span>{" "}
-                <span className="text-emerald">Across All of Ireland</span>
+                <span className="text-white">Belfast &amp; Dublin Airport Transfers</span>{" "}
+                <span className="text-emerald">&amp; Premium Private Travel</span>
               </>
             )}
           </h1>
