@@ -11,11 +11,12 @@ import DesktopVehicleSources from "./DesktopVehicleSources";
  * Option cards keep each vehicle fully inside the frame. The white studio
  * canvas is object-contain, so the car is not cropped or stretched.
  */
+/** Every vehicle picture is now tightly cropped to the same frame (14 Nov 2026), so no per-vehicle zoom. */
 export const VEHICLE_ART_SCALE = {
   saloon: "scale-100",
   estate: "scale-100",
-  executive: "scale-[1.23]",
-  minibus: "scale-[1.45] -translate-y-[4%]",
+  executive: "scale-100",
+  minibus: "scale-100",
 } as const;
 
 export type VehicleArtId = keyof typeof VEHICLE_ART_SCALE;
@@ -42,7 +43,13 @@ export function VehicleQuoteArt({
       data-vehicle-art-size={size}
     >
       <picture className="contents">
-        <source media="(max-width: 1199px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        {/* Phones and tablets: tightly cropped, higher-resolution transparent pictures (14 Nov 2026). */}
+        <source
+          media="(max-width: 1199px)"
+          srcSet={`${src.replace(/\.webp$/, "-card-600.webp")} 600w, ${src.replace(/\.webp$/, "-card-1200.webp")} 1200w`}
+          sizes="(max-width: 1199px) 22rem"
+          type="image/webp"
+        />
         <DesktopVehicleSources vehicle={vehicle} sizes={size === "option" ? "256px" : "(min-width: 1440px) 672px, 65vw"} />
         <Image
           src={src}
@@ -52,6 +59,7 @@ export function VehicleQuoteArt({
           className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]} lg:scale-100 lg:translate-y-0`}
           sizes={size === "option" ? "184px" : "184px"}
           priority={size === "result"}
+          loading={size === "option" ? "eager" : undefined}
         />
       </picture>
     </span>

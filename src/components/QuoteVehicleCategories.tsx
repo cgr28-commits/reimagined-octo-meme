@@ -1,5 +1,7 @@
 "use client";
 
+import { LockKeyhole, ShieldCheck, Star } from "lucide-react";
+import { GOOGLE_REVIEW_COUNT, GOOGLE_REVIEW_RATING } from "../../shared/google-business-profile";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
@@ -155,6 +157,26 @@ export default function QuoteVehicleCategories({
 
   return (
     <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
+      {/* Book with confidence (owner, 14 Nov 2026): reassurance right before the vehicle choice. */}
+      <div data-vehicle-confidence>
+        <p data-vehicle-confidence-title>Book with confidence</p>
+        <ul data-vehicle-confidence-list>
+          <li>
+            <ShieldCheck size={18} strokeWidth={2.2} aria-hidden="true" />
+            <span>100% refund if cancelled 24+ hours before pickup</span>
+          </li>
+          <li>
+            <Star size={18} strokeWidth={2.2} aria-hidden="true" data-vehicle-confidence-star />
+            <span>
+              {GOOGLE_REVIEW_RATING} Google rating · {GOOGLE_REVIEW_COUNT} reviews
+            </span>
+          </li>
+          <li>
+            <LockKeyhole size={18} strokeWidth={2.2} aria-hidden="true" />
+            <span>Secure online booking</span>
+          </li>
+        </ul>
+      </div>
       <p
         className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
