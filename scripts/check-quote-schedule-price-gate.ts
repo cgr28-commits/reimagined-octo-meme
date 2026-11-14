@@ -168,7 +168,8 @@ check("vehicle cards / Book Now stay hidden until complete quote", () => {
   assert.match(card, /failStep1\(\s*"missing_schedule"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"\)/);
   assert.match(card, /Choose your vehicle/);
-  assert.doesNotMatch(card, /From £/);
+  // Code comments may mention it; only the rendered copy matters.
+  assert.doesNotMatch(card.replace(/^\s*\/\/.*$/gm, ""), /From £/);
 });
 
 const weekday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {

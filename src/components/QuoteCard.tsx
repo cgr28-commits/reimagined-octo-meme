@@ -9090,7 +9090,7 @@ function QuoteCard({
         hideUnsuitable={presentation === "homepage"}
         heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
-        // Owner decision (14 Nov 2026): the request-only 7 Seater shows no starting price.
+        // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
       />
       </>
