@@ -40,6 +40,7 @@ name: Deploy Pages Preview
       - claude/ads-direction-landings
       - claude/day-trips-seo
       - claude/homepage-neutral-quote-tool
+      - claude/digital-business-card
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

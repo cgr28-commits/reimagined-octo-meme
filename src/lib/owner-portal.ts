@@ -43,6 +43,8 @@ export function shouldHidePublicSalesWidgets(pathname: string | null | undefined
     path === "/book-quote" ||
     path === "/quick-quote" ||
     path === "/booking-confirmed" ||
-    path === "/tip"
+    path === "/tip" ||
+    // Digital business card: its own WhatsApp / QR buttons replace the floating widgets.
+    path === "/card"
   );
 }
