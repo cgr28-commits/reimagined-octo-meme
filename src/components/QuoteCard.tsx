@@ -8267,7 +8267,7 @@ function QuoteCard({
             : design2Home && isVehiclePersonalQuote
             ? "Request quote"
             : design2Home
-            ? "Continue"
+            ? "Continue to booking details"
             : showTransferCta && presentation === "homepage"
             ? (
                 <>

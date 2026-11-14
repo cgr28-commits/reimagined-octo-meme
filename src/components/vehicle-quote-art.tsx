@@ -42,7 +42,13 @@ export function VehicleQuoteArt({
       data-vehicle-art-size={size}
     >
       <picture className="contents">
-        <source media="(max-width: 1199px)" srcSet={src.replace(/\.webp$/, "-transparent.webp")} type="image/webp" />
+        {/* Phones and tablets: tightly cropped, higher-resolution transparent pictures (14 Nov 2026). */}
+        <source
+          media="(max-width: 1199px)"
+          srcSet={`${src.replace(/\.webp$/, "-card-600.webp")} 600w, ${src.replace(/\.webp$/, "-card-1200.webp")} 1200w`}
+          sizes="(max-width: 1199px) 22rem"
+          type="image/webp"
+        />
         <DesktopVehicleSources vehicle={vehicle} sizes={size === "option" ? "256px" : "(min-width: 1440px) 672px, 65vw"} />
         <Image
           src={src}
