@@ -153,7 +153,7 @@ assert.doesNotMatch(homepageFields, /data-sticky-quote-bar|createPortal|data-quo
 assert.match(homepageFields, /data-quote-price-action="flow"/);
 assert.equal(homepageFields.split("data-get-fixed-price").length - 1, 1);
 assert.match(homepageFields, /data-homepage-quote-scroll/);
-assert.match(homepageFields, />\s*Suitcases\s*</);
+assert.match(homepageFields, />\s*Suitcases \/ L\/bags\s*</);
 assert.doesNotMatch(homepageFields, /23kg/);
 assert.match(homepageFields, /whitespace-nowrap/);
 assert.doesNotMatch(homepageFields, /pb-\[var\(--homepage-quote-bar/);

@@ -19,7 +19,7 @@ import { resolveGooglePlaceDetails } from "../shared/google-places";
 import { servedAirportFromPlaceId } from "../shared/served-airports";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
-import { checkWhatsAppAvailability } from "./whatsapp-handlers";
+import { checkWhatsAppAvailability, whatsAppAsksSchedule } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
 import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
@@ -37,6 +37,10 @@ type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: st
 
 /** Ready-to-send text message with the booking link (fonio "Send SMS" backup to WhatsApp). */
 function smsText(memo: VoiceQuoteMemo, bookingUrl: string): string {
+  if (!memo.whenLabel) {
+    // No date or time given on the call (not asked while no time-based surcharge is on).
+    return `My Airport Taxi NI: your fixed price for ${memo.journeyLabel} is ${memo.amountLabel}, held for ${memo.heldFor}. Choose your date and time and book here: ${bookingUrl}`;
+  }
   return `My Airport Taxi NI: your fixed price for ${memo.journeyLabel} on ${memo.whenLabel} is ${memo.amountLabel}, held for ${memo.heldFor}. Check your details and book here: ${bookingUrl}`;
 }
 const MEMO_TTL_SECONDS = 3 * 60 * 60;
@@ -135,7 +139,13 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     }
   }
 
-  const checked = voiceQuoteDraft({ ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff });
+  // The date and time are asked for only while a time-based surcharge is on (owner dashboard).
+  const scheduleUpFront = await whatsAppAsksSchedule(store);
+  const checked = voiceQuoteDraft(
+    { ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff },
+    new Date(),
+    { scheduleUpFront },
+  );
   if (!checked.ok) {
     return reply({
       ok: false,
@@ -236,17 +246,19 @@ async function emailBookingLink(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const first = input.name.trim().split(/\s+/)[0] || "there";
   const subject = `Your transfer booking link — My Airport Taxi NI`;
+  // No date or time given on the call (not asked while no time-based surcharge is on).
+  const whenPart = input.memo.whenLabel ? ` on ${input.memo.whenLabel}` : "";
   const body = [
     `Hi ${first},`,
     "",
-    `Your fixed price for ${input.memo.journeyLabel} on ${input.memo.whenLabel} is ${input.memo.amountLabel} (held for ${input.memo.heldFor}).`,
+    `Your fixed price for ${input.memo.journeyLabel}${whenPart} is ${input.memo.amountLabel} (held for ${input.memo.heldFor}).`,
     "",
-    `Check your details and complete booking here:`,
+    input.memo.whenLabel ? `Check your details and complete booking here:` : `Choose your date and time and complete booking here:`,
     input.bookingUrl,
     "",
     `My Airport Taxi NI`,
   ].join("\n");
-  const htmlBody = `<p>Hi ${first},</p><p>Your fixed price for <strong>${input.memo.journeyLabel}</strong> on ${input.memo.whenLabel} is <strong>${input.memo.amountLabel}</strong> (held for ${input.memo.heldFor}).</p><p><a href="${input.bookingUrl}">Check your details and complete booking</a></p><p>My Airport Taxi NI</p>`;
+  const htmlBody = `<p>Hi ${first},</p><p>Your fixed price for <strong>${input.memo.journeyLabel}</strong>${whenPart} is <strong>${input.memo.amountLabel}</strong> (held for ${input.memo.heldFor}).</p><p><a href="${input.bookingUrl}">${input.memo.whenLabel ? "Check your details and complete booking" : "Choose your date and time and complete booking"}</a></p><p>My Airport Taxi NI</p>`;
   try {
     await sendEmail(env, {
       to: input.email,
@@ -368,7 +380,8 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
       customerName: name,
       mobile: waTo,
       journeyLabel: memo.journeyLabel,
-      whenLabel: memo.whenLabel,
+      // The approved WhatsApp template needs a value here; with no date given yet it says so.
+      whenLabel: memo.whenLabel || "a date you choose",
       amountLabel: memo.amountLabel,
       heldFor: memo.heldFor,
     });

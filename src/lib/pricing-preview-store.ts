@@ -39,6 +39,19 @@ export function previewMinibusQueryOverride(): boolean | null {
 }
 
 /**
+ * Preview hosts only: ?previewSchedule=ask shows the quote tools as they are when a time-based
+ * surcharge is on (date and time asked before the price); ?previewSchedule=later shows them as
+ * they are with none on. Never read on the live site.
+ */
+export function previewScheduleUpFrontOverride(): boolean | null {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) return null;
+  const value = new URLSearchParams(window.location.search).get("previewSchedule");
+  if (value === "ask" || value === "on" || value === "1") return true;
+  if (value === "later" || value === "off" || value === "0") return false;
+  return null;
+}
+
+/**
  * Preview hosts only: ?previewMinibusRequest=1 shows the 7 Seater as request-only, as the
  * owner's "7 Seater: request a personal quote" setting would, without changing live settings.
  */

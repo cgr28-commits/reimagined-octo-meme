@@ -11,6 +11,8 @@ import { sameCustomerPhone } from "../shared/whatsapp-pickup-info";
 import { voiceOpeningGreeting } from "../shared/voice-greeting";
 import { listUpcomingPaidBookings } from "./paid-booking-store";
 import { voiceMobile } from "../shared/voice-booking";
+import { quoteNeedsScheduleUpFront } from "../shared/owner-pricing-config";
+import { getOwnerPricingSettings } from "./owner-pricing-store";
 
 type Env = { TRACKING_STORE?: KVNamespace };
 
@@ -74,12 +76,24 @@ export async function handleVoiceInbound(request: Request, env: Env, now = new D
     }
   }
 
+  // Whether a price needs the date and pickup time first: only while the evening, night or
+  // weekend surcharge is on in the owner dashboard. "yes" on any problem (the safe side).
+  let askDateTime = "yes";
+  if (store) {
+    try {
+      askDateTime = quoteNeedsScheduleUpFront(await getOwnerPricingSettings(store)) ? "yes" : "no";
+    } catch (error) {
+      console.error("voice inbound pricing lookup failed", error instanceof Error ? error.message : error);
+    }
+  }
+
   const { dayPart, greeting } = voiceOpeningGreeting({ firstName: name || undefined, now });
   return reply({
     dayPart,
     greeting,
     knownCaller,
     hasUpcomingBooking,
+    askDateTime,
     ...(name ? { name } : {}),
     sayHint:
       "Speak the greeting field once only — it is already Europe/London local time (including daylight saving) and includes My Airport Taxi NI once. Do not rebuild or repeat the greeting. After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",

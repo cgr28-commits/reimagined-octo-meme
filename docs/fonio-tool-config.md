@@ -31,6 +31,7 @@ Execution sentence for every during-call tool:
 ```
 
 Speak returned `greeting` **once only** (Europe/London morning/afternoon/evening, including daylight saving, + full business name once).  
+`askDateTime` is `"yes"` while an evening, night or weekend surcharge is switched on in the owner dashboard, otherwise `"no"`. Only ask for the date and pickup time when it is `"yes"`; when `"no"` the caller picks them on the booking link (Get Quote still accepts them if the caller volunteers them, and asks for them via `askNext` if the setting changes mid-call). Declare `askDateTime` as a Fonio inbound variable.  
 Use `name` / `sayHint` only as guidance. Never invent booking details from inbound context. Do not rebuild or repeat the greeting later in the call.
 
 ---

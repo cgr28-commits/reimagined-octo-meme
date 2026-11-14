@@ -112,6 +112,7 @@ import {
   PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE,
   nightWeekendSurchargeLabel,
   nightWeekendSurchargeExplanation,
+  quoteNeedsScheduleUpFront,
   publicVehicleRequiresPersonalQuote,
   publicMaxPassengers,
   publicMaxSuitcases,
@@ -119,7 +120,8 @@ import {
 } from "../../shared/owner-pricing-config";
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
-import { isBrowserPricingPreview, previewMinibusQueryEnabled, previewMinibusRequestQuoteEnabled } from "@/lib/pricing-preview-store";
+import { isBrowserPricingPreview, previewMinibusQueryEnabled, previewMinibusRequestQuoteEnabled, previewScheduleUpFrontOverride } from "@/lib/pricing-preview-store";
+import { QUOTE_SCHEDULE_UP_FRONT_AT_BUILD } from "@/generated/quote-schedule-default";
 import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
 import { parseLondonLocalDateTime } from "@/lib/london-time";
@@ -1015,6 +1017,17 @@ function QuoteCard({
   const mobileDesign2 = useMobileDesign2();
   const mobileDesign3 = useMobileDesign3();
   const design2Home = mobileDesign2 && presentation === "homepage";
+  // The date and time only change the price when the evening, night or weekend surcharge is
+  // switched on in the owner dashboard. With none of them on, the quote step does not ask for
+  // them: the customer sees the price first and gives the date and time at the booking step,
+  // where a journey in the Christmas period is re-priced for them to confirm.
+  const [scheduleUpFrontPreview, setScheduleUpFrontPreview] = useState<boolean | null>(null);
+  useEffect(() => {
+    setScheduleUpFrontPreview(previewScheduleUpFrontOverride());
+  }, []);
+  const scheduleUpFront =
+    scheduleUpFrontPreview ??
+    (publicPricingLoaded ? quoteNeedsScheduleUpFront(publicPricing) : QUOTE_SCHEDULE_UP_FRONT_AT_BUILD);
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
@@ -2231,7 +2244,7 @@ function QuoteCard({
     effectivePassengers != null &&
     suitcases != null &&
     exceedsOnlineVehicleOptions(effectivePassengers, suitcases, passengerLimit, suitcaseLimit);
-  const scheduleReadyForQuote = isScheduleComplete;
+  const scheduleReadyForQuote = isScheduleComplete || !scheduleUpFront;
   const canShowPrice =
     hasQuoteRoute &&
     quoteChoicesReady &&
@@ -3777,7 +3790,7 @@ function QuoteCard({
       if (suitcases == null) setSuitcasesError(QUOTE_REQUIRED_FIELD_MESSAGES.suitcases);
       return false;
     }
-    if (!isScheduleComplete && (!design2Home || mobileDesign3)) {
+    if (scheduleUpFront && !isScheduleComplete && (!design2Home || mobileDesign3)) {
       validateTripForBooking();
       focusHomepageScheduleError();
       return false;
@@ -6012,7 +6025,7 @@ function QuoteCard({
         );
         return;
       }
-      if ((presentation !== "homepage" || design2Home) && !isScheduleComplete) {
+      if (scheduleUpFront && (presentation !== "homepage" || design2Home) && !isScheduleComplete) {
         failStep1(
           "missing_schedule",
           travelDetailsBlocker || QUOTE_PRICE_WAIT_FOR_SCHEDULE,
@@ -6391,7 +6404,7 @@ function QuoteCard({
     if (
       !quoteResultsReady ||
       !quoteChoicesReady ||
-      (!isScheduleComplete && !revealWithoutSchedule) ||
+      (scheduleUpFront && !isScheduleComplete && !revealWithoutSchedule) ||
       hadRouteSummaryScrollRef.current
     ) {
       return;
@@ -6416,6 +6429,7 @@ function QuoteCard({
     quoteChoicesReady,
     quoteResultsReady,
     quoteStep,
+    scheduleUpFront,
   ]);
 
   useEffect(() => {
@@ -8243,7 +8257,7 @@ function QuoteCard({
         disabled={
           submitted ||
           !quoteChoicesReady ||
-          (presentation === "homepage" ? false : !isScheduleComplete) ||
+          (presentation === "homepage" ? false : scheduleUpFront && !isScheduleComplete) ||
           (instantPriceExpected && !mayPaintNumericFare) ||
           (isEnquiryOnly ||
           isManualQuoteJourney ||
@@ -9925,8 +9939,8 @@ function QuoteCard({
                     <span data-return-discount-note>Save 5%</span>
                   </button>
                 </div>
-                {renderQuoteScheduleFields("quote", true)}
-                {!isScheduleComplete ? (
+                {scheduleUpFront ? renderQuoteScheduleFields("quote", true) : null}
+                {scheduleUpFront && !isScheduleComplete ? (
                   <p data-d2-schedule-note role="status">
                     Add your pickup date and time{journeyMode === "return" ? ", and your return date and time," : ""} to see your fixed price for each vehicle.
                   </p>
@@ -9988,8 +10002,8 @@ function QuoteCard({
                 quoteReady={homepageQuoteReady}
                 dropoffNeedsHouseNumber={isIncompleteDropoffAddress}
                 pickupNeedsHouseNumber={isIncompletePickupAddress}
-                scheduleFields={design2Home && !mobileDesign3 ? null : renderQuoteScheduleFields("quote", true)}
-                scheduleComplete={design2Home && !mobileDesign3 ? true : isScheduleComplete}
+                scheduleFields={(design2Home && !mobileDesign3) || !scheduleUpFront ? null : renderQuoteScheduleFields("quote", true)}
+                scheduleComplete={(design2Home && !mobileDesign3) || !scheduleUpFront ? true : isScheduleComplete}
                 capacityConfirmed={homepageCapacityConfirmed}
                 onCapacityConfirmedChange={setHomepageCapacityConfirmed}
                 quoteFormActive={!homepagePriceRequested}
@@ -10074,7 +10088,7 @@ function QuoteCard({
                       ? Boolean(intentAirportCode) && isPlaceSelected(dropoffPlace)
                       : false)
               }
-              scheduleFields={renderQuoteScheduleFields("quote")}
+              scheduleFields={scheduleUpFront ? renderQuoteScheduleFields("quote") : null}
               showPartyFields={
                 journeyMode != null &&
                 (journeyIntent === "address-to-address"
@@ -10097,7 +10111,7 @@ function QuoteCard({
                 role="status"
                 data-quote-price-wait
               >
-                {!scheduleEntered
+                {scheduleUpFront && !scheduleEntered
                   ? QUOTE_PRICE_WAIT_FOR_SCHEDULE
                   : authoritativeQuoteFailed
                     ? AUTHORITATIVE_QUOTE_UNAVAILABLE_MESSAGE
@@ -10768,7 +10782,7 @@ function QuoteCard({
               needsCompletion={quoteStep === 1 && passengers == null}
             />
             <TapChoiceRow
-              label="Suitcases"
+              label="Suitcases / L/bags"
               options={publicSuitcaseOptions(publicMinibusEnabled)}
               value={
                 suitcases != null && suitcases <= suitcaseLimit && suitcases >= 0
