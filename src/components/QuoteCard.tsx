@@ -9018,60 +9018,6 @@ function QuoteCard({
     return typeof total === "number" && Number.isFinite(total) ? total : null;
   }
 
-  /** On-device estimate parts for a vehicle (existing shared calculators), shaped like the Worker parts. */
-  function desktopEstimateParts(vehicleType: typeof quoteVehicle) {
-    const estimate = estimateFareFor(vehicleType);
-    if (!estimate || typeof estimate.amount !== "number" || !Number.isFinite(estimate.amount)) return null;
-    const fixed =
-      typeof estimate.airportFixedCostsGbp === "number" && Number.isFinite(estimate.airportFixedCostsGbp)
-        ? Math.max(0, Math.round(estimate.airportFixedCostsGbp * 100) / 100)
-        : 0;
-    const journey =
-      typeof estimate.journeyFareGbp === "number" && Number.isFinite(estimate.journeyFareGbp)
-        ? Math.max(0, Math.round(estimate.journeyFareGbp * 100) / 100)
-        : Math.max(0, Math.round((estimate.amount - fixed) * 100) / 100);
-    const surcharge =
-      typeof estimate.nightWeekendSurchargeGbp === "number" && Number.isFinite(estimate.nightWeekendSurchargeGbp)
-        ? Math.max(0, Math.round(estimate.nightWeekendSurchargeGbp * 100) / 100)
-        : 0;
-    return {
-      journeyFareGbp: journey,
-      airportFixedCostsGbp: fixed,
-      nightWeekendSurchargeGbp: surcharge,
-      preserveBfsMinimumPence: Boolean(estimate.preserveBfsMinimumPence),
-    };
-  }
-
-  /**
-   * Desktop (1200px+): when the owner has made the 7 Seater request-only, its row shows the
-   * on-device estimate for this journey (existing shared formulas) as an indicative starting price, subject to
-   * availability, with Request a quote. Nothing is shown when no estimate is available.
-   */
-  function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
-    if (presentation !== "homepage" || quoteStep !== 1 || testChargeAmount != null) return {};
-    if (!publicVehicleRequiresPersonalQuote(MINIBUS_VEHICLE_TYPE, publicPricing)) return {};
-    if (
-      !openWebsiteFareBreakdown ||
-      !mayPaintNumericFare ||
-      vehicleFareUpdating ||
-      transferPaymentAmount == null ||
-      !Number.isFinite(transferPaymentAmount) ||
-      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
-      isExecutiveVehicle(quoteVehicle)
-    ) {
-      return {};
-    }
-    // Self-check: the same estimate method must reproduce the selected vehicle's real quoted price.
-    const selectedParts = desktopEstimateParts(quoteVehicle);
-    const selectedTotal = selectedParts ? desktopWebsiteTotalFromParts(quoteVehicle, selectedParts) : null;
-    if (selectedTotal == null || Math.abs(selectedTotal - transferPaymentAmount) >= 0.005) return {};
-    const minibusParts = desktopEstimateParts(MINIBUS_VEHICLE_TYPE);
-    const amount = minibusParts ? desktopWebsiteTotalFromParts(MINIBUS_VEHICLE_TYPE, minibusParts) : null;
-    return amount != null && Number.isFinite(amount) && amount > 0
-      ? { [MINIBUS_VEHICLE_TYPE]: formatQuote(amount) }
-      : {};
-  }
-
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) {
       return null;
@@ -9090,7 +9036,8 @@ function QuoteCard({
         hideUnsuitable={presentation === "homepage"}
         heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
-        desktopRequestPrices={desktopRequestOnlyEstimates()}
+        // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
+        desktopRequestPrices={{}}
       />
       </>
     );
