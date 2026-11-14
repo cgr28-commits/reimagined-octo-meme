@@ -115,7 +115,13 @@ function askNextMissing(fields: string[]): VoiceDraftResult {
 }
 
 /** Build and check the journey. Missing or unclear details come back as one short question. */
-export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): VoiceDraftResult {
+export function voiceQuoteDraft(
+  input: VoiceQuoteInput,
+  now = new Date(),
+  /** scheduleUpFront false = the date and time are not needed before the price (no time-based surcharge is on). */
+  options: { scheduleUpFront?: boolean } = {},
+): VoiceDraftResult {
+  const askSchedule = options.scheduleUpFront !== false;
   const pickup = text(input.pickup);
   const dropoff = text(input.dropoff);
   const returnJourney = yes(input.returnJourney);
@@ -131,19 +137,19 @@ export function voiceQuoteDraft(input: VoiceQuoteInput, now = new Date()): Voice
   const missingFields: string[] = [];
   if (!pickup) missingFields.push("pickup");
   if (!dropoff) missingFields.push("dropoff");
-  if (!outboundDate) missingFields.push("date");
-  if (!outboundTime) missingFields.push("time");
+  if (askSchedule && !outboundDate) missingFields.push("date");
+  if (askSchedule && !outboundTime) missingFields.push("time");
   if (passengers == null || passengers < 1) missingFields.push("passengers");
   if (!suitcasesProvided) missingFields.push("suitcases");
-  if (returnJourney && !returnDate) missingFields.push("returnDate");
-  if (returnJourney && !returnTime) missingFields.push("returnTime");
+  if (askSchedule && returnJourney && !returnDate) missingFields.push("returnDate");
+  if (askSchedule && returnJourney && !returnTime) missingFields.push("returnTime");
   if (missingFields.length) return askNextMissing(missingFields);
 
   const today = todayLondonDate(now);
-  if (outboundDate! < today) {
+  if (outboundDate && outboundDate < today) {
     return { ok: false, missing: ["the date"], askNext: "date", say: "That date looks like it's already passed. What date do you need the car?" };
   }
-  if (returnJourney && returnDate! < outboundDate!) {
+  if (returnJourney && returnDate && outboundDate && returnDate < outboundDate) {
     return {
       ok: false,
       missing: ["the return date"],
@@ -242,6 +248,10 @@ export function voiceQuoteSay(input: {
     parts.push("For that date and time we need to confirm we can do it before you pay, so the team will confirm with you.");
   } else if (input.shortNotice) {
     parts.push("Because it's less than 24 hours away, that price is held for 2 hours.");
+  } else if (!draft.outboundDate || !draft.outboundTime) {
+    parts.push(
+      "You choose your date and time on the secure booking link — shall I send it by text, WhatsApp, or email?",
+    );
   } else {
     parts.push(
       "That's a quotation until you pay on the secure link — shall I send the booking link by text, WhatsApp, or email?",

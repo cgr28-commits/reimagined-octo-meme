@@ -520,7 +520,7 @@ export default function HomepageQuoteFields({
           />
           <Design2Stepper
             id="quote-section-suitcases"
-            label="Suitcases"
+            label="Suitcases / L/bags"
             value={suitcases}
             choices={suitcaseChoices}
             onChange={(value) => { if (value != null) onSuitcasesChange(value); }}
@@ -561,7 +561,7 @@ export default function HomepageQuoteFields({
         </div>
         <div className="flex min-w-0 flex-col">
           <label htmlFor="quote-section-suitcases" className="form-label mb-1 whitespace-nowrap leading-tight">
-            Suitcases
+            Suitcases / L/bags
           </label>
           <div className={homepagePolish ? "homepage-compact-control relative" : "contents"}>
           {homepagePolish ? <BriefcaseBusiness className="homepage-field-icon" size={18} strokeWidth={1.8} aria-hidden="true" /> : <span className="pointer-events-none absolute mt-[2.1rem] ml-3 text-emerald" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2M12 7v14"/></svg></span>}

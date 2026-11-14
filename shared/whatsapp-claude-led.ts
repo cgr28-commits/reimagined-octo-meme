@@ -17,6 +17,7 @@ import {
   newWhatsAppConversation,
   nextMissingField,
   setAirportSide,
+  conversationAsksSchedule,
   validateWhatsAppDraft,
   whatsAppChoicesForField,
   type WhatsAppBotDecision,
@@ -234,12 +235,15 @@ export type ClaudeLedDecision = WhatsAppBotDecision & {
 export function applyClaudeLedTurn(
   existing: WhatsAppConversation | null,
   turn: ClaudeLedTurn,
-  options: { now?: Date; quickChoices?: boolean } = {},
+  options: { now?: Date; quickChoices?: boolean; scheduleUpFront?: boolean } = {},
 ): ClaudeLedDecision {
   const now = options.now ?? new Date();
   const before = existing ?? newWhatsAppConversation(now);
   let conversation: WhatsAppConversation = { ...before, draft: { ...before.draft } };
   conversation.updatedAt = now.toISOString();
+  // False = the date and time are not asked before the price (no time-based surcharge is on).
+  if (options.scheduleUpFront != null) conversation.scheduleUpFront = options.scheduleUpFront;
+  const askSchedule = conversationAsksSchedule(conversation);
 
   if (turn.action === "end_chat") {
     return { conversation: newWhatsAppConversation(now), reply: turn.reply, action: "none", endChat: true };
@@ -286,7 +290,7 @@ export function applyClaudeLedTurn(
     return { conversation, reply: problem.message, action: "none" };
   }
 
-  const missing = nextMissingField(conversation.draft);
+  const missing = nextMissingField(conversation.draft, askSchedule);
 
   if (turn.action === "get_price" && !missing && conversation.stage === "confirming") {
     delete conversation.awaiting;
@@ -355,6 +359,8 @@ export function buildClaudeLedContext(input: {
   eventInfo?: string;
   /** The in-WhatsApp quote form can be sent to this customer. */
   quoteFormAvailable?: boolean;
+  /** False = the date and time are not needed before the price (no time-based surcharge is on). */
+  scheduleUpFront?: boolean;
   now?: Date;
 }): string {
   const now = input.now ?? new Date();
@@ -372,7 +378,7 @@ export function buildClaudeLedContext(input: {
   const missing: string[] = [];
   const probe: WhatsAppQuoteDraft = { ...draft };
   for (let i = 0; i < 10; i++) {
-    const field = nextMissingField(probe);
+    const field = nextMissingField(probe, input.scheduleUpFront !== false);
     if (!field) break;
     missing.push(FIELD_NAMES[field]);
     if (field === "returnJourney") break; // what follows depends on the answer
@@ -384,6 +390,9 @@ export function buildClaudeLedContext(input: {
     `Quote stage: ${c && Object.keys(draft).length ? STAGE_LABEL[c.stage] : "no journey started"}.`,
     collected ? `Journey details so far:\n${collected}` : "Journey details so far: none.",
     missing.length ? `Still needed for a price: ${missing.join(", ")}.` : "",
+    input.scheduleUpFront === false
+      ? "Date and time: not needed for a price at the moment. Do not ask for them. The customer chooses them on the booking link. If they give a date or time anyway, record it in updates."
+      : "",
     c?.lastQuoteAmountLabel ? `Price already sent: ${c.lastQuoteAmountLabel}.` : "",
     c?.discountOffered ? "The one-time 5% book-now offer has already been sent for this journey." : "",
     input.bookingInfo ? `Their bookings (looked up just now):\n${input.bookingInfo}` : "",

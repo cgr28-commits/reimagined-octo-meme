@@ -79,6 +79,12 @@ export type WhatsAppConversation = {
   addressCheck?: WhatsAppAddressCheck;
   /** Typed addresses already looked up (no match, declined or moved on) — never asked twice. */
   addressChecked?: string[];
+  /**
+   * False while no evening, night or weekend surcharge is on: the date and time cannot change
+   * the price, so the chat does not ask for them and the booking link collects them.
+   * Missing means they are asked, as before.
+   */
+  scheduleUpFront?: boolean;
   updatedAt: string;
 };
 
@@ -836,17 +842,29 @@ export function applyCustomerMessage(
   return JSON.stringify(draft) !== before;
 }
 
-export function nextMissingField(draft: WhatsAppQuoteDraft): WhatsAppQuoteField | null {
+/**
+ * The next detail a price still needs. `scheduleUpFront` false = the date and time are not
+ * needed before the price (no evening, night or weekend surcharge is on); a date or time the
+ * customer gives anyway is still kept and used.
+ */
+export function nextMissingField(draft: WhatsAppQuoteDraft, scheduleUpFront = true): WhatsAppQuoteField | null {
   if (!draft.pickupAddress) return "pickupAddress";
   if (!draft.dropoffAddress) return "dropoffAddress";
-  if (!draft.outboundDate) return "outboundDate";
-  if (!draft.outboundTime) return "outboundTime";
+  if (scheduleUpFront && !draft.outboundDate) return "outboundDate";
+  if (scheduleUpFront && !draft.outboundTime) return "outboundTime";
   if (draft.passengers == null) return "passengers";
   if (draft.suitcases == null) return "suitcases";
   if (draft.returnJourney == null) return "returnJourney";
-  if (draft.returnJourney && !draft.returnDate) return "returnDate";
-  if (draft.returnJourney && !draft.returnTime) return "returnTime";
+  if (scheduleUpFront && draft.returnJourney && !draft.returnDate) return "returnDate";
+  if (scheduleUpFront && draft.returnJourney && !draft.returnTime) return "returnTime";
   return null;
+}
+
+/** Whether this chat asks for the date and time before the price (see WhatsAppConversation.scheduleUpFront). */
+export function conversationAsksSchedule(
+  conversation: Pick<WhatsAppConversation, "scheduleUpFront"> | null | undefined,
+): boolean {
+  return conversation?.scheduleUpFront !== false;
 }
 
 const QUESTIONS: Record<WhatsAppQuoteField, string> = {
@@ -934,11 +952,19 @@ export function buildWhatsAppSummary(draft: WhatsAppQuoteDraft): string {
   const lines = [
     `📍 *From:* ${draft.pickupAddress}`,
     `🏁 *To:* ${draft.dropoffAddress}`,
-    `📅 *Pickup:* ${draft.outboundDate ? displayDate(draft.outboundDate) : "—"} at ${draft.outboundTime ?? "—"}`,
   ];
+  // No date or time yet (they are only asked for when a time-based surcharge is on): leave the
+  // line out rather than show "— at —". The customer chooses them on the booking link.
+  if (draft.outboundDate || draft.outboundTime) {
+    lines.push(
+      `📅 *Pickup:* ${draft.outboundDate ? displayDate(draft.outboundDate) : "—"} at ${draft.outboundTime ?? "—"}`,
+    );
+  }
   if (draft.returnJourney) {
     lines.push(
-      `🔁 *Return:* ${draft.returnDate ? displayDate(draft.returnDate) : "—"} at ${draft.returnTime ?? "—"}`,
+      draft.returnDate || draft.returnTime
+        ? `🔁 *Return:* ${draft.returnDate ? displayDate(draft.returnDate) : "—"} at ${draft.returnTime ?? "—"}`
+        : "🔁 *Return journey*",
     );
   } else {
     lines.push("➡️ *One way*");
@@ -1116,7 +1142,13 @@ export function buildWhatsAppQuoteReply(input: {
   optionalExpressFeeLabel?: string | null;
   /** Short notice or a request-only period: the link sends a request we confirm first. */
   requestOnly?: boolean;
+  /** False when the customer has not given a date and time: they choose them on the booking link. */
+  scheduleChosen?: boolean;
 }): string {
+  const toBook =
+    input.scheduleChosen === false
+      ? "To book, choose your pickup date and time and pay securely here"
+      : "To book, check your details and pay securely here";
   if (input.requestOnly) {
     return (
       `Your fixed price is *${input.amountLabel}*\n\n` +
@@ -1130,7 +1162,7 @@ export function buildWhatsAppQuoteReply(input: {
     `Your fixed price is *${input.amountLabel}* ✅\n\n` +
     `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
     shortNoticeNote(input.linkHours) +
-    `To book, check your details and pay securely here (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
+    `${toBook} (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
   );
 }
@@ -1352,6 +1384,8 @@ export type WhatsAppDecideOptions = {
   quickChoices?: boolean;
   /** The message confirmed a looked-up address: apply it instead of parsing the text. */
   addressPick?: WhatsAppAddressPick;
+  /** False = do not ask for the date and time before the price (no time-based surcharge is on). */
+  scheduleUpFront?: boolean;
 };
 
 function decideJourneyReply(
@@ -1364,6 +1398,8 @@ function decideJourneyReply(
     ? { ...existing, draft: { ...existing.draft } }
     : newWhatsAppConversation(now);
   conversation.updatedAt = now.toISOString();
+  if (options.scheduleUpFront != null) conversation.scheduleUpFront = options.scheduleUpFront;
+  const askSchedule = conversationAsksSchedule(conversation);
   const intent = detectWhatsAppIntent(text);
 
   if (intent === "agent") {
@@ -1424,7 +1460,7 @@ function decideJourneyReply(
       conversation.draft.outboundDate = alt.tripDate;
       conversation.draft.outboundTime = alt.tripTime;
     }
-    if (!nextMissingField(conversation.draft)) {
+    if (!nextMissingField(conversation.draft, askSchedule)) {
       conversation.stage = "confirming";
       delete conversation.awaiting;
       return { conversation, reply: "", action: "quote" };
@@ -1485,7 +1521,7 @@ function decideJourneyReply(
     return { conversation, reply: problem.message, action: "none" };
   }
 
-  const missing = nextMissingField(conversation.draft);
+  const missing = nextMissingField(conversation.draft, askSchedule);
   if (missing) {
     conversation.stage = "collecting";
     const repeat = !changed && conversation.awaiting === missing;
