@@ -8274,7 +8274,7 @@ function QuoteCard({
                   {/* Desktop (1200px+) shows the second label; everything below 1200px is unchanged. */}
                   <span data-book-cta-default>{`BOOK THIS TRANSFER — ${amountLabel}`}</span>
                   <span className="hidden" data-book-cta-desktop>
-                    Continue to booking
+                    Continue to booking details
                     <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden focusable="false">
                       <path d="M3 8h9.5M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

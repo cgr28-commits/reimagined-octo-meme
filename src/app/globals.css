@@ -9755,9 +9755,12 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 @media (min-width: 1200px) {
   [data-vehicle-confidence-list] {
-    grid-template-columns: repeat(3, minmax(0, auto));
-    justify-content: start;
-    column-gap: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.5rem;
+  }
+  [data-vehicle-confidence-list] > li {
+    white-space: nowrap;
   }
 }
 
