@@ -9800,3 +9800,28 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
     }
   }
 }
+/* Phones: the longer "Continue to booking details" button wraps onto two balanced lines so the
+   price and "Price details" keep their room. */
+@media (max-width: 767.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] > #quote-book-now-button {
+      width: auto !important;
+      flex: 0 1 10.75rem !important;
+      max-width: 10.75rem !important;
+      min-height: 3.25rem !important;
+      padding: 0.5rem 0.875rem !important;
+      font-size: 0.9375rem !important;
+      line-height: 1.15 !important;
+      white-space: normal !important;
+      text-wrap: balance;
+      text-align: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] > [data-d2-sticky-summary] {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] [data-d2-price-details] {
+      white-space: nowrap !important;
+    }
+  }
+}
