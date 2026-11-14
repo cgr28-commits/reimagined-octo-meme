@@ -372,3 +372,10 @@ export function sortBelfastEvents<T extends { date: string; startTime?: string; 
 export function belfastEventAcceptsRequests(event: Pick<BelfastEventPublic, "status">): boolean {
   return event.status === "published";
 }
+
+/** Private note the weekly events search puts on the drafts it adds. */
+export const BELFAST_EVENT_SUGGESTION_NOTE_PREFIX = "Suggested by the weekly events search";
+
+export function isSuggestedBelfastEvent(record: Pick<BelfastEventRecord, "sourceNote">): boolean {
+  return Boolean(record.sourceNote?.startsWith(BELFAST_EVENT_SUGGESTION_NOTE_PREFIX));
+}

@@ -42,7 +42,7 @@ export default async function EventTransferRequestPage() {
               <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Event transfer</p>
               <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">Request an event transfer</h1>
               <p className="mt-4 text-base leading-relaxed text-white/70">
-                Tell us about your event and journey. We&apos;ll check availability and email you a personal fixed quotation, usually within a day.
+                Tell us about your event and journey. You&apos;ll get a fixed price: straight away where we can, otherwise by email after we check availability, usually within a day.
               </p>
               <div className="mt-8">
                 <EventTransferRequestClient initialEvents={initialEvents} />

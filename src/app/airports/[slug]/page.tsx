@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import HeroSlideshow from "@/components/HeroSlideshow";
+import PlaceHighlight from "@/components/PlaceHighlight";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
@@ -103,7 +104,12 @@ export default async function AirportTransferPage({ params }: Props) {
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
-          heading={page.title}
+          heading={
+            <PlaceHighlight
+              text={page.title}
+              places={[page.name, page.shortName, page.shortName.endsWith("Airport") ? page.shortName : `${page.shortName} Airport`]}
+            />
+          }
           intro={`Pre-booked, fixed-price transfers to and from ${page.shortName}. ${page.durationNote}`}
           journey={{ airportCode: page.code, direction: "to-airport" }}
         />

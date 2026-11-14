@@ -40,6 +40,7 @@ import {
   type BespokeQuoteAction,
   type BespokeQuoteRecord,
   type BespokeQuoteStatus,
+  type ValidatedBespokeQuoteRequest,
 } from "../shared/bespoke-quote";
 import {
   bespokeQuotationUrl,
@@ -50,6 +51,17 @@ import {
   type BespokeEmail,
 } from "../shared/bespoke-quote-emails";
 import { parseTurnstileHostnames, verifyTurnstileToken } from "../shared/turnstile";
+import { DAY_TRIP_INSTANT_VALIDITY_HOURS, dayTripInstantPriceGbp } from "../shared/day-trips";
+import { parseLondonLocalDateTime } from "../shared/uk-time";
+import {
+  EVENT_INSTANT_SETTINGS_KEY,
+  EVENT_INSTANT_VALIDITY_HOURS,
+  computeEventInstantPrice,
+  eventInstantEligibility,
+  normaliseEventInstantSettings,
+  validateEventInstantSettingsInput,
+  type EventInstantQuoteSettings,
+} from "../shared/bespoke-instant-quote";
 import type { BespokeDeliveryEvent, BespokeNotificationEntry, CoordinatorApplyResponse } from "./bespoke-quote-coordinator";
 import { verifyResendWebhookSignature } from "./owner-inbox-store";
 import { listBespokeIndex, writeBespokeIndexEntry } from "./bespoke-quote-store";
@@ -114,7 +126,22 @@ export type BespokeQuoteDeps = {
   sendOwnerEmail?: (env: WorkerEmailEnv, payload: EmailPayload) => Promise<EmailSendResult>;
   /** Existing Google Calendar logger (passed in from index.ts) for paid bespoke bookings. */
   logPaidBookingCalendar?: LogPaidBookingCalendarFn;
+  /**
+   * The normal journey fare from the existing quote engine (passed in from index.ts,
+   * called unchanged). Returns null when the engine cannot or will not price the
+   * journey, or when it treats it as an airport transfer. Absent = no instant prices.
+   */
+  priceEventJourney?: (journey: BespokeQuoteRecord["journey"]) => Promise<number | null>;
 };
+
+// ---------------------------------------------------------------------------
+// Instant prices for event transfers (owner settings + pricing)
+// ---------------------------------------------------------------------------
+
+export async function readEventInstantSettings(env: Pick<BespokeQuoteEnv, "TRACKING_STORE">): Promise<EventInstantQuoteSettings> {
+  const raw = env.TRACKING_STORE ? await env.TRACKING_STORE.get(EVENT_INSTANT_SETTINGS_KEY, "json").catch(() => null) : null;
+  return normaliseEventInstantSettings(raw);
+}
 
 export const BESPOKE_TURNSTILE_ACTION = "bespoke_quote_request";
 export const BESPOKE_RATE_LIMITS = {
@@ -633,6 +660,17 @@ export async function handleBespokeQuoteRoute(
     if (sub === "" && request.method === "GET") return ownerList(url, ownerEnv, origin);
     if (sub === "detail" && request.method === "GET") return ownerDetail(url, ownerEnv, origin, deps);
     if (sub === "action" && request.method === "POST") return ownerAction(request, ownerEnv, origin, deps);
+    if (sub === "instant-settings" && request.method === "GET") {
+      return respond({ ok: true, settings: await readEventInstantSettings(env) }, 200, origin);
+    }
+    if (sub === "instant-settings" && request.method === "POST") {
+      const input = validateEventInstantSettingsInput(await readJsonBody(request));
+      if (!input.ok) return respond({ error: input.error }, 400, origin);
+      if (!env.TRACKING_STORE) return respond({ error: "Settings storage is not configured." }, 503, origin);
+      const settings: EventInstantQuoteSettings = { ...input.settings, updatedAt: new Date().toISOString() };
+      await env.TRACKING_STORE.put(EVENT_INSTANT_SETTINGS_KEY, JSON.stringify(settings));
+      return respond({ ok: true, settings }, 200, origin);
+    }
     return respond({ error: "Not found" }, 404, origin);
   }
 
@@ -756,14 +794,27 @@ async function publicRequest(
     );
   }
 
+  // Instant price (eligible event transfers only). Any failure here leaves the
+  // request exactly as a normal one: stored, acknowledged, priced by the owner.
+  let instantUrl: string | undefined;
+  if (created.created) {
+    instantUrl = await tryIssueInstantQuote(env, deps, stored, validated.value).catch((error) => {
+      console.error("bespoke instant price failed", reference, error instanceof Error ? error.message : "unknown");
+      return undefined;
+    });
+  }
+
   // Notifications are keyed per request, so a duplicate or retried submission
   // never sends a second acknowledgement or owner alert. Email failure never
   // loses the request: it is stored first and the owner sees the failure.
-  await sendOnce(env, deps, reference, "ack", "request_acknowledgement", "customer", () => ({
-    ...buildBespokeRequestAcknowledgementEmail(stored),
-    to: stored.customer.email,
-    toName: stored.customer.name,
-  })).catch(() => undefined);
+  // (With an instant price the customer gets the quotation email instead.)
+  if (!instantUrl) {
+    await sendOnce(env, deps, reference, "ack", "request_acknowledgement", "customer", () => ({
+      ...buildBespokeRequestAcknowledgementEmail(stored),
+      to: stored.customer.email,
+      toName: stored.customer.name,
+    })).catch(() => undefined);
+  }
   await sendOnce(env, deps, reference, "owner_new", "owner_new_request", "owner", () => ({
     ...buildBespokeOwnerNewRequestEmail(stored, `${siteOrigin(env)}/owner/`),
     to: ownerInbox(env),
@@ -771,10 +822,62 @@ async function publicRequest(
 
   // Only the reference goes back. Never echo stored customer details.
   return respond(
-    { ok: true, reference, status: "received", duplicate: claim.claimed !== true || created.created !== true },
+    {
+      ok: true,
+      reference,
+      status: instantUrl ? "quoted" : "received",
+      duplicate: claim.claimed !== true || created.created !== true,
+      // The customer's own private link to their price (also emailed). Not stored.
+      ...(instantUrl ? { quotationUrl: instantUrl } : {}),
+    },
     created.created ? 201 : 200,
     origin,
   );
+}
+
+/**
+ * Price an eligible event transfer automatically and issue it as a quotation.
+ * Returns the customer's private link, or undefined when the request should stay
+ * a normal one (not eligible, switched off, engine could not price it).
+ */
+async function tryIssueInstantQuote(
+  env: ReadyEnv,
+  deps: BespokeQuoteDeps,
+  stored: BespokeQuoteRecord,
+  request: ValidatedBespokeQuoteRequest,
+): Promise<string | undefined> {
+  const now = new Date();
+  let price: { amountGbp: number; baseFareGbp: number; upliftPercent: number } | null = null;
+  let validityHours = EVENT_INSTANT_VALIDITY_HOURS;
+  if (request.category === "day_trip" && request.dayTrip) {
+    // Day trips: the listed per-car price from our own table (Belfast pickup, enough notice).
+    const listed = dayTripInstantPriceGbp(request.dayTrip, request.journey, parseLondonLocalDateTime(request.journey.date, request.journey.time), now);
+    if (listed === null) return undefined;
+    price = { amountGbp: listed, baseFareGbp: listed, upliftPercent: 0 };
+    validityHours = DAY_TRIP_INSTANT_VALIDITY_HOURS;
+  } else {
+    if (!deps.priceEventJourney) return undefined;
+    if (!eventInstantEligibility(request, now).eligible) return undefined;
+    const settings = await readEventInstantSettings(env);
+    if (!settings.enabled) return undefined;
+    const baseFare = await deps.priceEventJourney(stored.journey);
+    if (baseFare === null) return undefined;
+    price = computeEventInstantPrice(baseFare, settings);
+  }
+  if (!price) return undefined;
+
+  const minted = await generateBespokeCustomerToken(stored.reference);
+  const result = await applyAction(env, deps, stored.reference, {
+    type: "system_issue_instant_quote",
+    amountGbp: price.amountGbp,
+    validityHours,
+    baseFareGbp: price.baseFareGbp,
+    upliftPercent: price.upliftPercent,
+    tokenHash: minted.tokenHash,
+  });
+  if (!result.ok || !result.changed) return undefined;
+  await sendQuotationEmail(env, deps, result.record, minted.token).catch(() => undefined);
+  return bespokeQuotationUrl(minted.token, siteOrigin(env));
 }
 
 const LINK_INVALID = "This quotation link is invalid or no longer available.";

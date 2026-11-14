@@ -6,6 +6,7 @@
  * dashboard sign-in (header only). No second dashboard, no second login.
  */
 
+import OwnerEventInstantPriceSettings from "@/components/OwnerEventInstantPriceSettings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BESPOKE_PAYMENT_REVIEW_REASON_LABELS,
@@ -31,7 +32,11 @@ import {
   type BespokeCalendarStatus,
 } from "@/lib/bespoke-quote-api";
 
-type Props = { ownerKey: string };
+type Props = {
+  ownerKey: string;
+  /** Open straight at this request (used by the front-screen "Needs your attention" list). */
+  initialReference?: string | null;
+};
 
 type CategoryFilter = "all" | BespokeQuoteCategory;
 type StatusFilter = "outstanding" | "all" | "closed";
@@ -76,21 +81,22 @@ function statusTone(status: BespokeQuoteStatus, reviewOpen: boolean): string {
   return "bg-white/10 text-white";
 }
 
-function serviceLabel(item: { category: BespokeQuoteCategory; eventTitle?: string; serviceType?: string }): string {
+function serviceLabel(item: { category: BespokeQuoteCategory; eventTitle?: string; dayTripTitle?: string; serviceType?: string }): string {
   if (item.category === "event") return item.eventTitle ?? "Event Transfer";
+  if (item.category === "day_trip") return item.dayTripTitle ?? "Private Day Trip";
   return item.serviceType
     ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[item.serviceType as keyof typeof BUSINESS_CLASS_REQUEST_SERVICE_LABELS]
     : "Business Class";
 }
 
-export default function OwnerBespokeRequestsPanel({ ownerKey }: Props) {
+export default function OwnerBespokeRequestsPanel({ ownerKey, initialReference = null }: Props) {
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("outstanding");
   const [items, setItems] = useState<BespokeQuoteOwnerSummary[]>([]);
   const [publicEnabled, setPublicEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialReference);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,8 +149,10 @@ export default function OwnerBespokeRequestsPanel({ ownerKey }: Props) {
         </p>
       ) : null}
 
+      <OwnerEventInstantPriceSettings ownerKey={ownerKey} />
+
       <div className="flex flex-wrap gap-2" role="group" aria-label="Category">
-        {(["all", "event", "business_class"] as CategoryFilter[]).map((id) => (
+        {(["all", "event", "business_class", "day_trip"] as CategoryFilter[]).map((id) => (
           <button
             key={id}
             type="button"
@@ -432,6 +440,9 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
           {r.event ? (
             <Row label="Event" value={`${r.event.title} — ${r.event.venue} (${formatUkDate(r.event.date)})`} />
           ) : null}
+          {r.dayTrip ? (
+            <Row label="Day trip" value={`${r.dayTrip.title} — ${r.dayTrip.optionLabel}${r.dayTrip.pickupInBelfast ? "" : " (pickup OUTSIDE Belfast)"}`} />
+          ) : null}
           <Row label="Pickup" value={j.pickupAddress} />
           <Row label="Destination" value={j.destinationAddress} />
           <Row label="Date and time" value={`${formatUkDate(j.date)} at ${j.time}`} />
@@ -444,6 +455,13 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
           {j.specialRequirements ? <Row label="Requirements" value={j.specialRequirements} /> : null}
         </dl>
       </section>
+
+      {r.quote?.instant ? (
+        <p className="rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-sm text-white">
+          Instant price given automatically: <strong>£{r.quote.amountGbp.toFixed(2)}</strong> (normal fare £
+          {r.quote.instant.baseFareGbp.toFixed(2)} + {r.quote.instant.upliftPercent}%). You can still send a different quotation below.
+        </p>
+      ) : null}
 
       {r.status === "NEW" ? (
         <button type="button" className={primaryButton} disabled={Boolean(busy)} onClick={() => void run("Start review", { type: "owner_start_review" })}>

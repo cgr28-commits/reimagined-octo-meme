@@ -10,6 +10,7 @@ import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import FromAirportText from "@/components/FromAirportText";
+import PlaceHighlight from "@/components/PlaceHighlight";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
 import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
@@ -99,6 +100,12 @@ export default async function TransferRoutePage({ params }: Props) {
 
   const isLanding = Boolean(page.journeyInfo);
   const isFromAirport = page.direction === "from-airport";
+  // Heading: the destination is shown in green (names this airport may appear under).
+  const airportPlaceNames = [
+    page.airport.name,
+    page.airport.shortName,
+    page.airport.shortName.endsWith("Airport") ? page.airport.shortName : `${page.airport.shortName} Airport`,
+  ];
   const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";
   const whatsappMessage = isFromAirport
     ? `Hi, I'd like a taxi from ${page.airport.name} to ${page.town.name}.`
@@ -208,9 +215,11 @@ export default async function TransferRoutePage({ params }: Props) {
               <FromAirportText
                 text={page.h1}
                 fromAirportText={`${page.airport.name} to ${page.town.name} Taxi`}
+                places={airportPlaceNames}
+                fromAirportPlaces={[page.town.name]}
               />
             ) : (
-              page.h1
+              <PlaceHighlight text={page.h1} places={[page.town.name]} />
             )
           }
           intro={quoteFirstLede ?? firstSentence(page.intro)}

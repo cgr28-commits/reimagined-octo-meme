@@ -7,6 +7,7 @@
  * descriptions, no images). Uses the existing dashboard owner key (header only).
  */
 
+import { isSuggestedBelfastEvent } from "../../shared/belfast-events";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BELFAST_EVENT_CATEGORIES,
@@ -21,6 +22,7 @@ import { formatUkDate } from "../../shared/uk-time";
 import {
   BelfastEventsApiError,
   fetchOwnerBelfastEvents,
+  deleteOwnerBelfastEventDraft,
   postOwnerBelfastEventAction,
   type BelfastEventOwnerAction,
 } from "@/lib/belfast-events-api";
@@ -148,6 +150,23 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
   };
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+
+  async function removeDraft(record: BelfastEventRecord) {
+    if (!window.confirm(`Delete the draft "${record.title}"? This cannot be undone.`)) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await deleteOwnerBelfastEventDraft(ownerKey, record);
+      setEvents((list) => list.filter((e) => e.id !== record.id));
+      setEditing(null);
+      setNotice("Draft deleted.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete the draft.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function run(action: BelfastEventOwnerAction, withFields: boolean) {
     setBusy(true);
@@ -332,6 +351,11 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
                   Approve and publish
                 </button>
               ) : null}
+              {record.status === "draft" ? (
+                <button type="button" className={dangerButton} disabled={busy} onClick={() => void removeDraft(record)}>
+                  Delete draft
+                </button>
+              ) : null}
               {record.status !== "draft" ? (
                 <button type="button" className={secondaryButton} disabled={busy} onClick={() => void run("unpublish", false)}>
                   Unpublish (back to draft)
@@ -397,6 +421,9 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
               <span className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(e.status)}`}>{BELFAST_EVENT_STATUS_LABELS[e.status]}</span>
                 <span className="text-xs text-white/55">{BELFAST_EVENT_CATEGORY_SINGULAR[e.category]}</span>
+                {e.status === "draft" && isSuggestedBelfastEvent(e) ? (
+                  <span className="rounded-full bg-sky-500/20 px-2.5 py-1 text-xs font-semibold text-sky-100">Suggested — check and approve</span>
+                ) : null}
               </span>
               <span className="mt-2 block text-base font-bold text-white">{e.title}</span>
               <span className="mt-1 block text-sm text-white/65">

@@ -26,6 +26,9 @@ import {
   type BespokeQuoteRecord,
   type ValidatedBespokeQuoteRequest,
 } from "../shared/bespoke-quote";
+import { computeEventInstantPrice, normaliseEventInstantSettings, validateEventInstantSettingsInput } from "../shared/bespoke-instant-quote";
+import { DAY_TRIPS, addressLooksOutsideBelfast, getDayTrip } from "../shared/day-trips";
+import { TOURS } from "../src/lib/tours";
 import { verifyTurnstileToken } from "../shared/turnstile";
 import { BespokeQuoteCoordinator } from "../workers/addresses/src/bespoke-quote-coordinator";
 import {
@@ -998,6 +1001,199 @@ async function main(): Promise<void> {
   assert.equal(allowed.status, 201);
   assert.ok(sent.slice(sentBeforeAllow).some((m) => m.to === "tester@example.com"));
 
+  console.log("=== Instant event prices ===");
+  {
+    const on = { enabled: true, upliftEnabled: true, upliftPercent: 20 };
+    assert.equal(computeEventInstantPrice(40, on)?.amountGbp, 48, "fare + 20%");
+    assert.equal(computeEventInstantPrice(12, on)?.amountGbp, 20, "£20 minimum wins");
+    assert.equal(computeEventInstantPrice(12, on)?.minimumApplied, true);
+    assert.equal(computeEventInstantPrice(40, { ...on, upliftEnabled: false })?.amountGbp, 40, "uplift switched off");
+    assert.equal(computeEventInstantPrice(40, { ...on, upliftPercent: 35 })?.amountGbp, 54, "adjustable percentage");
+    assert.equal(computeEventInstantPrice(33.33, on)?.amountGbp, 40, "rounded to the nearest pound");
+    assert.equal(computeEventInstantPrice(0, on), null);
+    assert.deepEqual(normaliseEventInstantSettings(null), { enabled: true, upliftEnabled: true, upliftPercent: 20 });
+    assert.equal(normaliseEventInstantSettings({ upliftPercent: 500 }).upliftPercent, 20, "invalid stored value falls back");
+    assert.equal(validateEventInstantSettingsInput({ enabled: true, upliftEnabled: true, upliftPercent: 101 }).ok, false);
+    assert.equal(validateEventInstantSettingsInput({ enabled: true, upliftEnabled: true, upliftPercent: 12.5 }).ok, false);
+
+    const priced: unknown[] = [];
+    let engineFare: number | null = 40;
+    const instantDeps = deps as typeof deps & { priceEventJourney?: (j: unknown) => Promise<number | null> };
+    instantDeps.priceEventJourney = async (journey) => {
+      priced.push(journey);
+      return engineFare;
+    };
+    const small = (email: string, extra: Record<string, unknown> = {}) => ({
+      ...eventInput({ customerEmail: email, passengers: 2, groupVehicleRequested: false, additionalStops: [], eventId: undefined, ...extra }),
+      turnstileToken: "x",
+    });
+
+    // Eligible: priced, quoted, link returned, quotation email instead of acknowledgement.
+    const before = sent.length;
+    const inst = await call("/bespoke-quotes/request", { body: small("instant@example.com") });
+    assert.equal(inst.status, 201, inst.text);
+    assert.equal(inst.json.status, "quoted");
+    assert.match(inst.json.quotationUrl, /^https:\/\/www\.myairporttaxini\.co\.uk\/quotation\/#t=/);
+    const instDetail = await detailOf(inst.json.reference);
+    assert.equal(instDetail.request.status, "QUOTED");
+    assert.equal(instDetail.request.quote.amountGbp, 48);
+    assert.deepEqual(instDetail.request.quote.instant, { baseFareGbp: 40, upliftPercent: 20 });
+    const instMails = sent.slice(before);
+    assert.ok(instMails.some((m) => m.audience === "customer" && m.body.includes("#t=")), "customer gets the quotation email");
+    assert.ok(!instMails.some((m) => m.audience === "customer" && /not a confirmed booking/.test(m.body) && !m.body.includes("#t=")), "no separate acknowledgement");
+    assert.ok(instMails.some((m) => m.audience === "owner"), "owner is still told");
+    // The link works and shows the price, but never how it was worked out.
+    const instView = await call("/bespoke-quotes/view", { body: { token: tokenFromLink(inst.json.quotationUrl) } });
+    assert.equal(instView.status, 200, instView.text);
+    assert.equal(instView.json.quote.quote.amountGbp, 48);
+    assert.ok(!/baseFare|upliftPercent|instant/.test(instView.text), "customer never sees the uplift");
+    // Duplicate submission: no second link, no re-pricing.
+    const pricedCount = priced.length;
+    const instDup = await call("/bespoke-quotes/request", { body: small("instant@example.com") });
+    assert.equal(instDup.json.reference, inst.json.reference);
+    assert.equal(instDup.json.quotationUrl, undefined);
+    assert.equal(priced.length, pricedCount);
+
+    // Not eligible → ordinary request, engine never asked.
+    const notAsked = async (label: string, email: string, extra: Record<string, unknown>) => {
+      const n = priced.length;
+      const res = await call("/bespoke-quotes/request", { body: small(email, extra) });
+      assert.equal(res.status, 201, `${label}: ${res.text}`);
+      assert.equal(res.json.status, "received", label);
+      assert.equal(res.json.quotationUrl, undefined, label);
+      assert.equal(priced.length, n, `${label}: engine not called`);
+      assert.equal((await detailOf(res.json.reference)).request.status, "NEW", label);
+    };
+    await notAsked("group", "group@example.com", { passengers: 6, groupVehicleRequested: true });
+    await notAsked("extra stops", "stops@example.com", { additionalStops: ["Hillsborough village"] });
+    await notAsked("short notice", "soon@example.com", { date: isoDate(0), time: "23:59", returnDate: isoDate(1), returnTime: "02:00", eventDate: isoDate(0) });
+    const bcN = priced.length;
+    const bc = await call("/bespoke-quotes/request", { body: { ...businessInput({ customerEmail: "bc.instant@example.com" }), turnstileToken: "x" } });
+    assert.equal(bc.json.status, "received", "Business Class is always a request");
+    assert.equal(priced.length, bcN);
+
+    // Engine cannot price it (or it is an airport journey) → ordinary request.
+    engineFare = null;
+    const noPrice = await call("/bespoke-quotes/request", { body: small("noprice@example.com") });
+    assert.equal(noPrice.json.status, "received");
+    engineFare = 40;
+
+    // Owner settings: owner-only, validated, and used for the next request.
+    assert.equal((await call("/owner/bespoke-quotes/instant-settings", { method: "GET" })).status, 401);
+    assert.equal((await call("/owner/bespoke-quotes/instant-settings", { owner: OWNER, body: { enabled: true, upliftEnabled: true, upliftPercent: 150 } })).status, 400);
+    const savedSettings = await call("/owner/bespoke-quotes/instant-settings", { owner: OWNER, body: { enabled: true, upliftEnabled: true, upliftPercent: 10 } });
+    assert.equal(savedSettings.status, 200, savedSettings.text);
+    const ten = await call("/bespoke-quotes/request", { body: small("ten@example.com") });
+    assert.equal((await detailOf(ten.json.reference)).request.quote.amountGbp, 44, "10% uplift");
+    await call("/owner/bespoke-quotes/instant-settings", { owner: OWNER, body: { enabled: true, upliftEnabled: false, upliftPercent: 10 } });
+    const noUp = await call("/bespoke-quotes/request", { body: small("noup@example.com") });
+    assert.equal((await detailOf(noUp.json.reference)).request.quote.amountGbp, 40, "uplift off");
+    await call("/owner/bespoke-quotes/instant-settings", { owner: OWNER, body: { enabled: false, upliftEnabled: true, upliftPercent: 20 } });
+    const offInst = await call("/bespoke-quotes/request", { body: small("instoff@example.com") });
+    assert.equal(offInst.json.status, "received", "instant prices switched off");
+    assert.equal((await call("/owner/bespoke-quotes/instant-settings", { method: "GET", owner: OWNER })).json.settings.enabled, false);
+    kv.delete("bespoke:instant-quote-settings");
+    delete instantDeps.priceEventJourney;
+
+    // Wiring: the engine is called without an airport code, and airport journeys are left alone.
+    const indexSrc = readFileSync("workers/addresses/src/index.ts", "utf8");
+    const wiring = indexSrc.slice(indexSrc.indexOf("priceEventJourney:"), indexSrc.indexOf("priceEventJourney:") + 1200);
+    assert.ok(wiring.includes("priceWithMainQuoteTool(") && !wiring.includes("airportCode"), "no airport code is passed");
+    assert.ok(wiring.includes("priced.payload.airportTransfer === true) return null"), "airport journeys are not instant-priced here");
+  }
+
+  console.log("=== Day trips: book and pay at the listed price ===");
+  {
+    // The server price table matches what the day trip pages advertise.
+    assert.equal(DAY_TRIPS.length, TOURS.length, "every day trip page has a price");
+    for (const tour of TOURS) {
+      const trip = getDayTrip(tour.slug);
+      assert.ok(trip, `price table has ${tour.slug}`);
+      assert.equal(trip!.title, tour.title);
+      assert.equal(Math.min(...trip!.options.map((o) => o.priceGbp)), tour.priceFrom, `${tour.slug}: lowest price matches the page`);
+      for (const o of trip!.options) assert.ok(tour.priceNote.includes(`£${o.priceGbp}`) || tour.price.includes(`£${o.priceGbp}`), `${tour.slug}: £${o.priceGbp} is shown on the page`);
+    }
+    assert.equal(addressLooksOutsideBelfast("Europa Hotel, Great Victoria Street, Belfast BT2 7AP"), false);
+    assert.equal(addressLooksOutsideBelfast("1 Main Street, Lisburn BT27 4AA"), true);
+    assert.equal(addressLooksOutsideBelfast("Belfast Cruise Terminal"), false);
+
+    const trip = (email: string, extra: Record<string, unknown> = {}) => ({
+      category: "day_trip",
+      dayTripSlug: "giants-causeway",
+      customerName: "Dana Tripper",
+      customerEmail: email,
+      customerPhone: "07700 900456",
+      pickupAddress: "Europa Hotel, Great Victoria Street, Belfast BT2 7AP",
+      pickupInBelfast: true,
+      date: isoDate(30),
+      time: "09:00",
+      passengers: 4,
+      // Ignored for day trips: the trip and price never come from the browser.
+      destinationAddress: "Somewhere else entirely",
+      amountGbp: 1,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      termsVersion: "2026-10",
+      turnstileToken: "x",
+      ...extra,
+    });
+
+    const before = sent.length;
+    const paid = await call("/bespoke-quotes/request", { body: trip("trip@example.com") });
+    assert.equal(paid.status, 201, paid.text);
+    assert.equal(paid.json.status, "quoted");
+    assert.match(paid.json.quotationUrl, /\/quotation\/#t=/);
+    const d = (await detailOf(paid.json.reference)).request;
+    assert.equal(d.category, "day_trip");
+    assert.equal(d.status, "QUOTED");
+    assert.equal(d.quote.amountGbp, 395, "listed per-car price, not a browser value");
+    assert.equal(d.dayTrip.title, "Giant's Causeway & Causeway Coast");
+    assert.equal(d.journey.destinationAddress, "Giant's Causeway & Causeway Coast (private day trip)");
+    assert.equal(d.journey.returnJourney, false);
+    assert.ok(sent.slice(before).some((m) => m.audience === "customer" && m.body.includes("#t=") && m.body.includes("Giant's Causeway")), "customer gets the payment link email");
+    const view = await call("/bespoke-quotes/view", { body: { token: tokenFromLink(paid.json.quotationUrl) } });
+    assert.equal(view.json.quote.quote.amountGbp, 395);
+    assert.equal(view.json.quote.quote.payable, true);
+    assert.equal(view.json.quote.categoryLabel, "Private Day Trip");
+
+    // Half day / full day choice.
+    const half = await call("/bespoke-quotes/request", { body: trip("half@example.com", { dayTripSlug: "antrim-coast", dayTripOption: "half_day" }) });
+    assert.equal((await detailOf(half.json.reference)).request.quote.amountGbp, 195);
+    const full = await call("/bespoke-quotes/request", { body: trip("full@example.com", { dayTripSlug: "antrim-coast", dayTripOption: "full_day" }) });
+    assert.equal((await detailOf(full.json.reference)).request.quote.amountGbp, 395);
+    const noOption = await call("/bespoke-quotes/request", { body: trip("noopt@example.com", { dayTripSlug: "antrim-coast" }) });
+    assert.equal(noOption.status, 400);
+    assert.ok(noOption.json.errors.dayTripOption);
+
+    // Not payable straight away → an ordinary request for the owner to price.
+    const manual = async (label: string, email: string, extra: Record<string, unknown>) => {
+      const res = await call("/bespoke-quotes/request", { body: trip(email, extra) });
+      assert.equal(res.status, 201, `${label}: ${res.text}`);
+      assert.equal(res.json.status, "received", label);
+      assert.equal(res.json.quotationUrl, undefined, label);
+      assert.equal((await detailOf(res.json.reference)).request.status, "NEW", label);
+    };
+    await manual("outside Belfast (said so)", "out1@example.com", { pickupInBelfast: false, pickupAddress: "1 Main Street, Lisburn" });
+    await manual("outside Belfast (postcode)", "out2@example.com", { pickupAddress: "1 Main Street, Lisburn BT27 4AA" });
+    await manual("short notice", "soon.trip@example.com", { date: isoDate(0), time: "23:59" });
+
+    // Validation.
+    assert.equal((await call("/bespoke-quotes/request", { body: trip("bad1@example.com", { dayTripSlug: "made-up-trip" }) })).status, 400);
+    const five = await call("/bespoke-quotes/request", { body: trip("five@example.com", { passengers: 5 }) });
+    assert.equal(five.status, 400);
+    assert.match(five.json.errors.passengers, /up to 4 passengers/);
+
+    // Owner list can filter day trips.
+    const list = await call("/owner/bespoke-quotes?category=day_trip", { method: "GET", owner: OWNER });
+    assert.ok(list.json.items.length >= 3 && list.json.items.every((i: { category: string }) => i.category === "day_trip"));
+    assert.ok(list.json.items.some((i: { dayTripTitle?: string }) => i.dayTripTitle === "Giant's Causeway & Causeway Coast"));
+
+    // The day trip page keeps its existing enquiry form unless the online service is switched on.
+    const tourPage = readFileSync("src/app/tours/[slug]/page.tsx", "utf8");
+    assert.ok(tourPage.includes("BESPOKE_PUBLIC_PAGES_ENABLED && TURNSTILE_SITE_KEY ? getDayTrip(tour.slug) : undefined"));
+    assert.ok(tourPage.includes("<TourBookingForm"), "existing enquiry form kept as the fallback");
+  }
+
   console.log("=== Email templates ===");
   const tpl = await quoted(realNow);
   tpl.owner.internalNotes = "PRIVATE-NOTE";
@@ -1056,7 +1252,7 @@ async function main(): Promise<void> {
   assert.ok(!/[?&]key=/.test(panel));
   const driverPage = read("src/app/driver/DriverPageClient.tsx");
   assert.match(driverPage, /ownerToolTab === "bespoke-requests"/);
-  assert.match(driverPage, /<OwnerBespokeRequestsPanel ownerKey=\{savedKey\} \/>/);
+  assert.match(driverPage, /<OwnerBespokeRequestsPanel [^>]*ownerKey=\{savedKey\}/);
   assert.match(read("src/components/OwnerDashboardToolSwitcher.tsx"), /id: "bespoke-requests"/);
   assert.match(read("src/app/robots.ts"), /"\/quotation\/"/);
   const quotationPage = read("src/app/quotation/page.tsx");

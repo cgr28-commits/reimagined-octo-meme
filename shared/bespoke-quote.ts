@@ -17,6 +17,7 @@
 import { BUSINESS_CLASS_MAX_PASSENGERS } from "./passenger-limits";
 import { emailAddressProblem } from "./email-typo";
 import { parseLondonLocalDateTime, todayLondonDate } from "./uk-time";
+import { DAY_TRIP_MAX_PASSENGERS, getDayTrip, getDayTripOption, type DayTripInfo } from "./day-trips";
 
 export const BESPOKE_QUOTE_SCHEMA_VERSION = 1;
 
@@ -24,12 +25,13 @@ export const BESPOKE_QUOTE_SCHEMA_VERSION = 1;
 // Categories and service types
 // ---------------------------------------------------------------------------
 
-export const BESPOKE_QUOTE_CATEGORIES = ["event", "business_class"] as const;
+export const BESPOKE_QUOTE_CATEGORIES = ["event", "business_class", "day_trip"] as const;
 export type BespokeQuoteCategory = (typeof BESPOKE_QUOTE_CATEGORIES)[number];
 
 export const BESPOKE_QUOTE_CATEGORY_LABELS: Record<BespokeQuoteCategory, string> = {
   event: "Event Transfer",
   business_class: "Business Class Transfer",
+  day_trip: "Private Day Trip",
 };
 
 export const BUSINESS_CLASS_REQUEST_SERVICE_TYPES = [
@@ -57,6 +59,7 @@ export const BUSINESS_CLASS_REQUEST_SERVICE_LABELS: Record<BusinessClassRequestS
 export const BESPOKE_QUOTE_MAX_PASSENGERS: Record<BespokeQuoteCategory, number> = {
   event: 16,
   business_class: BUSINESS_CLASS_MAX_PASSENGERS,
+  day_trip: DAY_TRIP_MAX_PASSENGERS,
 };
 
 // ---------------------------------------------------------------------------
@@ -241,6 +244,8 @@ export type BespokeQuoteOffer = {
   customerMessage?: string;
   /** SHA-256 (hex) of the customer link secret. The secret itself is never stored. */
   tokenHash: string;
+  /** Present when the price was worked out automatically (event transfers only). */
+  instant?: { baseFareGbp: number; upliftPercent: number };
 };
 
 export type BespokePaymentAttempt = {
@@ -299,6 +304,7 @@ export type BespokeQuoteRecord = {
   journey: BespokeQuoteJourney;
   serviceType?: BusinessClassRequestServiceType;
   event?: BespokeQuoteEventInfo;
+  dayTrip?: DayTripInfo;
   consent: BespokeQuoteConsent;
   owner: BespokeQuoteOwnerFields;
   quote?: BespokeQuoteOffer;
@@ -323,6 +329,7 @@ export type ValidatedBespokeQuoteRequest = {
   journey: BespokeQuoteJourney;
   serviceType?: BusinessClassRequestServiceType;
   event?: BespokeQuoteEventInfo;
+  dayTrip?: DayTripInfo;
   consent: BespokeQuoteConsent;
 };
 
@@ -389,8 +396,15 @@ export function validateBespokeQuoteRequest(
 ): BespokeValidationResult {
   const errors: Record<string, string> = {};
   const category = input.category;
-  if (category !== "event" && category !== "business_class") {
-    return { ok: false, errors: { category: "Choose Event Transfer or Business Class." } };
+  if (category !== "event" && category !== "business_class" && category !== "day_trip") {
+    return { ok: false, errors: { category: "Choose Event Transfer, Business Class or Day Trip." } };
+  }
+  // Day trips: the trip comes from our own list, never from free text.
+  const trip = category === "day_trip" ? getDayTrip(input.dayTripSlug) : undefined;
+  const tripOption = trip ? getDayTripOption(trip, input.dayTripOption) : undefined;
+  if (category === "day_trip") {
+    if (!trip) errors.dayTripSlug = "Choose a day trip.";
+    else if (!tripOption) errors.dayTripOption = "Choose half day or full day.";
   }
 
   const text = (field: string, max: number, required: boolean, label: string): string => {
@@ -417,7 +431,8 @@ export function validateBespokeQuoteRequest(
   // Journey
   const pickupAddress = text("pickupAddress", TEXT_LIMITS.address, true, "Pickup address");
   if (pickupAddress && pickupAddress.length < 5) errors.pickupAddress = "Please enter the full pickup address.";
-  const destinationAddress = text("destinationAddress", TEXT_LIMITS.address, true, "Destination");
+  const destinationAddress =
+    category === "day_trip" ? `${trip?.title ?? "Day trip"} (private day trip)` : text("destinationAddress", TEXT_LIMITS.address, true, "Destination");
   if (destinationAddress && destinationAddress.length < 3) {
     errors.destinationAddress = "Please enter the destination.";
   }
@@ -438,7 +453,8 @@ export function validateBespokeQuoteRequest(
     else if (outboundAt.getTime() <= now.getTime()) errors.time = "The pickup time must be in the future.";
   }
 
-  const returnJourney = readBool(input.returnJourney);
+  // A day trip starts and ends at the pickup: there is no separate return leg.
+  const returnJourney = category === "day_trip" ? false : readBool(input.returnJourney);
   let returnDate: string | undefined;
   let returnTime: string | undefined;
   if (returnJourney) {
@@ -462,7 +478,9 @@ export function validateBespokeQuoteRequest(
     errors.passengers =
       category === "business_class"
         ? `Business Class accommodates up to ${max} passengers.`
-        : `For groups larger than ${max}, please contact us directly.`;
+        : category === "day_trip"
+          ? `Day trips are priced per car for up to ${max} passengers. For a larger group, please contact us.`
+          : `For groups larger than ${max}, please contact us directly.`;
   }
 
   const luggage = text("luggage", TEXT_LIMITS.luggage, false, "Luggage details");
@@ -495,7 +513,18 @@ export function validateBespokeQuoteRequest(
   // Category specifics
   let serviceType: BusinessClassRequestServiceType | undefined;
   let event: BespokeQuoteEventInfo | undefined;
-  if (category === "business_class") {
+  let dayTrip: DayTripInfo | undefined;
+  if (category === "day_trip") {
+    if (trip && tripOption) {
+      dayTrip = {
+        slug: trip.slug,
+        title: trip.title,
+        option: tripOption.id,
+        optionLabel: tripOption.label,
+        pickupInBelfast: readBool(input.pickupInBelfast),
+      };
+    }
+  } else if (category === "business_class") {
     const st = input.serviceType;
     if (typeof st !== "string" || !(BUSINESS_CLASS_REQUEST_SERVICE_TYPES as readonly string[]).includes(st)) {
       errors.serviceType = "Choose a service type.";
@@ -548,6 +577,7 @@ export function validateBespokeQuoteRequest(
       },
       ...(serviceType ? { serviceType } : {}),
       ...(event ? { event } : {}),
+      ...(dayTrip ? { dayTrip } : {}),
       consent: { termsAcceptedAt: now.toISOString(), termsVersion, privacyAcknowledged: true },
     },
   };
@@ -632,7 +662,7 @@ export async function bespokeQuoteFingerprint(value: ValidatedBespokeQuoteReques
   const parts = [
     value.category,
     value.customer.email.toLowerCase(),
-    value.event?.eventId ?? value.event?.title.toLowerCase() ?? value.serviceType ?? "",
+    value.event?.eventId ?? value.event?.title.toLowerCase() ?? value.serviceType ?? (value.dayTrip ? `${value.dayTrip.slug}:${value.dayTrip.option}` : ""),
     value.journey.date,
     value.journey.pickupAddress.toLowerCase(),
   ];
@@ -659,6 +689,7 @@ export function createBespokeQuoteRecord(input: {
     journey: r.journey,
     ...(r.serviceType ? { serviceType: r.serviceType } : {}),
     ...(r.event ? { event: r.event } : {}),
+    ...(r.dayTrip ? { dayTrip: r.dayTrip } : {}),
     consent: r.consent,
     owner: { availability: "unknown" },
     quoteHistory: [],
@@ -705,6 +736,15 @@ export type BespokeQuoteAction =
   | { type: "owner_resolve_review"; resolution: "accept_payment" | "manual_refund_required"; note: string }
   | { type: "owner_record_manual_refund"; paymentReference: string; note: string }
   | { type: "customer_decline"; tokenHash: string }
+  | {
+      /** Automatic price for an eligible event transfer, issued straight after the request is stored. */
+      type: "system_issue_instant_quote";
+      amountGbp: number;
+      validityHours: number;
+      baseFareGbp: number;
+      upliftPercent: number;
+      tokenHash: string;
+    }
   | { type: "system_expire" }
   | { type: "system_begin_payment"; quoteVersion: number; attemptId: string; tokenHash: string }
   | { type: "system_attach_checkout"; attemptId: string; checkoutId: string; paymentUrl?: string }
@@ -886,6 +926,40 @@ export function applyBespokeQuoteAction(
       ];
       delete record.paymentAttempt;
       return commit("owner", "QUOTED", `quote v${version}: £${amount.toFixed(2)}`);
+    }
+
+    case "system_issue_instant_quote": {
+      // Only a brand-new event request that the owner has not touched.
+      if (from !== "NEW" || (record.category !== "event" && record.category !== "day_trip") || record.quote) {
+        return fail("invalid_status", "An instant price can only be issued for a new event or day trip request.");
+      }
+      const amount = money(action.amountGbp);
+      const base = money(action.baseFareGbp);
+      if (amount === null || amount < BESPOKE_QUOTE_MIN_AMOUNT_GBP || amount > BESPOKE_QUOTE_MAX_AMOUNT_GBP || base === null || base <= 0) {
+        return fail("invalid_input", "The instant price is invalid.", 400);
+      }
+      if (!Number.isInteger(action.upliftPercent) || action.upliftPercent < 0 || action.upliftPercent > 100) {
+        return fail("invalid_input", "The uplift is invalid.", 400);
+      }
+      const hours = action.validityHours;
+      if (!Number.isInteger(hours) || hours < BESPOKE_QUOTE_MIN_VALIDITY_HOURS || hours > BESPOKE_QUOTE_MAX_VALIDITY_HOURS) {
+        return fail("invalid_input", "Validity is invalid.", 400);
+      }
+      if (!/^[0-9a-f]{64}$/.test(action.tokenHash)) return fail("invalid_input", "Token is invalid.", 400);
+      const pickup = pickupInstant(record);
+      if (!pickup || pickup.getTime() <= now.getTime()) return fail("pickup_passed", "The pickup time has passed.");
+      const expiresMs = Math.min(now.getTime() + hours * 3_600_000, pickup.getTime());
+      const offer: BespokeQuoteOffer = {
+        version: 1,
+        amountGbp: amount,
+        issuedAt: at,
+        expiresAt: new Date(expiresMs).toISOString(),
+        tokenHash: action.tokenHash,
+        instant: { baseFareGbp: base, upliftPercent: action.upliftPercent },
+      };
+      record.quote = offer;
+      record.quoteHistory = [...record.quoteHistory, { version: 1, amountGbp: amount, issuedAt: at, expiresAt: offer.expiresAt }];
+      return commit("system", "QUOTED", `instant price: £${amount.toFixed(2)} (fare £${base.toFixed(2)} + ${action.upliftPercent}%)`);
     }
 
     case "owner_rotate_link": {
@@ -1127,6 +1201,7 @@ export type BespokeQuotePublicView = {
   customerFirstName: string;
   serviceTypeLabel?: string;
   event?: { title: string; date: string; venue: string };
+  dayTrip?: { title: string; optionLabel: string };
   journey: {
     pickupAddress: string;
     destinationAddress: string;
@@ -1162,6 +1237,7 @@ export function toBespokeQuotePublicView(record: BespokeQuoteRecord, now: Date):
     customerFirstName: record.customer.name.split(/\s+/)[0] ?? "",
     ...(record.serviceType ? { serviceTypeLabel: BUSINESS_CLASS_REQUEST_SERVICE_LABELS[record.serviceType] } : {}),
     ...(record.event ? { event: { title: record.event.title, date: record.event.date, venue: record.event.venue } } : {}),
+    ...(record.dayTrip ? { dayTrip: { title: record.dayTrip.title, optionLabel: record.dayTrip.optionLabel } } : {}),
     journey: {
       pickupAddress: record.journey.pickupAddress,
       destinationAddress: record.journey.destinationAddress,
@@ -1203,6 +1279,7 @@ export type BespokeQuoteOwnerSummary = {
   time: string;
   passengers: number;
   eventTitle?: string;
+  dayTripTitle?: string;
   serviceType?: BusinessClassRequestServiceType;
   reviewOpen: boolean;
   quotedAmountGbp?: number;
@@ -1231,6 +1308,7 @@ export function toBespokeQuoteOwnerSummary(record: BespokeQuoteRecord): BespokeQ
     time: record.journey.time,
     passengers: record.journey.passengers,
     ...(record.event ? { eventTitle: record.event.title.slice(0, 80) } : {}),
+    ...(record.dayTrip ? { dayTripTitle: record.dayTrip.title.slice(0, 80) } : {}),
     ...(record.serviceType ? { serviceType: record.serviceType } : {}),
     reviewOpen: Boolean(record.review?.open),
     ...(record.quote ? { quotedAmountGbp: record.quote.amountGbp, quoteExpiresAt: record.quote.expiresAt } : {}),

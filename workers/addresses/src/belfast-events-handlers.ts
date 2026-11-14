@@ -8,6 +8,11 @@
  *   GET  /owner/belfast-events        → every event incl. drafts and private notes
  *   POST /owner/belfast-events/action → { action: "create" | "save" | "publish" | "unpublish" | "postpone" | "cancel", id?, expectedVersion?, fields? }
  *
+ * Weekly search (Authorization: Bearer EVENT_SUGGESTIONS_TOKEN; 404 when the secret is unset):
+ *   GET  /events/suggestions          → names and dates already stored (to avoid duplicates)
+ *   POST /events/suggestions          → { events: [...] } adds DRAFTS only. This token can never
+ *                                        edit, publish or read private notes. The owner still approves.
+ *
  * Storage: TRACKING_STORE (KV) under the new prefix "bevt:" only. Only the owner
  * writes, so a version check is enough to warn about two devices editing the
  * same event. Nothing here touches quotes, payments or bookings.
@@ -15,10 +20,12 @@
 import { corsHeaders } from "../shared/google-places";
 import {
   BELFAST_EVENT_ID,
+  BELFAST_EVENT_SUGGESTION_NOTE_PREFIX,
   applyBelfastEventAction,
   createBelfastEvent,
   sortBelfastEvents,
   toBelfastEventPublic,
+  todayInLondon,
   type BelfastEventAction,
   type BelfastEventPublic,
   type BelfastEventRecord,
@@ -28,12 +35,28 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 export type BelfastEventsEnv = DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
   BESPOKE_QUOTES_ENABLED?: string;
+  /** Secret for the weekly events search. Draft-creation only. Unset = route is 404. */
+  EVENT_SUGGESTIONS_TOKEN?: string;
 };
+
+const MAX_SUGGESTIONS_PER_CALL = 20;
+const MAX_SUGGESTIONS_BODY_BYTES = 64 * 1024;
+const MIN_SUGGESTIONS_TOKEN_LENGTH = 24;
+
+function suggestionsAuthorized(request: Request, env: BelfastEventsEnv): boolean {
+  const expected = env.EVENT_SUGGESTIONS_TOKEN?.trim() ?? "";
+  const header = request.headers.get("Authorization") ?? "";
+  const offered = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (expected.length < MIN_SUGGESTIONS_TOKEN_LENGTH || offered.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i += 1) diff |= expected.charCodeAt(i) ^ offered.charCodeAt(i);
+  return diff === 0;
+}
 
 const KEY_PREFIX = "bevt:";
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_EVENTS = 500;
-const ROUTE = /^\/(?:api\/)?(?:events\/public|owner\/belfast-events(?:\/action)?)\/?$/;
+const ROUTE = /^\/(?:api\/)?(?:events\/public|events\/suggestions|owner\/belfast-events(?:\/action)?)\/?$/;
 
 export function isBelfastEventsPath(pathname: string): boolean {
   return ROUTE.test(pathname);
@@ -73,11 +96,11 @@ export async function listPublicBelfastEvents(store: KVNamespace, now = new Date
   return records.map((r) => toBelfastEventPublic(r, now)).filter((e): e is BelfastEventPublic => e !== null);
 }
 
-async function readJson(request: Request): Promise<Record<string, unknown> | null> {
+async function readJson(request: Request, maxBytes = MAX_BODY_BYTES): Promise<Record<string, unknown> | null> {
   const declared = Number(request.headers.get("Content-Length") ?? "0");
-  if (declared > MAX_BODY_BYTES) return null;
+  if (declared > maxBytes) return null;
   const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return null;
+  if (text.length > maxBytes) return null;
   try {
     const parsed = JSON.parse(text) as unknown;
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
@@ -103,6 +126,56 @@ export async function handleBelfastEventsRoute(
     const events = await listPublicBelfastEvents(env.TRACKING_STORE, now);
     // Short cache: cancellations should show quickly.
     return respond({ ok: true, events, generatedAt: now.toISOString() }, 200, origin, "public, max-age=300");
+  }
+
+  if (path === "/events/suggestions") {
+    // Dark unless the secret exists; a wrong or missing token looks the same as "not there".
+    if (!suggestionsAuthorized(request, env)) return respond({ error: "Not found" }, 404, origin);
+    if (!env.TRACKING_STORE) return respond({ error: "Storage is not configured" }, 503, origin);
+    const existing = await listBelfastEventRecords(env.TRACKING_STORE);
+    if (request.method === "GET") {
+      // Only what is needed to avoid duplicates: no notes, no summaries.
+      return respond({ ok: true, events: existing.map((e) => ({ id: e.id, title: e.title, date: e.date, status: e.status })) }, 200, origin);
+    }
+    if (request.method !== "POST") return respond({ error: "Method not allowed" }, 405, origin);
+    const body = await readJson(request, MAX_SUGGESTIONS_BODY_BYTES);
+    const list = body && Array.isArray(body.events) ? body.events : null;
+    if (!list) return respond({ error: "Send { events: [...] }." }, 400, origin);
+    if (list.length > MAX_SUGGESTIONS_PER_CALL) return respond({ error: `At most ${MAX_SUGGESTIONS_PER_CALL} events per call.` }, 400, origin);
+    const today = todayInLondon(now);
+    const ids = new Set(existing.map((e) => e.id));
+    const added: string[] = [];
+    const skipped: Array<{ title: string; reason: string }> = [];
+    for (const raw of list) {
+      const fields = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+      const title = typeof fields.title === "string" ? fields.title.slice(0, 120) : "(no name)";
+      const source = typeof fields.officialUrl === "string" ? ` Source: ${fields.officialUrl}` : "";
+      // Always a draft, never pre-confirmed, never with private owner notes.
+      const created = createBelfastEvent(
+        { ...fields, ownWordsConfirmed: false, ownerNotes: "", sourceNote: `${BELFAST_EVENT_SUGGESTION_NOTE_PREFIX}.${source}`.slice(0, 1000) },
+        now,
+      );
+      if (!created.ok) {
+        skipped.push({ title, reason: Object.values(created.errors ?? {})[0] ?? created.error });
+        continue;
+      }
+      if (created.record.date < today) {
+        skipped.push({ title, reason: "Date is in the past." });
+        continue;
+      }
+      if (ids.has(created.record.id)) {
+        skipped.push({ title, reason: "Already listed." });
+        continue;
+      }
+      if (ids.size >= MAX_EVENTS) {
+        skipped.push({ title, reason: "Event list is full." });
+        continue;
+      }
+      await env.TRACKING_STORE.put(eventKey(created.record.id), JSON.stringify(created.record));
+      ids.add(created.record.id);
+      added.push(created.record.title);
+    }
+    return respond({ ok: true, added, skipped }, 200, origin);
   }
 
   // Owner routes
@@ -147,6 +220,12 @@ export async function handleBelfastEventsRoute(
     let typed: BelfastEventAction | null = null;
     if (action === "save") typed = { type: "save", fields };
     else if (action === "publish" || action === "unpublish" || action === "postpone" || action === "cancel") typed = { type: action };
+    if (action === "delete") {
+      // Only drafts can be removed (e.g. an unwanted suggestion). Published history is kept.
+      if (current.status !== "draft") return respond({ ok: false, error: "Only drafts can be deleted. Unpublish it first." }, 400, origin);
+      await store.delete(eventKey(current.id));
+      return respond({ ok: true, deleted: current.id }, 200, origin);
+    }
     if (!typed) return respond({ ok: false, error: "Unknown action." }, 400, origin);
     const result = applyBelfastEventAction(current, typed, now);
     if (!result.ok) return respond(result, 400, origin);

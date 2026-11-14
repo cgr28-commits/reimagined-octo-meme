@@ -1,5 +1,6 @@
 "use client";
 
+import PlaceHighlight from "@/components/PlaceHighlight";
 import { useEffect, useState } from "react";
 
 /** True when the page was opened with ?from=<value> (default "airport"; Google Ads direction landings). */
@@ -17,9 +18,15 @@ export default function FromAirportText({
   text,
   fromAirportText,
   fromValue = "airport",
+  places,
+  fromAirportPlaces,
 }: {
   text: string;
   fromAirportText?: string;
+  /** Optional: place names to show in green in `text` (see PlaceHighlight). */
+  places?: readonly string[];
+  /** Optional: place names to show in green in `fromAirportText`. */
+  fromAirportPlaces?: readonly string[];
   /** The ?from= value that switches the text (default "airport"). */
   fromValue?: string;
 }) {
@@ -27,5 +34,7 @@ export default function FromAirportText({
   useEffect(() => {
     if (fromAirportText && openedFromAirport(fromValue)) setSwap(true);
   }, [fromAirportText, fromValue]);
-  return <>{swap && fromAirportText ? fromAirportText : text}</>;
+  const shown = swap && fromAirportText ? fromAirportText : text;
+  const highlight = swap && fromAirportText ? fromAirportPlaces : places;
+  return highlight ? <PlaceHighlight text={shown} places={highlight} /> : <>{shown}</>;
 }

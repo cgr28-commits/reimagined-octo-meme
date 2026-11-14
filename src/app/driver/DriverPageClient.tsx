@@ -15,6 +15,7 @@ import {
 } from "@/lib/personal-quote-prefill";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
 import OwnerBespokeRequestsPanel from "@/components/OwnerBespokeRequestsPanel";
+import OwnerAttentionPanel, { type OwnerAttentionItem } from "@/components/OwnerAttentionPanel";
 import OwnerBelfastEventsPanel from "@/components/OwnerBelfastEventsPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
@@ -2640,6 +2641,12 @@ export default function DriverPageClient({
    * Opt in with /owner/?ui=mobile (remembered on this device); switch back from More.
    */
   const [ownerUi, setOwnerUi] = useState<"classic" | "mobile">("classic");
+  /** Event / Business Class request to open directly from the front-screen attention list. */
+  const [bespokeFocusRef, setBespokeFocusRef] = useState<string | null>(null);
+  useEffect(() => {
+    // Leaving the tool forgets the request, so opening it later from More shows the list.
+    if (ownerToolTab !== "bespoke-requests") setBespokeFocusRef(null);
+  }, [ownerToolTab]);
   /** In the mobile layout: an existing tool (pricing, refunds…) is open, and which tab Back returns to. */
   const [mobileShowingClassic, setMobileShowingClassic] = useState(false);
   const [mobileReturnTab, setMobileReturnTab] = useState<OwnerMobileTab>("home");
@@ -3308,6 +3315,34 @@ export default function DriverPageClient({
 
   const mobileLayout = isOwnerPortal && isOwnerView && Boolean(savedKey) && ownerUi === "mobile";
 
+  /** Front-screen attention list: open the right tool at the request that was tapped. */
+  function openAttentionItem(item: OwnerAttentionItem) {
+    if (item.kind === "event_listing") {
+      setOwnerToolTab("belfast-events");
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    if (item.kind === "bespoke") {
+      setBespokeFocusRef(item.reference);
+      setOwnerToolTab("bespoke-requests");
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    // The existing panels are not changed: open the tool, then bring that request's
+    // own buttons into view once its card has loaded.
+    setOwnerToolTab(item.kind === "a2a" ? "a2a-quotes" : "requests");
+    const targetId = item.kind === "a2a" ? `a2a-validity-${item.reference}` : `approve-short-notice-${item.reference}`;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      tries += 1;
+      const target = document.getElementById(targetId);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.clearInterval(timer);
+      } else if (tries > 40) window.clearInterval(timer);
+    }, 250);
+  }
+
   if (mobileLayout && savedKey && !mobileShowingClassic) {
     return (
       <NameBoardLauncherContext.Provider value={openNameBoardFromJob}>
@@ -3366,6 +3401,11 @@ export default function DriverPageClient({
         }
       >
         <div className={`mx-auto w-full min-w-0 px-4 sm:px-6 min-[64rem]:px-8 ${isOwnerPortal ? "max-w-5xl" : "max-w-3xl"}`}>
+          {/* Very top of the front screen, above the heading and tabs, so nothing needs scrolling to:
+              every request waiting on the owner, whatever its type. */}
+          {isOwnerView && savedKey && ownerToolTab === "jobs" && !mobileLayout ? (
+            <OwnerAttentionPanel ownerKey={savedKey} onOpen={openAttentionItem} />
+          ) : null}
           <header className={mobileLayout ? "hidden" : "mb-8"}>
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {isOwnerView
@@ -3672,8 +3712,8 @@ export default function DriverPageClient({
 
               {isOwnerView && savedKey && ownerToolTab === "bespoke-requests" ? (
                 <div role="tabpanel" aria-label="Event and Business Class requests" data-bespoke-owner-panel>
-                  <OwnerToolBackBar title="Event & Business Class" onBack={() => setOwnerToolTab("more")} />
-                  <OwnerBespokeRequestsPanel ownerKey={savedKey} />
+                  <OwnerToolBackBar title="Event & Business Class" onBack={() => setOwnerToolTab(bespokeFocusRef ? "jobs" : "more")} />
+                  <OwnerBespokeRequestsPanel key={bespokeFocusRef ?? "list"} ownerKey={savedKey} initialReference={bespokeFocusRef} />
                 </div>
               ) : null}
 

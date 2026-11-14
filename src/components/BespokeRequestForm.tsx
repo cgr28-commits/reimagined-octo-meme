@@ -4,10 +4,12 @@
  * Public request form for Event Transfers and bespoke Business Class journeys.
  * Posts to the existing bespoke backend (/bespoke-quotes/request), which
  * validates everything again, checks Turnstile and rate limits, and puts the
- * request in Owner Dashboard → Event & Business Class. No price is shown here:
- * the owner sends a personal quotation after checking availability.
+ * request in Owner Dashboard → Event & Business Class. No price is shown in the form.
+ * Eligible event transfers get an instant price link on the success screen; everything
+ * else gets a personal quotation from the owner after checking availability.
  */
 
+import { DAY_TRIP_MAX_PASSENGERS, type DayTrip } from "../../shared/day-trips";
 import Link from "next/link";
 import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Calendar, Clock } from "lucide-react";
@@ -39,15 +41,19 @@ const labelClass = "block text-sm font-semibold text-white";
 const hintClass = "mt-1 block text-sm text-white/55";
 const errorClass = "mt-1 block text-sm font-medium text-[#b42318]";
 
-type Category = "event" | "business_class";
+type Category = "event" | "business_class" | "day_trip";
 
 type Props = {
   category: Category;
   /** Approved listing chosen on the Events hub (event requests only). */
   event?: BelfastEventPublic | null;
+  /** The day trip being booked (day trip bookings only). */
+  dayTrip?: DayTrip | null;
 };
 
 type Fields = {
+  dayTripOption: string;
+  pickupInBelfast: "" | "yes" | "no";
   eventTitle: string;
   eventVenue: string;
   eventDate: string;
@@ -72,8 +78,10 @@ type Fields = {
   website: string;
 };
 
-function initialFields(category: Category, event?: BelfastEventPublic | null): Fields {
+function initialFields(category: Category, event?: BelfastEventPublic | null, dayTrip?: DayTrip | null): Fields {
   return {
+    dayTripOption: dayTrip && dayTrip.options.length === 1 ? dayTrip.options[0].id : "",
+    pickupInBelfast: "",
     eventTitle: event?.title ?? "",
     eventVenue: event ? event.venueName : "",
     eventDate: event?.date ?? "",
@@ -101,11 +109,13 @@ function initialFields(category: Category, event?: BelfastEventPublic | null): F
 
 /** Field order for moving focus to the first problem. */
 const FIELD_ORDER = [
+  "dayTripOption",
   "eventTitle",
   "eventVenue",
   "eventDate",
   "serviceType",
   "pickupAddress",
+  "pickupInBelfast",
   "destinationAddress",
   "date",
   "time",
@@ -208,16 +218,17 @@ function ScheduleField({ id, kind, label, value, onChange, design3, invalid, des
   );
 }
 
-export default function BespokeRequestForm({ category, event = null }: Props) {
+export default function BespokeRequestForm({ category, event = null, dayTrip = null }: Props) {
   const uid = useId();
   const id = (name: string) => `${uid}-${name}`;
-  const [fields, setFields] = useState<Fields>(() => initialFields(category, event));
+  const [fields, setFields] = useState<Fields>(() => initialFields(category, event, dayTrip));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
   const [token, setToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [quotationUrl, setQuotationUrl] = useState<string | null>(null);
   const design3 = useMobileDesign3();
   // Google Place IDs for chosen suggestions; cleared as soon as the text is edited.
   const [placeIds, setPlaceIds] = useState<{ pickup: string; destination: string }>({ pickup: "", destination: "" });
@@ -238,7 +249,9 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
     setFields((f) => (f.eventTitle ? f : { ...f, ...initialFields(category, event), customerName: f.customerName }));
   }, [event, category]);
 
-  const maxPassengers = category === "business_class" ? BUSINESS_CLASS_MAX_PASSENGERS : EVENT_REQUEST_MAX_PASSENGERS;
+  const isDayTrip = category === "day_trip";
+  const maxPassengers = category === "business_class" ? BUSINESS_CLASS_MAX_PASSENGERS : isDayTrip ? DAY_TRIP_MAX_PASSENGERS : EVENT_REQUEST_MAX_PASSENGERS;
+  const chosenOption = dayTrip?.options.find((o) => o.id === fields.dayTripOption);
   const passengerCount = Number(fields.passengers) || 0;
   const showGroupOption = category === "event" && passengerCount >= GROUP_VEHICLE_FROM_PASSENGERS;
   const listed = Boolean(event);
@@ -279,14 +292,17 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
       need("eventTitle", "Tell us the event.");
       need("eventVenue", "Tell us the venue.");
       need("eventDate", "Choose the event date.");
+    } else if (isDayTrip) {
+      need("dayTripOption", "Choose half day or full day.");
+      need("pickupInBelfast", "Tell us whether your pickup is in Belfast.");
     } else {
       need("serviceType", "Choose the type of journey.");
     }
     need("pickupAddress", "Enter the pickup address.");
-    need("destinationAddress", "Enter the destination.");
+    if (!isDayTrip) need("destinationAddress", "Enter the destination.");
     need("date", "Choose the pickup date.");
     need("time", "Choose the pickup time.");
-    if (fields.returnJourney) {
+    if (fields.returnJourney && !isDayTrip) {
       need("returnDate", "Choose the return date.");
       need("returnTime", "Choose the return pickup time.");
     }
@@ -345,7 +361,18 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         turnstileToken: token,
         website: fields.website,
       };
-      if (category === "event") {
+      if (isDayTrip) {
+        Object.assign(payload, {
+          dayTripSlug: dayTrip?.slug,
+          dayTripOption: fields.dayTripOption,
+          pickupInBelfast: fields.pickupInBelfast === "yes",
+          returnJourney: false,
+        });
+        delete payload.destinationAddress;
+        delete payload.destinationPlaceId;
+        delete payload.returnDate;
+        delete payload.returnTime;
+      } else if (category === "event") {
         Object.assign(payload, {
           eventTitle: fields.eventTitle,
           eventVenue: fields.eventVenue,
@@ -360,6 +387,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         });
       }
       const result = await submitBespokeRequest(payload);
+      setQuotationUrl(result.quotationUrl ?? null);
       setReference(result.reference);
     } catch (e) {
       const problem = e instanceof BespokeRequestError ? e : null;
@@ -376,6 +404,25 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
     }
   }
 
+  if (reference && quotationUrl) {
+    return (
+      <div ref={successRef} tabIndex={-1} role="status" aria-live="polite" data-instant-price-ready className="rounded-2xl outline-none border border-emerald/30 bg-emerald/10 p-6 sm:p-8">
+        <h2 className="text-xl font-bold text-white">Your price is ready</h2>
+        <p className="mt-3 text-base leading-relaxed text-white/75">
+          Your reference is <strong className="text-white">{reference}</strong>. We&apos;ve also emailed the link to{" "}
+          <strong className="text-white">{fields.customerEmail}</strong>.
+        </p>
+        <a href={quotationUrl} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald px-6 text-base font-bold text-navy">
+          See your price and book
+        </a>
+        <p className="mt-5 text-sm leading-relaxed text-white/75">Your booking is confirmed only once you accept and pay online.</p>
+        <p className="mt-3 text-sm text-white/60">
+          Questions? Call {SITE.officeLandlineDisplay} or WhatsApp us quoting {reference}.
+        </p>
+      </div>
+    );
+  }
+
   if (reference) {
     return (
       <div ref={successRef} tabIndex={-1} role="status" aria-live="polite" className="rounded-2xl outline-none border border-emerald/30 bg-emerald/10 p-6 sm:p-8">
@@ -385,7 +432,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           <strong className="text-white">{fields.customerEmail}</strong>.
         </p>
         <ol className="mt-5 space-y-2 text-sm leading-relaxed text-white/75">
-          <li>1. We check availability for your date and group.</li>
+          <li>1. We check {isDayTrip ? "your date and pickup" : "availability for your date and group"}.</li>
           <li>2. We email you a personal quotation with a secure link.</li>
           <li>3. Your booking is confirmed only once you accept and pay online.</li>
         </ol>
@@ -404,7 +451,37 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         </p>
       ) : null}
 
-      {category === "event" ? (
+      {isDayTrip && dayTrip ? (
+        <fieldset className="space-y-4 rounded-2xl [&>legend+*]:clear-both border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+          <legend className="float-left mb-2 w-full text-lg font-bold text-white">Your day trip</legend>
+          <div className="rounded-xl border border-emerald/30 bg-emerald/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald">Private day trip</p>
+            <p className="mt-1 text-lg font-bold text-white">{dayTrip.title}</p>
+            {chosenOption ? (
+              <p className="mt-1 text-sm text-white/70">
+                {chosenOption.label} · £{chosenOption.priceGbp} per car, up to {DAY_TRIP_MAX_PASSENGERS} passengers, from Belfast
+              </p>
+            ) : null}
+          </div>
+          {dayTrip.options.length > 1 ? (
+            <div>
+              <label className={labelClass} htmlFor={id("dayTripOption")}>
+                Length of trip
+              </label>
+              <select id={id("dayTripOption")} className={inputClass} value={fields.dayTripOption} onChange={(e) => set("dayTripOption", e.target.value)} aria-invalid={Boolean(errors.dayTripOption)} aria-describedby={describedBy("dayTripOption")}>
+                <option value="">Choose…</option>
+                {dayTrip.options.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label} — £{o.priceGbp} per car
+                  </option>
+                ))}
+              </select>
+              {err("dayTripOption")}
+            </div>
+          ) : null}
+          {errors.dayTripSlug ? <span className={errorClass} role="alert">{errors.dayTripSlug}</span> : null}
+        </fieldset>
+      ) : category === "event" ? (
         <fieldset className="space-y-4 rounded-2xl [&>legend+*]:clear-both border border-white/10 bg-white/[0.03] p-5 sm:p-6">
           <legend className="float-left mb-2 w-full text-lg font-bold text-white">Your event</legend>
           {listed && event ? (
@@ -463,12 +540,12 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
       )}
 
       <fieldset className="space-y-4 rounded-2xl [&>legend+*]:clear-both border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-        <legend className="float-left mb-2 w-full text-lg font-bold text-white">Journey</legend>
+        <legend className="float-left mb-2 w-full text-lg font-bold text-white">{isDayTrip ? "Pickup" : "Journey"}</legend>
         <AddressInput
           id={id("pickupAddress")}
           name="pickupAddress"
           label="Pickup address"
-          placeholder="Start typing your address or postcode"
+          placeholder={isDayTrip ? "Hotel, address or cruise terminal" : "Start typing your address or postcode"}
           value={fields.pickupAddress}
           onChange={(value) => {
             set("pickupAddress", value.slice(0, 300));
@@ -478,6 +555,26 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           selectionError={errors.pickupAddress || undefined}
           reserveHelperSpace={false}
         />
+        {isDayTrip ? (
+          <div role="radiogroup" aria-labelledby={id("pickupInBelfast-label")} id={id("pickupInBelfast")} tabIndex={-1}>
+            <p id={id("pickupInBelfast-label")} className={labelClass}>
+              Is your pickup in Belfast?
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+              {([["yes", "Yes — Belfast hotel, home or cruise terminal"], ["no", "No — outside Belfast"]] as const).map(([value, text]) => (
+                <label key={value} className="flex min-h-11 items-center gap-3 text-base text-white">
+                  <input type="radio" name={id("pickupInBelfast")} className="h-5 w-5 shrink-0 accent-emerald" checked={fields.pickupInBelfast === value} onChange={() => set("pickupInBelfast", value)} />
+                  {text}
+                </label>
+              ))}
+            </div>
+            {fields.pickupInBelfast === "no" ? (
+              <span className={hintClass}>No problem. We&apos;ll confirm your price for a pickup outside Belfast and email you a link to pay.</span>
+            ) : null}
+            {err("pickupInBelfast")}
+          </div>
+        ) : null}
+        {isDayTrip ? null : (
         <AddressInput
           id={id("destinationAddress")}
           name="destinationAddress"
@@ -492,6 +589,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           selectionError={errors.destinationAddress || undefined}
           reserveHelperSpace={false}
         />
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <ScheduleField id={id("date")} kind="date" label="Pickup date" value={fields.date} onChange={(v) => set("date", v)} design3={design3} invalid={Boolean(errors.date)} describedBy={describedBy("date")} />
@@ -502,11 +600,13 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
             {err("time")}
           </div>
         </div>
+        {isDayTrip ? null : (
         <label className="flex min-h-11 items-center gap-3 text-base text-white">
           <input type="checkbox" className="h-5 w-5 shrink-0 accent-emerald" checked={fields.returnJourney} onChange={(e) => set("returnJourney", e.target.checked)} />
           {category === "event" ? "Collect us after the event (return journey)" : "Add a return journey"}
         </label>
-        {fields.returnJourney ? (
+        )}
+        {fields.returnJourney && !isDayTrip ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <ScheduleField id={id("returnDate")} kind="date" label="Return date" value={fields.returnDate} onChange={(v) => set("returnDate", v)} design3={design3} invalid={Boolean(errors.returnDate)} describedBy={describedBy("returnDate")} />
@@ -539,6 +639,8 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
             <span id={id("passengers-hint")} className={hintClass}>
               {category === "business_class"
                 ? `Business Class carries up to ${BUSINESS_CLASS_MAX_PASSENGERS} passengers.`
+                : isDayTrip
+                  ? `The price is per car, not per person: up to ${DAY_TRIP_MAX_PASSENGERS} passengers.`
                 : `Up to ${EVENT_REQUEST_MAX_PASSENGERS}. For 8 or more, please call ${SITE.officeLandlineDisplay}.`}
             </span>
             {err("passengers")}
@@ -562,7 +664,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
             </p>
           </div>
         ) : null}
-        <div>
+        <div hidden={isDayTrip}>
           <label className={labelClass} htmlFor={id("luggage")}>
             {category === "business_class" ? "Luggage (optional)" : "Bags or anything we should carry (optional)"}
           </label>
@@ -572,7 +674,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           <label className={labelClass} htmlFor={id("specialRequirements")}>
             Anything else we should know (optional)
           </label>
-          <textarea id={id("specialRequirements")} className={`${inputClass} min-h-28 resize-y`} value={fields.specialRequirements} maxLength={1000} placeholder={category === "event" ? "e.g. accessibility needs, child seats, a preferred meeting point" : "e.g. meeting arrangements, a name board, child seats"} onChange={(e) => set("specialRequirements", e.target.value)} />
+          <textarea id={id("specialRequirements")} className={`${inputClass} min-h-28 resize-y`} value={fields.specialRequirements} maxLength={1000} placeholder={category === "event" ? "e.g. accessibility needs, child seats, a preferred meeting point" : isDayTrip ? "e.g. places you'd most like to see, accessibility needs, child seats" : "e.g. meeting arrangements, a name board, child seats"} onChange={(e) => set("specialRequirements", e.target.value)} />
         </div>
       </fieldset>
 
@@ -643,10 +745,12 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           disabled={submitting || !onlineAvailable}
           className="btn-primary inline-flex min-h-12 w-full items-center justify-center rounded-xl px-6 py-3 text-base font-bold disabled:opacity-60 sm:w-auto"
         >
-          {submitting ? "Sending your request…" : "Send request"}
+          {submitting ? "Sending your request…" : isDayTrip ? "Continue to price and payment" : "Send request"}
         </button>
         <p className="text-sm text-white/55">
-          No payment now. We reply with a personal quotation; your booking is confirmed only when you accept and pay online.
+          {isDayTrip
+            ? "Belfast pickups booked at least a day ahead go straight to secure online payment at the listed price. Otherwise we confirm your price by email first. Your booking is confirmed only when you pay online."
+            : "No payment now. We reply with a personal quotation; your booking is confirmed only when you accept and pay online."}
         </p>
       </div>
     </form>

@@ -8,6 +8,7 @@ import LandingCtaRow from "@/components/LandingCtaRow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import HeroSlideshow from "@/components/HeroSlideshow";
+import PlaceHighlight from "@/components/PlaceHighlight";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
@@ -115,7 +116,7 @@ export default async function TownHubPage({ params }: Props) {
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
-          heading={page.h1}
+          heading={<PlaceHighlight text={page.h1} places={[page.town.name]} />}
           intro={`Door-to-door airport taxis from ${page.town.name} to Belfast International, Belfast City and Dublin Airport. Fixed price before you pay.`}
         />
         {/* Photo hidden on phones so the quote form is on the first screen. */}

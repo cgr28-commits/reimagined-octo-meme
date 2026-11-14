@@ -6,6 +6,9 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
+import DayTripBookingSection from "@/components/DayTripBookingSection";
+import { BESPOKE_PUBLIC_PAGES_ENABLED, TURNSTILE_SITE_KEY } from "@/lib/bespoke-public";
+import { getDayTrip } from "../../../../shared/day-trips";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getTourTripJsonLd } from "@/lib/structured-data";
 import { getTourBySlug, TOURS } from "@/lib/tours";
@@ -62,6 +65,8 @@ export default async function TourDetailPage({ params }: TourPageProps) {
   if (!tour) {
     notFound();
   }
+  // Online booking and payment replaces the enquiry form only when the service is switched on.
+  const onlineDayTrip = BESPOKE_PUBLIC_PAGES_ENABLED && TURNSTILE_SITE_KEY ? getDayTrip(tour.slug) : undefined;
 
   const otherTours = TOURS.filter((item) => item.slug !== tour.slug);
   const structuredData = getBreadcrumbJsonLd([
@@ -161,11 +166,15 @@ export default async function TourDetailPage({ params }: TourPageProps) {
           </section>
 
           <div className="mt-10">
-            <TourBookingForm
-              id="book"
-              tourTitle={tour.title}
-              description={`Tell us your date, group size and pickup location for ${tour.title} (${tour.price.toLowerCase()} per car). We'll confirm availability and your exact price.`}
-            />
+            {onlineDayTrip ? (
+              <DayTripBookingSection id="book" dayTrip={onlineDayTrip} />
+            ) : (
+              <TourBookingForm
+                id="book"
+                tourTitle={tour.title}
+                description={`Tell us your date, group size and pickup location for ${tour.title} (${tour.price.toLowerCase()} per car). We'll confirm availability and your exact price.`}
+              />
+            )}
           </div>
         </div>
 

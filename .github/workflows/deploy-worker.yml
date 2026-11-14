@@ -88,6 +88,7 @@ jobs:
           STRIPE_TEST_EMAILS: ${{ secrets.STRIPE_TEST_EMAILS }}
           DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
           OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          EVENT_SUGGESTIONS_TOKEN: ${{ secrets.EVENT_SUGGESTIONS_TOKEN }}
           AD_FRAUD_HASH_SALT: ${{ secrets.AD_FRAUD_HASH_SALT }}
           VOICE_WEBHOOK_SECRET: ${{ secrets.VOICE_WEBHOOK_SECRET }}
           VOICE_ENABLE_BOOKING_TOOLS: ${{ secrets.VOICE_ENABLE_BOOKING_TOOLS }}
@@ -170,6 +171,15 @@ jobs:
           if [ -n "$OWNER_ACCESS_KEY" ]; then
             echo "Syncing OWNER_ACCESS_KEY secret…"
             printf '%s' "$OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY
+          fi
+          # Weekly Belfast events search: may only add DRAFT event listings. Optional.
+          if [ -n "$EVENT_SUGGESTIONS_TOKEN" ]; then
+            if [ "${#EVENT_SUGGESTIONS_TOKEN}" -lt 24 ]; then
+              echo "::warning::EVENT_SUGGESTIONS_TOKEN is shorter than 24 characters — not synced."
+            else
+              echo "Syncing EVENT_SUGGESTIONS_TOKEN secret…"
+              printf '%s' "$EVENT_SUGGESTIONS_TOKEN" | npx wrangler secret put EVENT_SUGGESTIONS_TOKEN
+            fi
           fi
           if [ -n "$AD_FRAUD_HASH_SALT" ]; then
             echo "Syncing AD_FRAUD_HASH_SALT secret…"

@@ -58,6 +58,7 @@ function serviceLine(record: BespokeQuoteRecord): string {
   if (record.category === "event" && record.event) {
     return `${record.event.title}, ${record.event.venue} (${formatUkDate(record.event.date)})`;
   }
+  if (record.dayTrip) return `${record.dayTrip.title} — ${record.dayTrip.optionLabel}`;
   if (record.serviceType) return BUSINESS_CLASS_REQUEST_SERVICE_LABELS[record.serviceType];
   return BESPOKE_QUOTE_CATEGORY_LABELS[record.category];
 }
@@ -66,7 +67,7 @@ function serviceLine(record: BespokeQuoteRecord): string {
 function journeyLines(record: BespokeQuoteRecord): Array<[string, string]> {
   const j = record.journey;
   const lines: Array<[string, string]> = [
-    [record.category === "event" ? "Event" : "Service", serviceLine(record)],
+    [record.category === "event" ? "Event" : record.category === "day_trip" ? "Day trip" : "Service", serviceLine(record)],
     ["Pickup", j.pickupAddress],
     ["Destination", j.destinationAddress],
     ["Date and time", `${formatUkDate(j.date)} at ${j.time}`],

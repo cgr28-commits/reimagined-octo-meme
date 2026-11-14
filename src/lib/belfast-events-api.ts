@@ -53,6 +53,16 @@ export async function fetchOwnerBelfastEvents(ownerKey: string): Promise<{ event
 
 export type BelfastEventOwnerAction = "create" | "save" | "publish" | "unpublish" | "postpone" | "cancel";
 
+/** Remove a draft (for example an unwanted suggestion). Published events cannot be deleted. */
+export async function deleteOwnerBelfastEventDraft(ownerKey: string, record: Pick<BelfastEventRecord, "id" | "version">): Promise<void> {
+  const response = await fetch(`${WORKER_BASE}/owner/belfast-events/action`, {
+    method: "POST",
+    headers: ownerHeaders(ownerKey),
+    body: JSON.stringify({ action: "delete", id: record.id, expectedVersion: record.version }),
+  });
+  await parse(response);
+}
+
 export async function postOwnerBelfastEventAction(
   ownerKey: string,
   input: { action: BelfastEventOwnerAction; id?: string; expectedVersion?: number; fields?: Record<string, unknown> },
@@ -65,7 +75,7 @@ export async function postOwnerBelfastEventAction(
   return parse(response);
 }
 
-export type BespokeRequestSubmitResult = { ok: true; reference: string; duplicate?: boolean };
+export type BespokeRequestSubmitResult = { ok: true; reference: string; duplicate?: boolean; quotationUrl?: string };
 
 export class BespokeRequestError extends Error {
   constructor(
@@ -93,6 +103,7 @@ export async function submitBespokeRequest(payload: Record<string, unknown>): Pr
     ok?: boolean;
     reference?: string;
     duplicate?: boolean;
+    quotationUrl?: string;
     error?: string;
     errors?: Record<string, string>;
   };
@@ -103,5 +114,7 @@ export async function submitBespokeRequest(payload: Record<string, unknown>): Pr
         : data.error || "Something went wrong. Please try again, or call or WhatsApp us.";
     throw new BespokeRequestError(message, response.status, data.errors ?? {});
   }
-  return { ok: true, reference: data.reference, duplicate: data.duplicate };
+  // Only ever follow a link to our own quotation page.
+  const quotationUrl = typeof data.quotationUrl === "string" && /^https:\/\/[^/]+\/quotation\/#t=/.test(data.quotationUrl) ? data.quotationUrl : undefined;
+  return { ok: true, reference: data.reference, duplicate: data.duplicate, ...(quotationUrl ? { quotationUrl } : {}) };
 }

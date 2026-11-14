@@ -9,13 +9,28 @@ Status: built on the development branch, **switched off**. Nothing is live.
 | Event transfer request | `/events/transfer-request/` (`?event=<id>` pre-fills a listed event) | Request form → existing bespoke backend |
 | Bespoke Business Class request | `/business-class-request/` | Request form (max 3 passengers) → existing bespoke backend |
 
-Both forms post to `POST /bespoke-quotes/request` and appear in Owner Dashboard → More → **Event & Business Class**. No price is shown; the owner sends a personal quotation.
+Both forms post to `POST /bespoke-quotes/request` and appear in Owner Dashboard → More → **Event & Business Class**. Eligible event transfers get an instant price (below); otherwise the owner sends a personal quotation.
 
 ## Two switches, both OFF
 1. **Website:** pages exist only when built with `NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1`. Otherwise they show "Page not found" (noindex), are not in the sitemap and are not linked. Only `scripts/build-bespoke-preview-site.mjs` sets it.
 2. **Worker:** `BESPOKE_QUOTES_ENABLED = "1"` (preview config only). Off → `/events/public` and `/bespoke-quotes/*` return 404.
 
 Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key, the forms say online requests are unavailable and cannot be sent. The preview uses Cloudflare's public always-pass test key unless `PREVIEW_TURNSTILE_SITE_KEY` is given.
+
+## Instant event prices
+- Event transfers only. Business Class stays a request that the owner prices. Airport fares are untouched.
+- Price = the normal journey fare (existing quote engine, called unchanged, no airport code) + event uplift (default 20%), minimum £20, whichever is higher, rounded to the nearest pound.
+- Owner Dashboard → More → **Event & Business Class** → **Instant event prices**: switch instant prices on/off, switch the uplift on/off, change the percentage (0–100). Stored in KV key `bespoke:instant-quote-settings`, separate from the airport pricing settings.
+- The owner still prices: 5–7 passengers, extra stops, pickups under 24 hours away, journeys the engine treats as airport transfers, and anything it cannot price.
+- The customer sees "Your price is ready" with their private link (also emailed), then pays through the existing quotation page. The price holds for 24 hours (never past pickup).
+- Code: `shared/bespoke-instant-quote.ts`, `tryIssueInstantQuote` in the Worker, transition `system_issue_instant_quote`. Tests in `npm run check:bespoke-quote`.
+
+## Day trips: book and pay online
+- Each day trip page (`/tours/<slug>/`) shows "Book this day trip" with online payment **only when both switches are on**. Otherwise it keeps the existing enquiry form (WhatsApp / email), unchanged.
+- Price = the listed per-car price from `shared/day-trips.ts` (must match `src/lib/tours.ts`; checked in `npm run check:bespoke-quote`). Never taken from the browser. Antrim Coast offers half day or full day.
+- Paid straight away when: pickup is in Belfast (customer's answer, and no non-Belfast BT postcode in the address), 1–4 passengers, and the pickup is 24+ hours away. Otherwise it arrives as a normal request for the owner to price.
+- Same backend as events: request type `day_trip`, quotation page, Stripe checkout, dashboard list (filter "Private Day Trip") and "Needs your attention".
+- The general day trips page (`/tours/`) keeps its enquiry form, because it is not for one specific trip.
 
 ## Event listings (manual approval)
 - Owner Dashboard → More → **Belfast events**: add, edit, approve and publish, unpublish, postpone, cancel.
@@ -25,6 +40,11 @@ Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key
 - Public view (`GET /events/public`, 5-minute cache) never includes drafts, past events, the source note or private notes.
 - Hybrid publishing: the hub is built with the approved list (Worker, falling back to `src/data/belfast-events-snapshot.json`) and then refreshes live in the browser, so approvals and cancellations show without a rebuild.
 - A request for a listed event takes the event name, venue and date from the approved listing, not from the browser. Postponed or cancelled events refuse requests. Unknown or draft ids are dropped (typed details kept).
+
+## Weekly events search (drafts only)
+- A scheduled task searches for upcoming Belfast events every Monday and adds them as **drafts** through `POST /events/suggestions`.
+- Authentication: `Authorization: Bearer <EVENT_SUGGESTIONS_TOKEN>` (GitHub Actions secret, 24+ characters, synced by `deploy-worker.yml`). Without the secret the route answers 404. This token can only add drafts and read existing names and dates; it cannot edit, publish or see private notes.
+- Suggested drafts show a "Suggested — check and approve" badge, appear in "Needs your attention", and can be deleted with **Delete draft**. Publishing still needs the owner's own-words confirmation.
 
 ## Safeguards
 - 7-seater: requests of 5–7 passengers flag a 7-seater request, always "subject to availability". 8+ → call us. No other vehicles are mentioned.
