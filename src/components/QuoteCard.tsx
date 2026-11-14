@@ -2052,6 +2052,30 @@ function QuoteCard({
     };
   }, [returnOfferToken]);
 
+  /**
+   * Google Ads "from the airport" landing: a town-to-airport page opened with ?from=airport
+   * (e.g. /transfers/derry-to-belfast-international/?from=airport) starts with the page's
+   * airport as the PICKUP and an empty drop-off, so people travelling from the airport don't
+   * have to find the swap button. Runs once; without ?from=airport nothing changes.
+   * Read with URLSearchParams so Google's added parameters (gclid etc.) don't break it.
+   */
+  const fromAirportLandingApplied = useRef(false);
+  useEffect(() => {
+    if (fromAirportLandingApplied.current) return;
+    fromAirportLandingApplied.current = true;
+    if (typeof window === "undefined") return;
+    if (presentation !== "homepage" || initialDirection !== "to-airport") return;
+    if (!initialAirportPlace || returnOfferToken) return;
+    if (new URLSearchParams(window.location.search).get("from") !== "airport") return;
+    setPickupPlace(initialAirportPlace);
+    setPickupAddress(placeDisplayText(initialAirportPlace));
+    saveConfirmedPickupPlace(initialAirportPlace);
+    setDropoffPlace(emptySelectedPlace());
+    setDropoffAddress("");
+    clearConfirmedDropoffPlace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const restoredQuoteApplied = useRef(false);
   useEffect(() => {
     if (!restoredQuote || !publicPricingLoaded || restoredQuoteApplied.current) return;
