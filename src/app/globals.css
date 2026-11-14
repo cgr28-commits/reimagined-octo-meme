@@ -938,13 +938,13 @@ main {
 }
 
 .cookie-consent-banner {
-  padding: 0.125rem max(0.5rem, env(safe-area-inset-right, 0px))
-    calc(0.125rem + env(safe-area-inset-bottom, 0px))
-    max(0.5rem, env(safe-area-inset-left, 0px));
+  padding: 0.5rem max(0.75rem, env(safe-area-inset-right, 0px))
+    calc(0.5rem + env(safe-area-inset-bottom, 0px))
+    max(0.75rem, env(safe-area-inset-left, 0px));
 }
 
 .cookie-consent-inner {
-  gap: 0;
+  gap: 0.5rem;
 }
 
 .cookie-consent-copy {
@@ -957,6 +957,7 @@ main {
   gap: 0.5rem;
 }
 
+.cookie-consent-actions .btn-primary,
 .cookie-consent-actions .btn-secondary {
   min-height: 2.75rem;
   min-width: 0;
@@ -992,12 +993,14 @@ main {
     width: 18rem;
   }
 
+  .cookie-consent-actions .btn-primary,
   .cookie-consent-actions .btn-secondary {
     min-height: 2.5rem;
   }
 }
 
 @media (min-width: 768px) and (pointer: coarse) {
+  .cookie-consent-actions .btn-primary,
   .cookie-consent-actions .btn-secondary { min-height: 2.75rem; }
 }
 
@@ -5238,6 +5241,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > a.inline-block:has(img[src*="logo"]),
     body:has([data-standalone-brand-bar]) main[data-customer-standalone] > div:first-child > div > a:has(img[src*="logo"]) { display: none !important; }
     main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
+    main[data-customer-standalone] img[src*="logo-wide.svg"] { content: url("/logo-wide-light.svg"); }
     main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
     /* Decorative glows and dark gradient layers. */
     main[data-customer-standalone] > div.absolute.inset-0,
@@ -5421,9 +5425,9 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --color-navy-light: #ffffff;
     --color-navy-dark: #ffffff;
     --color-white: #071c38;
-    --color-mist: #33445a;
-    --color-ink-muted: rgba(51, 68, 90, 0.78);
-    --color-ink-secondary: #4a5a70;
+    --color-mist: #1c2d49;
+    --color-ink-muted: rgba(28, 45, 73, 0.94);
+    --color-ink-secondary: #24364f;
     --quote-page: #f4f7fa;
     --quote-card-bg: #ffffff;
     --quote-card-border: #e3e9f0;
@@ -5439,10 +5443,10 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     --quote-selected-icon: #1f9a36;
     --quote-placeholder: #7a889a;
     --quote-price-ink: #071c38;
-    --quote-secondary-ink: #4a5a70;
+    --quote-secondary-ink: #24364f;
     color-scheme: light;
   }
-  html[data-mobile-light] body { color: #33445a; }
+  html[data-mobile-light] body { color: #1c2d49; }
 
   /* Dark islands keep the original palette. */
   html[data-mobile-light] :is(
@@ -5469,7 +5473,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
   }
   /* Muted greys meant for navy pages. */
-  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #4a5a70; }
+  html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #24364f; }
   /* Headings: navy, Manrope, tight. */
   html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     color: #071c38;
@@ -5491,7 +5495,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] section.homepage-hero { background: #f4f7fa !important; }
   html[data-mobile-light] section.homepage-hero h1 { color: #071c38 !important; }
   html[data-mobile-light] section.homepage-hero h1 .text-emerald, html[data-mobile-light] section.homepage-hero h1 [class*="text-emerald"] { color: #1f9a36 !important; }
-  html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { color: #4a5a70 !important; }
+  html[data-mobile-light] section.homepage-hero .homepage-hero-copy p { color: #24364f !important; }
   html[data-mobile-light] :is(.hero-benefit-label, .hero-benefit-label *) { color: #071c38 !important; }
   html[data-mobile-light] .hero-benefits-row > li + li { border-color: #e3e9f0 !important; }
 
@@ -5512,14 +5516,14 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     background-color: #ffffff !important; border-color: #cfd8e3 !important;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23071c38' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
   }
-  html[data-mobile-light] .quote-flow :is(.form-label, label) { color: #33445a !important; }
-  html[data-mobile-light] .quote-flow :is(p, span, small, div, dt, dd, li, summary):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary):not(:is(.btn-primary, .bg-emerald) *):not(.btn-primary):not(.bg-emerald) { color: #4a5a70 !important; }
+  html[data-mobile-light] .quote-flow :is(.form-label, label) { color: #1c2d49 !important; }
+  html[data-mobile-light] .quote-flow :is(p, span, small, div, dt, dd, li, summary):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary):not(:is(.btn-primary, .bg-emerald) *):not(.btn-primary):not(.bg-emerald) { color: #24364f !important; }
   html[data-mobile-light] .quote-flow :is(h1, h2, h3, h4, legend, strong) { color: #071c38 !important; }
   html[data-mobile-light] .btn-primary:disabled, html[data-mobile-light] .btn-primary[aria-disabled="true"] { background: #d6eadb !important; color: #4a6a55 !important; box-shadow: none !important; }
 
   /* Section furniture */
   html[data-mobile-light] main .section-eyebrow { color: #1a7f2e !important; }
-  html[data-mobile-light] main .section-description { color: #4a5a70 !important; }
+  html[data-mobile-light] main .section-description { color: #24364f !important; }
   html[data-mobile-light] main .text-amber-300, html[data-mobile-light] main .text-amber-400 { color: #e8a317 !important; }
   html[data-mobile-light] main [class*="bg-emerald/15"]:is(.text-emerald, [class*="text-emerald"]),
   html[data-mobile-light] main [class*="bg-emerald/10"]:is(.text-emerald, [class*="text-emerald"]) { color: #1a7f2e !important; background-color: #e7f6ea !important; }
@@ -5530,7 +5534,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 @layer base {
 @media (max-width: 1199.98px) {
   /* Very faint helper text meant for navy: lift to a readable slate on light. */
-  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #5f6f84 !important; }
+  html[data-mobile-light] main :is(.text-white\/30, .text-white\/35, .text-white\/40, .text-white\/45, .text-white\/50, .text-white\/55):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) { color: #3a4b64 !important; }
   /* Tinted green pills (e.g. "Available on request") read as dark green on pale green. */
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) { background-color: #e7f6ea !important; color: #1a7f2e !important; }
   html[data-mobile-light] main [class*="bg-emerald/1"]:not(.bg-emerald):not(.btn-primary) :is(span, svg) { color: #1a7f2e; }
@@ -5546,14 +5550,14 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] [data-vehicle-category]:not([class*="border-emerald"]) { border-color: #dbe3ec !important; }
   /* Navy text classes stay navy (the navy variable is the page colour in this theme). */
   html[data-mobile-light] .text-navy:not(:is(header:not(main header), footer) *) { color: #071c38 !important; }
-  html[data-mobile-light] [class*="text-navy/"]:not(:is(header:not(main header), footer) *) { color: #4a5a70 !important; }
+  html[data-mobile-light] [class*="text-navy/"]:not(:is(header:not(main header), footer) *) { color: #24364f !important; }
   /* Price breakdown and quote panels. */
-  html[data-mobile-light] .quote-breakdown-panel { background: #ffffff !important; border: 1px solid #e3e9f0 !important; color: #33445a !important; box-shadow: 0 10px 30px rgba(7,28,56,.12) !important; }
+  html[data-mobile-light] .quote-breakdown-panel { background: #ffffff !important; border: 1px solid #e3e9f0 !important; color: #1c2d49 !important; box-shadow: 0 10px 30px rgba(7,28,56,.12) !important; }
   html[data-mobile-light] .quote-panel { background: #f7f9fb !important; border-color: #e3e9f0 !important; }
   html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(h3, h4, strong, dt, dd) { color: #071c38 !important; }
-  html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(p, li, span, .quote-secondary):not(.text-emerald):not([class*="text-[#14"]) { color: #4a5a70 !important; }
+  html[data-mobile-light] :is(.quote-breakdown-panel, .quote-panel) :is(p, li, span, .quote-secondary):not(.text-emerald):not([class*="text-[#14"]) { color: #24364f !important; }
   html[data-mobile-light] .quote-breakdown-panel button[class*="border-white"] { color: #071c38 !important; border-color: #cfd8e3 !important; }
-  html[data-mobile-light] main .quote-secondary { color: #4a5a70 !important; }
+  html[data-mobile-light] main .quote-secondary { color: #24364f !important; }
   /* Booking step buttons: pay is the green primary; secondary is white. */
   html[data-mobile-light] .btn-pay { background: #2fbf4a !important; color: #071c38 !important; border-color: #2fbf4a !important; box-shadow: 0 8px 20px rgba(47,191,74,.25) !important; }
   html[data-mobile-light] .btn-pay:disabled { background: #d6eadb !important; color: #4a6a55 !important; box-shadow: none !important; }
@@ -5573,6 +5577,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
     /* The brand bar carries the logo, so the page's own top logo steps aside (in-card logos swap to
        the official light-background logo instead). */
     main[data-customer-standalone] img[src*="logo-header.webp"] { content: url("/logo-light-header.webp"); }
+    main[data-customer-standalone] img[src*="logo-wide.svg"] { content: url("/logo-wide-light.svg"); }
     main[data-customer-standalone] img[src$="/logo.png"] { content: url("/logo-light.png"); }
     /* Decorative glows and dark gradient layers. */
     main[data-customer-standalone] > div.absolute.inset-0,
@@ -5758,11 +5763,11 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li {
     flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 0.35rem;
     min-height: 2.1rem; border-radius: 999px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em;
-    background: #eef2f6; color: #5f6f84;
+    background: #eef2f6; color: #3a4b64;
   }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li > span {
     display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem;
-    border-radius: 999px; background: #ffffff; color: #5f6f84; font-size: 0.68rem;
+    border-radius: 999px; background: #ffffff; color: #3a4b64; font-size: 0.68rem;
   }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] { background: #071c38; color: #ffffff; }
   html[data-mobile-light] .quote-flow [data-mobile-steps] > li[data-step-state="current"] > span { background: #2fbf4a; color: #071c38; }
@@ -5878,10 +5883,10 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2-chips] { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .75rem; }
   html[data-mobile-light] [data-d2-chips] li { background: #eef2f6; border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; font-weight: 700; color: #071c38; }
   html[data-mobile-light] [data-d2-segment] { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem; background: #eef2f6; border-radius: .8rem; padding: .25rem; }
-  html[data-mobile-light] [data-d2-segment] button { min-height: 3rem; border-radius: .6rem; font-weight: 700; color: #33445a; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+  html[data-mobile-light] [data-d2-segment] button { min-height: 3rem; border-radius: .6rem; font-weight: 700; color: #1c2d49; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
   html[data-mobile-light] [data-d2-segment] button[aria-pressed="true"] { background: #fff; color: #071c38; box-shadow: 0 1px 4px rgba(7,28,56,.12); font-weight: 800; }
   html[data-mobile-light] [data-d2-segment] [data-return-discount-note] { font-size: .72rem; color: #1a7f2e; font-weight: 800; }
-  html[data-mobile-light] [data-d2-schedule-note] { font-size: .86rem; color: #33445a; background: #f3faf4; border: 1px solid #cdebd3; border-radius: .7rem; padding: .7rem .8rem; }
+  html[data-mobile-light] [data-d2-schedule-note] { font-size: .86rem; color: #1c2d49; background: #f3faf4; border: 1px solid #cdebd3; border-radius: .7rem; padding: .7rem .8rem; }
   html[data-mobile-light] [data-d2-vehicle-head] #quote-section-schedule .form-label { font-size: .85rem !important; }
 
   /* Vehicle list (screen 3): compact selectable cards with price on the right. */
@@ -5894,7 +5899,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category]:not([aria-pressed="true"]) [data-vehicle-selection-indicator] { background: #fff; border: 2px solid #c9d3df !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] { background: #2fbf4a !important; color: #071c38 !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-name] { font-size: 1rem !important; font-weight: 800 !important; }
-  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) { font-size: .78rem !important; font-weight: 600 !important; color: #33445a !important; }
+  html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) { font-size: .78rem !important; font-weight: 600 !important; color: #1c2d49 !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-on-request] { display: none !important; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price] { display: flex !important; flex-direction: column; align-items: flex-end; font-size: 1.4rem; font-weight: 800; color: #071c38; line-height: 1.1; }
   html[data-mobile-light] [data-d2="vehicle"] [data-vehicle-desktop-price]::after { content: "fixed price"; font-size: .72rem; font-weight: 600; color: var(--d2-muted); margin-top: .2rem; }
@@ -5962,6 +5967,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > div:has([data-d2-airport-head]) { order: 1; width: 100%; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > [data-d2-airport-photo] { order: 2; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) > section[data-landing-quote] { order: 3; }
+  /* Quote hero (heading + quote tool) always leads the airport page. */
+  html[data-mobile-light] main:has(> [data-d2-airport-photo]) > section.homepage-hero { order: 0; }
   html[data-mobile-light] [data-d2-airport-photo] { position: relative; margin: .9rem 1rem 0; border-radius: 1rem; overflow: hidden; }
   html[data-mobile-light] [data-d2-airport-photo] [data-landing-hero] { height: 7.4rem !important; }
   html[data-mobile-light] [data-d2-airport-photo] [data-landing-hero] > div[class*="bg-gradient"] { background: linear-gradient(to top, rgba(7,28,56,.55), rgba(7,28,56,0) 60%) !important; }
@@ -5978,7 +5985,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) section[data-landing-quote] > div[class*="bg-gradient"],
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) [data-landing-quote-header],
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) [data-landing-mobile-quote] { display: none !important; }
-  html[data-mobile-light] [data-d2-airport-intro-after] { display: block !important; margin: .5rem 0 1rem; font-size: .95rem; line-height: 1.6; color: #33445a; }
+  html[data-mobile-light] [data-d2-airport-intro-after] { display: block !important; margin: .5rem 0 1rem; font-size: .95rem; line-height: 1.6; color: #1c2d49; }
 }
 }
 
@@ -6052,7 +6059,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
   /* Passengers / suitcases */
   html[data-mobile-light] [data-d2-stepper] { border: 1.5px solid #7d8da3 !important; background: #f6f8fb !important; }
-  html[data-mobile-light] [data-d2-stepper-label] { color: #33445a !important; font-size: .8125rem !important; }
+  html[data-mobile-light] [data-d2-stepper-label] { color: #1c2d49 !important; font-size: .8125rem !important; }
   html[data-mobile-light] [data-d2-stepper-btn="minus"] { background: #fff !important; border: 1.5px solid #7d8da3 !important; }
   html[data-mobile-light] [data-d2-stepper-btn]:disabled { opacity: .45 !important; }
   /* Swap button keeps the same outline as the boxes it sits between */
@@ -6102,7 +6109,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @layer base {
 @media (max-width: 1199.98px) {
   html[data-mobile-d3] {
-    --d2-field: #7d8da3; --d2-muted: #475569;
+    --d2-field: #7d8da3; --d2-muted: #24364f;
     --quote-input-border: #7d8da3; --quote-choice-border: #7d8da3; --quote-input-bg: #ffffff;
     --quote-placeholder: #475569; --quote-secondary-ink: #475569;
     --color-mist: #1e293b; --color-ink-secondary: #475569; --color-ink-muted: #475569;
@@ -6112,7 +6119,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] body, html[data-mobile-d3] main { color: #1e293b; }
   html[data-mobile-d3] main :is(h1, h2, h3, h4) { color: #071c38 !important; }
   html[data-mobile-d3] .quote-flow .quote-secondary,
-  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #24364f !important; }
   html[data-mobile-d3] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])),
   html[data-mobile-d3] main label:not(:has(input[type=checkbox], input[type=radio])) { color: #071c38 !important; font-weight: 700 !important; }
 
@@ -6184,7 +6191,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @media (max-width: 1199.98px) {
   /* Meet & Greet card under the vehicles */
   html[data-mobile-d3] .quote-flow[data-quote-results="ready"] [data-results-upgrades] { display: grid !important; gap: .6rem; margin: .9rem 0 .4rem; }
-  html[data-mobile-d3] [data-results-upgrades-heading] { margin: 0 0 0 .15rem; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrades-heading] { margin: 0 0 0 .15rem; font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #24364f; }
   html[data-mobile-d3] [data-results-upgrade] {
     position: relative; display: grid; grid-template-columns: 2.5rem minmax(0,1fr) auto; grid-template-areas: "icon copy toggle" "icon copy price";
     column-gap: .75rem; row-gap: .2rem; align-items: center; padding: .85rem .9rem; border-radius: 1rem; cursor: pointer;
@@ -6198,7 +6205,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-results-upgrade-copy] { grid-area: copy; display: grid; gap: .15rem; min-width: 0; }
   html[data-mobile-d3] [data-results-upgrade-copy] > strong { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: 1rem; font-weight: 800; color: #071c38; }
   html[data-mobile-d3] [data-results-upgrade-copy] > strong > small { padding: .1rem .4rem; border-radius: .35rem; background: #eef2f7; font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #334155; }
-  html[data-mobile-d3] [data-results-upgrade-copy] > span { font-size: .875rem; line-height: 1.4; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade-copy] > span { font-size: .875rem; line-height: 1.4; color: #24364f; }
   html[data-mobile-d3] [data-results-upgrade-price] { grid-area: price; justify-self: end; font-size: 1rem; font-weight: 800; color: #071c38; white-space: nowrap; }
   /* The "Add / Added" text becomes a switch: grey when off, green when on (state also in the price colour and border). */
   html[data-mobile-d3] [data-results-upgrade-state] { grid-area: toggle; justify-self: end; position: relative; width: 52px; height: 30px; border-radius: 999px; background: #7d8da3; font-size: 0; color: transparent; overflow: hidden; }
@@ -6245,7 +6252,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-results-upgrade-state] { grid-column: 3; grid-row: 1; align-self: center !important; }
   html[data-mobile-d3] [data-results-upgrade-copy] > span { grid-column: 1 / -1; grid-row: 2; }
   html[data-mobile-d3] [data-results-upgrade-price] { grid-column: 1 / -1; grid-row: 3; justify-self: end; align-self: center !important; }
-  html[data-mobile-d3] [data-results-upgrade-price]::before { content: "Adds "; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-results-upgrade-price]::before { content: "Adds "; font-weight: 600; color: #24364f; }
   /* Design 3: child-seat question keeps its full width; the "seat requested" note wraps underneath. */
   html[data-mobile-d3] .quote-flow [data-child-seats-toggle] { flex-wrap: wrap; row-gap: .4rem; }
   html[data-mobile-d3] .quote-flow [data-child-seats-toggle-label] { flex: 1 1 12rem; min-width: 0; }
@@ -6315,11 +6322,11 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-h2] { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; color: #071c38; margin: .25rem 0 .75rem; }
   html[data-mobile-d3] [data-d3-routes] { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
   html[data-mobile-d3] [data-d3-route] { display: flex; align-items: center; gap: .75rem; min-height: 60px; padding: .75rem .9rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); color: #071c38; text-decoration: none; }
-  html[data-mobile-d3] [data-d3-route] > svg { color: #475569; flex: none; }
+  html[data-mobile-d3] [data-d3-route] > svg { color: #24364f; flex: none; }
   html[data-mobile-d3] [data-d3-route-icon] { width: 2.25rem; height: 2.25rem; border-radius: 999px; background: #eef2f7; display: grid; place-items: center; color: #071c38; flex: none; }
   html[data-mobile-d3] [data-d3-route-text] { flex: 1; min-width: 0; display: grid; }
   html[data-mobile-d3] [data-d3-route-text] strong { font-size: 1rem; font-weight: 800; color: #071c38; }
-  html[data-mobile-d3] [data-d3-route-text] small { font-size: .875rem; font-weight: 600; color: #475569; }
+  html[data-mobile-d3] [data-d3-route-text] small { font-size: .875rem; font-weight: 600; color: #24364f; }
   html[data-mobile-d3] [data-d3-includes] { margin-top: 1.25rem; padding: .9rem 1rem; background: #fff; border: 1px solid #e3e8ef; border-radius: 1rem; box-shadow: 0 1px 2px rgba(7,28,56,.06), 0 6px 20px rgba(7,28,56,.06); }
   html[data-mobile-d3] [data-d3-includes] h3 { font-size: 1rem; font-weight: 800; color: #071c38; margin: 0 0 .4rem; }
   html[data-mobile-d3] :is([data-d3-includes] ul, ul[data-d3-included]) { margin: 0; padding: 0; list-style: none; display: grid; gap: .35rem; }
@@ -6374,7 +6381,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     padding: 0 .75rem 0 2.6rem; background: transparent; border: 0; color: #071c38; font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;
   }
   html[data-mobile-d3] [data-d3-time-trigger]:focus-visible { outline: 3px solid #16803c; outline-offset: 2px; border-radius: .75rem; }
-  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #475569; font-weight: 500; }
+  html[data-mobile-d3] [data-d3-time-value][data-empty] { color: #24364f; font-weight: 500; }
   html[data-mobile-d3] [data-schedule-control="time"]:has([data-d3-time-trigger]) .homepage-schedule-prompt { visibility: hidden; }
   html[data-mobile-d3] [data-d3-time-backdrop] { position: fixed; inset: 0; z-index: 200; background: rgba(7,28,56,.45); display: flex; align-items: flex-end; justify-content: center; }
   html[data-mobile-d3] [data-d3-time-sheet] {
@@ -6384,7 +6391,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] [data-d3-time-head] { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .5rem; }
   html[data-mobile-d3] [data-d3-time-head] p { font-size: 1rem; font-weight: 800; margin: 0; }
   html[data-mobile-d3] [data-d3-time-readout] { font-size: 1.75rem; font-weight: 800; letter-spacing: .02em; color: #071c38; font-variant-numeric: tabular-nums; }
-  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #475569; margin: .6rem 0 .35rem; }
+  html[data-mobile-d3] [data-d3-time-sub] { font-size: .8125rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #24364f; margin: .6rem 0 .35rem; }
   html[data-mobile-d3] [data-d3-time-grid] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; }
   html[data-mobile-d3] [data-d3-time-grid] button {
     min-height: 44px; border-radius: .7rem; border: 1.5px solid #7d8da3; background: #fff; color: #071c38; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -6409,7 +6416,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-d3] #homepage-booking-intro h1 { font-weight: 800 !important; font-size: clamp(1.75rem, 7.6vw, 2.15rem) !important; line-height: 1.08 !important; letter-spacing: -0.03em !important; }
   html[data-mobile-d3] #homepage-booking-intro h1 > span:first-child { color: #071c38 !important; -webkit-text-fill-color: #071c38; display: block; }
   html[data-mobile-d3] #homepage-booking-intro h1 > span + span { color: #1f9a36 !important; -webkit-text-fill-color: #1f9a36; display: block; }
-  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #475569 !important; }
+  html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #24364f !important; }
 
   /* Header: the official WhatsApp button in WhatsApp green (same link and tracking). */
   html[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] { background: #25d366 !important; border: 0 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(37,211,102,.35) !important; }
@@ -6461,7 +6468,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @layer base {
   @media (max-width: 1199.98px) {
     html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { display: none !important; }
-    html[data-mobile-d3] #homepage-booking-intro > p[data-d3-intro-sub][data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #475569 !important; max-width: 22rem; }
+    html[data-mobile-d3] #homepage-booking-intro > p[data-d3-intro-sub][data-d3-intro-sub] { display: block !important; margin: .375rem 0 0 !important; font-size: .9375rem !important; line-height: 1.45 !important; color: #24364f !important; max-width: 22rem; }
   }
 }
 
@@ -6576,7 +6583,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 
 /* Readability (all designs): footer secondary text and breadcrumbs meet 4.5:1. */
 footer .text-white\/50 { color: rgba(255, 255, 255, 0.64) !important; }
-html[data-mobile-d3] nav[aria-label="Breadcrumb"], html[data-mobile-d3] nav[aria-label="Breadcrumb"] a { color: #475569 !important; -webkit-text-fill-color: #475569; }
+html[data-mobile-d3] nav[aria-label="Breadcrumb"], html[data-mobile-d3] nav[aria-label="Breadcrumb"] a { color: #24364f !important; -webkit-text-fill-color: #475569; }
 html[data-mobile-d3] nav[aria-label="Breadcrumb"] a:hover { color: #16803c !important; -webkit-text-fill-color: #16803c; }
 
 /* Booking confirmation on the light designs (desktop 1200px+ and mobile Design 3): readable status text. */
@@ -6714,6 +6721,13 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-journey-stops]::before { background: rgba(255, 255, 255, 0.35) !important; }
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-edit] { color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; }
   html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li { background: rgba(255, 255, 255, 0.1) !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; border-color: transparent !important; }
+  /* View route chip: tappable, green outline so it reads as a button, opens the route map. */
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d2-chips] li[data-chip="route"] { padding: 0 !important; background: transparent !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d3-view-route] { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .3rem .75rem; border: 1.5px solid #2fbf4a; border-radius: 999px; background: rgba(47, 191, 74, 0.12); color: #2fbf4a !important; -webkit-text-fill-color: #2fbf4a !important; font: inherit; font-weight: 800; cursor: pointer; }
+  /* Route map header strip (navy): keep its text light on phones/tablets. */
+  html:root:root:root:root[data-mobile-d3] [data-quote-route-strip][data-quote-route-strip][data-quote-route-strip] p.text-xs { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+  html:root:root:root:root[data-mobile-d3] [data-quote-route-strip][data-quote-route-strip][data-quote-route-strip] p.text-xs:first-child { color: #d5deea !important; -webkit-text-fill-color: #d5deea !important; }
+  html:root:root[data-mobile-d3] .quote-flow [data-d2-journey-card] [data-d3-view-route]:active { background: rgba(47, 191, 74, 0.25); }
 }
 
 /* Design 3 pickup-time selector (compact): Hour and Minute columns side by side, a large
@@ -6737,7 +6751,7 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-readout] span { color: #2fbf4a; padding: 0 .1em; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-columns] { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; min-height: 0; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-column] { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-sub] { margin: 0 0 .35rem; text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #475569; }
+  html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-sub] { margin: 0 0 .35rem; text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #24364f; }
   html:root:root[data-mobile-d3] [data-d3-time-v2] [data-d3-time-list] {
     height: min(13.75rem, 34dvh); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     scroll-snap-type: y proximity; border: 1.5px solid #94a3b8; border-radius: .9rem; background: #fff; padding: .25rem;
@@ -7546,6 +7560,2280 @@ html[data-mobile-light]:has([data-d2="details"]) [data-matni-whatsapp-qr-launche
     html:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
       margin-bottom: 5.5rem !important;
     }
+  }
+}
+/* ───────────────────────────────────────────────────────────────────────────
+   Design 3 — high-contrast pass on the midnight homepage (owner mockup, 12 Nov 2026).
+   Visual only. Phones and tablets (below 1200px); desktop untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html:root:root:root:root[data-mobile-d3] {
+    --pm-ink: #071c38;
+    --pm-ink-soft: #24385a;
+    --pm-line: #c5cedb;
+    --pm-line-soft: #dbe2ea;
+    --pm-green: #00b820;
+    --pm-green-bright: #4be03c;
+  }
+
+  /* Header controls: brighter outlines */
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill],
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
+    border: 1.5px solid rgba(255, 255, 255, 0.42) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+    font-weight: 750 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg {
+    stroke-width: 2.6 !important;
+  }
+
+  /* Hero copy */
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.9375rem !important;
+    line-height: 1.08 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    color: #f4f7fb !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.45 !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.012em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+    color: #fff !important;
+    font-size: 0.8438rem !important;
+    font-weight: 700 !important;
+    padding: 0.3125rem 0.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] :is(span, strong) {
+    font-weight: 700 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    color: #fcc419 !important;
+    font-size: 0.875rem !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  /* Card: defined borders, navy text, heavier weights */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    border: 1.5px solid var(--pm-line) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div {
+    margin-top: -1.5px !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    padding-left: 2.875rem !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    color: var(--pm-ink) !important;
+    -webkit-text-fill-color: var(--pm-ink) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff)::placeholder {
+    color: var(--pm-ink) !important;
+    -webkit-text-fill-color: var(--pm-ink) !important;
+    font-weight: 550 !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] {
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    stroke-width: 2.6 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    left: 0.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--pm-green);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    width: 2rem !important;
+    height: 2rem !important;
+    right: 1.75rem !important;
+    border: 1.5px solid var(--pm-line) !important;
+    color: var(--pm-ink) !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.14) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 1.0625rem !important;
+    height: 1.0625rem !important;
+    stroke-width: 2.6 !important;
+  }
+
+  /* One way / Return */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    height: 2.75rem !important;
+    background: #e9eef4 !important;
+    box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.06);
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    color: var(--pm-ink-soft) !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button[aria-pressed="true"] {
+    color: var(--pm-ink) !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.2), 0 0 0 1px rgba(7, 28, 56, 0.1) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    font-size: 0.8125rem !important;
+    font-weight: 750 !important;
+    color: #0a8f1f !important;
+    background: #cdf5d3 !important;
+    padding: 0.3125rem 0.5rem !important;
+  }
+
+  /* Labels */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    color: var(--pm-ink) !important;
+    font-size: 0.75rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.035em !important;
+    margin-bottom: 0.4375rem !important;
+  }
+
+  /* Date + time */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 3rem !important;
+    min-height: 3rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+    color: var(--pm-ink) !important;
+    font-weight: 650 !important;
+    font-size: 1.0625rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon {
+    color: var(--pm-green) !important;
+    -webkit-text-fill-color: initial !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    stroke-width: 2.6 !important;
+    color: var(--pm-green) !important;
+  }
+
+  /* Passengers + suitcases */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 3.125rem !important;
+    padding: 0 0.4375rem 0 2.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    left: 0.6875rem;
+    bottom: 0.75rem;
+    width: 1.625rem;
+    height: 1.625rem;
+    background: var(--pm-green);
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-passengers-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-suitcases-label::before {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2.5'/%3E%3Cpath d='M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M8.5 7v13'/%3E%3Cpath d='M15.5 7v13'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='2.5'/%3E%3Cpath d='M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M8.5 7v13'/%3E%3Cpath d='M15.5 7v13'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 2rem !important;
+    font-size: 1.1875rem !important;
+    font-weight: 800 !important;
+    color: var(--pm-ink) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 2.125rem !important;
+    height: 2.125rem !important;
+    border: 1.5px solid #8492a6 !important;
+    color: #3d4c63 !important;
+    background: #fff !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 1.0625rem !important;
+    height: 1.0625rem !important;
+    stroke-width: 3 !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn="plus"] {
+    border: 2px solid var(--pm-green) !important;
+    color: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]:disabled {
+    border-color: #a9b4c4 !important;
+    color: #7c8a9f !important;
+    opacity: 1 !important;
+  }
+
+  /* Quote button: saturated green, bold white */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    height: 4.5rem !important;
+    min-height: 4.5rem !important;
+    padding: 0 1rem !important;
+    border-radius: 1.125rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.4375rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.015em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] * {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    color: var(--pm-ink) !important;
+    font-size: 0.8438rem !important;
+    font-weight: 550 !important;
+    margin-top: 0.875rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding-top: 0.9375rem !important;
+  }
+
+  /* Benefits beneath the card */
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.4375rem !important;
+    left: 0.875rem !important;
+    right: 0.5rem !important;
+    margin-top: 1.75rem !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.6875rem !important;
+    color: #fff !important;
+    font-size: 1rem !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.005em !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    color: var(--pm-green-bright) !important;
+    width: 1.3125rem !important;
+    height: 1.3125rem !important;
+    stroke-width: 3.2 !important;
+    flex: none !important;
+  }
+  html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    margin-bottom: 8.75rem !important;
+  }
+}
+/* Small phones */
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 1.625rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      padding-left: 2.25rem !important;
+      padding-right: 0.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      left: 0.4375rem;
+      width: 1.375rem;
+      height: 1.375rem;
+      bottom: 0.875rem;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+      width: 1.875rem !important;
+      height: 1.875rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+      width: 1.5rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.9688rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      font-size: 1rem !important;
+      padding-left: 2.5rem !important;
+      letter-spacing: -0.02em !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      font-size: 1.3125rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.9375rem !important;
+    }
+  }
+}
+/* Wider phones in landscape and tablets: benefits in two balanced columns */
+@media (min-width: 600px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 0.5rem 1.5rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.75rem !important;
+    }
+  }
+}
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.375rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 1rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+      height: 4.875rem !important;
+      min-height: 4.875rem !important;
+      font-size: 1.5625rem !important;
+      border-radius: 1.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 7rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg,
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg * {
+    color: var(--pm-green) !important;
+    stroke: var(--pm-green) !important;
+  }
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]),
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note],
+  html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    white-space: nowrap !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.9063rem !important;
+      letter-spacing: -0.02em !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+      font-size: 0.9375rem !important;
+      gap: 0.25rem !important;
+      padding: 0 0.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+      font-size: 0.6875rem !important;
+      padding: 0.25rem 0.375rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      font-size: 1rem !important;
+      letter-spacing: -0.03em !important;
+      padding-left: 2.375rem !important;
+      padding-right: 2.25rem !important;
+    }
+    html:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 0.5rem !important;
+      width: 1.75rem !important;
+      height: 1.75rem !important;
+    }
+  }
+}
+/* ── Compact sizing to the owner's mockup: the quote card must not be bigger than the reference ── */
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+    padding: 0.625rem 0.6875rem 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro {
+    padding: 0 0.3125rem !important;
+    margin: 0 0 0.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+    font-size: 1.6875rem !important;
+    line-height: 1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+    font-size: 0.7813rem !important;
+    line-height: 1.32 !important;
+    margin-top: 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d2-rating] {
+    margin-top: 0.5rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro a[data-reviews-compact] [data-reviews-stars] {
+    font-size: 0.75rem !important;
+  }
+
+  html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    padding: 0.75rem 0.75rem 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.0625rem !important;
+    min-height: 2.0625rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 2.5rem !important;
+    font-size: 1rem !important;
+    font-weight: 550 !important;
+    letter-spacing: -0.02em !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-gps-location] svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) > div.relative > div > div.relative::before {
+    left: 0.6875rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    right: 2.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] svg {
+    width: 0.9375rem !important;
+    height: 0.9375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+    margin-top: 0.5625rem !important;
+    height: 2rem !important;
+    padding: 0.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+    font-size: 0.9063rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+    font-size: 0.75rem !important;
+    padding: 0.1875rem 0.4375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #passenger-luggage-section {
+    margin-top: 0.5625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule label.form-label,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label] {
+    font-size: 0.7188rem !important;
+    margin-bottom: 0.3125rem !important;
+    line-height: 1.1 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+    height: 2.125rem !important;
+    min-height: 2.125rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+    font-size: 0.9688rem !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule .homepage-field-icon svg,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule svg.homepage-field-icon {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+    height: 2.375rem !important;
+    padding: 0 0.3125rem 0 2.375rem !important;
+    border-radius: 0.6875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+    left: 0.625rem;
+    bottom: 0.5rem;
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+    width: 1.75rem !important;
+    font-size: 1.0625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn] svg {
+    width: 0.875rem !important;
+    height: 0.875rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-quote-price-action] {
+    padding-top: 0.8125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 1.25rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+    font-size: 0.7813rem !important;
+    margin-top: 0.5625rem !important;
+    line-height: 1.25 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+    margin-top: 1.375rem !important;
+    gap: 0.25rem !important;
+    left: 0.375rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+    font-size: 0.9688rem !important;
+    line-height: 1.3 !important;
+    font-weight: 750 !important;
+    gap: 0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li svg {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+    margin-bottom: 7.25rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 1.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      padding-left: 2rem !important;
+      padding-right: 0.1875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      left: 0.4375rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      bottom: 0.5625rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-value] {
+      width: 1.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      font-size: 1.125rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] :is(span, [data-d3-time-trigger]) {
+      font-size: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 0.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      font-size: 0.875rem !important;
+    }
+  }
+}
+@media (min-width: 600px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 4.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      gap: 0.375rem 1.5rem !important;
+    }
+  }
+}
+/* Tablets: same proportions, scaled up modestly — never larger than the live card */
+@media (min-width: 768px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero .homepage-hero-layout {
+      padding: 3.25rem 1.5rem 0 !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro h1 {
+      font-size: 2.25rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.9375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      padding: 1.125rem 1.125rem 1rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+      height: 2.375rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] #quote-section-schedule [data-schedule-control] {
+      height: 2.625rem !important;
+      min-height: 2.625rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-row] {
+      height: 2.75rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-stepper-label]::before {
+      bottom: 0.6875rem;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price],
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:disabled {
+      height: 3.375rem !important;
+      min-height: 3.375rem !important;
+      font-size: 1.4375rem !important;
+      border-radius: 0.875rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 2.5rem !important;
+    }
+    html:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 5.75rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])),
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div,
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] > div:has(> div > label:is([for="pickup"], [for="dropoff"])) > div.relative > div > div.relative {
+    min-height: 0 !important;
+    height: auto !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+  }
+}
+@layer base {
+  /* Swap chip must never sit on the clear (×) buttons */
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+    right: 2.75rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap]::after {
+    inset: -0.375rem 0 -0.375rem -0.625rem !important;
+  }
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+    padding-right: 2.5rem !important;
+  }
+}
+@media (max-width: 359px) {
+  @layer base {
+    html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-swap] {
+      right: 2.625rem !important;
+      width: 1.625rem !important;
+      height: 1.625rem !important;
+    }
+  }
+}
+@layer base {
+  html:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-homepage-quote-scroll] button[aria-label="Clear address"] {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+}
+/* "Send me my quote": deep navy with white text, sized like the Pay / Continue buttons (owner, 12 Nov 2026) */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions button[data-d3-send-quote][data-d3-send-quote] {
+    min-height: 50px !important;
+    height: 50px !important;
+    padding: 0 1rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    background: #071c38 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.25) !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2 11 13'/%3E%3Cpath d='M22 2 15 22l-4-9-9-4 20-7z'/%3E%3C/svg%3E") !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:active {
+    background: #0d2a52 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow button[data-d3-send-quote]:focus-visible {
+    outline: 3px solid #34d06a !important;
+    outline-offset: 2px;
+  }
+}
+
+/* Small prompt under "Send me my quote" (owner, 12 Nov 2026) */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] {
+    display: block !important;
+    margin: 0.875rem 0 0 !important;
+    text-align: center !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.3 !important;
+    font-weight: 500 !important;
+    color: #51607a !important;
+    -webkit-text-fill-color: #51607a !important;
+  }
+}
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note] + button[data-d3-send-quote],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] + button[data-d3-send-quote][data-d3-send-quote] {
+    margin-top: 0.4375rem !important;
+  }
+}
+
+/* ── Send Me My Quote box: clear, padded action buttons (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 3.25rem !important;
+    padding: 0.875rem 1.25rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.0625rem !important;
+    line-height: 1.2 !important;
+    font-weight: 750 !important;
+    letter-spacing: 0 !important;
+    text-shadow: none !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root [data-save-quote-body] button[data-save-quote-email-submit] {
+    background: #071c38 !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.3), 0 8px 16px -10px rgba(7, 28, 56, 0.6) !important;
+  }
+  html:root:root:root [data-save-quote-body] button[data-save-quote-whatsapp-submit] {
+    background: linear-gradient(180deg, #2fb62f 0%, #1f9a2a 100%) !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 8px 16px -10px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):not(:disabled):active {
+    transform: scale(0.985);
+    filter: brightness(0.95);
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):disabled {
+    opacity: 0.7 !important;
+  }
+  html:root:root:root [data-save-quote-body] button:is([data-save-quote-email-submit], [data-save-quote-whatsapp-submit]):focus-visible {
+    outline: 3px solid #34d06a !important;
+    outline-offset: 2px;
+  }
+}
+
+/* ── Design 3 details step: darker, heavier supporting text (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], button[data-d3-send-quote], [class*="rounded-full"]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]):not([class*="rounded-full"]) {
+    color: #1c2d49 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary]) *) {
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(p#customer-mobile-whatsapp, [data-access-note], [data-d3-send-quote-note]) {
+    color: #1c2d49 !important;
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(input, textarea).quote-text-input {
+    color: #071c38 !important;
+    -webkit-text-fill-color: #071c38 !important;
+    font-weight: 600 !important;
+  }
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] :is(input, textarea).quote-text-input::placeholder {
+    color: #4b5b73 !important;
+    -webkit-text-fill-color: #4b5b73 !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+}
+@layer base {
+  /* option names (Free Drop-off / Terminal Drop-off / Meet & Greet) in navy */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="details"] label[data-access-option] span[class*="font-semibold"]:not([class*="text-emerald"]) {
+    color: #071c38 !important;
+    -webkit-text-fill-color: #071c38 !important;
+    font-weight: 700 !important;
+  }
+  /* Send Me My Quote box: supporting text as readable as the rest */
+  html:root:root:root[data-mobile-d3] [data-save-quote-body] > p,
+  html:root:root:root[data-mobile-d3] [data-save-quote-body] p:not([role="alert"]) {
+    color: #1c2d49 !important;
+    -webkit-text-fill-color: #1c2d49 !important;
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] [data-save-quote-body] input::placeholder {
+    color: #4b5b73 !important;
+    -webkit-text-fill-color: #4b5b73 !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ── Design 3: darker, heavier supporting text throughout the booking flow (owner, 12 Nov 2026) ── */
+@layer base {
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, dt, dd, li):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not([class*="font-semibold"]):not([class*="font-bold"]):not([class*="font-extrabold"]):not([class*="font-medium"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], [data-quote-route-strip], button) *) {
+    font-weight: 500 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow :is(p, span, small, div, dt, dd, li, summary, legend):is(.text-white, [class*="text-white/"], [class*="text-[#c"], [class*="text-[#d"], [class*="text-[#e"], .quote-secondary, [class*="text-navy/"]):not(:is(.btn-primary, .bg-emerald, [data-d2-pay-summary], [data-d2-journey-card], [data-quote-route-strip], button, [class*="rounded-full"]) *):not(.btn-primary):not(.bg-emerald):not(.text-emerald):not([class*="text-emerald"]):not([class*="rounded-full"]):not([data-d2-benefits] *) {
+    color: #1c2d49 !important;
+  }
+  html:root:root:root[data-mobile-d3] .quote-flow p[data-d3-send-quote-note],
+  html:root:root:root[data-mobile-d3] #step3-payment-actions#step3-payment-actions#step3-payment-actions p[data-d3-send-quote-note] {
+    color: #1c2d49 !important;
+    -webkit-text-fill-color: #1c2d49 !important;
+    font-weight: 600 !important;
+  }
+}
+@layer base {
+  html:root:root:root[data-mobile-d3] [data-results-upgrade-copy] > span,
+  html:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]) {
+    color: #1c2d49 !important;
+    font-weight: 500 !important;
+  }
+}
+@layer base {
+  /* Body copy across the mobile site: full-strength navy-grey instead of 60–70% tints */
+  html:root:root:root[data-mobile-d3] main :is(p, span, li, dd, dt, small, summary)[class*="text-white/"]:not(:is(header:not(main header), footer, .bg-emerald, .btn-primary, .quote-flow, [data-d2-journey-card], [data-d2-pay-summary], [data-stripe-pay], :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)) *) {
+    color: #24364f !important;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Desktop homepage (≥1200px), first step only: compact two-row quote form on
+   midnight navy, trust strip, rotating images higher (owner approved 12 Nov 2026).
+   Styling only. Mobile/tablet (Design 3, <1200px), other pages and later
+   booking steps are untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) {
+    background:
+      radial-gradient(90% 60% at 88% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+      radial-gradient(90% 70% at 0% 6%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+      linear-gradient(180deg, #071c38 0%, #06152b 46%, #040d1c 100%) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding: 1.125rem 2.5rem 2.5rem !important;
+    row-gap: 0.875rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro {
+    text-align: left !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 {
+    font-size: 2.375rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #fff !important;
+    margin: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 > span { color: #fff !important; -webkit-text-fill-color: currentColor !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro h1 > span + span { color: #4be03c !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin: 0.375rem 0 0 !important;
+    max-width: none !important;
+    color: #f4f7fb !important;
+    font-size: 1.0313rem !important;
+    line-height: 1.4 !important;
+    font-weight: 500 !important;
+  }
+
+  /* card across the full width, trust strip beneath */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote {
+    grid-template-columns: minmax(0, 1fr) !important;
+    row-gap: 0.875rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+    position: relative !important;
+    padding: 1.25rem 1.375rem 1rem !important;
+    border-radius: 1.25rem !important;
+    background: #fbfcfd !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 2px 4px rgba(2, 8, 20, 0.2), 0 26px 50px -18px rgba(0, 0, 0, 0.62) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > div:has(> h2[data-site-nav-heading="quote"]) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form { margin: 0 !important; padding: 0 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] {
+    grid-template-columns: repeat(36, minmax(0, 1fr)) !important;
+    gap: 0.875rem 0.875rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) { grid-column: 1 / span 14 !important; grid-row: 1 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) { grid-column: 15 / span 14 !important; grid-row: 1 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child {
+    position: static !important;
+    grid-column: 29 / span 8 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule {
+    grid-column: 1 / span 14 !important;
+    grid-row: 2 !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.875rem !important;
+    margin: 0 !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1) { grid-column: 15 / span 7 !important; grid-row: 2 !important; align-self: end !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2) { grid-column: 22 / span 7 !important; grid-row: 2 !important; align-self: end !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] {
+    grid-column: 29 / span 8 !important;
+    grid-row: 2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] > * { margin-top: 0 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements {
+    grid-column: 1 / -1 !important;
+    grid-row: 3 !important;
+    margin: -0.25rem 0 0 !important;
+    font-size: 0.8438rem !important;
+    line-height: 1.3 !important;
+    color: #24364f !important;
+    font-weight: 500 !important;
+  }
+
+  /* fields: same language as mobile */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form label {
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 0 0.4375rem 0.125rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1.1 !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.035em !important;
+    text-transform: uppercase !important;
+    color: #071c38 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, [data-schedule-control], select) {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    background-color: #fff !important;
+    border: 1.5px solid #c5cedb !important;
+    border-radius: 0.75rem !important;
+    box-shadow: none !important;
+    color: #071c38 !important;
+    font-weight: 600 !important;
+    transition: border-color 160ms ease, box-shadow 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, select):focus,
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control]:focus-within {
+    border-color: #00b820 !important;
+    box-shadow: 0 0 0 3px rgba(31, 170, 75, 0.16) !important;
+    outline: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff)::placeholder {
+    color: #24364f !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control] span { color: #071c38 !important; font-weight: 600 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(button[data-gps-location], .homepage-field-icon, #passenger-luggage-section) svg {
+    color: #00b820 !important;
+    stroke-width: 2.4 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child > div {
+    width: 100% !important;
+    height: 3rem !important;
+    padding: 0.1875rem !important;
+    border-radius: 0.75rem !important;
+    background: #e9eef4 !important;
+    border: 0 !important;
+    box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.06) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 0 0.375rem !important;
+    border-radius: 0.5625rem !important;
+    color: #24364f !important;
+    font-size: 0.9375rem !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.375rem !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] {
+    background: #fff !important;
+    color: #071c38 !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.2), 0 0 0 1px rgba(7, 28, 56, 0.1) !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price],
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:disabled {
+    width: 100% !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    font-size: 1.0938rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    opacity: 1 !important;
+    filter: none !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75), 0 1px 2px rgba(7, 28, 56, 0.2) !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price] * { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:not(:disabled):hover { filter: brightness(1.05); }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:not(:disabled):active { transform: scale(0.985); }
+
+  /* trust panel → one readable reassurance strip, rating prominent */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1.25rem !important;
+    padding: 0.25rem 0.375rem !important;
+    height: auto !important;
+    min-height: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-heading] { display: none !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: clamp(0.875rem, 1.9vw, 2.25rem) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5625rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li > span:last-child > span { display: none !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong {
+    color: #fff !important;
+    font-size: clamp(0.9375rem, 1.15vw, 1rem) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.005em !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] {
+    width: 1.625rem !important;
+    height: 1.625rem !important;
+    flex: none !important;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    color: #4be03c !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+    color: #4be03c !important;
+    stroke-width: 2.5 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-reviews] {
+    flex: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5625rem !important;
+    min-height: 0 !important;
+    white-space: nowrap !important;
+    padding: 0.4375rem 0.9375rem !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: none !important;
+    color: #fff !important;
+    text-decoration: none !important;
+    transition: background-color 160ms ease !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel]:hover { background: rgba(255, 255, 255, 0.16) !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] * {
+    color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] { display: inline-flex !important; align-items: center !important; gap: 0.5rem !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :first-child { font-size: 1.1875rem !important; font-weight: 800 !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :not(:first-child),
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-score] > :not(:first-child) * { color: #fcc419 !important; font-size: 1.0625rem !important; letter-spacing: 0.04em !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) a[data-reviews-panel] [data-reviews-meta] > :not(:first-child) { display: none !important; }
+
+  /* rotating images straight after */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-homepage-hero-rails] { margin-top: 0.5rem !important; }
+
+  /* navigation: same language, homepage only */
+  html:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] {
+    background: rgba(7, 28, 56, 0.9) !important;
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside]))) header[data-site-header] a.bg-emerald {
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    font-weight: 750 !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 14px -8px rgba(20, 150, 36, 0.75) !important;
+  }
+}
+}
+@media (min-width: 1200px) and (prefers-reduced-motion: reduce) {
+  html:not([data-mobile-d3]) main > section.homepage-hero #quote * { transition: none !important; }
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note] {
+    margin: 0 !important;
+    padding: 0.1875rem 0.4375rem !important;
+    border-radius: 999px !important;
+    background: #cdf5d3 !important;
+    color: #0a8f1f !important;
+    font-size: 0.75rem !important;
+    font-weight: 750 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note]::first-letter { text-transform: uppercase; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button {
+    flex: 1 1 auto !important;
+    font-size: 0.875rem !important;
+    padding: 0 0.5rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child [data-return-discount-note] {
+    font-size: 0.6875rem !important;
+    padding: 0.1875rem 0.375rem !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] { padding-bottom: 0.875rem !important; }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > :last-child { margin-bottom: 0 !important; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* long labels (e.g. "Scheduled flight arrival time") may wrap: keep every field on one baseline */
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule {
+    align-items: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule > div > * {
+    align-self: end !important;
+  }
+  html:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule label {
+    letter-spacing: 0.02em !important;
+  }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* Return journeys: all four date/time fields on one row; passengers, suitcases, hint and button on the next */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule {
+    grid-column: 1 / span 28 !important;
+    grid-row: 2 !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.875rem !important;
+    align-items: end !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="date"]) > div:has(> label[for="date"]) { grid-column: 1 !important; grid-row: 1 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="date"]) > div:has(> label[for="time"]) { grid-column: 2 !important; grid-row: 1 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="returnDate"]) {
+    grid-column: 3 / span 2 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.875rem !important;
+    align-items: end !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="returnDate"]) > div { align-self: end !important; margin: 0 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule #trip-date-error:not(:empty) { grid-column: 1 / -1 !important; grid-row: 2 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1) { grid-column: 1 / span 7 !important; grid-row: 3 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2) { grid-column: 8 / span 7 !important; grid-row: 3 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements {
+    grid-column: 15 / span 14 !important;
+    grid-row: 3 !important;
+    align-self: end !important;
+    margin: 0 !important;
+    min-height: 3rem !important;
+    display: flex !important;
+    align-items: center !important;
+    padding-left: 0.375rem !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-column: 29 / span 8 !important; grid-row: 3 !important; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* Desktop vehicle + checkout steps (homepage): padded buttons in the mobile style (owner, 12 Nov 2026) */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button {
+    min-height: 3.375rem !important;
+    padding: 0 1.25rem !important;
+    border: 0 !important;
+    border-radius: 0.9rem !important;
+    background: linear-gradient(180deg, #38bd31 0%, #2aaa2a 100%) !important;
+    color: #fff !important;
+    font-size: 1.125rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    text-shadow: 0 1px 1px rgba(6, 70, 14, 0.45);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 -2px 0 rgba(6, 84, 16, 0.28) inset, 0 8px 18px -8px rgba(20, 150, 36, 0.75) !important;
+    transition: transform 140ms ease, filter 160ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button:not(:disabled):hover { filter: brightness(1.06); }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-main-action] > button:not(:disabled):active { transform: scale(0.985); }
+
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem 0.625rem !important;
+    margin-top: 1rem !important;
+    padding-top: 0.875rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row]::before {
+    content: "Not ready to book yet?";
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #e6edf7;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link),
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.4375rem !important;
+    width: 100% !important;
+    min-height: 2.875rem !important;
+    padding: 0.625rem 0.875rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 0.9375rem !important;
+    font-weight: 750 !important;
+    line-height: 1.15 !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    transition: background-color 160ms ease, transform 140ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote] {
+    background: #fff !important;
+    border: 1.5px solid #fff !important;
+    color: #071c38 !important;
+    box-shadow: 0 1px 2px rgba(2, 8, 20, 0.3) !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote]:hover,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote]:hover { background: #eaf0f7 !important; color: #071c38 !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link):not([data-results-email-quote]),
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    color: #fff !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a, .desktop-results-link):not([data-results-email-quote]):hover,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-start-new-quote-controls] > button:hover { background: rgba(255, 255, 255, 0.14) !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > :is(button, a):active { transform: scale(0.985); }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-start-new] {
+    color: rgba(255, 255, 255, 0.82) !important;
+    font-size: 0.8125rem !important;
+    padding: 0.375rem 0.5rem !important;
+  }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-row] > button[data-results-email-quote] *,
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote][data-checkout-email-quote],
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-pay-ready] > button[data-checkout-email-quote][data-checkout-email-quote] * {
+    color: #071c38 !important;
+    -webkit-text-fill-color: #071c38 !important;
+  }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* "Start a new quote" on the vehicle step: a proper padded button, like Start over at checkout */
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] [data-results-secondary-actions] { display: block !important; }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] button[data-results-start-new] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 2.875rem !important;
+    margin: 0.625rem 0 0 !important;
+    padding: 0.625rem 0.875rem !important;
+    border-radius: 0.75rem !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.5) !important;
+    color: #fff !important;
+    font-size: 0.9375rem !important;
+    font-weight: 750 !important;
+    text-decoration: none !important;
+    transition: background-color 160ms ease !important;
+  }
+  html:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero [data-quote-result-card] button[data-results-start-new]:hover { background: rgba(255, 255, 255, 0.14) !important; }
+}
+}
+@media (min-width: 1200px) {
+@layer base {
+  /* Refinement (owner, 12 Nov 2026): roomier date/time/passenger/suitcase fields at 1200px, wider quote button */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] { gap: 1rem 0.875rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) { grid-column: 1 / span 13 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) { grid-column: 14 / span 13 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child { grid-column: 27 / span 10 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule {
+    grid-column: 1 / span 14 !important;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1) { grid-column: 15 / span 6 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2) { grid-column: 21 / span 6 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-column: 27 / span 10 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form label {
+    margin-bottom: 0.5rem !important;
+    line-height: 1.2 !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule label { letter-spacing: 0.015em !important; text-wrap: balance; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is([data-schedule-control], select) { font-size: 1rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control] span { font-size: 1rem !important; white-space: nowrap !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price],
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:disabled {
+    height: 3.125rem !important;
+    min-height: 3.125rem !important;
+    font-size: 1.1875rem !important;
+    letter-spacing: -0.015em !important;
+    border-radius: 0.8125rem !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.32) inset, 0 -2px 0 rgba(6, 84, 16, 0.3) inset, 0 12px 24px -10px rgba(20, 160, 40, 0.9), 0 2px 4px rgba(7, 28, 56, 0.22) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, [data-schedule-control], select) {
+    height: 3.125rem !important;
+    min-height: 3.125rem !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child > div { height: 3.125rem !important; }
+
+  /* return */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule {
+    grid-column: 1 / span 26 !important;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr) minmax(0, 0.88fr) minmax(0, 1.12fr) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule > div:has(> div > label[for="returnDate"]) {
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1) { grid-column: 1 / span 6 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2) { grid-column: 7 / span 6 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements { grid-column: 13 / span 14 !important; min-height: 3.125rem !important; padding-left: 0.5rem !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-column: 27 / span 10 !important; }
+}
+}
+
+/* Stop phones/tablets flashing the previous quote form before the app loads.
+   The static HTML always contains the previous form; Design 3 swaps in once React runs and
+   marks the card with data-d3-render. Until then the card keeps its space but stays invisible.
+   Failsafe: if scripts never load, the card is shown anyway after 2.5s. */
+@keyframes matni-d3-reveal { to { visibility: visible; } }
+html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) {
+  visibility: hidden;
+  animation: matni-d3-reveal 0s linear 2.5s forwards;
+}
+
+/* Homepage intro is now two sentences: let it wrap on laptops/desktop instead of running off the edge. */
+@media (min-width: 1024px) {
+  section.homepage-hero .homepage-hero-copy > p { white-space: normal; max-width: 62rem; }
+}
+
+/* Empty Run offer: gentle glow on the "Switch to" button to draw the eye. */
+@keyframes empty-run-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55), 0 0 6px 1px rgba(16, 185, 129, 0.35); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0), 0 0 22px 6px rgba(16, 185, 129, 0.6); }
+}
+.empty-run-glow {
+  animation: empty-run-glow 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .empty-run-glow {
+    animation: none;
+    box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.5);
+  }
+}
+
+/* "How did you hear about us?" — a single chevron on every screen size (no tiling). */
+.quote-flow [data-heard-about] select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 1rem 1rem !important;
+  padding-right: 2.5rem !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Phone homepage, closer to the owner's mockup (13 Nov 2026). Phones and tablets (below 1200px; tablets added 13 Nov 2026 at owner request);
+   desktop unchanged. Bigger wide logo, first intro sentence only, card title with
+   an Instant Quote chip, navy One way / Return, chevron on the quote button, lock on the
+   caption, benefits as four icon columns.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-d2-benefit-icon] { display: none; }
+@media (max-width: 1199.98px) {
+  @layer base {
+    /* Header: the logo gets the space; buttons stay 44px touch targets, tight gaps (owner, 13 Nov 2026) */
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      min-height: 3.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+      gap: 0.625rem !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] a:has(> .quote-header-logo-wide) {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
+      display: block !important;
+      width: 100% !important;
+      max-width: 15rem !important;
+      aspect-ratio: 1011 / 177;
+      background: url("/logo-wide.svg") left center / contain no-repeat;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+      gap: 0.3125rem !important;
+      flex: none !important;
+      align-items: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > button {
+      width: 2.75rem !important;
+      min-width: 2.75rem !important;
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] {
+      border-radius: 999px !important;
+      border-color: rgba(75, 224, 60, 0.75) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+      height: 2.75rem !important;
+      min-height: 2.75rem !important;
+      min-width: 2.75rem !important;
+      padding: 0 0.625rem !important;
+      margin: 0 !important;
+      font-size: 0.875rem !important;
+      gap: 0.3125rem !important;
+      justify-content: center !important;
+    }
+
+    /* Intro: first sentence only */
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-more] {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #homepage-booking-intro [data-d3-intro-sub] {
+      font-size: 0.875rem !important;
+      line-height: 1.4 !important;
+    }
+
+    /* Card title row */
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote [data-d2="journey"] [data-d3-card-head] {
+      display: flex !important;
+      align-items: center !important;
+      gap: 0.4375rem !important;
+      margin: 0.125rem 0.125rem 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-icon] {
+      flex: none;
+      color: var(--pm-green) !important;
+      transform: rotate(-30deg);
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-title] {
+      flex: 1 1 auto;
+      min-width: 0;
+      color: var(--pm-ink) !important;
+      font-size: 0.9375rem !important;
+      line-height: 1.2 !important;
+      font-weight: 800 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      letter-spacing: -0.015em !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-chip] {
+      flex: none;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.125rem !important;
+      padding: 0.25rem 0.4375rem !important;
+      border-radius: 999px !important;
+      background: #dff7e1 !important;
+      color: #0a7a1c !important;
+      font-size: 0.6563rem !important;
+      font-weight: 750 !important;
+      white-space: nowrap !important;
+    }
+
+    /* Address boxes: typed text stays 16px (smaller makes iPhone zoom the page sideways on tap);
+       only the grey hint text is smaller so it fits without clipping. */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff) {
+      text-overflow: ellipsis !important;
+      font-size: 16px !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] input:is(#pickup, #dropoff)::placeholder {
+      font-size: 0.875rem !important;
+    }
+
+    /* One way / Return: selected side in navy */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] {
+      background: #edf1f6 !important;
+      box-shadow: inset 0 0 0 1px rgba(7, 28, 56, 0.08) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button {
+      color: var(--pm-ink) !important;
+      font-weight: 650 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] > button[aria-pressed="true"] {
+      background: #0b2547 !important;
+      color: #fff !important;
+      font-weight: 750 !important;
+      box-shadow: 0 2px 6px -1px rgba(7, 28, 56, 0.45) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d3-home-segment] [data-return-discount-note] {
+      color: #0a6b19 !important;
+      background: #b9f0b4 !important;
+    }
+
+    /* Quote button: chevron after the label */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]::after {
+      content: "";
+      width: 1.25rem;
+      height: 1.25rem;
+      flex: none;
+      background: #fff;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+
+    /* Caption: small lock in front */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption] {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0.375rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-caption]::before {
+      content: "";
+      width: 0.875rem;
+      height: 0.875rem;
+      flex: none;
+      background: var(--pm-ink);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='10' width='16' height='12' rx='2.5' fill='black'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3' fill='none' stroke='black' stroke-width='2.6'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='10' width='16' height='12' rx='2.5' fill='black'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3' fill='none' stroke='black' stroke-width='2.6'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+
+    /* Benefits: four icon columns with thin dividers */
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      margin-top: 1.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 0.375rem !important;
+      padding: 0 0.25rem !important;
+      text-align: center !important;
+      color: #fff !important;
+      font-size: 0.75rem !important;
+      line-height: 1.25 !important;
+      font-weight: 700 !important;
+      letter-spacing: -0.005em !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li + li {
+      border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li > svg[data-d2-benefit-check] {
+      display: none !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] > li > svg[data-d2-benefit-icon] {
+      display: block !important;
+      width: 1.625rem !important;
+      height: 1.625rem !important;
+      stroke-width: 2.2 !important;
+      color: var(--pm-green-bright) !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 8.25rem !important;
+    }
+  }
+}
+/* Phones under 400px: Call Us becomes a round phone button (still labelled "Call Us" for
+   screen readers) so the logo keeps its size instead of shrinking. */
+@media (max-width: 399.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] {
+      width: 2.75rem !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] [data-phone-label] {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-call-us-pill] svg {
+      width: 1.25rem !important;
+      height: 1.25rem !important;
+    }
+  }
+}
+/* 320px phones: a little less side padding so nothing touches */
+@media (max-width: 339.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+      padding: 0.5rem 0.5rem !important;
+      gap: 0.5rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] {
+      gap: 0.25rem !important;
+    }
+  }
+}
+/* Tablets (768-1199px): benefits clear the card, slightly larger logo. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] [data-d2-benefits] {
+      margin-top: 3.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote > [data-quote-presentation="homepage"][data-d2="journey"] {
+      margin-bottom: 9rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
+      max-width: 17.5rem !important;
+    }
+  }
+}
+/* Very narrow phones: the title keeps the row, the chip steps aside. */
+@media (max-width: 373.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] #quote [data-d3-card-head] [data-d3-card-head-chip] {
+      display: none !important;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Phone vehicle cards: readable layout (owner, 13 Nov 2026). Phones and tablets (below 1200px).
+   Picture in its own column (never under the text), bigger name, capacity lines beneath,
+   price / request on the right; on narrow cards the request button moves under the text.
+   Layout and wording only: selection, availability and request behaviour are unchanged.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-quote-vehicle-categories] [role="list"] {
+      gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category] {
+      min-height: 0 !important;
+      height: auto !important;
+      padding: 0.875rem 0.875rem 0.875rem 0.75rem !important;
+      overflow: hidden !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] {
+      display: grid !important;
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
+      grid-template-areas: "art copy action" !important;
+      column-gap: 0.75rem !important;
+      row-gap: 0.625rem !important;
+      align-items: center !important;
+      width: 100% !important;
+    }
+    /* Picture: fixed column, scaled to fit, never wider than its column */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      grid-area: art !important;
+      align-self: center !important;
+      width: 5.5rem !important;
+      max-width: 5.5rem !important;
+      min-width: 0 !important;
+      height: 3.25rem !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] picture {
+      display: flex !important;
+      width: 100% !important;
+      height: 100% !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] img {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+      transform: none !important;
+      scale: 1 !important;
+      translate: none !important;
+    }
+    /* Text */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] {
+      grid-area: copy !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] [data-vehicle-name] {
+      font-size: 1.125rem !important;
+      line-height: 1.2 !important;
+      font-weight: 800 !important;
+      letter-spacing: -0.015em !important;
+      color: #071c38 !important;
+      margin: 0 0 0.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span:not([data-vehicle-name]):not([data-vehicle-desktop-desc]):not([data-vehicle-on-request]):not([data-vehicle-desktop-badge]):not(.hidden):not([aria-hidden]) {
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: 0.3125rem !important;
+      margin: 0.1875rem 0 0 !important;
+      font-size: 0.875rem !important;
+      line-height: 1.3 !important;
+      font-weight: 600 !important;
+      color: #24385a !important;
+      overflow-wrap: anywhere;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-copy] > span svg {
+      flex: none !important;
+      width: 0.9375rem !important;
+      height: 0.9375rem !important;
+      margin-top: 0.125rem !important;
+    }
+    /* Price / request on the right */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > :is([data-vehicle-desktop-price], [data-vehicle-desktop-request]) {
+      grid-area: action !important;
+      justify-self: end !important;
+      align-self: center !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-width: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-price] {
+      font-size: 1.375rem !important;
+      white-space: nowrap !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request] {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-end !important;
+      gap: 0.375rem !important;
+      text-align: right !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action] {
+      order: -1;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 2.75rem !important;
+      padding: 0.5rem 0.75rem !important;
+      border: 1.5px solid #071c38 !important;
+      border-radius: 0.75rem !important;
+      background: #fff !important;
+      font-size: 0 !important;
+      line-height: 1.15 !important;
+      white-space: nowrap !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action]::before {
+      content: "Request availability" !important;
+      font-size: 0.875rem !important;
+      font-weight: 800 !important;
+      color: #071c38 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-from] {
+      font-size: 0.8125rem !important;
+      line-height: 1.25 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-from] small {
+      font-size: 0.75rem !important;
+      font-weight: 600 !important;
+      color: #3d4f6b !important;
+      white-space: nowrap !important;
+    }
+    /* Selected tick / empty circle: small, in the picture's top-left corner */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-selection-indicator] {
+      left: 0.5rem !important;
+      top: 0.5rem !important;
+    }
+    /* Request cards: the button sits under the text so nothing is squeezed */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 5.5rem minmax(0, 1fr) !important;
+      grid-template-areas: "art copy" ". action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
+      justify-self: stretch !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 0.375rem 0.75rem !important;
+      text-align: left !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
+      align-items: flex-start !important;
+    }
+  }
+}
+/* Tablets (768-1199px): cards are wide, so the request button sits on the right like the prices. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 5.5rem minmax(0, 1fr) auto !important;
+      grid-template-areas: "art copy action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-request] {
+      justify-self: end !important;
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      align-items: flex-end !important;
+      text-align: right !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-desktop-from] {
+      align-items: flex-end !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 6.5rem !important;
+      max-width: 6.5rem !important;
+      height: 3.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 6.5rem minmax(0, 1fr) auto !important;
+      column-gap: 1rem !important;
+    }
+  }
+}
+/* 340px and narrower: prices move under the text too, so the name and lines keep their width */
+@media (max-width: 339.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-option-layout] {
+      grid-template-columns: 4.75rem minmax(0, 1fr) !important;
+      grid-template-areas: "art copy" ". action" !important;
+      column-gap: 0.625rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 4.75rem !important;
+      max-width: 4.75rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-desktop-request-action] {
+      white-space: normal !important;
+      padding: 0.5rem 0.625rem !important;
+      text-align: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-option-layout] > [data-vehicle-desktop-price] {
+      justify-self: start !important;
+      flex-direction: row !important;
+      align-items: baseline !important;
+      gap: 0.375rem !important;
+    }
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Desktop (1200px+) brought in line with the phone design (owner, 13 Nov 2026):
+   wide logo lockup, quote card title + Instant Quote chip, navy selected trip
+   toggle, and the four benefit symbols. Desktop only; phones and tablets unchanged.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo { display: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide {
+    display: block !important;
+    height: 4.6rem !important; /* 60% bigger (owner, 13 Nov 2026) */
+    width: auto !important;
+    aspect-ratio: 1011 / 177;
+    background: url("/logo-wide.svg") left center / contain no-repeat;
+  }
+
+  /* card title row */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head] {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.625rem !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    margin: 0 0 -0.125rem !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-icon] { color: #2fbf4a !important; flex: none !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-title] {
+    color: #071c38 !important;
+    font-size: 1.1875rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.2 !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-chip] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
+    margin-left: 0.25rem !important;
+    padding: 0.25rem 0.625rem !important;
+    border-radius: 999px !important;
+    background: #e6f7e9 !important;
+    color: #13892a !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+  /* the field rows move down one row under the title */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child { grid-row: 2 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #quote-section-schedule,
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-quote-price-action] { grid-row: 3 !important; }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements { grid-row: 4 !important; }
+
+  /* return journeys: title row 1, addresses row 2, the four dates/times row 3, passengers/suitcases/button row 4 */
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #quote-section-schedule { grid-row: 3 !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(1),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #passenger-luggage-section > div:nth-child(2),
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) #homepage-quote-requirements,
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) [data-quote-price-action] { grid-row: 4 !important; }
+
+  /* trip toggle: selected option in navy with white text, as on the phone */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"],
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] * {
+    background: #071c38 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: 0 1px 3px rgba(7, 28, 56, 0.25) !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] [data-return-discount-note] {
+    background: #2fbf4a !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
+  /* benefit symbols: a little larger, labels may wrap on narrower laptops */
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] svg {
+    width: 1.625rem !important;
+    height: 1.625rem !important;
+  }
+}
+}
+@media (min-width: 1200px) and (max-width: 1365.98px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: normal !important; line-height: 1.2 !important; }
+}
+}
+/* Bigger logo (60% up, owner 13 Nov 2026): the header becomes two rows on desktop.
+   Row 1: logo left, phone + Get a Quote right. Row 2: the menu, full width. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 1.5rem !important;
+    row-gap: 0.1875rem !important;
+    padding: 0.25rem 2.5rem 0.1875rem !important; /* side padding lines the logo up with the page content */
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > a:has(> .quote-header-logo-wide) { grid-column: 1 !important; grid-row: 1 !important; align-self: center !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-content: center !important;
+    column-gap: 1.75rem !important;
+    padding: 0.25rem 0 0 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
+  /* the taller header pushes every page down by the extra height (navy band behind it) */
+  html:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body {
+    --desktop-header-extra: 3.9375rem;
+    padding-top: var(--desktop-header-extra) !important;
+    background-image: linear-gradient(#071c38, #071c38) !important;
+    background-size: 100% var(--desktop-header-extra) !important;
+    background-repeat: no-repeat !important;
+  }
+  html:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav + div { grid-column: 2 !important; grid-row: 1 !important; justify-self: end !important; align-self: center !important; }
+}
+}
+@media (min-width: 1200px) and (max-width: 1439.98px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .quote-header-logo-wide { height: 3.4rem !important; }
+  html:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body { --desktop-header-extra: 2.6875rem; }
+}
+}
+
+/* Desktop homepage intro (owner, 13 Nov 2026): a measured width so the first line ends at
+   "Whether you're travelling to the airport," and "attending an event" starts line two.
+   Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero #homepage-booking-intro > p[data-homepage-intro] {
+    max-width: min(64em, 100%) !important;
+  }
+}
+}
+
+/* Phones and tablets (below 1200px): the hero and footer stay the site's navy (#071c38) to the
+   bottom instead of fading to near-black (owner, 13 Nov 2026). Desktop unchanged. */
+@media (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero {
+      background:
+        radial-gradient(120% 60% at 85% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+        radial-gradient(140% 70% at 0% 8%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+        #071c38 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] footer.bg-navy-dark {
+      background-color: #071c38 !important;
+    }
+  }
+}
+
+/* Desktop: while an address box is empty, drop the right-hand room kept for the clear (x) button so
+   the full hint "Destination address, postcode or airport" fits on small laptops (owner, 13 Nov 2026). */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero #quote > [data-quote-presentation="homepage"] > form :is(#pickup, #dropoff):placeholder-shown {
+    padding-right: 0.75rem !important;
+  }
+}
+}
+
+/* Saved-quote page: once the vehicle/checkout step shows on desktop, keep the saved-quote banner
+   clear of the slimmer checkout header. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:has([data-quote-results], [data-checkout-aside]) > [data-saved-quote-banner] {
+    padding-top: 3.75rem !important;
+    padding-bottom: 0 !important;
+    margin-bottom: -4.25rem !important;
+  }
+  html:root:root:root:root:root:not([data-mobile-d3]) [data-saved-quote-summary] a { white-space: nowrap !important; padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+}
+}
+
+/* Payment page for a quote (/book-quote): the site's navy page with the white logo, white cards on
+   top, as on the homepage quote tool (owner, 13 Nov 2026). Overrides the pale standalone theme. */
+@layer base {
+  html:root:root:root:root body:has(main[data-navy-standalone]) { background: #071c38 !important; }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] {
+    background:
+      radial-gradient(120% 60% at 85% 0%, rgba(52, 208, 106, 0.1) 0%, rgba(52, 208, 106, 0) 55%),
+      radial-gradient(140% 70% at 0% 8%, #12305c 0%, rgba(18, 48, 92, 0) 60%),
+      #071c38 !important;
+  }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] img[src*="logo-wide"] { content: url("/logo-wide.svg"); }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child :is(h1, h2) { color: #ffffff !important; }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child p { color: rgba(255, 255, 255, 0.82) !important; }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] > div:first-child [data-change-journey] { color: #2fbf4a !important; }
+  /* Cards solid white on the navy page (the pale theme leaves them see-through). */
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is(section, div, article, aside, details, li, form):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]):not([data-stripe-pay]) {
+    background-color: #ffffff !important;
+    border-color: #dde4ec !important;
+  }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]) :is(section, div, li, details):is([class*="bg-white/"], .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"]) {
+    background-color: #f7f9fc !important;
+  }
+  /* Text sitting straight on the navy page is light; text on or inside the white cards stays dark. */
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is(.text-white, [class*="text-white/"], [class*="text-mist"], .text-slate-200, .text-slate-300, .text-slate-400):not(h1, h2, h3, h4):not(.btn-primary, .btn-primary *, [data-stripe-pay] *):not(:is(section, div, article, aside, details, li, form, label):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"], [class*="bg-emerald/"], [class*="bg-amber-"], [class*="bg-red-"], .bg-white)):not(:is(section, div, article, aside, details, li, form, label):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"], [class*="bg-emerald/"], [class*="bg-amber-"], [class*="bg-red-"], .bg-white) *) { color: rgba(255, 255, 255, 0.82) !important; }
+  html:root:root:root:root main[data-customer-standalone][data-navy-standalone] :is(.text-emerald, [class*="text-emerald/"]):not([class*="bg-emerald"]):not(:is(section, div, article, aside, details, li, form, label):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"], [class*="bg-emerald/"], [class*="bg-amber-"], [class*="bg-red-"], .bg-white)):not(:is(section, div, article, aside, details, li, form, label):is([class*="bg-white/"], .glass-card, .bg-navy, .bg-navy-light, .bg-navy-dark, [class*="bg-navy/"], [class*="bg-navy-dark/"], [class*="bg-navy-light/"], [class*="bg-emerald/"], [class*="bg-amber-"], [class*="bg-red-"], .bg-white) *) { color: #2fbf4a !important; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Vehicle step: "Book with confidence" strip (all screens) and a larger picture for the
+   selected vehicle on phones and tablets (owner, 14 Nov 2026). Layout only.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-vehicle-confidence] {
+  margin: 0 0 0.875rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.875rem;
+  background: #f1f8f2;
+  border: 1px solid rgba(47, 191, 74, 0.28);
+}
+[data-vehicle-confidence-title] {
+  margin: 0 0 0.375rem;
+  color: #071c38;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+[data-vehicle-confidence-list] {
+  display: grid;
+  gap: 0.3125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+[data-vehicle-confidence-list] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: #13294b;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  font-weight: 650;
+}
+[data-vehicle-confidence-list] > li > svg {
+  flex: none;
+  margin-top: 0.0625rem;
+  color: #1f9a3a;
+}
+[data-vehicle-confidence-list] > li > svg[data-vehicle-confidence-star] {
+  color: #e8a400;
+  fill: #f5b301;
+}
+@media (min-width: 1200px) {
+  [data-vehicle-confidence-list] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.5rem;
+  }
+  [data-vehicle-confidence-list] > li {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-confidence] {
+      margin: 0.25rem 0 1rem !important;
+    }
+    /* Selected vehicle: picture full width across the top of its card */
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-option-layout],
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-category][aria-pressed="true"] [data-vehicle-option-layout] {
+      grid-template-columns: minmax(0, 1fr) auto !important;
+      grid-template-areas: "art art" "copy action" !important;
+      row-gap: 0.5rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-request-row] [data-vehicle-category][aria-pressed="true"] [data-vehicle-option-layout] {
+      grid-template-columns: minmax(0, 1fr) !important;
+      grid-template-areas: "art" "copy" "action" !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      width: 100% !important;
+      max-width: 22rem !important;
+      height: 9.5rem !important;
+      justify-self: center !important;
+      margin: 0.25rem 0 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-name] {
+      font-size: 1.25rem !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-desktop-price] {
+      font-size: 1.625rem !important;
+    }
+  }
+}
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2="vehicle"] [data-vehicle-category][aria-pressed="true"] [data-vehicle-option-layout] > [data-vehicle-art-size="option"] {
+      max-width: 26rem !important;
+      height: 12rem !important;
+    }
+  }
+}
+/* Phones: the longer "Continue to booking details" button wraps onto two balanced lines so the
+   price and "Price details" keep their room. */
+@media (max-width: 767.98px) {
+  @layer base {
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] > #quote-book-now-button {
+      width: auto !important;
+      flex: 0 1 10.75rem !important;
+      max-width: 10.75rem !important;
+      min-height: 3.25rem !important;
+      padding: 0.5rem 0.875rem !important;
+      font-size: 0.9375rem !important;
+      line-height: 1.15 !important;
+      white-space: normal !important;
+      text-wrap: balance;
+      text-align: center !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] > [data-d2-sticky-summary] {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
+    html:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] [data-d2-price-details] {
+      white-space: nowrap !important;
+    }
+  }
+}
+/* Desktop: "Continue to booking details" stays on one line in the summary panel */
+@media (min-width: 1200px) {
+  [data-book-cta-desktop] {
+    font-size: 0.9375rem !important;
+    white-space: nowrap !important;
+    gap: 0.375rem !important;
   }
 }
 

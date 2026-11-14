@@ -54,17 +54,22 @@ export function buildShortNoticeDeclineEmail(
   businessName = "My Airport Taxi NI",
 ): { subject: string; text: string; html: string } {
   const firstName = customerFirstName(details.customerName);
-  const subject = `Your ${businessName} booking request`;
+  const subject = "Booking Request Unavailable";
+  const sorry = "We’re sorry — we weren’t able to confirm your transfer on this occasion.";
+  const noCharge = "No payment has been captured and you have not been charged.";
+  const holdNote =
+    "If a temporary authorisation was placed on your card, it has been cancelled. Depending on your bank, it may take a few days to disappear from your statement.";
 
   const text =
     `Hi ${firstName},\n\n` +
     `Thank you for your booking request.\n\n` +
-    `We’re sorry, but unfortunately we do not have availability for your requested journey.\n\n` +
+    `${sorry}\n\n` +
     `${details.pickupLabel} → ${details.dropoffLabel}\n` +
     `${journeyWhen(details.tripDate, details.tripTime)}\n` +
     `Request reference: ${details.reference}\n\n` +
-    `No payment has been taken.\n\n` +
-    `We apologise that we’re unable to accommodate your journey on this occasion.\n\n` +
+    `${noCharge}\n\n` +
+    `${holdNote}\n\n` +
+    `We’d be glad to help with another time — just reply to this email or message us on WhatsApp @belfasttaxi.\n\n` +
     `${businessName}\n` +
     `${BUSINESS_WEBSITE}\n` +
     `Call: ${BUSINESS_LANDLINE_DISPLAY} · WhatsApp: ${BUSINESS_WHATSAPP_TEXT_ROUTE}\n` +
@@ -87,19 +92,20 @@ ${businessEmailClientMeta()}
             <td style="background:${NAVY};padding:28px 32px;text-align:center;">
               ${businessEmailLogoHtml()}
               <div style="margin-top:16px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:${ACCENT};font-weight:bold;">${escapeHtml(businessName)}</div>
-              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">Your booking request</div>
+              <div style="margin-top:8px;font-size:22px;line-height:1.35;color:#ffffff;font-weight:bold;">${escapeHtml(subject)}</div>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">
               <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
               <p style="margin:0 0 16px;">Thank you for your booking request.</p>
-              <p style="margin:0 0 16px;">We’re sorry, but unfortunately we do not have availability for your requested journey.</p>
+              <p style="margin:0 0 16px;">${escapeHtml(sorry)}</p>
               <p style="margin:0 0 6px;font-weight:600;color:${NAVY};">${escapeHtml(details.pickupLabel)} → ${escapeHtml(details.dropoffLabel)}</p>
               <p style="margin:0 0 8px;">${escapeHtml(journeyWhen(details.tripDate, details.tripTime))}</p>
               <p style="margin:0 0 16px;"><strong style="color:${NAVY};">Request reference:</strong> ${escapeHtml(details.reference)}</p>
-              <p style="margin:0 0 16px;">No payment has been taken.</p>
-              <p style="margin:0;">We apologise that we’re unable to accommodate your journey on this occasion.</p>
+              <p style="margin:0 0 16px;">${escapeHtml(noCharge)}</p>
+              <p style="margin:0 0 16px;">${escapeHtml(holdNote)}</p>
+              <p style="margin:0;">We’d be glad to help with another time — just reply to this email or message us on WhatsApp @belfasttaxi.</p>
               <p style="margin:20px 0 0;"><strong>${escapeHtml(businessName)}</strong></p>
             </td>
           </tr>

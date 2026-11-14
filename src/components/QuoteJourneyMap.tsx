@@ -45,7 +45,7 @@ export default function QuoteJourneyMap({
       className="overflow-hidden rounded-2xl border border-white/20 bg-[#07182e]"
       style={{ overflowAnchor: "none" }}
     >
-      <div className="flex items-baseline justify-between gap-3 px-3 py-2">
+      <div className="flex items-baseline justify-between gap-3 px-3 py-2" data-quote-route-strip>
         <p className="min-w-0 truncate text-xs font-medium text-white/80">
           {ready ? `${origin.label} → ${destination.label}` : "Your journey"}
         </p>

@@ -193,9 +193,9 @@ await checkAsync("Unapproved request cannot start payment from its token", async
 });
 
 check("Customer short-notice copy comes from the shared helper", () => {
-  assert.equal(minimumNoticeRequestHeading(), "Short-notice booking");
-  assert.match(minimumNoticeRequestBody(), /12-hour advance booking period/);
-  assert.match(minimumNoticeRequestBody(), /secure payment link/);
+  assert.equal(minimumNoticeRequestHeading(), "Thank You for Your Booking");
+  assert.match(minimumNoticeRequestBody(), /confirmed once you receive your booking confirmation email/);
+  assert.doesNotMatch(minimumNoticeRequestBody(), /hour/);
   assert.doesNotMatch(minimumNoticeRequestBody(), /guaranteed/);
 });
 
@@ -210,9 +210,9 @@ check("Acceptance / decline / request-received emails match the workflow", () =>
     amountLabel: "£48.00",
     reference: "MATNI-SN-1",
   });
-  assert.equal(received.subject, "We’ve received your booking request");
+  assert.equal(received.subject, "Booking Request Received");
   assert.match(received.text, /No payment has been taken/);
-  assert.doesNotMatch(received.text, /booking confirmation/i);
+  assert.match(received.text, /not yet confirmed/);
 
   const accepted = buildShortNoticePaymentLinkEmail({
     customerName: "Jill Example",
@@ -238,9 +238,10 @@ check("Acceptance / decline / request-received emails match the workflow", () =>
     tripTime: "14:00",
     reference: "MATNI-SN-1",
   });
-  assert.equal(declined.subject, "Your My Airport Taxi NI booking request");
-  assert.match(declined.text, /do not have availability/);
-  assert.match(declined.text, /No payment has been taken/);
+  assert.equal(declined.subject, "Booking Request Unavailable");
+  assert.match(declined.text, /weren’t able to confirm your transfer/);
+  assert.match(declined.text, /No payment has been captured/);
+  assert.match(declined.text, /may take a few days to disappear/);
   assert.doesNotMatch(declined.text, /cancelled booking/i);
 
   const alt = buildShortNoticeAlternativeOfferEmail({
@@ -300,7 +301,7 @@ check("Smart Availability rest-of-day does not hard-block under-12h checkout", (
   assert.match(card, /result\.blocked && !isMinimumNoticeRequest/);
   assert.match(card, /!isMinimumNoticeRequest &&/);
   assert.match(card, /!smartAvailabilityBlocked \|\| isMinimumNoticeRequest/);
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /Need a quick answer\? WhatsApp us/);
   assert.match(card, /ShortNoticeCheckoutNotice/);
   assert.match(read("src/components/ShortNoticeCheckoutNotice.tsx"), /minimumNoticeRequestHeading/);
@@ -321,7 +322,7 @@ check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () =
   const saved = read("src/app/quote/SavedQuoteCustomerClient.tsx");
   const bookQuote = read("src/app/book-quote/BookQuoteCustomerClient.tsx");
 
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /Your transfer is reserved for your selected pickup time/);
   assert.match(card, /classifyPickupLeadWindow/);
   assert.match(index, /shouldForceShortNotice/);
@@ -340,9 +341,9 @@ check("Quote / owner / payment wiring keeps fare visible and delays SumUp", () =
   assert.match(pay, /shortNoticeToken/);
   assert.match(accept, /Accept alternative time/);
   assert.match(accept, /Decline alternative/);
-  assert.match(saved, /Request Short-Notice Booking/);
+  assert.match(saved, /Book Now — /);
   assert.doesNotMatch(saved, /window\.location\.href = checkout\.whatsappUrl/);
-  assert.match(bookQuote, /Request Short-Notice Booking/);
+  assert.match(bookQuote, /Book Now — /);
   assert.doesNotMatch(bookQuote, /window\.location\.href = checkout\.whatsappUrl/);
 });
 

@@ -85,7 +85,8 @@ async function main() {
       }
     }
     for(const deposit of [false,true]) for(const fee of [15,18.25]) for(const selected of [false,true]) for(const minimum of [45]) for(const distanceScale of [0.1]) for(const signed of [false,true]) for(const route of reviewed.routes) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) for(const returning of [false,true]) {
-      now+=11 * 60_000;store.clear(); distanceScaleForRoute = distanceScale; env.QUOTE_RECEIPT_SECRET = signed ? "isolated-receipt-secret" : "";
+      now+=11 * 60_000;if (new Date(now).getUTCHours() >= 21) now += 10 * 3600_000; // stay in UK daytime (24/7 approval policy)
+      store.clear(); distanceScaleForRoute = distanceScale; env.QUOTE_RECEIPT_SECRET = signed ? "isolated-receipt-secret" : "";
       const depositSettings={enabled:true,percent:20,minimumGbp:15};
       store.set("booking:settings",JSON.stringify({depositCash:depositSettings}));
       const pricing=defaultOwnerPricingSettings();pricing.version=checkouts+1;pricing.meetGreet={bfsGbp:fee,bhdGbp:fee+1,dubGbp:fee+10};

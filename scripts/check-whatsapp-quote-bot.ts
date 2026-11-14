@@ -250,7 +250,7 @@ async function main() {
       async get() { return null; },
       async put() {},
       async list() { return { keys: [], list_complete: true, cursor: "" }; },
-    } as unknown as KVNamespace;
+    } as never;
     const tooSoon = await checkWhatsAppAvailability(
       { ...ready.draft, outboundDate: "2026-10-28", outboundTime: "10:30" },
       emptyKv,
@@ -457,7 +457,7 @@ async function main() {
     async delete(key: string) {
       kv.delete(key);
     },
-  } as unknown as KVNamespace;
+  } as never;
   const sent: Array<{ to: string; body: string }> = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -714,7 +714,7 @@ async function main() {
       async delete(key: string) {
         listKv.delete(key);
       },
-    } as unknown as KVNamespace;
+    } as never;
     const out: Array<Record<string, any>> = [];
     let refuseLists = false;
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -857,7 +857,7 @@ async function main() {
       async delete(key: string) {
         akv.delete(key);
       },
-    } as unknown as KVNamespace;
+    } as never;
     const sentMsgs: Array<Record<string, any>> = [];
     globalThis.fetch = (async (url: string, init?: RequestInit) => {
       if (String(url).startsWith("https://graph.facebook.com/")) {
@@ -1253,3 +1253,97 @@ assert.equal(detectWhatsAppIntent("BT9 6AA to Belfast International Friday 5am")
   assert.equal(echoed.to, "447700900123");
   console.log("OK  owner's own WhatsApp replies are read into the chat");
 }
+
+// A booking reference sent on WhatsApp is looked up for the assistant (11 Nov 2026).
+void (async () => {
+  const { bookingRefsIn, isBookingRefOnlyMessage, describeBookingsForAi } = await import(
+    "../workers/addresses/src/whatsapp-handlers"
+  );
+  assert.deepEqual(bookingRefsIn(["Can I change MAT-0042 to 6pm?", "Customer: my ref is mat 1234"]), ["MAT-0042", "MAT-1234"]);
+  assert.equal(isBookingRefOnlyMessage("MAT-1234"), true);
+  assert.equal(isBookingRefOnlyMessage("Hi, my booking ref is MAT-1234 thanks"), true);
+  assert.equal(isBookingRefOnlyMessage("MAT-1234 can we move the pickup to 6pm instead?"), false);
+
+  const kv = new Map<string, string>();
+  const fakeStore = {
+    async get(key: string, type?: string) {
+      const v = kv.get(key);
+      if (v == null) return null;
+      return type === "json" ? JSON.parse(v) : v;
+    },
+    async put(key: string, value: string) { kv.set(key, value); },
+    async delete(key: string) { kv.delete(key); },
+    async list() { return { keys: [], list_complete: true }; },
+  } as never;
+  const booking = {
+    paymentReference: "pay_1", customerReference: "MAT-0042", status: "confirmed", mobileNumber: "07700 900123",
+    customerName: "Sam Test", pickupLabel: "Glengormley", dropoffLabel: "Belfast International Airport",
+    tripDate: "2026-12-01", tripTime: "06:00", passengers: 2,
+  };
+  kv.set("booking:ref:pay_1", JSON.stringify(booking));
+  kv.set("booking:customer-ref:MAT-0042", "pay_1");
+
+  const own = await describeBookingsForAi(fakeStore, "447700900123", ["Can I change MAT-0042 to 6pm?"]);
+  assert.match(own!, /MAT-0042: Glengormley to Belfast International Airport, 2026-12-01 at 06:00/);
+  const other = await describeBookingsForAi(fakeStore, "447700900999", ["MAT-0042 change please"]);
+  assert.match(other!, /different mobile number/);
+  assert.doesNotMatch(other!, /Glengormley|Sam Test/);
+  const missing = await describeBookingsForAi(fakeStore, "447700900123", ["it's MAT-9999"]);
+  assert.match(missing!, /MAT-9999: no booking found/);
+  console.log("OK  booking references sent on WhatsApp are looked up for the assistant");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+// A hotel in Dublin is an address, not Dublin Airport, and is checked on the map (12 Nov 2026).
+void (async () => {
+  const { applyClaudeLedUpdates } = await import("../shared/whatsapp-claude-led");
+  const { whatsAppAddressFieldToCheck, parseWhatsAppAddressReply } = await import("../shared/whatsapp-address-check");
+  const { newWhatsAppConversation, explicitAirportCode } = await import("../shared/whatsapp-quote-bot");
+  const convo = newWhatsAppConversation(new Date());
+  convo.draft.pickupAddress = "Boucher Playing Fields, Belfast BT12 6LR";
+  convo.draft.pickupPlaceId = "p1";
+  convo.draft.dropoffAddress = "Dublin Airport";
+  convo.draft.airportCode = "DUB";
+  convo.draft.fromAirport = false;
+  applyClaudeLedUpdates(convo.draft, { dropoff: "The Mercantile Hotel, Dublin" });
+  assert.equal(convo.draft.dropoffAddress, "The Mercantile Hotel, Dublin");
+  assert.equal(convo.draft.airportCode, undefined);
+  assert.equal(whatsAppAddressFieldToCheck(convo, { includePostcoded: true }), "dropoffAddress");
+  assert.equal(explicitAirportCode("Dublin Airport"), "DUB");
+  assert.equal(explicitAirportCode("Dublin city centre"), null);
+  const check = { field: "pickupAddress" as const, typed: "x", options: [{ placeId: "a", address: "A" }, { placeId: "b", address: "B" }] };
+  for (const t of ["Number 2.", "2", "option 2", "the second one"]) {
+    const got = parseWhatsAppAddressReply(t, check);
+    assert.equal(got?.kind === "pick" ? got.option.placeId : null, "b", t);
+  }
+  console.log("OK  a Dublin hotel is checked as an address; typed 'Number 2' picks option 2");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+// A pickup at Boucher Road on a Garth Brooks date is recognised as the concert (12 Nov 2026).
+void (async () => {
+  const { matchWhatsAppEvent, describeWhatsAppEventForAi } = await import("../shared/whatsapp-events");
+  const now = new Date("2026-11-12T12:00:00Z");
+  const onTheNight = matchWhatsAppEvent(
+    { addresses: ["Boucher Playing Fields, Belfast BT12 6LR", "The Mercantile Hotel, Dublin"], dates: ["2027-05-21"] },
+    now,
+  );
+  assert.equal(onTheNight?.event.id, "garth-brooks-belfast-2027");
+  assert.equal(onTheNight?.date, "2027-05-21");
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /availability is limited/);
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /21 May 2027/);
+  const noDateYet = matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, now);
+  assert.equal(noDateYet?.date, null);
+  assert.doesNotMatch(describeWhatsAppEventForAi(noDateYet!), /availability is limited/);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: ["2027-06-10"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Europa Hotel, Belfast"], dates: ["2027-05-21"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, new Date("2027-06-01T00:00:00Z")), null);
+  console.log("OK  Garth Brooks at Boucher Road is recognised from the journey");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

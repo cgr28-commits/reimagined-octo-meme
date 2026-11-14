@@ -8,10 +8,10 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingCtaRow from "@/components/LandingCtaRow";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { LANDING_WHY_BOOK } from "@/lib/landing-why-book";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { SITE } from "@/lib/data";
 import {
   getTownHubByTownSlug,
@@ -99,9 +99,6 @@ export default async function TransferRoutePage({ params }: Props) {
   const isLanding = Boolean(page.journeyInfo);
   const isFromAirport = page.direction === "from-airport";
   const hubHref = page.hubSlug ? `/locations/${page.hubSlug}/` : "/locations/";
-  const quoteHeading = isFromAirport
-    ? `${page.airport.shortName} → ${page.town.name} quote`
-    : `${page.town.name} → ${page.airport.shortName} quote`;
   const whatsappMessage = isFromAirport
     ? `Hi, I'd like a taxi from ${page.airport.name} to ${page.town.name}.`
     : `Hi, I'd like a taxi from ${page.town.name} to ${page.airport.name}.`;
@@ -202,7 +199,18 @@ export default async function TransferRoutePage({ params }: Props) {
         />
       ) : null}
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this route's heading. */}
+        <HeroSlideshow
+          heading={page.h1}
+          intro={quoteFirstLede ?? firstSentence(page.intro)}
+          journey={{
+            airportCode: page.airport.code,
+            direction: page.direction,
+            // Only the airport is pre-filled (it is an exact, confirmed place). The town box
+            // starts empty so it never looks filled in while the price button is still locked.
+          }}
+        />
         {quoteFirstLede ? (
           <div className="hidden sm:block">
             <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} />
@@ -251,7 +259,6 @@ export default async function TransferRoutePage({ params }: Props) {
                 ? `${page.airport.shortName} · ${page.town.name}`
                 : `${page.town.name} · ${page.airport.code}`}
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.h1}</h1>
             {quoteFirstLede ? (
               <>
                 <p className="mt-4 text-lg leading-relaxed text-white/80">{quoteFirstLede}</p>
@@ -268,12 +275,6 @@ export default async function TransferRoutePage({ params }: Props) {
           </header>
         </div>
 
-        <LocationQuoteSection
-          airportCode={page.airport.code}
-          direction={page.direction}
-          addressHint={page.town.addressHint}
-          heading={quoteHeading}
-        />
 
         {quoteFirstLede ? (
           <div className="mx-auto mb-8 max-w-3xl px-4 sm:px-6 lg:px-8">{introDetails}</div>

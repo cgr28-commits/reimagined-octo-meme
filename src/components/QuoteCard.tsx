@@ -1,5 +1,6 @@
 "use client";
 
+import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import CallUsButton from "@/components/CallUsButton";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
@@ -25,6 +26,7 @@ import {
 } from "../../shared/quote-display-gate";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
 import MarketingOptIn from "@/components/MarketingOptIn";
+import { HEARD_ABOUT_OPTIONS } from "../../shared/heard-about";
 import {
   BookingErrorHelpCluster,
   StartNewQuoteControls,
@@ -284,6 +286,7 @@ import {
   isWithinMinimumBookingNotice,
   OWNER_NO_AVAILABILITY_MESSAGE,
   tooSoonRequestBody,
+  isBelowMinimumShortNoticeLead,
 } from "../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
 import {
@@ -1148,8 +1151,15 @@ function QuoteCard({
   const [, setFareCacheVersion] = useState(0);
   /** Desktop (1200px+) quote results: the journey form is folded away until "Edit journey". */
   const [desktopJourneyEditing, setDesktopJourneyEditing] = useState(false);
+  const logoHomeRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const onLogoHome = () => logoHomeRef.current();
+    window.addEventListener("matni-logo-home", onLogoHome);
+    return () => window.removeEventListener("matni-logo-home", onLogoHome);
+  }, []);
   /** Desktop (1200px+) vehicle step: price breakdown in the navy summary, collapsed by default. */
   const [desktopBreakdownOpen, setDesktopBreakdownOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   /** Vercel preview sites: the final Pay / request action is switched off (set after mount). */
   const [previewPaymentsOff, setPreviewPaymentsOff] = useState(false);
   useEffect(() => {
@@ -1243,6 +1253,7 @@ function QuoteCard({
   const expressRemovalAckWasCheckedRef = useRef(false);
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [heardAbout, setHeardAbout] = useState("");
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
   const [appliedPersonalQuote, setAppliedPersonalQuote] =
@@ -2138,6 +2149,11 @@ function QuoteCard({
     pickupLeadWindow === "too_soon" &&
     !ownerNoAvailabilityBlocked &&
     !closedAvailabilityMessage;
+  // Too soon only because we're closed overnight (22:00–07:00), not the normal lead time.
+  const isOvernightTooSoon =
+    isTooSoonPickup &&
+    Boolean(tripDate && tripTime) &&
+    !isBelowMinimumShortNoticeLead(tripDate, tripTime, new Date(), minimumShortNoticeLeadHours);
   const isMinimumNoticeRequest =
     !isMinibusQuote &&
     pickupLeadWindow === "short_notice" &&
@@ -2711,6 +2727,10 @@ function QuoteCard({
           passengers: requestedPassengers,
           suitcases: requestedSuitcases,
           ...(result.quoteReceipt ? { quoteReceipt: result.quoteReceipt } : {}),
+          ...(result.emptyRunSavingGbp
+            ? { emptyRunSavingGbp: result.emptyRunSavingGbp, emptyRunNormalAmountGbp: result.emptyRunNormalAmountGbp }
+            : {}),
+          ...(result.emptyRunOffer ? { emptyRunOffer: result.emptyRunOffer } : {}),
           outboundDate: tripDate.trim(),
           outboundTime: tripTime.trim(),
           returnJourney,
@@ -4588,6 +4608,7 @@ function QuoteCard({
       termsVersion: TERMS_LAST_UPDATED,
       cancellationPolicyVersion: CANCELLATION_POLICY_VERSION,
       ...buildMarketingOptInFields(marketingOptIn),
+      ...(heardAbout ? { heardAbout } : {}),
     };
   }
 
@@ -4912,7 +4933,11 @@ function QuoteCard({
       return;
     }
     if (isTooSoonPickup) {
-      setPaymentError(tooSoonRequestBody(minimumShortNoticeLeadHours));
+      setPaymentError(
+        isOvernightTooSoon
+          ? overnightTooSoonBody()
+          : tooSoonRequestBody(minimumShortNoticeLeadHours),
+      );
       handleChooseAnotherTime();
       return;
     }
@@ -6090,6 +6115,18 @@ function QuoteCard({
     scrollToD3Card();
   }
 
+  /** Header logo pressed while on the homepage: show the first screen again (all devices).
+   * Same back-navigation as Edit journey; details are kept and nothing is created. */
+  logoHomeRef.current = () => {
+    if (presentation !== "homepage") return;
+    if (quoteStep !== 1) navigateQuoteStep(1);
+    setHomepagePriceRequested(false);
+    setDesktopJourneyEditing(false);
+    if (typeof window !== "undefined") {
+      // The step change may scroll to the form; finish at the very top of the page.
+      for (const delay of [80, 450, 900]) window.setTimeout(() => window.scrollTo({ top: 0 }), delay);
+    }
+  };
   function goToVehicleFromD3Steps() {
     if (quoteStep !== 1) navigateQuoteStep(1);
     setHomepagePriceRequested(true);
@@ -7119,7 +7156,7 @@ function QuoteCard({
   function checkoutTimeLabel(leg: "outbound" | "return" = "outbound"): string {
     const fromAirport =
       leg === "return" ? !isFromAirport && returnJourney : isFromAirport;
-    return fromAirport ? "Scheduled flight arrival time" : "Pickup time";
+    return fromAirport ? "Flight arrival time" : "Pickup time";
   }
 
   function renderQuoteScheduleFields(variant: "quote" | "checkout", homepageInline = false) {
@@ -7496,6 +7533,27 @@ function QuoteCard({
                   </p>
                 ) : null}
               </div>
+              <div data-heard-about>
+                <label htmlFor="heard-about" className="form-label">
+                  How did you hear about us? <span className="font-normal opacity-70">(optional)</span>
+                </label>
+                <select
+                  id="heard-about"
+                  name="heardAbout"
+                  value={heardAbout}
+                  onChange={(e) => setHeardAbout(e.target.value)}
+                  className={bookingTextFieldClass(
+                    fieldState({ hasError: false, complete: Boolean(heardAbout), activeStep: quoteStep >= 2 }),
+                  )}
+                >
+                  <option value="">Choose one</option>
+                  {HEARD_ABOUT_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {bookingMeetGreetEligible ? (
                 <section className="rounded-xl border border-emerald/30 bg-navy/30 px-3 py-3 text-white" data-booking-meet-greet data-offered-at-vehicle-step={offeredAtVehicleStep("dub-meet-greet") ? "true" : undefined}>
                   <h3 className="text-sm font-bold">Enhance Your Airport Pickup</h3>
@@ -7849,6 +7907,7 @@ function QuoteCard({
             <TooSoonCheckoutNotice
               leadHours={minimumShortNoticeLeadHours}
               onChooseAnotherTime={handleChooseAnotherTime}
+              overnight={isOvernightTooSoon}
             />
           ) : payNow && liveQuote ? (
             <div className="space-y-2 sm:space-y-3">
@@ -8060,7 +8119,7 @@ function QuoteCard({
                   {previewPaymentsOff
                     ? "Payments are switched off on this preview"
                     : paymentLoading
-                    ? isAvailabilityRequest
+                    ? isAvailabilityRequest && !isMinimumNoticeRequest
                       ? "Submitting booking request…"
                       : "Preparing your secure payment…"
                     : testChargeAmount !== null
@@ -8068,7 +8127,7 @@ function QuoteCard({
                       : isMinibusNoticeRequest
                         ? `${MINIBUS_NOTICE_CTA} — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                         : isMinimumNoticeRequest
-                          ? `Request Short-Notice Booking — ${amountLabel ?? formatQuote(liveQuote.amount)}`
+                          ? `Book Now — ${amountLabel ?? formatQuote(liveQuote.amount)}`
                           : selectedCardBalance && cardBalanceOffer
                             ? cardBalancePayButtonLabel(cardBalanceOffer.depositGbp)
                             : showDepositCashChoice && depositCashOffer
@@ -8129,16 +8188,21 @@ function QuoteCard({
           !appliedPersonalQuote &&
           !submitted &&
           !activeOpenCheckout ? (
-            <button
-              type="button"
-              onClick={() => handleSaveQuoteClick()}
-              style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
-              data-checkout-email-quote
-              data-d3-send-quote={mobileDesign3 ? "" : undefined}
-              className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
-            >
-              {mobileDesign3 ? "Send me my quote" : "Email my quote"}
-            </button>
+            <>
+              {mobileDesign3 && saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => handleSaveQuoteClick()}
+                style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                data-checkout-email-quote
+                data-d3-send-quote={mobileDesign3 ? "" : undefined}
+                className="w-full text-center text-xs font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+              >
+                {mobileDesign3 ? "Send me my quote" : "Email my quote"}
+              </button>
+            </>
           ) : null}
 
           {ownerClosed ? null : renderBookingErrorHelp("step3")}
@@ -8203,14 +8267,14 @@ function QuoteCard({
             : design2Home && isVehiclePersonalQuote
             ? "Request quote"
             : design2Home
-            ? "Continue"
+            ? "Continue to booking details"
             : showTransferCta && presentation === "homepage"
             ? (
                 <>
                   {/* Desktop (1200px+) shows the second label; everything below 1200px is unchanged. */}
                   <span data-book-cta-default>{`BOOK THIS TRANSFER — ${amountLabel}`}</span>
                   <span className="hidden" data-book-cta-desktop>
-                    Continue to booking
+                    Continue to booking details
                     <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden focusable="false">
                       <path d="M3 8h9.5M8.5 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
@@ -8574,8 +8638,8 @@ function QuoteCard({
    * remainder after the other lines, so the lines always add up to the total shown. Shown only
    * when that breakdown is exactly the price on screen.
    */
-  function renderDesktopResultsBreakdown() {
-    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+  /** Price breakdown lines for the vehicle step (desktop panel and the mobile Price details sheet). */
+  function resultsBreakdownData(): { rows: Array<[string, string]>; total: number } | null {
     if (!openWebsiteFareBreakdown || testChargeAmount != null || appliedPersonalQuote) return null;
     if (publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly) return null;
     if (paymentAmount == null || !Number.isFinite(paymentAmount) || !mayPaintNumericFare || vehicleFareUpdating) return null;
@@ -8587,12 +8651,14 @@ function QuoteCard({
     const fixed = pence(fare.airportFixedCostsGbp);
     const returnSaving = pence(fare.returnJourneySavingGbp);
     const offerSaving = pence(fare.returnOfferSavingGbp);
-    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving);
+    const specialSaving = pence(currentServerFareParts?.emptyRunSavingGbp ?? 0);
+    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving + specialSaving);
     if (!(vehicleFare > 0)) return null;
     const total = pence(paymentAmount + upgrades.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0));
     const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
     const rows: Array<[string, string]> = [
       [fare.returnJourney ? `${vehicleName} fare, both journeys` : `${vehicleName} fare`, formatQuote(vehicleFare)],
+      ...(specialSaving > 0 ? [["Special price saving", `−${formatQuote(specialSaving)}`] as [string, string]] : []),
       ...(returnSaving > 0 ? [["5% return discount", `−${formatQuote(returnSaving)}`] as [string, string]] : []),
       ...(offerSaving > 0 ? [[`Return saving (${fare.returnOfferDiscountPercentLabel})`, `−${formatQuote(offerSaving)}`] as [string, string]] : []),
       ...(fixed > 0 ? [["Airport charges", `+${formatQuote(fixed)}`] as [string, string]] : []),
@@ -8605,6 +8671,76 @@ function QuoteCard({
           ] as [string, string],
       ),
     ];
+    return { rows, total };
+  }
+
+  /** Mobile: "Price details" in the bottom bar opens this sheet. */
+  function renderPriceDetailsSheet() {
+    const data = resultsBreakdownData();
+    if (!data) return null;
+    const close = () => setPriceSheetOpen(false);
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Price details"
+        data-price-details-sheet
+        className="fixed inset-0 z-[80] flex items-end justify-center"
+        style={{ backgroundColor: "rgba(7, 28, 56, 0.55)" }}
+        onClick={close}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") close();
+        }}
+      >
+        <div
+          className="w-full max-w-md rounded-t-3xl px-5 pb-8 pt-5 shadow-2xl"
+          style={{ backgroundColor: "#ffffff", color: "#071c38" }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-lg font-extrabold" style={{ color: "#071c38" }}>Price details</h3>
+            <button
+              type="button"
+              autoFocus
+              onClick={close}
+              className="min-h-11 rounded-xl border px-4 text-sm font-bold"
+              style={{ borderColor: "#cbd5e1", color: "#071c38", backgroundColor: "#ffffff" }}
+            >
+              Close
+            </button>
+          </div>
+          <dl className="space-y-2 text-base">
+            {data.rows.map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt style={{ color: "#334155" }}>{label}</dt>
+                <dd
+                  className="shrink-0 tabular-nums font-semibold"
+                  style={{ color: value.startsWith("−") ? "#047857" : "#071c38" }}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))}
+            <div className="flex justify-between gap-4 border-t pt-3" style={{ borderColor: "#e2e8f0" }}>
+              <dt className="font-extrabold" style={{ color: "#071c38" }}>Total</dt>
+              <dd className="shrink-0 tabular-nums text-lg font-extrabold" style={{ color: "#071c38" }}>
+                {formatQuote(data.total)}
+              </dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-sm" style={{ color: "#475569" }}>
+            Fixed price. Night, weekend and bank holiday rates are included in the vehicle fare.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderDesktopResultsBreakdown() {
+    if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return null;
+    const data = resultsBreakdownData();
+    if (!data) return null;
+    const { rows, total } = data;
     return (
       <div className="hidden" data-results-breakdown data-open={desktopBreakdownOpen ? "true" : "false"}>
         <button
@@ -8923,6 +9059,8 @@ function QuoteCard({
       return null;
     }
     return (
+      <>
+      {renderEmptyRunNotice()}
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
@@ -8936,6 +9074,7 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         desktopRequestPrices={desktopRequestOnlyEstimates()}
       />
+      </>
     );
   }
 
@@ -9056,6 +9195,52 @@ function QuoteCard({
       />
       {businessClassUpgrade}
       </>
+    );
+  }
+
+  /** Empty Run: show the saving already applied, or a cheaper time the same day. */
+  function renderEmptyRunNotice() {
+    const parts = currentServerFareParts;
+    if (!parts || authoritativeQuoteFailed) return null;
+    const gbp = (n: number) => `£${n % 1 ? n.toFixed(2) : n.toFixed(0)}`;
+    if (parts.emptyRunSavingGbp && parts.emptyRunNormalAmountGbp) {
+      return (
+        <div
+          data-empty-run-applied
+          className="mb-3 mt-1 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
+        >
+          <p className="text-base font-extrabold text-emerald-800">Special price: you save {gbp(parts.emptyRunSavingGbp)}</p>
+          <p className="mt-0.5 text-slate-800">
+            Our car is already heading that way at this time, so we&apos;ve lowered your fare from{" "}
+            <span className="line-through">{gbp(parts.emptyRunNormalAmountGbp)}</span>.
+          </p>
+        </div>
+      );
+    }
+    const offer = parts.emptyRunOffer;
+    if (!offer) return null;
+    const clock = formatCustomerClock(offer.tripTime) || offer.tripTime;
+    return (
+      <div
+        data-empty-run-offer
+        className="mb-3 mt-1 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
+      >
+        <p className="text-base font-extrabold text-emerald-800">
+          Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} at {clock}
+        </p>
+        <p className="mt-0.5 text-slate-800">
+          Our car is already heading that way, so a {clock} pickup is about {gbp(offer.estimatedAmountGbp)}.
+        </p>
+        <button
+          type="button"
+          className="empty-run-glow mt-2 inline-flex min-h-11 items-center rounded-xl px-4 font-bold"
+          style={{ backgroundColor: "#047857", color: "#ffffff" }}
+          disabled={selectingAlternativeTime != null}
+          onClick={() => void handleSelectAvailabilityAlternative({ tripDate: offer.tripDate, tripTime: offer.tripTime })}
+        >
+          {selectingAlternativeTime === offer.tripTime ? "Updating…" : `Switch to ${clock}`}
+        </button>
+      </div>
     );
   }
 
@@ -9272,6 +9457,7 @@ function QuoteCard({
         }}
         id="quote-availability-confirmation"
         data-quote-presentation={presentation}
+        data-d3-render={mobileDesign3 ? "" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8"
       >
         <ShortNoticeRequestReceived
@@ -9314,6 +9500,7 @@ function QuoteCard({
         }}
         id="bookingRequestResult"
         data-quote-presentation={presentation}
+        data-d3-render={mobileDesign3 ? "" : undefined}
         className="quote-flow glass-card min-w-0 scroll-mt-44 rounded-2xl p-6 sm:p-8 md:scroll-mt-28"
       >
         <div className="rounded-xl quote-panel px-5 py-8 text-center sm:px-8 sm:py-10">
@@ -9369,6 +9556,7 @@ function QuoteCard({
     <div
       ref={cardRef}
       data-quote-presentation={presentation}
+      data-d3-render={mobileDesign3 ? "" : undefined}
       data-quote-results={quoteResultsReady && quoteStep === 1 ? "ready" : undefined}
       data-d2={design2Home ? (quoteStep >= 2 ? "details" : homepagePriceRequested ? "vehicle" : "journey") : undefined}
       data-d2-schedule={design2Home && homepagePriceRequested && quoteStep === 1 ? (isScheduleComplete ? "set" : "pending") : undefined}
@@ -9694,6 +9882,22 @@ function QuoteCard({
                     {mobileDesign3 && journeyMode === "return" && returnDate && returnTime ? (
                       <li data-chip="return">Return {formatD3ChipDate(returnDate)}, {returnTime}</li>
                     ) : null}
+                    {mobileDesign3 && quoteDirectionsHref() ? (
+                      <li data-chip="route">
+                        <button
+                          type="button"
+                          data-d3-view-route
+                          aria-haspopup="dialog"
+                          onClick={() => setQuoteActionOpen("route")}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" />
+                            <path d="M9 4v14M15 6v14" />
+                          </svg>
+                          View route
+                        </button>
+                      </li>
+                    ) : null}
                   </ul>
                 </div>
                 {mobileDesign3 ? null : (<>
@@ -9905,7 +10109,8 @@ function QuoteCard({
               </p>
             ) : null}
 
-            {isTownGuidePickup ? (
+            {/* Only once a price is on screen, so the journey form stays short. */}
+            {isTownGuidePickup && (presentation !== "homepage" || homepagePriceRequested) ? (
               <p
                 data-town-guide-note
                 className="rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm leading-relaxed text-white/90"
@@ -10078,15 +10283,20 @@ function QuoteCard({
                     {design2Home && liveQuote && !isVehiclePersonalQuote && !appliedPersonalQuote ? (
                       /* Design 3 only (shown by its stylesheet): send the quote link to the
                          customer's WhatsApp or email so they can finish booking later. */
-                      <button
-                        type="button"
-                        className="hidden"
-                        data-d3-send-quote
-                        onClick={() => handleSaveQuoteClick()}
-                        style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
-                      >
-                        Send me my quote
-                      </button>
+                      <>
+                        {saveQuoteSettings.enabled && (saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? (
+                          <p className="hidden" data-d3-send-quote-note>Not ready to book yet?</p>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="hidden"
+                          data-d3-send-quote
+                          onClick={() => handleSaveQuoteClick()}
+                          style={!saveQuoteSettings.enabled || !(saveQuoteSettings.emailEnabled || saveQuoteSettings.whatsappEnabled) ? { display: "none" } : undefined}
+                        >
+                          Send me my quote
+                        </button>
+                      </>
                     ) : null}
                     {presentation === "homepage" && returnJourney && openWebsiteFareBreakdown ? (
                       <div className="hidden rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 md:block" data-homepage-return-breakdown-desktop>
@@ -10124,8 +10334,10 @@ function QuoteCard({
                                 <button
                                   type="button"
                                   data-d2-price-details
+                                  aria-haspopup="dialog"
                                   onClick={() => {
-                                    quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    if (resultsBreakdownData()) setPriceSheetOpen(true);
+                                    else quoteSelectedVehicleCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                                   }}
                                 >
                                   Price details
@@ -10135,6 +10347,7 @@ function QuoteCard({
                             {renderStep1BookButton({ instantTransferLabel: true })}
                           </div>
                         ) : null}
+                        {design2Home && priceSheetOpen ? renderPriceDetailsSheet() : null}
                         {isVehiclePersonalQuote ? (
                           <div className="hidden md:block">{renderStartNewQuoteControls("results")}</div>
                         ) : null}

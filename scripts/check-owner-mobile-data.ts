@@ -4,6 +4,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  isSystemEmailSender,
   buildCustomerDirectory,
   buildHomeSummary,
   buildMessageItems,
@@ -107,3 +108,30 @@ assert.equal(whatsAppLink("07549 815538"), "https://wa.me/447549815538");
 assert.equal(whatsAppLink(""), null);
 
 console.log("owner mobile data checks passed");
+
+// Automatic emails never count as waiting (owner feedback, 11 Nov 2026).
+{
+  assert.equal(isSystemEmailSender("bookings@myairporttaxini.co.uk"), true);
+  assert.equal(isSystemEmailSender("noreply@stripe.com"), true);
+  assert.equal(isSystemEmailSender("no-reply@titan.email"), true);
+  assert.equal(isSystemEmailSender("calls@fonio.ai"), false, "phone-call alerts still need attention");
+  assert.equal(isSystemEmailSender("noreply@fonio.ai"), false);
+  assert.equal(isSystemEmailSender("sarah@example.com"), false);
+  const base = { subject: "x", lastSnippet: "y", lastAt: "2026-11-11T10:00:00Z", lastDirection: "in" as const, unread: 2, count: 2, archived: false };
+  const items = buildMessageItems(
+    [
+      { ...base, threadKey: "a", counterpartEmail: "bookings@myairporttaxini.co.uk", counterpartName: "My Airport Taxi NI" },
+      { ...base, threadKey: "b", counterpartEmail: "sarah@example.com" },
+    ],
+    [],
+    new Date("2026-11-11T12:00:00Z"),
+  );
+  const sys = items.find((i) => i.threadKey === "a")!;
+  const cust = items.find((i) => i.threadKey === "b")!;
+  assert.equal(sys.system, true);
+  assert.equal(sys.unread, false);
+  assert.equal(sys.needsReply, false);
+  assert.equal(cust.unread && cust.needsReply, true);
+  assert.equal(cust.system, undefined);
+}
+console.log("system-email checks passed");

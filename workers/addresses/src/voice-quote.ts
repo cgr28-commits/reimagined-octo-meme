@@ -156,7 +156,7 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
   const availability = await checkWhatsAppAvailability(draft, store);
   if (!availability.ok) {
     const say =
-      availability.reason === "notice"
+      availability.reason === "notice" || availability.reason === "overnight"
         ? "That's a bit soon for us to guarantee a car. Can I take your name and mobile so the team can see if they can fit you in?"
         : availability.reason === "closed"
           ? "We're not taking bookings for that time. Can I take a message and have the team call you back?"

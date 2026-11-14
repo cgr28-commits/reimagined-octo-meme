@@ -30,6 +30,7 @@ import {
   type InboxMessage,
 } from "../shared/owner-inbox";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { notifyOwnerPush, pushNoticeForInboundEmail } from "./owner-push";
 import { listCustomerBookingRefs } from "./customer-account-store";
 import { ensureManageBookingToken, getPaidBookingRecord } from "./paid-booking-store";
 import {
@@ -150,6 +151,14 @@ export async function handleResendInboundWebhook(
   const message = inboundToMessage(full, emailId, mailbox(env));
   if (!message) return new Response("skipped own copy", { status: 200 });
   await saveInboxMessage(store, message);
+  // Phone alert for emails that need the owner (never for routine automatic emails). Never blocks storing.
+  const notice = pushNoticeForInboundEmail({
+    from: message.counterpartEmail,
+    fromName: message.counterpartName,
+    subject: message.subject,
+    text: message.text,
+  });
+  if (notice) await notifyOwnerPush(env, notice, fetchImpl as typeof fetch).catch(() => undefined);
   return new Response("stored", { status: 200 });
 }
 

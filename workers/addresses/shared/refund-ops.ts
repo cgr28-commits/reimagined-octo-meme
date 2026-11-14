@@ -170,7 +170,7 @@ export function parseMoneyLabelToNumber(label: string | undefined | null): numbe
 export function hoursUntilPickup(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): number | null {
   const pickup = parseLondonLocalDateTime(tripDate, tripTime.trim() || "00:00");
   if (!pickup) return null;
@@ -194,7 +194,7 @@ export function normalizeCancellationReceivedAt(value: unknown, now = new Date()
 export function isWithin24HoursOfPickup(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return true;

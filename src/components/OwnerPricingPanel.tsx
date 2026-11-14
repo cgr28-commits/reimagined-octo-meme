@@ -86,6 +86,8 @@ function asDraft(
 type OwnerPricingPanelProps = {
   ownerKey: string;
   isolated?: boolean;
+  /** Mobile owner dashboard: keep the Save bar above the fixed bottom tab bar. */
+  aboveMobileNav?: boolean;
 };
 
 const fieldClass =
@@ -314,7 +316,7 @@ function Toggle({
   );
 }
 
-export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerPricingPanelProps) {
+export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMobileNav = false }: OwnerPricingPanelProps) {
   const [saved, setSaved] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
   const [draft, setDraft] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
   const [defaults, setDefaults] = useState<PricingDraft>(asDraft(defaultOwnerPricingSettings()));
@@ -618,8 +620,6 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
   );
   const evening = draft.evening ?? DEFAULT_EVENING_PRICING;
   const christmas = draft.christmas ?? DEFAULT_CHRISTMAS_PRICING;
-  /** Stored as MM-DD; shown and typed as DD/MM. */
-  const dayMonth = (monthDay: string) => /^\d{2}-\d{2}$/.test(monthDay) ? `${monthDay.slice(3)}/${monthDay.slice(0, 2)}` : monthDay;
   const nightOnHundred = previewSurchargeOnBase(100, draft.night.surchargeRate);
   const nightOnMinibus = previewSurchargeOnBase(preview.minibusQuotedGbp, draft.night.surchargeRate);
   const weekendDays = draft.weekend.days.includes(6) && draft.weekend.days.includes(0)
@@ -697,6 +697,43 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </p>
         ) : null}
       </div>
+
+      <section className="rounded-2xl border border-emerald/30 bg-navy/50 p-4" data-quick-prices>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
+          Estate &amp; Meet &amp; Greet prices
+        </h3>
+        <div data-estate-uplift>
+          <MoneyField
+            label="Estate — extra over Saloon (per journey leg)"
+            value={draft.estate.upliftGbp}
+            onChange={(upliftGbp) => update("estate", { upliftGbp })}
+          />
+          <p className="mt-1 text-xs text-white/55">
+            Example: Saloon £50.00 → Estate £{(50 + Number(draft.estate.upliftGbp || 0)).toFixed(2)}. Up to £40.00.
+          </p>
+        </div>
+        <p className="mt-4 text-sm font-semibold text-white">Meet &amp; Greet — per airport collection</p>
+        <div className="grid gap-x-3 sm:grid-cols-3" data-meet-greet-fees>
+          <MoneyField
+            label="Belfast International"
+            value={draft.meetGreet.bfsGbp}
+            onChange={(bfsGbp) => update("meetGreet", { ...draft.meetGreet, bfsGbp })}
+          />
+          <MoneyField
+            label="Belfast City"
+            value={draft.meetGreet.bhdGbp}
+            onChange={(bhdGbp) => update("meetGreet", { ...draft.meetGreet, bhdGbp })}
+          />
+          <MoneyField
+            label="Dublin Airport"
+            value={draft.meetGreet.dubGbp}
+            onChange={(dubGbp) => update("meetGreet", { ...draft.meetGreet, dubGbp })}
+          />
+        </div>
+        <p className="mt-2 text-xs text-white/55">
+          Whole party, per airport collection. Up to £100.00. Tap Save Changes at the bottom to apply to new quotes.
+        </p>
+      </section>
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Vehicle pricing</h3>
@@ -830,13 +867,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
 
           <div>
             <p className="text-lg font-semibold text-white">Estate</p>
-            <MoneyField
-              label="Uplift over Saloon"
-              value={draft.estate.upliftGbp}
-              onChange={(upliftGbp) => update("estate", { upliftGbp })}
-            />
-            <p className="mt-1 text-xs text-white/55">
-              Example: Saloon £50.00 → Estate £{(50 + Number(draft.estate.upliftGbp || 0)).toFixed(2)}
+            <p className="mt-1 text-sm text-white/60">
+              Estate price is set in <strong>Estate &amp; Meet &amp; Greet prices</strong> at the top of this page
+              (currently Saloon + £{Number(draft.estate.upliftGbp || 0).toFixed(2)}).
             </p>
           </div>
 
@@ -1216,14 +1249,38 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           <PercentField label="Christmas surcharge" value={Math.round(christmas.surchargeRate * 1000) / 10}
             onChange={(value) => update("christmas", { ...christmas, surchargeRate: value / 100 })} />
           <div className="mt-3 grid grid-cols-2 gap-2">
-            {(["startMonthDay", "endMonthDay"] as const).map((field) => (
-              <label key={field} className={labelClass}>
-                {field === "startMonthDay" ? "Christmas starts (day/month)" : "Christmas ends (day/month)"}
-                <input className={fieldClass} type="text" inputMode="numeric" placeholder={field === "startMonthDay" ? "14/12" : "31/12"}
-                  value={dayMonth(christmas[field])}
-                  onChange={(event) => update("christmas", { ...christmas, [field]: parseMonthDayInput(event.target.value) ?? event.target.value })} />
-              </label>
-            ))}
+            {(["startMonthDay", "endMonthDay"] as const).map((field) => {
+              // Day + month pickers: no typing (the iPhone number pad has no "/"), always a valid date.
+              const current = parseMonthDayInput(christmas[field]) ?? (field === "startMonthDay" ? "12-14" : "12-31");
+              const month = Number(current.slice(0, 2));
+              const day = Number(current.slice(3));
+              const daysIn = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 31;
+              const setMonthDay = (nextMonth: number, nextDay: number) => {
+                const maxDay = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][nextMonth - 1] ?? 31;
+                const safeDay = Math.min(nextDay, maxDay);
+                update("christmas", {
+                  ...christmas,
+                  [field]: `${String(nextMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`,
+                });
+              };
+              return (
+                <div key={field} className={labelClass} data-christmas-date={field}>
+                  {field === "startMonthDay" ? "Christmas starts" : "Christmas ends"}
+                  <div className="grid grid-cols-[4.5rem_1fr] gap-1">
+                    <select className={fieldClass} aria-label={field === "startMonthDay" ? "Christmas start day" : "Christmas end day"}
+                      value={day} onChange={(event) => setMonthDay(month, Number(event.target.value))}>
+                      {Array.from({ length: daysIn }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <select className={fieldClass} aria-label={field === "startMonthDay" ? "Christmas start month" : "Christmas end month"}
+                      value={month} onChange={(event) => setMonthDay(Number(event.target.value), day)}>
+                      {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((name, i) => (
+                        <option key={name} value={i + 1}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-white/55">Applies every year to pickups between these dates (inclusive, Europe/London). The highest applicable Christmas, Evening, Night or Weekend percentage applies once per leg.</p>
         </div>
@@ -1537,8 +1594,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           </p>
         </div>
         <p className="mt-3 text-xs text-white/55">
-          Fixed airport charges below stay display-only. Meet &amp; Greet pickup fees can be changed
-          here and apply to new email offers.
+          Fixed airport charges below stay display-only.
         </p>
         <div className="mt-4 space-y-3" data-meet-greet-email-settings>
           <p className="text-sm text-white/80">Offer Meet &amp; Greet by email 30 minutes after booking confirmation. Airport collections only; customers pay separately against their original booking. Existing included Meet &amp; Greet is excluded.</p>
@@ -1555,23 +1611,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
           ))}
           <p className="text-xs text-white/60">Applies to new paid bookings after switching on. Prices below are per airport collection for the whole party, including Meet &amp; Greet parking. Save pricing settings to apply.</p>
         </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <MoneyField
-            label="Meet & Greet — Belfast International"
-            value={draft.meetGreet.bfsGbp}
-            onChange={(bfsGbp) => update("meetGreet", { ...draft.meetGreet, bfsGbp })}
-          />
-          <MoneyField
-            label="Meet & Greet — Belfast City"
-            value={draft.meetGreet.bhdGbp}
-            onChange={(bhdGbp) => update("meetGreet", { ...draft.meetGreet, bhdGbp })}
-          />
-          <MoneyField
-            label="Meet & Greet — Dublin Airport"
-            value={draft.meetGreet.dubGbp}
-            onChange={(dubGbp) => update("meetGreet", { ...draft.meetGreet, dubGbp })}
-          />
-        </div>
+        <p className="mt-3 text-xs text-white/60">
+          Meet &amp; Greet prices for each airport are set in <strong>Estate &amp; Meet &amp; Greet prices</strong> at the top of this page.
+        </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <MoneyField label="Terminal Access — Belfast International" value={draft.terminalAccess.bfsGbp}
             onChange={(bfsGbp) => update("terminalAccess", { ...draft.terminalAccess, bfsGbp })} />
@@ -1668,7 +1710,17 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false }: OwnerP
         </p>
       ) : null}
 
-      <div className="sticky bottom-3 z-10 grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-navy/90 p-3">
+      <div
+        data-pricing-save-bar
+        className={`sticky z-10 grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-navy/90 p-3 ${
+          aboveMobileNav ? "bottom-[calc(84px+env(safe-area-inset-bottom))] lg:bottom-3" : "bottom-3"
+        }`}
+      >
+        {!dirty ? (
+          <p className="text-center text-xs text-white/60">Make a change above to enable Save.</p>
+        ) : !validation.ok ? (
+          <p className="text-center text-xs font-semibold text-red-100">Fix the item in red above to enable Save.</p>
+        ) : null}
         <button
           type="button"
           disabled={!dirty || saving || !validation.ok}

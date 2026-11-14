@@ -21,7 +21,7 @@ export default function ManageBookingPage() {
         {/* 1200px+: logo and Get a Quote sit in the brand bar instead. */}
         <div className="flex w-full items-center justify-between gap-3 min-[75rem]:hidden">
           <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
-            <Logo className="h-12 sm:h-14" />
+            <Logo wide className="h-9 max-w-[70vw] sm:h-11" />
           </Link>
           <QuoteNavLink
             href="/#quote"

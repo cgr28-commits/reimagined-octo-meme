@@ -46,7 +46,7 @@ try {
     assert.ok((await button.getAttribute('href')).startsWith('https://wa.me/447549815538?'));
     assert.ok(!(await page.textContent('body')).includes('07549 815538'));
    }
-   if(html.includes('class="matni-light"')) {
+   if(/class="matni-light\b/.test(html)) {
     assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(255, 255, 255)');
     assert.ok(await page.locator('p,h1,h2,td,div').evaluateAll(nodes=>nodes.filter(node=>!node.closest('[data-matni-customer-header]')).every(node=>getComputedStyle(node).color==='rgb(7, 28, 56)')));
     assert.equal(await page.locator('[data-matni-customer-header]').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(7, 28, 56)');

@@ -17,7 +17,7 @@ owner guide is `docs/bespoke-preview-owner-setup.md`.
 | Cloudflare account | "My Airport Taxi NI Staging" `ecad568dc411e28a3e435ef40b36c2b5` (never the live account) |
 | Preview Worker | `reimagined-octo-meme-bespoke-preview` (address shown in the workflow run) |
 | KV | `matni-bespoke-preview-tracking`, `matni-bespoke-preview-booking-counter` (created by the workflow) |
-| Durable Objects | Owned by the preview Worker; its own `preview-v1` migration. Live migration v6 is untouched. |
+| Durable Objects | Owned by the preview Worker; its own `preview-v1` migration. Live migration v7 is untouched. |
 | Preview website | Cloudflare Pages project `matni-bespoke-preview`, behind a private link, noindex |
 | Allowed browser origin | exactly the preview website (enforced in `src/preview-entry.ts`; live CORS unchanged) |
 | Turnstile | Cloudflare's always-pass test keys, accepted only when `PREVIEW_ENVIRONMENT` and `TURNSTILE_TEST_KEYS` are both set (preview config only) |

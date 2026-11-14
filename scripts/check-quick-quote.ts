@@ -17,6 +17,8 @@ import {
   applyQuickQuoteManualDiscount,
   type QuickQuoteRecord,
 } from "../shared/quick-quote";
+import * as qq from "../shared/quick-quote";
+import * as ev from "../shared/known-events";
 import { toWholePoundFare } from "../workers/addresses/src/quick-quote-handlers";
 import {
   addCalendarDays,
@@ -393,6 +395,36 @@ assert.match(quoteHandlers, /calculateAuthoritativeWebsiteQuote/);
   assert.equal(offer.customerFare, 60);
   assert.equal(offer.discountAmount, 3);
   assert.ok(offer.customerFare <= offer.calculatedFare);
+}
+
+// 2-hour links and event names (owner request, 12 Nov 2026).
+{
+  assert.equal(qq.parseQuickQuoteValidityMode("2h"), "2h");
+  assert.equal(qq.resolveQuickQuoteTtlSeconds({ validityMode: "2h" }), 7200);
+  assert.equal(qq.cleanQuickQuoteEventName("  Garth   Brooks \n Boucher Road "), "Garth Brooks Boucher Road");
+  assert.equal(qq.cleanQuickQuoteEventName("   "), undefined);
+  assert.equal(qq.cleanQuickQuoteEventName("x".repeat(200))!.length, qq.QUICK_QUOTE_EVENT_NAME_MAX);
+  assert.equal(qq.quickQuoteTripLabel({}), "Airport transfer");
+  assert.equal(qq.quickQuoteTripLabel({ childSeatRequired: true }), "Airport transfer · Child seat required");
+  assert.equal(
+    qq.quickQuoteTripLabel({ eventName: "Garth Brooks – Boucher Road (Fri 21 May 2027)" }),
+    "Garth Brooks – Boucher Road (Fri 21 May 2027) transfer",
+  );
+  const reply = qq.buildQuickQuoteWhatsAppReply({
+    amountLabel: "£180.00",
+    bookingUrl: "https://example.test/q",
+    eventName: "Garth Brooks – Boucher Road (Fri 21 May 2027)",
+    heldUntil: "2026-11-12T19:45:00.000Z",
+  });
+  assert.match(reply, /journey to Garth Brooks – Boucher Road \(Fri 21 May 2027\) is £180\.00/);
+  assert.match(reply, /held until 19:45 on Thu 12 Nov/);
+  const plain = qq.buildQuickQuoteWhatsAppReply({ amountLabel: "£40.00", bookingUrl: "https://example.test/q" });
+  assert.doesNotMatch(plain, /held until|journey to/);
+  const upcoming = ev.upcomingKnownEvents(new Date("2026-11-12T12:00:00Z"));
+  assert.equal(upcoming.length, 2);
+  assert.match(upcoming[0]!.label, /Fri 21 May 2027/);
+  assert.equal(ev.upcomingKnownEvents(new Date("2027-05-23T00:00:00Z")).length, 0);
+  console.log("OK  2-hour links and event names");
 }
 
 console.log("\nAll Quick Quote checks passed.");

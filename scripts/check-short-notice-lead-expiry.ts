@@ -423,9 +423,9 @@ async function main() {
         shortNoticeConfirmWithinLine(2),
         "We’ll confirm availability within 2 hours.",
       );
-      assert.equal(shortNoticePaymentFollowUpLines(1)[1], shortNoticeConfirmWithinLine(1));
-      assert.equal(shortNoticePaymentFollowUpLines(2)[1], shortNoticeConfirmWithinLine(2));
-      assert.match(shortNoticePaymentFollowUpLines(2)[2], /automatically expire/);
+      assert.match(shortNoticePaymentFollowUpLines(1)[0], /card is held/);
+      assert.match(shortNoticePaymentFollowUpLines(1)[1], /confirm your booking shortly/);
+      assert.match(shortNoticePaymentFollowUpLines(2)[2], /released right away/);
       assert.equal(
         shortNoticeExpiryReasonLine(2),
         "As we weren’t able to confirm availability within 2 hours, your booking request has now expired.",

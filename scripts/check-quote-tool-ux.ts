@@ -192,7 +192,7 @@ check("Public quote tool has no personal quote code-entry UI", () => {
 check("Short-notice success UI after full form submit", () => {
   assert.match(card, /shortNoticeResult/);
   assert.match(card, /ShortNoticeRequestReceived/);
-  assert.match(card, /Request Short-Notice Booking/);
+  assert.match(card, /Book Now — /);
   assert.match(card, /QuoteHelpContact/);
 });
 

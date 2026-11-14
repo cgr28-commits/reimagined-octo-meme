@@ -15,7 +15,70 @@ import {
   type EmptyLegOpportunity,
   type EmptyLegsPreviewReport,
 } from "../../shared/empty-legs-preview";
-import { fetchEmptyLegsPreview } from "@/lib/smart-ops-api";
+import {
+  fetchEmptyLegsPreview,
+  fetchEmptyRunSettings,
+  saveEmptyRunSettings,
+  type EmptyRunSettingsPublic,
+} from "@/lib/smart-ops-api";
+
+/** Live switch for the Empty Run discount (cheaper fares that fill an empty drive). */
+function EmptyRunSwitch({ ownerKey }: { ownerKey: string }) {
+  const [settings, setSettings] = useState<EmptyRunSettingsPublic | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    fetchEmptyRunSettings(ownerKey)
+      .then((value) => {
+        if (!cancelled) setSettings(value);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerKey]);
+  async function toggle() {
+    if (!settings) return;
+    setSaving(true);
+    setError("");
+    try {
+      setSettings(await saveEmptyRunSettings(ownerKey, { enabled: !settings.enabled }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+  const on = settings?.enabled === true;
+  return (
+    <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 p-4" data-empty-run-switch>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-white">Empty Run discount</p>
+          <p className="mt-1 text-xs leading-snug text-white/70">
+            When you have a confirmed pickup far from home (e.g. Dublin Airport), customers going that way
+            before it get up to {settings?.maxDiscountPercent ?? 25}% off (never below £{settings?.minFareGbp ?? 185}).
+            Customers asking for a time that doesn&apos;t fit see their normal price plus a cheaper time to switch to.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          disabled={!settings || saving}
+          onClick={() => void toggle()}
+          className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-bold ${on ? "bg-emerald-500 text-white" : "bg-white/10 text-white/80"}`}
+        >
+          {saving ? "Saving…" : on ? "ON" : "OFF"}
+        </button>
+      </div>
+      {error ? <p className="mt-2 text-xs text-red-200">{error}</p> : null}
+    </div>
+  );
+}
 
 type OwnerEmptyLegsPanelProps = {
   ownerKey: string;
@@ -158,8 +221,9 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
 
   return (
     <section className="mb-10 w-full min-w-0 max-w-full space-y-4" data-owner-empty-legs>
+      <EmptyRunSwitch ownerKey={ownerKey} />
       <div className="rounded-2xl border border-amber-200/25 bg-amber-100/10 p-4">
-        <p className="text-sm font-bold text-amber-100">Read-only preview — discounts not active</p>
+        <p className="text-sm font-bold text-amber-100">Table below: read-only preview (the Empty Run switch above is the only live discount)</p>
         <p className="mt-2 text-sm text-white/75">
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. Simulation only: max discount{" "}
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.maxDiscountPercent}%, Belfast–Dublin journey floor £

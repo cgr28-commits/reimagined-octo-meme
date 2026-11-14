@@ -123,14 +123,14 @@ export default function DriverPortalClient() {
   return (
     <div className={styles.app} data-driver-portal>
       <div className={styles.inner}>
-        <header className={styles.heroHeader}>
+        <div data-owner-mobile-header className={styles.heroHeader}>
           <div className={styles.heroTop}>
             <span style={{ fontWeight: 800, letterSpacing: 0.2 }}>My Airport Taxi NI · Drivers</span>
           </div>
           <h1 className={styles.heroTitle}>
             {phase.kind === "ready" ? `Hi ${phase.me.driver.name.split(" ")[0]}` : phase.kind === "apply" ? "Join as a partner driver" : "Driver portal"}
           </h1>
-        </header>
+        </div>
         <main className={styles.main} style={{ gap: 14 }}>
           {phase.kind === "loading" ? <p className={styles.empty}>Loading…</p> : null}
           {phase.kind === "signed-out" ? <SignedOut message={phase.message} /> : null}

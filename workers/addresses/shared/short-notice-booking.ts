@@ -8,7 +8,16 @@ import {
   normalizeShortNoticeConfirmationWindowHours,
   SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
 } from "./booking-notice";
-import { formatLondonClockTime, parseLondonLocalDateTime } from "./uk-time";
+import { formatLondonClockTime } from "./uk-time";
+import {
+  OWNER_MIN_RESPONSE_MS,
+  OWNER_RESPONSE_BEFORE_PICKUP_MS,
+} from "./owner-quiet-hours";
+import {
+  addApprovalMinutes,
+  decideBookingApprovalForTrip,
+  type ApprovalTier,
+} from "./approval-policy";
 import type { PaymentHoldReason } from "./vehicle-capacity";
 
 export const SHORT_NOTICE_STATUSES = [
@@ -119,6 +128,10 @@ export type ShortNoticeBookingRecord = {
    */
   shortNoticeRequestedAt?: string;
   shortNoticeExpiresAt?: string;
+  /** 24/7 approval policy tier / window / overnight flag at submission (audit + recompute). */
+  approvalTier?: ApprovalTier;
+  approvalWindowMinutes?: number;
+  approvalOvernight?: boolean;
   /** Why SHORT_NOTICE_EXPIRED was set. Response-window expiry is not a decline. */
   expiryReason?: "response_window" | "payment_window";
   responseExpiredAt?: string;
@@ -267,34 +280,37 @@ export const SHORT_NOTICE_RESPONSE_EXPIRED_CUSTOMER_MESSAGE =
   "This booking request has expired. No payment has been taken and your journey has not been booked.";
 
 /** Owner must answer at least this long before pickup, so there is time to get there. */
-export const SHORT_NOTICE_RESPONSE_BEFORE_PICKUP_MS = 60 * 60 * 1000;
+export const SHORT_NOTICE_RESPONSE_BEFORE_PICKUP_MS = OWNER_RESPONSE_BEFORE_PICKUP_MS;
 /** If pickup is very close, still allow this long to answer (never past pickup). */
-export const SHORT_NOTICE_MIN_RESPONSE_MS = 15 * 60 * 1000;
+export const SHORT_NOTICE_MIN_RESPONSE_MS = OWNER_MIN_RESPONSE_MS;
 
 /**
- * Response deadline: the confirmation window from `requestedAt`, but never
- * later than 1 hour before pickup (or, if pickup is very close, 15 minutes
- * from now — and never after pickup itself).
+ * Response deadline under the 24/7 approval policy (shared/approval-policy.ts):
+ * 30 / 15 / 5 minutes by lead time, counted only 07:00–23:00 UK time (overnight
+ * requests start at 07:00), and never after pickup. If the deadline would land
+ * after pickup the request can't be processed safely: the deadline is the
+ * request time itself, so it expires straight away and the hold is released.
+ *
+ * `windowHours` is kept for older callers and only used when no pickup is known.
  */
 export function shortNoticeResponseExpiresAtIso(
   requestedAt: string | Date,
   windowHours: number = SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
   pickup?: { tripDate: string; tripTime: string },
+  tier?: ApprovalTier,
 ): string {
-  const hours = normalizeShortNoticeConfirmationWindowHours(windowHours);
   const requested = requestedAt instanceof Date ? requestedAt : new Date(requestedAt);
-  const start = Number.isNaN(requested.getTime()) ? Date.now() : requested.getTime();
-  let deadline = start + hours * SHORT_NOTICE_RESPONSE_WINDOW_MS;
-  const pickupAt = pickup ? parseLondonLocalDateTime(pickup.tripDate, pickup.tripTime) : null;
-  if (pickupAt && !Number.isNaN(pickupAt.getTime())) {
-    const pickupMs = pickupAt.getTime();
-    const latest = Math.max(
-      pickupMs - SHORT_NOTICE_RESPONSE_BEFORE_PICKUP_MS,
-      Math.min(start + SHORT_NOTICE_MIN_RESPONSE_MS, pickupMs),
-    );
-    deadline = Math.min(deadline, latest);
+  const start = new Date(Number.isNaN(requested.getTime()) ? Date.now() : requested.getTime());
+  if (!pickup) {
+    const hours = normalizeShortNoticeConfirmationWindowHours(windowHours);
+    return addApprovalMinutes(start, hours * 60).toISOString();
   }
-  return new Date(deadline).toISOString();
+  const decision = decideBookingApprovalForTrip(pickup.tripDate, pickup.tripTime, start, {
+    forceManual: true,
+    ...(tier ? { tier } : {}),
+  });
+  if (decision.mode === "manual") return decision.deadlineAt;
+  return start.toISOString();
 }
 
 /** Remaining time until the stored deadline. Uses shortNoticeExpiresAt, not the live setting. */

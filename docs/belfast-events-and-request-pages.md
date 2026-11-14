@@ -45,4 +45,4 @@ Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key
 - Phase 4B preview (Cloudflare and Stripe test setup) and testing on the preview.
 - A real Turnstile widget for the live hostname, with its site key set in the Pages build.
 - Add real events in the dashboard.
-- Approve: switch both flags on, deploy the Worker (applies migration v6), and decide whether to link the hub from the header or footer.
+- Approve: switch both flags on, deploy the Worker (applies migration v7), and decide whether to link the hub from the header or footer.

@@ -7,6 +7,7 @@
  * Never invents a fare: prices only come from the Worker's authoritative quote.
  */
 
+import { earliestOvernightPickup } from "./owner-quiet-hours";
 import {
   airportLabel,
   parseAirportCode,
@@ -382,8 +383,25 @@ function looksLikeAddress(text: string): boolean {
   return k.length >= 3 && k.length <= 200 && /[a-z]/i.test(k);
 }
 
-export function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
+/**
+ * The airport this address names, only when it plainly is one ("Dublin Airport", "DUB",
+ * "Aldergrove", "George Best"). A place in a city ("The Mercantile Hotel, Dublin",
+ * "Belfast city centre") is an address, not the airport (12 Nov 2026: a Dublin hotel
+ * was quoted as Dublin Airport).
+ */
+export function explicitAirportCode(value: string): ReturnType<typeof parseAirportCode> {
+  const n = value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
   const code = parseAirportCode(value);
+  if (!code) return null;
+  // Just "Dublin" on its own still means the airport, as it always has for this airport service.
+  if (/\bairport\b/.test(n) || /^(?:bfs|bhd|dub|dublin)$/.test(n)) return code;
+  if (code === "BFS" && /\b(?:belfast international|aldergrove)\b/.test(n)) return code;
+  if (code === "BHD" && /\bgeorge best\b/.test(n)) return code;
+  return null;
+}
+
+export function setAirportSide(draft: WhatsAppQuoteDraft, field: "pickupAddress" | "dropoffAddress", value: string) {
+  const code = explicitAirportCode(value);
   if (code) {
     draft.airportCode = code;
     draft.fromAirport = field === "pickupAddress";
@@ -649,7 +667,8 @@ const POSTCODE = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b|\b[AC-FHKNPRTV-Y]\d{2}\s
  */
 export function isWhatsAppTownOnlyAddress(value: string | undefined): boolean {
   const v = (value ?? "").trim();
-  if (!v || parseAirportCode(v) || findKnownPlaces(v).length) return false;
+  // "Dublin city" / "Dublin, Ireland" is a city, not the airport (12 Nov 2026).
+  if (!v || explicitAirportCode(v) || findKnownPlaces(v).length) return false;
   if (/\d/.test(v) || POSTCODE.test(v) || STREET_WORDS.test(v) || BUSINESS_WORDS.test(v)) return false;
   const words = v.replace(/[,.]/g, " ").split(/\s+/).filter(Boolean);
   return words.length <= 3;
@@ -940,8 +959,9 @@ export function validateWhatsAppDraft(
     draft.pickupAddress &&
     draft.dropoffAddress &&
     (draft.pickupAddress.trim().toLowerCase() === draft.dropoffAddress.trim().toLowerCase() ||
-      (parseAirportCode(draft.pickupAddress) != null &&
-        parseAirportCode(draft.pickupAddress) === parseAirportCode(draft.dropoffAddress)));
+      // Only places that plainly are the airport: a Dublin hotel isn't Dublin Airport (12 Nov 2026).
+      (explicitAirportCode(draft.pickupAddress) != null &&
+        explicitAirportCode(draft.pickupAddress) === explicitAirportCode(draft.dropoffAddress)));
   if (samePlace) {
     const place = draft.pickupAddress!;
     return {
@@ -1149,15 +1169,24 @@ export function buildWhatsAppAlternativeTimeButtons(
 export function buildWhatsAppUnavailableReply(input: {
   leg: WhatsAppJourneyLeg;
   draft: WhatsAppQuoteDraft;
-  reason: "booked" | "closed" | "notice";
+  reason: "booked" | "closed" | "notice" | "overnight";
   message?: string | null;
   noticeHours?: number;
   hasAlternatives: boolean;
+  now?: Date;
 }): string {
   const date = input.leg === "return" ? input.draft.returnDate : input.draft.outboundDate;
   const time = input.leg === "return" ? input.draft.returnTime : input.draft.outboundTime;
   const when = `${time ?? ""}${date ? ` on ${displayDate(date)}` : ""}`.trim();
   const legLabel = input.leg === "return" ? "return pickup" : "pickup";
+  if (input.reason === "overnight") {
+    const earliest = earliestOvernightPickup(input.now ?? new Date());
+    return (
+      `Sorry, we can't confirm a ${legLabel} at ${when}.\n\n` +
+      `The earliest pickup we can take is ${earliest.time}${earliest.tomorrow ? " tomorrow" : ""}. ` +
+      `Please send me that time or later.`
+    );
+  }
   if (input.reason === "notice") {
     return (
       `Sorry, we need at least ${input.noticeHours ?? 24} hours' notice to book online, so we can't confirm a ${legLabel} at ${when}.\n\n` +

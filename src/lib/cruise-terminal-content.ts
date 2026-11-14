@@ -80,7 +80,7 @@ export const CRUISE_TERMINAL_NOTES = [
   },
   {
     title: "How to book",
-    body: "Cruise-terminal collections are arranged by enquiry so we can confirm the meeting point and timing. WhatsApp or the contact page is the most reliable start. The homepage quote tool remains available for standard airport transfers once you have an address and flight time.",
+    body: "Use the quote tool at the top of this page for a fixed price — choose Belfast Cruise Terminal as your pickup or destination. We confirm the exact meeting point at the terminal before you travel. You can also message us on WhatsApp if you would rather book that way.",
   },
 ] as const;
 
@@ -98,12 +98,12 @@ export const CRUISE_TERMINAL_FAQS = [
   {
     question: "How many passengers can travel?",
     answer:
-      "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. Enquire about 7 Seater Minibus availability for larger groups; cruise-terminal pickups are confirmed by enquiry.",
+      "Saloon and Estate carry up to 4 passengers, subject to luggage capacity. Choose up to seven passengers in the quote tool to request the 7 Seater Minibus for larger groups, subject to availability.",
   },
   {
     question: "Can I book a Belfast Cruise Terminal transfer to the airport?",
     answer:
-      "Yes. We arrange private transfers from Belfast Cruise Terminal to Belfast International Airport, George Best Belfast City Airport and Dublin Airport. Message us with the ship and flight details so the timing can be planned around disembarkation.",
+      "Yes. Enter Belfast Cruise Terminal and your airport in the quote tool for a fixed price to Belfast International, George Best Belfast City or Dublin Airport. Choose a pickup time that leaves a generous gap after disembarkation.",
   },
   {
     question: "Do you offer private tours from the cruise port?",

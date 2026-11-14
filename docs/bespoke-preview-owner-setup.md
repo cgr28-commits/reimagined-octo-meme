@@ -58,4 +58,4 @@ In Stripe **Test mode** → Developers → Webhooks → Add endpoint:
 
 ## Going live is separate
 Nothing here switches the new pages on for the public. That needs your explicit approval:
-both switches on, a live Worker deploy (which applies migration v6) and a real Turnstile widget.
+both switches on, a live Worker deploy (which applies migration v7) and a real Turnstile widget.

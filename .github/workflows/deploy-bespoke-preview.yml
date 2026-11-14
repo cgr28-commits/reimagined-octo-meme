@@ -2,7 +2,7 @@
 #
 # Deploys ONLY to the separate "My Airport Taxi NI Staging" Cloudflare account
 # (ecad568dc411e28a3e435ef40b36c2b5): its own Worker, KV, Durable Objects and Pages project.
-# It never touches the live Worker, live KV, live Durable Objects (no migration v6),
+# It never touches the live Worker, live KV, live Durable Objects (no migration v7),
 # GitHub Pages or the custom domain, and it does not switch the new pages on publicly.
 #
 # Uses existing secrets:

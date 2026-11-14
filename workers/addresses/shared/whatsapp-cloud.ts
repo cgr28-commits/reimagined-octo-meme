@@ -68,6 +68,8 @@ export type WhatsAppInboundMessage = {
   editedType?: string;
   /** type "reaction": the emoji (empty when the customer removed their reaction). */
   reactionEmoji?: string;
+  /** type "quote_form": the submitted WhatsApp form's flow token (see whatsapp-quote-form.ts). */
+  formToken?: string;
 };
 
 export type WhatsAppOwnerEcho = {
@@ -246,8 +248,11 @@ type RawMessage = {
   text?: { body?: string };
   button?: { text?: string };
   interactive?: {
+    type?: string;
     button_reply?: { id?: string; title?: string };
     list_reply?: { id?: string; title?: string };
+    /** A submitted WhatsApp form (Flow): its answers as a JSON string, including flow_token. */
+    nfm_reply?: { name?: string; body?: string; response_json?: string };
   };
   image?: { caption?: string };
   video?: { caption?: string };
@@ -277,6 +282,18 @@ function messageText(message: RawMessage): string {
     );
   }
   return "";
+}
+
+/** The flow token of a submitted WhatsApp form (nfm_reply), or undefined. */
+function formTokenOf(message: RawMessage): string | undefined {
+  const raw = message.type === "interactive" ? message.interactive?.nfm_reply?.response_json : undefined;
+  if (!raw) return undefined;
+  try {
+    const token = (JSON.parse(raw) as { flow_token?: unknown }).flow_token;
+    return typeof token === "string" && token ? token : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Extract inbound customer messages and owner app echoes from a webhook payload. */
@@ -323,8 +340,9 @@ export function parseWhatsAppWebhook(payload: unknown): ParsedWhatsAppWebhook {
             from,
             profileName: names.get(message.from ?? ""),
             timestamp: Number(message.timestamp) || 0,
-            type: message.type ?? "unknown",
+            type: formTokenOf(message) ? "quote_form" : (message.type ?? "unknown"),
             text: messageText(message).trim(),
+            ...(formTokenOf(message) ? { formToken: formTokenOf(message) } : {}),
             ...(message.type === "edit"
               ? { editOf: message.edit?.original_message_id, editedType: message.edit?.message?.type }
               : {}),
@@ -541,6 +559,41 @@ export function sendWhatsAppList(
               })),
             },
           ],
+        },
+      },
+    },
+    fetchImpl,
+  );
+}
+
+/**
+ * The quote form (a WhatsApp Flow) as a message with one button that opens it.
+ * mode "draft" sends an unpublished form (for testing before it's published).
+ */
+export function sendWhatsAppFlow(
+  env: WhatsAppCloudEnv,
+  to: string,
+  input: { body: string; cta: string; flowId: string; flowToken: string; mode?: "draft" | "published" },
+  fetchImpl: typeof fetch = fetch,
+): Promise<WhatsAppSendResult> {
+  return postWhatsAppMessage(
+    env,
+    to,
+    {
+      type: "interactive",
+      interactive: {
+        type: "flow",
+        body: { text: input.body.slice(0, 1024) },
+        action: {
+          name: "flow",
+          parameters: {
+            flow_message_version: "3",
+            flow_token: input.flowToken,
+            flow_id: input.flowId,
+            flow_cta: input.cta.slice(0, 20),
+            flow_action: "data_exchange",
+            ...(input.mode === "draft" ? { mode: "draft" } : {}),
+          },
         },
       },
     },

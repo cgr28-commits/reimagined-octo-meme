@@ -95,6 +95,22 @@ export async function startShortNoticeCardHold(input: {
 
 type OwnerEmailFn = (subject: string, body: string) => Promise<void>;
 type CustomerReceivedFn = (record: ShortNoticeBookingRecord) => Promise<void>;
+/** Push + WhatsApp alert; returns the one-tap decision link for the email (if any). */
+type OwnerAlertFn = (record: ShortNoticeBookingRecord) => Promise<{ link: string | null }>;
+
+async function alertOwnerSafely(
+  alert: OwnerAlertFn | undefined,
+  record: ShortNoticeBookingRecord,
+): Promise<string> {
+  if (!alert) return "";
+  try {
+    const { link } = await alert(record);
+    return link ? `\n\nApprove or decline from your phone (secure link, expires at the deadline):\n${link}` : "";
+  } catch (error) {
+    console.error("Owner approval alert failed", record.reference, error instanceof Error ? error.message : "");
+    return "";
+  }
+}
 
 function holdIsReleasable(record: ShortNoticeBookingRecord): boolean {
   return (
@@ -127,6 +143,7 @@ export async function noteShortNoticeHoldAuthorised(input: {
   pending: PendingCheckoutRecord;
   emailOwner: OwnerEmailFn;
   sendCustomerRequestReceived?: CustomerReceivedFn;
+  alertOwner?: OwnerAlertFn;
   now?: Date;
 }): Promise<void> {
   const reference = input.pending.shortNoticeReference ?? "";
@@ -150,7 +167,12 @@ export async function noteShortNoticeHoldAuthorised(input: {
     // Response window runs from when the card was held, not when the form was sent.
     const shortNoticeExpiresAt =
       record.underMinimumNotice && record.shortNoticeExpiresAt
-        ? shortNoticeResponseExpiresAtIso(now, record.shortNoticeConfirmationWindowHours, record.booking)
+        ? shortNoticeResponseExpiresAtIso(
+            now,
+            record.shortNoticeConfirmationWindowHours,
+            record.booking,
+            record.approvalTier,
+          )
         : record.shortNoticeExpiresAt;
     const released: ShortNoticeBookingRecord = {
       ...record,
@@ -161,12 +183,26 @@ export async function noteShortNoticeHoldAuthorised(input: {
       updatedAt: now,
     };
     await saveShortNoticeBooking(input.store, released);
+    if (
+      shortNoticeExpiresAt &&
+      record.underMinimumNotice &&
+      new Date(shortNoticeExpiresAt).getTime() <= nowDate.getTime()
+    ) {
+      // Card held too close to pickup to approve safely: don't ask the owner.
+      // The deadline timer / cron expires it, releases the hold and emails
+      // the customer that it couldn't be confirmed (nothing charged).
+      console.log("Short-notice hold authorised too late to approve", record.reference);
+      return;
+    }
     const respondBy = shortNoticeExpiresAt ? formatLondonClockTime(shortNoticeExpiresAt) : "";
+    // Phone alerts first (fast); the request is already saved as pending, so
+    // a push/WhatsApp failure never changes its state.
+    const linkFooter = await alertOwnerSafely(input.alertOwner, released);
     const deferred = record.deferredOwnerEmail;
     if (deferred) {
       await input.emailOwner(
         deferred.subject.split("{{RESPOND_BY}}").join(respondBy),
-        deferred.body.split("{{RESPOND_BY}}").join(respondBy),
+        deferred.body.split("{{RESPOND_BY}}").join(respondBy) + linkFooter,
       );
     } else {
       await input.emailOwner(
@@ -174,7 +210,8 @@ export async function noteShortNoticeHoldAuthorised(input: {
         `New short-notice request ${record.reference} (${record.booking.tripDate} ${record.booking.tripTime}).\n` +
           `Card held: ${formatGbp(hold.amount)} (not charged yet).\n` +
           (respondBy ? `Respond by ${respondBy}\n` : "") +
-          `Open the Owner Dashboard to Approve, Offer alternative time, or Decline.`,
+          `Open the Owner Dashboard to Approve, Offer alternative time, or Decline.` +
+          linkFooter,
       );
     }
     if (input.sendCustomerRequestReceived) {
@@ -238,7 +275,11 @@ export async function releaseShortNoticeHold(
 /** Cron: release holds on requests that were declined, expired or changed. */
 export async function sweepShortNoticeCardHolds(
   store: KVNamespace | undefined,
-  notify?: { emailOwner: OwnerEmailFn; sendCustomerRequestReceived?: CustomerReceivedFn },
+  notify?: {
+    emailOwner: OwnerEmailFn;
+    sendCustomerRequestReceived?: CustomerReceivedFn;
+    alertOwner?: OwnerAlertFn;
+  },
 ): Promise<{ released: number; closed: number; authorised: number }> {
   const result = { released: 0, closed: 0, authorised: 0 };
   if (!store || !stripeConfigured()) return result;
@@ -280,6 +321,7 @@ export async function sweepShortNoticeCardHolds(
             pending,
             emailOwner: notify.emailOwner,
             sendCustomerRequestReceived: notify.sendCustomerRequestReceived,
+            alertOwner: notify.alertOwner,
           });
           result.authorised += 1;
         } catch (error) {

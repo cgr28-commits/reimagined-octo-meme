@@ -153,7 +153,7 @@ export default function OwnerDriversScreen({
 
   return (
     <>
-      <header className={styles.pageHeader}>
+      <div data-owner-mobile-header className={styles.pageHeader}>
         <div className={styles.backRow}>
           <button type="button" className={styles.backButton} onClick={onBack}>
             <BackIcon size={24} />
@@ -166,7 +166,7 @@ export default function OwnerDriversScreen({
         <p className={styles.pageSub}>
           {drivers === null ? "Loading…" : unavailable ? "Not switched on yet" : `${drivers.length} driver${drivers.length === 1 ? "" : "s"}${attentionCount ? ` · ${attentionCount} need attention` : ""}`}
         </p>
-      </header>
+      </div>
       <main className={styles.main} style={{ gap: 14 }}>
         {unavailable ? (
           <div className={`${styles.notice} ${styles.grey}`}>
@@ -463,7 +463,7 @@ function statusTone(d: OwnerDriver): string {
 
 function SubHeader({ title, back, onBack }: { title: string; back: string; onBack: () => void }) {
   return (
-    <header className={styles.pageHeader}>
+    <div data-owner-mobile-header className={styles.pageHeader}>
       <div className={styles.backRow}>
         <button type="button" className={styles.backButton} onClick={onBack}>
           <BackIcon size={24} />
@@ -473,7 +473,7 @@ function SubHeader({ title, back, onBack }: { title: string; back: string; onBac
       <div className={styles.pageTitleRow}>
         <h1 className={styles.pageTitle}>{title}</h1>
       </div>
-    </header>
+    </div>
   );
 }
 

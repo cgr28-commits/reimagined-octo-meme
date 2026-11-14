@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/owner/",
   },
+  // Lets the dashboard be added to the iPhone Home Screen (needed for phone notifications).
+  manifest: "/owner.webmanifest",
+  appleWebApp: { capable: true, title: "MATNI Owner", statusBarStyle: "black-translucent" },
+  icons: { apple: "/owner-apple-touch-icon.png" },
 };
 
 export default function OwnerPage() {

@@ -3629,7 +3629,7 @@ export default function DriverPageClient({
                   role="tabpanel"
                   aria-labelledby="owner-tool-tab-pricing"
                 >
-                  <OwnerPricingPanel ownerKey={savedKey} />
+                  <OwnerPricingPanel ownerKey={savedKey} aboveMobileNav={mobileLayout} />
                 </div>
               ) : null}
 

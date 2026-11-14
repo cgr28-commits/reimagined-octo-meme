@@ -49,6 +49,10 @@ class_name = "ConsentLedger"
 name = "WHATSAPP_REPLY_RUNNER"
 class_name = "WhatsAppReplyRunner"
 
+[[durable_objects.bindings]]
+name = "SHORT_NOTICE_DECISION_COORDINATOR"
+class_name = "ShortNoticeDecisionCoordinator"
+
 # Bespoke Event / Business Class quotes (manual pricing). Added in Phase 1 —
 # public routes stay OFF unless BESPOKE_QUOTES_ENABLED = "1".
 [[durable_objects.bindings]]
@@ -77,10 +81,14 @@ new_sqlite_classes = ["ConsentLedger"]
 tag = "v5-whatsapp-reply-runner"
 new_sqlite_classes = ["WhatsAppReplyRunner"]
 
+[[migrations]]
+tag = "v6-short-notice-decision-coordinator"
+new_sqlite_classes = ["ShortNoticeDecisionCoordinator"]
+
 # Additive: creates the new class only. Applied by the NEXT production Worker
 # deploy (deploy-worker.yml runs on merge to main) — owner approval required first.
 [[migrations]]
-tag = "v6-bespoke-quote-coordinator"
+tag = "v7-bespoke-quote-coordinator"
 new_sqlite_classes = ["BespokeQuoteCoordinator"]
 
 [build]
@@ -130,6 +138,13 @@ WHATSAPP_ADDRESS_CHECK = "all"
 # WhatsApp: Claude runs the chat (reads every message; prices still only from the quote engine;
 # falls back to the fixed flow if Claude is unavailable). "off" to switch back.
 WHATSAPP_CLAUDE_LED = "all"
+# WhatsApp quote form (opens inside WhatsApp) for chats the bot struggles with. On for every
+# customer ("all"); a comma-separated number list limits it, "off" switches it off.
+# WHATSAPP_QUOTE_FORM_ID is the published Flow id from WhatsApp Manager (empty = off);
+# MODE "draft" sends an unpublished draft, for testing only.
+WHATSAPP_QUOTE_FORM = "all"
+WHATSAPP_QUOTE_FORM_ID = "1136470702219959"
+WHATSAPP_QUOTE_FORM_MODE = "published"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
 # 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.

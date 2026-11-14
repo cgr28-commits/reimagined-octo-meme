@@ -4,9 +4,9 @@ import Footer from "@/components/Footer";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { CORK_TRANSFER_PAGES, type CorkTransferDirection } from "@/lib/cork-transfer-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
@@ -37,13 +37,14 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
           body:has(.cork-transfer-page) [data-sticky-quote-bar] { display: none; }
         }
       `}</style>
-      <main className={`${LANDING_PAGE_MAIN_CLASS} cork-transfer-page cork-transfer-${direction}`}>
+      <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} cork-transfer-page cork-transfer-${direction}`}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow heading={page.title} intro={firstSentence(page.intro)} />
         <LandingHeroMedia baseName={hero.base} alt={hero.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Long-distance transfers", href: "/long-distance-transfers/" }, { name: page.title }]} />
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-wider text-emerald">{page.eyebrow}</p>
-            <h1 className="mt-3 text-3xl font-bold leading-tight text-white sm:text-5xl">{page.title}</h1>
             <p className="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">{page.intro}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <LandingPageQuoteCta label="Get a Fixed Quote" />
@@ -90,7 +91,6 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
             <a href={hero.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{hero.license}</a>. Resized and cropped for display.
           </p>
         </div>
-        <LocationQuoteSection heading="Get your Belfast–Cork fixed quote" eyebrow="Your journey" description={page.quoteText} />
       </main>
       <Footer />
     </>
