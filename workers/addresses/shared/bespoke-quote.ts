@@ -241,6 +241,8 @@ export type BespokeQuoteOffer = {
   customerMessage?: string;
   /** SHA-256 (hex) of the customer link secret. The secret itself is never stored. */
   tokenHash: string;
+  /** Present when the price was worked out automatically (event transfers only). */
+  instant?: { baseFareGbp: number; upliftPercent: number };
 };
 
 export type BespokePaymentAttempt = {
@@ -705,6 +707,15 @@ export type BespokeQuoteAction =
   | { type: "owner_resolve_review"; resolution: "accept_payment" | "manual_refund_required"; note: string }
   | { type: "owner_record_manual_refund"; paymentReference: string; note: string }
   | { type: "customer_decline"; tokenHash: string }
+  | {
+      /** Automatic price for an eligible event transfer, issued straight after the request is stored. */
+      type: "system_issue_instant_quote";
+      amountGbp: number;
+      validityHours: number;
+      baseFareGbp: number;
+      upliftPercent: number;
+      tokenHash: string;
+    }
   | { type: "system_expire" }
   | { type: "system_begin_payment"; quoteVersion: number; attemptId: string; tokenHash: string }
   | { type: "system_attach_checkout"; attemptId: string; checkoutId: string; paymentUrl?: string }
@@ -886,6 +897,40 @@ export function applyBespokeQuoteAction(
       ];
       delete record.paymentAttempt;
       return commit("owner", "QUOTED", `quote v${version}: £${amount.toFixed(2)}`);
+    }
+
+    case "system_issue_instant_quote": {
+      // Only a brand-new event request that the owner has not touched.
+      if (from !== "NEW" || record.category !== "event" || record.quote) {
+        return fail("invalid_status", "An instant price can only be issued for a new event request.");
+      }
+      const amount = money(action.amountGbp);
+      const base = money(action.baseFareGbp);
+      if (amount === null || amount < BESPOKE_QUOTE_MIN_AMOUNT_GBP || amount > BESPOKE_QUOTE_MAX_AMOUNT_GBP || base === null || base <= 0) {
+        return fail("invalid_input", "The instant price is invalid.", 400);
+      }
+      if (!Number.isInteger(action.upliftPercent) || action.upliftPercent < 0 || action.upliftPercent > 100) {
+        return fail("invalid_input", "The uplift is invalid.", 400);
+      }
+      const hours = action.validityHours;
+      if (!Number.isInteger(hours) || hours < BESPOKE_QUOTE_MIN_VALIDITY_HOURS || hours > BESPOKE_QUOTE_MAX_VALIDITY_HOURS) {
+        return fail("invalid_input", "Validity is invalid.", 400);
+      }
+      if (!/^[0-9a-f]{64}$/.test(action.tokenHash)) return fail("invalid_input", "Token is invalid.", 400);
+      const pickup = pickupInstant(record);
+      if (!pickup || pickup.getTime() <= now.getTime()) return fail("pickup_passed", "The pickup time has passed.");
+      const expiresMs = Math.min(now.getTime() + hours * 3_600_000, pickup.getTime());
+      const offer: BespokeQuoteOffer = {
+        version: 1,
+        amountGbp: amount,
+        issuedAt: at,
+        expiresAt: new Date(expiresMs).toISOString(),
+        tokenHash: action.tokenHash,
+        instant: { baseFareGbp: base, upliftPercent: action.upliftPercent },
+      };
+      record.quote = offer;
+      record.quoteHistory = [...record.quoteHistory, { version: 1, amountGbp: amount, issuedAt: at, expiresAt: offer.expiresAt }];
+      return commit("system", "QUOTED", `instant price: £${amount.toFixed(2)} (fare £${base.toFixed(2)} + ${action.upliftPercent}%)`);
     }
 
     case "owner_rotate_link": {
