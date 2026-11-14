@@ -155,6 +155,7 @@ import {
   WHATSAPP_DRIVER_NOT_FOUND_REPLY,
 } from "../shared/whatsapp-driver-contact";
 import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import { WHATSAPP_BRAND_HEADER_URL } from "./whatsapp-templates";
 import { getDriverVehicleProfile } from "./driver-vehicle-store";
 import { listTrackingJobsForDateRange } from "./tracking-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
@@ -1059,6 +1060,7 @@ async function handleInboundMessage(
   }
   let text = decision.reply;
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
+  let quoteBanner = false;
   // Only set when asking for a journey detail; the quote/discount/handoff paths never carry one.
   let list: WhatsAppReplyList | undefined = decision.list;
 
@@ -1140,6 +1142,7 @@ async function handleInboundMessage(
       conversation.lastQuoteAmountLabel = offer.amountLabel;
       text = buildWhatsAppDiscountOfferReply({ ...offer, previousAmountLabel, journey: conversation.draft });
       buttons = WHATSAPP_QUOTED_BUTTONS;
+      quoteBanner = true;
       if (followUpDelay) {
         const draft = conversation.draft;
         const place = (label?: string) => (label ?? "").split(",")[0]!.trim();
@@ -1219,6 +1222,7 @@ async function handleInboundMessage(
           requestOnly: availability.requestOnly,
         });
         buttons = WHATSAPP_QUOTED_BUTTONS;
+        quoteBanner = true;
         logEvent("whatsapp_quote_sent", phone, {
           idSuffix: priced.record.id.slice(-6),
           quotedAmount: priced.record.quotedAmount,
@@ -1256,7 +1260,7 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text, buttons, list);
+  if (text) await reply(env, phone, text, buttons, list, quoteBanner ? WHATSAPP_BRAND_HEADER_URL : undefined);
 }
 
 /**
@@ -1847,6 +1851,7 @@ async function reply(
   text: string,
   buttons?: WhatsAppReplyButton[],
   list?: WhatsAppReplyList,
+  headerImageUrl?: string,
 ): Promise<void> {
   const store = env.TRACKING_STORE;
   if (list?.rows.length) {
@@ -1862,7 +1867,12 @@ async function reply(
     logEvent("whatsapp_list_failed", phone, { error: withList.error });
   }
   if (buttons?.length) {
-    const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    let withButtons = await sendWhatsAppButtons(env, phone, text, buttons, fetch, headerImageUrl);
+    if (!withButtons.sent && headerImageUrl) {
+      // Banner refused (e.g. image unreachable): the quote still goes out, just without it.
+      logEvent("whatsapp_banner_failed", phone, { error: withButtons.error });
+      withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    }
     if (withButtons.sent) {
       await recordDiag(store, { lastReplyOkAt: nowIso() });
       await appendWhatsAppChat(store, phone, {

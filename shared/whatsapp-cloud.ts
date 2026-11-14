@@ -502,13 +502,17 @@ export function sendWhatsAppLocation(
   return postWhatsAppMessage(env, to, { type: "location", location: pin }, fetchImpl);
 }
 
-/** Text with up to 3 tap-to-reply buttons. Falls back to plain text if the body is too long. */
+/**
+ * Text with up to 3 tap-to-reply buttons. Falls back to plain text if the body is too long.
+ * headerImageUrl: optional image banner above the text (quotes carry the logo banner, owner 14 Nov 2026).
+ */
 export function sendWhatsAppButtons(
   env: WhatsAppCloudEnv,
   to: string,
   body: string,
   buttons: WhatsAppReplyButton[],
   fetchImpl: typeof fetch = fetch,
+  headerImageUrl?: string,
 ): Promise<WhatsAppSendResult> {
   if (buttons.length === 0 || body.length > 1024) return sendWhatsAppText(env, to, body, fetchImpl);
   return postWhatsAppMessage(
@@ -518,6 +522,7 @@ export function sendWhatsAppButtons(
       type: "interactive",
       interactive: {
         type: "button",
+        ...(headerImageUrl ? { header: { type: "image", image: { link: headerImageUrl } } } : {}),
         body: { text: body },
         action: {
           buttons: buttons.slice(0, 3).map((b) => ({
