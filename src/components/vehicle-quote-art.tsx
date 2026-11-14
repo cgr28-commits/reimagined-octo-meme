@@ -59,6 +59,7 @@ export function VehicleQuoteArt({
           className={`h-full w-full max-w-none object-contain object-center ${VEHICLE_ART_SCALE[vehicle]} lg:scale-100 lg:translate-y-0`}
           sizes={size === "option" ? "184px" : "184px"}
           priority={size === "result"}
+          loading={size === "option" ? "eager" : undefined}
         />
       </picture>
     </span>
