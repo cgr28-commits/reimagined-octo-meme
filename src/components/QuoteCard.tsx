@@ -8483,12 +8483,16 @@ function QuoteCard({
           })}
         </ol>
         <p data-results-chips>
-          <span data-results-chip>
-            {journeySummaryDate(tripDate)}
-            {" · "}
-            {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
-            {tripTime ? tripTime.slice(0, 5) : "—"}
-          </span>
+          {/* No date or time yet (only asked up front while a time-based surcharge is on):
+              leave the chip out rather than show "– · flight lands –". */}
+          {tripDate || tripTime ? (
+            <span data-results-chip>
+              {journeySummaryDate(tripDate)}
+              {" · "}
+              {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
+              {tripTime ? tripTime.slice(0, 5) : "—"}
+            </span>
+          ) : null}
           <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
           <span data-results-chip>
             {party} passenger{party === 1 ? "" : "s"}
@@ -8497,7 +8501,7 @@ function QuoteCard({
               ? "5+ suitcases"
               : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
           </span>
-          {returnJourney ? (
+          {returnJourney && (returnDate || returnTime) ? (
             <span data-results-chip data-results-chip-return>
               Return {journeySummaryDate(returnDate)}
               {" · "}
@@ -10255,6 +10259,7 @@ function QuoteCard({
                             current quote, so the customer can check them before booking. */}
                         <div className="hidden" data-journey-schedule>
                           <span data-journey-type>{returnJourney ? "Return" : "One way"}</span>
+                          {tripDate || tripTime ? (
                           <span data-journey-when>
                             <JourneySummaryIcon name="calendar" />
                             <span data-journey-when-label>{returnJourney ? "Outbound" : "Pickup"}</span>
@@ -10265,7 +10270,8 @@ function QuoteCard({
                             </span>
                             <strong>{tripTime ? tripTime.slice(0, 5) : "—"}</strong>
                           </span>
-                          {returnJourney ? (
+                          ) : null}
+                          {returnJourney && (returnDate || returnTime) ? (
                             <span data-journey-when>
                               <JourneySummaryIcon name="return" />
                               <span data-journey-when-label>Return</span>
