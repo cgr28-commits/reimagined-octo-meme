@@ -262,6 +262,7 @@ const pages = [
   ...[
     "/transfers/belfast-to-cork/",
     "/transfers/cork-to-belfast/",
+    "/transfers/belfast-to-derry/",
     "/transfers/belfast-to-dublin-city/",
     "/transfers/belfast-dublin-christmas-taxi/",
     "/transfers/7-seater-airport-transfers-belfast/",

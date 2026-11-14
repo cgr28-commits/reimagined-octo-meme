@@ -100,6 +100,7 @@ export default function LongDistanceTransfersPage() {
               <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">
                 <Link href="/transfers/belfast-to-cork/" className="underline underline-offset-4">Belfast to Cork</Link>
                 <Link href="/transfers/cork-to-belfast/" className="underline underline-offset-4">Cork to Belfast</Link>
+                <Link href="/transfers/belfast-to-derry/" className="underline underline-offset-4">Belfast to Derry</Link>
               </div>
             </section>
             <div className="mt-14 rounded-2xl border border-emerald/30 bg-emerald/10 px-6 py-8 text-center sm:px-10">
