@@ -181,6 +181,9 @@ async function main() {
     await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Pick one", [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return], stub);
     assert.equal(payload!.type, "interactive");
     assert.equal(payload!.interactive.action.buttons[1].reply.id, "txt:return");
+    assert.equal(payload!.interactive.header, undefined, "no banner unless asked");
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Your quote", [WHATSAPP_BUTTONS.newQuote], stub, "https://www.myairporttaxini.co.uk/whatsapp/header.jpg");
+    assert.deepEqual(payload!.interactive.header, { type: "image", image: { link: "https://www.myairporttaxini.co.uk/whatsapp/header.jpg" } });
     await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.newQuote], stub);
     assert.equal(payload!.type, "text", "long bodies fall back to plain text");
 
