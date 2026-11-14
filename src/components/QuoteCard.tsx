@@ -400,6 +400,7 @@ import {
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
   isGreaterBelfastIrelandInstantJourney,
+  isIrelandPickupIntoGreaterBelfastJourney,
   journeyKindLabel,
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
@@ -1429,7 +1430,13 @@ function QuoteCard({
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
     !isDublinCityCorridorJourney(pickupPlace, dropoffPlace) &&
     !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace) &&
-    !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace);
+    !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace) &&
+    // Owner setting: Ireland pickups into Greater Belfast get an instant price, so no
+    // "request your fixed price" banner for them.
+    !(
+      publicPricing.irelandPickupsIntoBelfastInstant === true &&
+      isIrelandPickupIntoGreaterBelfastJourney(pickupPlace, dropoffPlace)
+    );
   const isDublinCityCorridor =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
