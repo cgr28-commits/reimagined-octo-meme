@@ -37,6 +37,7 @@ name: Deploy Pages Preview
       - claude/schedule-only-when-surcharge
       - claude/hide-empty-date-chip
       - claude/from-airport-prefill
+      - claude/ads-direction-landings
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

@@ -5,6 +5,7 @@ import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import HeroSlideshow from "@/components/HeroSlideshow";
+import FromAirportText from "@/components/FromAirportText";
 import OptimizedHeroPicture from "@/components/OptimizedHeroPicture";
 import { SITE } from "@/lib/data";
 import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
@@ -110,7 +111,13 @@ export default function DublinCityTransferLanding({
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} dublin-city-transfer-page`}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={page.h1} intro={firstSentence(page.intro)} />
+        {/* Google Ads "Dublin to Belfast" landings open with ?from=dublin: same page, heading the other way round. */}
+        <HeroSlideshow
+          heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" />}
+          intro={firstSentence(page.intro)}
+          introFromAirport="Fixed-price private taxi from Dublin city to anywhere in Belfast, door to door from your hotel, home or office."
+          introFromValue="dublin"
+        />
         <LandingHeroMedia baseName={heroImage.base} alt={heroImage.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
