@@ -1056,7 +1056,7 @@ async function main(): Promise<void> {
   assert.ok(!/[?&]key=/.test(panel));
   const driverPage = read("src/app/driver/DriverPageClient.tsx");
   assert.match(driverPage, /ownerToolTab === "bespoke-requests"/);
-  assert.match(driverPage, /<OwnerBespokeRequestsPanel ownerKey=\{savedKey\} \/>/);
+  assert.match(driverPage, /<OwnerBespokeRequestsPanel [^>]*ownerKey=\{savedKey\}/);
   assert.match(read("src/components/OwnerDashboardToolSwitcher.tsx"), /id: "bespoke-requests"/);
   assert.match(read("src/app/robots.ts"), /"\/quotation\/"/);
   const quotationPage = read("src/app/quotation/page.tsx");

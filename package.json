@@ -169,7 +169,8 @@
     "check:bespoke-preview": "npx tsx scripts/check-bespoke-preview.ts",
     "check:owner-name-board": "npx tsx scripts/check-owner-name-board.ts",
     "check:owner-name-board-browser": "npx tsx scripts/check-owner-name-board-browser.ts",
-    "check:belfast-events": "npx tsx scripts/check-belfast-events.ts"
+    "check:belfast-events": "npx tsx scripts/check-belfast-events.ts",
+    "check:owner-attention": "npx tsx scripts/check-owner-attention.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

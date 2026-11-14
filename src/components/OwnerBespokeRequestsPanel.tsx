@@ -31,7 +31,11 @@ import {
   type BespokeCalendarStatus,
 } from "@/lib/bespoke-quote-api";
 
-type Props = { ownerKey: string };
+type Props = {
+  ownerKey: string;
+  /** Open straight at this request (used by the front-screen "Needs your attention" list). */
+  initialReference?: string | null;
+};
 
 type CategoryFilter = "all" | BespokeQuoteCategory;
 type StatusFilter = "outstanding" | "all" | "closed";
@@ -83,14 +87,14 @@ function serviceLabel(item: { category: BespokeQuoteCategory; eventTitle?: strin
     : "Business Class";
 }
 
-export default function OwnerBespokeRequestsPanel({ ownerKey }: Props) {
+export default function OwnerBespokeRequestsPanel({ ownerKey, initialReference = null }: Props) {
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("outstanding");
   const [items, setItems] = useState<BespokeQuoteOwnerSummary[]>([]);
   const [publicEnabled, setPublicEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialReference);
 
   const load = useCallback(async () => {
     setLoading(true);
