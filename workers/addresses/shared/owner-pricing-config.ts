@@ -37,6 +37,8 @@ export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_BFS_MINIMUM_SALOON_FARE_GBP = 45;
 /** Belfast City Airport floor. 0 = no minimum (default). */
 export const DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP = 0;
+/** Belfast city centre (BT1/BT2) ↔ Belfast International floor. 0 = no extra minimum (default). */
+export const DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP = 0;
 
 export const DEFAULT_ESTATE_UPLIFT_GBP = UNIVERSAL_ESTATE_PREMIUM_GBP;
 export const DEFAULT_MINIBUS_MULTIPLIER = 1.55;
@@ -99,6 +101,8 @@ export type OwnerPricingSettings = {
   bfsMinimumSaloonFareGbp?: number;
   /** BHD vehicle floor per leg, before Estate uplift, discounts and access. 0 = off. */
   bhdMinimumSaloonFareGbp?: number;
+  /** Belfast city centre (BT1/BT2) ↔ BFS vehicle floor per leg, whole pounds. 0 = off. */
+  bfsCityCentreMinimumSaloonFareGbp?: number;
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
@@ -193,6 +197,8 @@ export type PublicOwnerPricingConfig = {
   bfsMinimumSaloonFareGbp?: number;
   /** BHD vehicle floor per leg, before Estate uplift, discounts and access. 0 = off. */
   bhdMinimumSaloonFareGbp?: number;
+  /** Belfast city centre (BT1/BT2) ↔ BFS vehicle floor per leg, whole pounds. 0 = off. */
+  bfsCityCentreMinimumSaloonFareGbp?: number;
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
@@ -278,6 +284,7 @@ export function defaultOwnerPricingSettings(
     schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
     bfsMinimumSaloonFareGbp: DEFAULT_BFS_MINIMUM_SALOON_FARE_GBP,
     bhdMinimumSaloonFareGbp: DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP,
+    bfsCityCentreMinimumSaloonFareGbp: DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP,
     version: 1,
     saloonFormula: { ...DEFAULT_SALOON_FORMULA },
     postcodeRules: [],
@@ -380,6 +387,12 @@ export function validateOwnerPricingInput(
     : readRate(input.bhdMinimumSaloonFareGbp, "bhdMinimumSaloonFareGbp", errors);
   if (bhdMinimum != null && (bhdMinimum < 0 || bhdMinimum > 1000 || Math.abs(bhdMinimum * 100 - Math.round(bhdMinimum * 100)) > 1e-7)) {
     reject(errors, "bhdMinimumSaloonFareGbp", "Enter an amount from £0 to £1,000 with at most two decimal places.");
+  }
+  const cityCentreMinimum = input.bfsCityCentreMinimumSaloonFareGbp === undefined
+    ? DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP
+    : readRate(input.bfsCityCentreMinimumSaloonFareGbp, "bfsCityCentreMinimumSaloonFareGbp", errors);
+  if (cityCentreMinimum != null && (cityCentreMinimum < 0 || cityCentreMinimum > 1000 || !Number.isInteger(cityCentreMinimum))) {
+    reject(errors, "bfsCityCentreMinimumSaloonFareGbp", "Enter a whole-pound amount from £0 to £1,000.");
   }
 
   const formula = { ...DEFAULT_SALOON_FORMULA };
@@ -675,6 +688,7 @@ export function validateOwnerPricingInput(
     settings: {
       bfsMinimumSaloonFareGbp: bfsMinimum ?? DEFAULT_BFS_MINIMUM_SALOON_FARE_GBP,
       bhdMinimumSaloonFareGbp: bhdMinimum ?? DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP,
+      bfsCityCentreMinimumSaloonFareGbp: cityCentreMinimum ?? DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP,
       saloonFormula: formula,
       postcodeRules: postcodes.rules,
       postcodePricingEnabled: postcodePricingIsEnabled(input.postcodePricingEnabled, postcodes.rules),
@@ -778,6 +792,7 @@ export function toPublicOwnerPricingConfig(
   return {
     bfsMinimumSaloonFareGbp: settings.bfsMinimumSaloonFareGbp ?? DEFAULT_BFS_MINIMUM_SALOON_FARE_GBP,
     bhdMinimumSaloonFareGbp: settings.bhdMinimumSaloonFareGbp ?? DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP,
+    bfsCityCentreMinimumSaloonFareGbp: settings.bfsCityCentreMinimumSaloonFareGbp ?? DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP,
     schemaVersion: settings.schemaVersion,
     version: settings.version,
     updatedAt: settings.updatedAt,
@@ -820,6 +835,7 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
   return {
     bfsMinimumSaloonFareGbp: resolved.bfsMinimumSaloonFareGbp ?? DEFAULT_BFS_MINIMUM_SALOON_FARE_GBP,
     bhdMinimumSaloonFareGbp: resolved.bhdMinimumSaloonFareGbp ?? DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP,
+    bfsCityCentreMinimumSaloonFareGbp: resolved.bfsCityCentreMinimumSaloonFareGbp ?? DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP,
     estatePremiumGbp: resolved.estate.upliftGbp,
     minibusMultiplier: resolved.minibus.multiplier,
     executiveMultiplier: resolved.executive.multiplier,
@@ -885,6 +901,10 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
     case "bhdMinimumSaloonFareGbp": {
       const bhd = settings.bhdMinimumSaloonFareGbp ?? DEFAULT_BHD_MINIMUM_SALOON_FARE_GBP;
       return bhd > 0 ? `£${bhd.toFixed(2)}` : "No minimum";
+    }
+    case "bfsCityCentreMinimumSaloonFareGbp": {
+      const cityCentre = settings.bfsCityCentreMinimumSaloonFareGbp ?? DEFAULT_BFS_CITY_CENTRE_MINIMUM_SALOON_FARE_GBP;
+      return cityCentre > 0 ? `£${cityCentre.toFixed(2)}` : "No extra minimum";
     }
     case "saloonFormula": {
       const formula = settings.saloonFormula ?? DEFAULT_SALOON_FORMULA;
@@ -970,6 +990,7 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
 const DIFF_PATHS = [
   "bfsMinimumSaloonFareGbp",
   "bhdMinimumSaloonFareGbp",
+  "bfsCityCentreMinimumSaloonFareGbp",
   "saloonFormula",
   "postcodePricingEnabled",
   "postcodeRules",
@@ -1014,6 +1035,7 @@ const DIFF_PATHS = [
 const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "bfsMinimumSaloonFareGbp": "Belfast International Airport — Minimum Saloon Fare",
   "bhdMinimumSaloonFareGbp": "Belfast City Airport — Minimum Saloon Fare",
+  "bfsCityCentreMinimumSaloonFareGbp": "Belfast city centre (BT1 & BT2) ↔ Belfast International — Minimum Saloon Fare",
   "saloonFormula": "Saloon mileage formula",
   "postcodeRules": "Postcode Pricing rules (district to airport)",
   "postcodePricingEnabled": "Postcode Pricing feature switch",

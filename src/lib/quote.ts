@@ -1,4 +1,4 @@
-import { applyBfsMinimumFare, bfsMinimumHasPence } from "../../shared/bfs-minimum-fare";
+import { applyBfsCityCentreMinimumFare, applyBfsMinimumFare, bfsMinimumHasPence } from "../../shared/bfs-minimum-fare";
 import { ALL_AIRPORTS as AIRPORTS, AREAS, VEHICLE_TYPES } from "./data";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 import { postcodeJourneyLegs } from "../../shared/postcode-pricing";
@@ -816,12 +816,18 @@ export function calculateQuote(
       ? Math.round(options.positioningChargeGbp as number)
       : 0;
   // Whole-pound addition only: with the charge OFF (0) fares are byte-identical.
-  const outboundFare =
+  // Belfast city centre ↔ Belfast International minimum (off unless the owner sets
+  // it) floors each leg's whole vehicle fare, after any drive-to-pickup charge.
+  const outboundFare = applyBfsCityCentreMinimumFare(
     applyBfsMinimumFare(postcode.outbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing) +
-    (postcode.outbound == null ? positioningCharge : 0);
-  const inboundFare =
+      (postcode.outbound == null ? positioningCharge : 0),
+    vehicleType, minimumAirportCodes, trimmedAddress, pricing,
+  );
+  const inboundFare = applyBfsCityCentreMinimumFare(
     applyBfsMinimumFare(postcode.inbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing) +
-    (postcode.inbound == null ? positioningCharge : 0);
+      (postcode.inbound == null ? positioningCharge : 0),
+    vehicleType, minimumAirportCodes, trimmedAddress, pricing,
+  );
   const pricedSchedule = {
     ...schedule,
     ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),

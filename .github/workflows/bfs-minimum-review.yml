@@ -30,6 +30,7 @@ jobs:
       - run: node --import tsx scripts/check-bfs-minimum-only.ts
       - run: node --import tsx scripts/check-bfs-minimum-payment.ts
       - run: node --import tsx scripts/check-bhd-minimum.ts
+      - run: node --import tsx scripts/check-bfs-city-centre-minimum.ts
       - name: Pricing and payment regressions
         run: |
           set -e
