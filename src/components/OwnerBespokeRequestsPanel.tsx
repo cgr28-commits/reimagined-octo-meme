@@ -81,8 +81,9 @@ function statusTone(status: BespokeQuoteStatus, reviewOpen: boolean): string {
   return "bg-white/10 text-white";
 }
 
-function serviceLabel(item: { category: BespokeQuoteCategory; eventTitle?: string; serviceType?: string }): string {
+function serviceLabel(item: { category: BespokeQuoteCategory; eventTitle?: string; dayTripTitle?: string; serviceType?: string }): string {
   if (item.category === "event") return item.eventTitle ?? "Event Transfer";
+  if (item.category === "day_trip") return item.dayTripTitle ?? "Private Day Trip";
   return item.serviceType
     ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[item.serviceType as keyof typeof BUSINESS_CLASS_REQUEST_SERVICE_LABELS]
     : "Business Class";
@@ -151,7 +152,7 @@ export default function OwnerBespokeRequestsPanel({ ownerKey, initialReference =
       <OwnerEventInstantPriceSettings ownerKey={ownerKey} />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Category">
-        {(["all", "event", "business_class"] as CategoryFilter[]).map((id) => (
+        {(["all", "event", "business_class", "day_trip"] as CategoryFilter[]).map((id) => (
           <button
             key={id}
             type="button"
@@ -438,6 +439,9 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
         <dl className="mt-2 space-y-1 text-sm text-white/85">
           {r.event ? (
             <Row label="Event" value={`${r.event.title} — ${r.event.venue} (${formatUkDate(r.event.date)})`} />
+          ) : null}
+          {r.dayTrip ? (
+            <Row label="Day trip" value={`${r.dayTrip.title} — ${r.dayTrip.optionLabel}${r.dayTrip.pickupInBelfast ? "" : " (pickup OUTSIDE Belfast)"}`} />
           ) : null}
           <Row label="Pickup" value={j.pickupAddress} />
           <Row label="Destination" value={j.destinationAddress} />

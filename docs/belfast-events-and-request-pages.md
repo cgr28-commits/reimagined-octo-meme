@@ -25,6 +25,13 @@ Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key
 - The customer sees "Your price is ready" with their private link (also emailed), then pays through the existing quotation page. The price holds for 24 hours (never past pickup).
 - Code: `shared/bespoke-instant-quote.ts`, `tryIssueInstantQuote` in the Worker, transition `system_issue_instant_quote`. Tests in `npm run check:bespoke-quote`.
 
+## Day trips: book and pay online
+- Each day trip page (`/tours/<slug>/`) shows "Book this day trip" with online payment **only when both switches are on**. Otherwise it keeps the existing enquiry form (WhatsApp / email), unchanged.
+- Price = the listed per-car price from `shared/day-trips.ts` (must match `src/lib/tours.ts`; checked in `npm run check:bespoke-quote`). Never taken from the browser. Antrim Coast offers half day or full day.
+- Paid straight away when: pickup is in Belfast (customer's answer, and no non-Belfast BT postcode in the address), 1–4 passengers, and the pickup is 24+ hours away. Otherwise it arrives as a normal request for the owner to price.
+- Same backend as events: request type `day_trip`, quotation page, Stripe checkout, dashboard list (filter "Private Day Trip") and "Needs your attention".
+- The general day trips page (`/tours/`) keeps its enquiry form, because it is not for one specific trip.
+
 ## Event listings (manual approval)
 - Owner Dashboard → More → **Belfast events**: add, edit, approve and publish, unpublish, postpone, cancel.
 - New events are drafts. Publishing requires the owner to confirm the summary is in their own words. There is no image field, and nothing is imported.

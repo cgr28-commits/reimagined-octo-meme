@@ -192,7 +192,7 @@ async function main(): Promise<void> {
   assert.match(pageCopy, /7-seater[\s\S]{0,40}subject to availability/i, "7-seater always subject to availability");
   assert.match(read("src/lib/bespoke-public.ts"), /EVENT_REQUEST_MAX_PASSENGERS = 7/);
   const form = read("src/components/BespokeRequestForm.tsx");
-  assert.match(form, /BUSINESS_CLASS_MAX_PASSENGERS : EVENT_REQUEST_MAX_PASSENGERS/, "Business Class form capped by the shared 3-passenger limit");
+  assert.match(form, /category === "business_class" \? BUSINESS_CLASS_MAX_PASSENGERS : /, "Business Class form capped by the shared 3-passenger limit");
   assert.match(form, /\/bespoke-quotes\/request|submitBespokeRequest/, "uses the existing bespoke backend");
   assert.match(form, /website/, "honeypot present");
   assert.match(form, /BESPOKE_TURNSTILE_ACTION/);

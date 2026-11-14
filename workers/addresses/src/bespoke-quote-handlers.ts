@@ -51,6 +51,8 @@ import {
   type BespokeEmail,
 } from "../shared/bespoke-quote-emails";
 import { parseTurnstileHostnames, verifyTurnstileToken } from "../shared/turnstile";
+import { DAY_TRIP_INSTANT_VALIDITY_HOURS, dayTripInstantPriceGbp } from "../shared/day-trips";
+import { parseLondonLocalDateTime } from "../shared/uk-time";
 import {
   EVENT_INSTANT_SETTINGS_KEY,
   EVENT_INSTANT_VALIDITY_HOURS,
@@ -844,20 +846,31 @@ async function tryIssueInstantQuote(
   stored: BespokeQuoteRecord,
   request: ValidatedBespokeQuoteRequest,
 ): Promise<string | undefined> {
-  if (!deps.priceEventJourney) return undefined;
-  if (!eventInstantEligibility(request, new Date()).eligible) return undefined;
-  const settings = await readEventInstantSettings(env);
-  if (!settings.enabled) return undefined;
-  const baseFare = await deps.priceEventJourney(stored.journey);
-  if (baseFare === null) return undefined;
-  const price = computeEventInstantPrice(baseFare, settings);
+  const now = new Date();
+  let price: { amountGbp: number; baseFareGbp: number; upliftPercent: number } | null = null;
+  let validityHours = EVENT_INSTANT_VALIDITY_HOURS;
+  if (request.category === "day_trip" && request.dayTrip) {
+    // Day trips: the listed per-car price from our own table (Belfast pickup, enough notice).
+    const listed = dayTripInstantPriceGbp(request.dayTrip, request.journey, parseLondonLocalDateTime(request.journey.date, request.journey.time), now);
+    if (listed === null) return undefined;
+    price = { amountGbp: listed, baseFareGbp: listed, upliftPercent: 0 };
+    validityHours = DAY_TRIP_INSTANT_VALIDITY_HOURS;
+  } else {
+    if (!deps.priceEventJourney) return undefined;
+    if (!eventInstantEligibility(request, now).eligible) return undefined;
+    const settings = await readEventInstantSettings(env);
+    if (!settings.enabled) return undefined;
+    const baseFare = await deps.priceEventJourney(stored.journey);
+    if (baseFare === null) return undefined;
+    price = computeEventInstantPrice(baseFare, settings);
+  }
   if (!price) return undefined;
 
   const minted = await generateBespokeCustomerToken(stored.reference);
   const result = await applyAction(env, deps, stored.reference, {
     type: "system_issue_instant_quote",
     amountGbp: price.amountGbp,
-    validityHours: EVENT_INSTANT_VALIDITY_HOURS,
+    validityHours,
     baseFareGbp: price.baseFareGbp,
     upliftPercent: price.upliftPercent,
     tokenHash: minted.tokenHash,

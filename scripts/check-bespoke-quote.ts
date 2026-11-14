@@ -27,6 +27,8 @@ import {
   type ValidatedBespokeQuoteRequest,
 } from "../shared/bespoke-quote";
 import { computeEventInstantPrice, normaliseEventInstantSettings, validateEventInstantSettingsInput } from "../shared/bespoke-instant-quote";
+import { DAY_TRIPS, addressLooksOutsideBelfast, getDayTrip } from "../shared/day-trips";
+import { TOURS } from "../src/lib/tours";
 import { verifyTurnstileToken } from "../shared/turnstile";
 import { BespokeQuoteCoordinator } from "../workers/addresses/src/bespoke-quote-coordinator";
 import {
@@ -1098,6 +1100,98 @@ async function main(): Promise<void> {
     const wiring = indexSrc.slice(indexSrc.indexOf("priceEventJourney:"), indexSrc.indexOf("priceEventJourney:") + 1200);
     assert.ok(wiring.includes("priceWithMainQuoteTool(") && !wiring.includes("airportCode"), "no airport code is passed");
     assert.ok(wiring.includes("priced.payload.airportTransfer === true) return null"), "airport journeys are not instant-priced here");
+  }
+
+  console.log("=== Day trips: book and pay at the listed price ===");
+  {
+    // The server price table matches what the day trip pages advertise.
+    assert.equal(DAY_TRIPS.length, TOURS.length, "every day trip page has a price");
+    for (const tour of TOURS) {
+      const trip = getDayTrip(tour.slug);
+      assert.ok(trip, `price table has ${tour.slug}`);
+      assert.equal(trip!.title, tour.title);
+      assert.equal(Math.min(...trip!.options.map((o) => o.priceGbp)), tour.priceFrom, `${tour.slug}: lowest price matches the page`);
+      for (const o of trip!.options) assert.ok(tour.priceNote.includes(`£${o.priceGbp}`) || tour.price.includes(`£${o.priceGbp}`), `${tour.slug}: £${o.priceGbp} is shown on the page`);
+    }
+    assert.equal(addressLooksOutsideBelfast("Europa Hotel, Great Victoria Street, Belfast BT2 7AP"), false);
+    assert.equal(addressLooksOutsideBelfast("1 Main Street, Lisburn BT27 4AA"), true);
+    assert.equal(addressLooksOutsideBelfast("Belfast Cruise Terminal"), false);
+
+    const trip = (email: string, extra: Record<string, unknown> = {}) => ({
+      category: "day_trip",
+      dayTripSlug: "giants-causeway",
+      customerName: "Dana Tripper",
+      customerEmail: email,
+      customerPhone: "07700 900456",
+      pickupAddress: "Europa Hotel, Great Victoria Street, Belfast BT2 7AP",
+      pickupInBelfast: true,
+      date: isoDate(30),
+      time: "09:00",
+      passengers: 4,
+      // Ignored for day trips: the trip and price never come from the browser.
+      destinationAddress: "Somewhere else entirely",
+      amountGbp: 1,
+      termsAccepted: true,
+      privacyAcknowledged: true,
+      termsVersion: "2026-10",
+      turnstileToken: "x",
+      ...extra,
+    });
+
+    const before = sent.length;
+    const paid = await call("/bespoke-quotes/request", { body: trip("trip@example.com") });
+    assert.equal(paid.status, 201, paid.text);
+    assert.equal(paid.json.status, "quoted");
+    assert.match(paid.json.quotationUrl, /\/quotation\/#t=/);
+    const d = (await detailOf(paid.json.reference)).request;
+    assert.equal(d.category, "day_trip");
+    assert.equal(d.status, "QUOTED");
+    assert.equal(d.quote.amountGbp, 395, "listed per-car price, not a browser value");
+    assert.equal(d.dayTrip.title, "Giant's Causeway & Causeway Coast");
+    assert.equal(d.journey.destinationAddress, "Giant's Causeway & Causeway Coast (private day trip)");
+    assert.equal(d.journey.returnJourney, false);
+    assert.ok(sent.slice(before).some((m) => m.audience === "customer" && m.body.includes("#t=") && m.body.includes("Giant's Causeway")), "customer gets the payment link email");
+    const view = await call("/bespoke-quotes/view", { body: { token: tokenFromLink(paid.json.quotationUrl) } });
+    assert.equal(view.json.quote.quote.amountGbp, 395);
+    assert.equal(view.json.quote.quote.payable, true);
+    assert.equal(view.json.quote.categoryLabel, "Private Day Trip");
+
+    // Half day / full day choice.
+    const half = await call("/bespoke-quotes/request", { body: trip("half@example.com", { dayTripSlug: "antrim-coast", dayTripOption: "half_day" }) });
+    assert.equal((await detailOf(half.json.reference)).request.quote.amountGbp, 195);
+    const full = await call("/bespoke-quotes/request", { body: trip("full@example.com", { dayTripSlug: "antrim-coast", dayTripOption: "full_day" }) });
+    assert.equal((await detailOf(full.json.reference)).request.quote.amountGbp, 395);
+    const noOption = await call("/bespoke-quotes/request", { body: trip("noopt@example.com", { dayTripSlug: "antrim-coast" }) });
+    assert.equal(noOption.status, 400);
+    assert.ok(noOption.json.errors.dayTripOption);
+
+    // Not payable straight away → an ordinary request for the owner to price.
+    const manual = async (label: string, email: string, extra: Record<string, unknown>) => {
+      const res = await call("/bespoke-quotes/request", { body: trip(email, extra) });
+      assert.equal(res.status, 201, `${label}: ${res.text}`);
+      assert.equal(res.json.status, "received", label);
+      assert.equal(res.json.quotationUrl, undefined, label);
+      assert.equal((await detailOf(res.json.reference)).request.status, "NEW", label);
+    };
+    await manual("outside Belfast (said so)", "out1@example.com", { pickupInBelfast: false, pickupAddress: "1 Main Street, Lisburn" });
+    await manual("outside Belfast (postcode)", "out2@example.com", { pickupAddress: "1 Main Street, Lisburn BT27 4AA" });
+    await manual("short notice", "soon.trip@example.com", { date: isoDate(0), time: "23:59" });
+
+    // Validation.
+    assert.equal((await call("/bespoke-quotes/request", { body: trip("bad1@example.com", { dayTripSlug: "made-up-trip" }) })).status, 400);
+    const five = await call("/bespoke-quotes/request", { body: trip("five@example.com", { passengers: 5 }) });
+    assert.equal(five.status, 400);
+    assert.match(five.json.errors.passengers, /up to 4 passengers/);
+
+    // Owner list can filter day trips.
+    const list = await call("/owner/bespoke-quotes?category=day_trip", { method: "GET", owner: OWNER });
+    assert.ok(list.json.items.length >= 3 && list.json.items.every((i: { category: string }) => i.category === "day_trip"));
+    assert.ok(list.json.items.some((i: { dayTripTitle?: string }) => i.dayTripTitle === "Giant's Causeway & Causeway Coast"));
+
+    // The day trip page keeps its existing enquiry form unless the online service is switched on.
+    const tourPage = readFileSync("src/app/tours/[slug]/page.tsx", "utf8");
+    assert.ok(tourPage.includes("BESPOKE_PUBLIC_PAGES_ENABLED && TURNSTILE_SITE_KEY ? getDayTrip(tour.slug) : undefined"));
+    assert.ok(tourPage.includes("<TourBookingForm"), "existing enquiry form kept as the fallback");
   }
 
   console.log("=== Email templates ===");

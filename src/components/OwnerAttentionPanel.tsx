@@ -113,13 +113,14 @@ export function bespokeAttention(items: BespokeQuoteOwnerSummary[]): OwnerAttent
       action = "Needs a price";
     } else continue; // quoted / paying / confirmed / closed: nothing for the owner to do
     const isEvent = r.category === "event";
+    const isDayTrip = r.category === "day_trip";
     out.push({
       key: `bq:${r.reference}`,
       kind: "bespoke",
       reference: r.reference,
-      typeLabel: isEvent ? "Event transfer" : "Business Class",
+      typeLabel: isEvent ? "Event transfer" : isDayTrip ? "Day trip" : "Business Class",
       action,
-      title: isEvent ? r.eventTitle || "Event transfer" : r.serviceType ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[r.serviceType] : "Business Class",
+      title: isEvent ? r.eventTitle || "Event transfer" : isDayTrip ? r.dayTripTitle || "Private day trip" : r.serviceType ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[r.serviceType] : "Business Class",
       detail: [r.customerLabel, when(r.date, r.time), `${r.passengers} passenger${r.passengers === 1 ? "" : "s"}`].filter(Boolean).join(" · "),
       urgent,
       rank: urgent ? journeyRank(r.date, r.time) - 2e15 : journeyRank(r.date, r.time),

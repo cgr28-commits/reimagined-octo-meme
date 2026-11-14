@@ -118,12 +118,16 @@ export function buildBespokeBookingDetails(record: BespokeQuoteRecord): PaidBook
   const service =
     record.category === "event"
       ? `Event Transfer — ${record.event?.title ?? "event"}`
-      : `Business Class — ${record.serviceType ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[record.serviceType] : "bespoke"}`;
+      : record.category === "day_trip"
+        ? `Private Day Trip — ${record.dayTrip?.title ?? "day trip"}${record.dayTrip ? ` (${record.dayTrip.optionLabel})` : ""}`
+        : `Business Class — ${record.serviceType ? BUSINESS_CLASS_REQUEST_SERVICE_LABELS[record.serviceType] : "bespoke"}`;
   const vehicle =
     record.owner.vehicleNote?.trim() ||
     (record.category === "business_class"
       ? "Business Class (bespoke)"
-      : j.groupVehicleRequested
+      : record.category === "day_trip"
+        ? "Private day trip (Saloon or Estate)"
+        : j.groupVehicleRequested
         ? "Event transfer — group vehicle (as agreed)"
         : "Event transfer (as agreed)");
   return {
