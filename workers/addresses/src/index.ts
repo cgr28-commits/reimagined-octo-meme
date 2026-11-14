@@ -244,6 +244,7 @@ import {
 import {
   shouldRunHourlyScheduledJobs,
   shouldRunShortNoticeExpiryCron,
+  SHORT_NOTICE_EXPIRY_CRON,
 } from "./scheduled-cron";
 import {
   OWNER_NO_AVAILABILITY_CODE,
@@ -402,6 +403,17 @@ import {
 } from "./owner-approval-alert";
 import { notifyOwnerPush } from "./owner-push";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+// Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
+export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
+import { handleOrphanBespokePayment } from "./bespoke-payment";
+import {
+  handleBespokeDeliveryWebhook,
+  handleBespokeQuoteRoute,
+  isBespokeDeliveryWebhookPath,
+  isBespokeQuotePath,
+  runBespokeExpirySweep,
+} from "./bespoke-quote-handlers";
+import { handleBelfastEventsRoute, isBelfastEventsPath } from "./belfast-events-handlers";
 export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
@@ -705,6 +717,17 @@ type Env = {
   OWNER_APPROVAL_LINK_SECRET?: string;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
+  /** Bespoke Event / Business Class quote records (Durable Object, migration v7). */
+  BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
+  /** "1" turns on PUBLIC bespoke quote routes. Unset/anything else = off (default). */
+  BESPOKE_QUOTES_ENABLED?: string;
+  /** Cloudflare Turnstile secret (Worker secret). Public bespoke requests fail closed without it. */
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_ALLOWED_HOSTNAMES?: string;
+  /** Signing secret for the separate bespoke delivery-events Resend webhook. Unset = route disabled. */
+  RESEND_DELIVERY_WEBHOOK_SECRET?: string;
+  /** Preview only: bespoke emails go only to these addresses. Never set in production. */
+  BESPOKE_EMAIL_ALLOWLIST?: string;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -4346,6 +4369,11 @@ async function handlePaymentWebhookRequest(
         } else if (result.error) {
           console.error("SumUp webhook finalize failed", result.error);
         }
+      } else if (isStripeCheckoutId(checkoutId)) {
+        // No pending record: may be a bespoke quotation whose session was created
+        // just before a crash. Identified by its client reference; recorded and
+        // sent to owner review. Returns false (no-op) for anything else.
+        await handleOrphanBespokePayment(env, { logPaidBookingCalendar }, checkoutId);
       }
     } catch (error) {
       console.error("SumUp webhook finalize threw", error);
@@ -5155,6 +5183,16 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (isBespokeQuotePath(url.pathname)) {
+      return handleBespokeQuoteRoute(request, env, origin, { logPaidBookingCalendar });
+    }
+    if (isBespokeDeliveryWebhookPath(url.pathname)) {
+      return handleBespokeDeliveryWebhook(request, env);
+    }
+    if (isBelfastEventsPath(url.pathname)) {
+      return handleBelfastEventsRoute(request, env, origin);
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
@@ -6884,6 +6922,19 @@ export default {
     configureStripe(env);
     configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
     const cron = event.cron;
+    // Bespoke quote expiry sweep — no-op unless BESPOKE_QUOTES_ENABLED = "1".
+    // Isolated: its own promise and catch, so it cannot affect the jobs below.
+    if (env.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON) {
+      ctx.waitUntil(
+        runBespokeExpirySweep(env, { logPaidBookingCalendar })
+          .then((result) => {
+            if (result.expired > 0 || result.awaitingPaymentCheck > 0 || result.errors > 0) {
+              console.log("Bespoke quote expiry sweep", JSON.stringify(result));
+            }
+          })
+          .catch((error) => console.error("Bespoke quote expiry sweep failed", error)),
+      );
+    }
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
       ctx.waitUntil(
         processExpiredShortNoticeResponseWindows(env)

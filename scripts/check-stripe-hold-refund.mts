@@ -1,4 +1,4 @@
-/** Owner refund on an uncaptured Stripe hold releases it (mocked fetch). Run: npx tsx scripts/check-stripe-hold-refund.ts */
+/** Owner refund on an uncaptured Stripe hold releases it (mocked fetch). Run: npx tsx scripts/check-stripe-hold-refund.mts */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { configureStripe } from "../workers/addresses/shared/stripe-payments";

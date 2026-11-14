@@ -29,6 +29,14 @@ export const JOURNEY_STATUS_LABELS: Record<JourneyStatus, string> = {
 };
 
 export type TrackingJobRecord = {
+  /**
+   * Explicit booking type. "bespoke" = manually priced Event / Business Class
+   * quotation (not an instant airport booking). Airport automations (return-offer
+   * emails, airport pickup reminders) skip these. Missing = ordinary booking.
+   */
+  bookingType?: "bespoke";
+  /** Bespoke quotation reference (MATNI-BQ-…) when bookingType is "bespoke". */
+  bespokeQuoteReference?: string;
   token: string;
   createdAt: string;
   customerName: string;

@@ -9,6 +9,8 @@ export type OwnerDashboardToolTab =
   | "postcode-pricing"
   | "a2a-quotes"
   | "personal-quotes"
+  | "bespoke-requests"
+  | "belfast-events"
   | "same-fare"
   | "admin"
   | "money"
@@ -60,6 +62,16 @@ export const OWNER_MORE_DESTINATIONS: {
     hint: "Read-only preview of return and positioning empty-leg opportunities — discounts stay OFF",
   },
   { id: "postcode-pricing", label: "Postcode Pricing", hint: "Fixed district-to-airport Saloon fares and the configured Estate supplement" },
+  {
+    id: "bespoke-requests",
+    label: "Event & Business Class",
+    hint: "Event transfer and bespoke Business Class requests — manual quotations",
+  },
+  {
+    id: "belfast-events",
+    label: "Belfast events",
+    hint: "Add, approve and publish Belfast event listings — nothing is public until you publish it",
+  },
   { id: "a2a-quotes", label: "A2A Quotes", hint: "Address-to-address quote queue" },
   { id: "personal-quotes", label: "Personal Quotes", hint: "Personal quote codes" },
   { id: "same-fare", label: "Same Fare Test", hint: "Same-fare amendment test" },
