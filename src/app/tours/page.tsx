@@ -8,12 +8,60 @@ import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
 import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
-import { getTourItemListJsonLd } from "@/lib/structured-data";
+import { getBreadcrumbJsonLd, getFaqPageJsonLd, getTourItemListJsonLd } from "@/lib/structured-data";
+
+const TITLE = "Private Tours from Belfast | Giant's Causeway from £395";
+const DESCRIPTION =
+  "Private day tours from Belfast with your own driver: Giant's Causeway, Game of Thrones, Antrim Coast and Belfast city. From £195 per car, up to 4 people.";
+
+const HUB_FAQS = [
+  {
+    question: "How much is a private day tour from Belfast?",
+    answer:
+      "A half day (around 4 hours) is from £195 and a full day (around 8 hours) is from £395. That's the price per car, not per person, for up to 4 passengers. Attraction entry tickets are extra.",
+  },
+  {
+    question: "Where do you pick up from?",
+    answer:
+      "We collect you from your Belfast hotel, B&B, home or Belfast Cruise Terminal and bring you back at the end of the day. Picking up outside Belfast? We'll confirm the price when you enquire.",
+  },
+  {
+    question: "Can we choose our own stops?",
+    answer:
+      "Yes. Every tour is private, so you decide where to stop and for how long. You can combine the Giant's Causeway with Game of Thrones locations or the Antrim Coast on the same day.",
+  },
+  {
+    question: "Are the tours suitable for cruise passengers?",
+    answer:
+      "Yes. Tell us your ship and all-aboard time and we'll plan the day so you're back at Belfast Cruise Terminal in good time.",
+  },
+] as const;
 
 export const metadata: Metadata = {
-  title: { absolute: "Private Tours from Belfast | Giant's Causeway from £395" },
-  description:
-    "Private day tours from Belfast with your own driver: Giant's Causeway, Game of Thrones locations, Antrim Coast and Belfast city. From £195 per car, up to 4 people.",
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    type: "website",
+    locale: "en_GB",
+    siteName: SITE.name,
+    url: "/tours/",
+    images: [
+      {
+        url: "/images/tours/giants-causeway.jpg",
+        width: 1400,
+        height: 788,
+        alt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast at sunset",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/images/tours/giants-causeway.jpg"],
+  },
   alternates: {
     canonical: "/tours/",
   },
@@ -35,6 +83,11 @@ export default function ToursPage() {
   }
 
   const structuredData = getTourItemListJsonLd();
+  const breadcrumbLd = getBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Day Trips", path: "/tours/" },
+  ]);
+  const faqLd = getFaqPageJsonLd(HUB_FAQS);
 
   return (
     <>
@@ -42,6 +95,8 @@ export default function ToursPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
       <main className="overflow-x-clip min-h-screen bg-navy pb-16 pt-36 md:pt-28">
         <div className="relative overflow-hidden">
@@ -94,6 +149,22 @@ export default function ToursPage() {
                   <p className="mt-3 text-sm leading-relaxed text-white/70">{benefit.description}</p>
                 </article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="relative pb-16">
+          <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Private day tours from Belfast — questions</h2>
+              <dl className="mt-6 space-y-5">
+                {HUB_FAQS.map((faq) => (
+                  <div key={faq.question}>
+                    <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                    <dd className="mt-2 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </div>
         </section>

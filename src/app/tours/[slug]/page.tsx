@@ -34,8 +34,17 @@ export async function generateMetadata({ params }: TourPageProps): Promise<Metad
     openGraph: {
       title: tour.seoTitle,
       description: tour.metaDescription,
+      type: "website",
+      locale: "en_GB",
+      siteName: SITE.name,
       url: `/tours/${tour.slug}/`,
-      images: [{ url: tour.image, alt: tour.imageAlt }],
+      images: [{ url: tour.socialImage, width: 1400, height: 788, alt: tour.imageAlt }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: tour.seoTitle,
+      description: tour.metaDescription,
+      images: [tour.socialImage],
     },
     alternates: {
       canonical: `/tours/${tour.slug}/`,
@@ -108,7 +117,7 @@ export default async function TourDetailPage({ params }: TourPageProps) {
 
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{tour.eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{tour.title}</h1>
+            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{tour.h1}</h1>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
               <span className="rounded-lg bg-emerald/15 px-3 py-1 font-semibold text-emerald">
                 {tour.price}
