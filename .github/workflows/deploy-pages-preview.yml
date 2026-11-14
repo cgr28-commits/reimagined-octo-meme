@@ -34,7 +34,6 @@ name: Deploy Pages Preview
       - claude/empty-run-top-and-price-details
       - claude/empty-run-airport-to-airport
       - claude/empty-run-airport-wait
-      - claude/belfast-derry-page
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
