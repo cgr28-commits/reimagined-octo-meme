@@ -66,6 +66,7 @@ function asDraft(
     ...settings,
     bfsMinimumSaloonFareGbp: settings.bfsMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bfsMinimumSaloonFareGbp,
     bhdMinimumSaloonFareGbp: settings.bhdMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bhdMinimumSaloonFareGbp,
+    bfsCityCentreMinimumSaloonFareGbp: settings.bfsCityCentreMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bfsCityCentreMinimumSaloonFareGbp,
     saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
@@ -787,6 +788,12 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
               onChange={(value) => update("bhdMinimumSaloonFareGbp", value)}
               label="Belfast City Airport — Minimum Saloon Fare"
               help="Per leg, to or from Belfast City Airport. £0 means no minimum. Before Estate supplement, discounts and airport access charges."
+            />
+            <BfsMinimumField
+              value={draft.bfsCityCentreMinimumSaloonFareGbp ?? 0}
+              onChange={(value) => update("bfsCityCentreMinimumSaloonFareGbp", value)}
+              label="Belfast city centre (BT1 & BT2) ↔ Belfast International — Minimum Saloon Fare"
+              help="Per leg, between a Belfast city centre address (postcode BT1 or BT2) and Belfast International. Whole pounds; £0 means no extra minimum. Before Estate supplement, discounts and airport access charges."
             />
             <MoneyField
               label="Tier minimum fare (formula OFF)"
