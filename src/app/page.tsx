@@ -15,7 +15,7 @@ import VehiclesSection from "@/components/VehiclesSection";
 import ChauffeurSection from "@/components/ChauffeurSection";
 import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
-import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS, SITE } from "@/lib/data";
+import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SEASONAL, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd } from "@/lib/structured-data";
 
@@ -50,7 +50,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
-      <Header />
+      <Header festiveLogo={SEASONAL.christmasLogo} />
       <main className="overflow-x-clip">
         <HeroSlideshow />
         <Design3QuickLinks />

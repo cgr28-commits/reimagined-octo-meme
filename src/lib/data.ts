@@ -109,6 +109,16 @@ export const SERVICE_FLAGS = {
 
 export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
+/** Seasonal touches. Set back to false when the season is over; nothing else needs changing. */
+export const SEASONAL = {
+  /**
+   * Christmas (owner, 14 Nov 2026): Santa hat on the car in the header logo, home screen only,
+   * on phones, tablets and desktop (public/logo-wide-xmas.svg). Every other page, the menu,
+   * the footer, emails and WhatsApp keep the standard logo.
+   */
+  christmasLogo: true,
+} as const;
+
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/airports/", service: null },
   { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },

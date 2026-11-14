@@ -9632,6 +9632,16 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 }
 
+/* Christmas (owner, 14 Nov 2026): Santa hat on the car in the header logo. Home screen only
+   (the homepage header sets data-festive-logo; switch: SEASONAL.christmasLogo in data.ts), on
+   phones, tablets and desktop. Same size and position as the standard logo, only the picture
+   changes; every other page keeps logo-wide.svg. */
+@layer base {
+  header[data-site-header] .quote-header-logo-wide[data-festive-logo] {
+    background-image: url("/logo-wide-xmas.svg") !important;
+  }
+}
+
 /* Desktop homepage intro (owner, 13 Nov 2026): a measured width so the first line ends at
    "Whether you're travelling to the airport," and "attending an event" starts line two.
    Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */

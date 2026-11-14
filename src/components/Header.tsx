@@ -39,7 +39,12 @@ const WIDE_BAR_LINKS = NAV_LINKS.filter((link) => WIDE_BAR_HREFS.has(link.href))
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { useWhatsAppAssistantHref } from "@/lib/whatsapp-journey-context";
 
-export default function Header() {
+interface HeaderProps {
+  /** Home screen only: seasonal header logo (Santa hat on the car). Every other page leaves it off. */
+  festiveLogo?: boolean;
+}
+
+export default function Header({ festiveLogo = false }: HeaderProps = {}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const assistantWhatsAppHref = useWhatsAppAssistantHref();
   const [mounted, setMounted] = useState(false);
@@ -250,7 +255,11 @@ export default function Header() {
             {/* Mobile: slightly larger mark without growing the bar; md+ unchanged */}
             <Logo className="quote-header-logo h-[3.25rem] sm:h-16 md:h-20" priority />
             {/* Phones (mobile design): wider, larger logo lockup. A CSS background, so other screens never download it. */}
-            <span className="quote-header-logo-wide hidden" aria-hidden="true" />
+            <span
+              className="quote-header-logo-wide hidden"
+              data-festive-logo={festiveLogo ? "" : undefined}
+              aria-hidden="true"
+            />
           </Link>
 
           <nav
