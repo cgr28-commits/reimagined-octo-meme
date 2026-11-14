@@ -11,11 +11,12 @@ import DesktopVehicleSources from "./DesktopVehicleSources";
  * Option cards keep each vehicle fully inside the frame. The white studio
  * canvas is object-contain, so the car is not cropped or stretched.
  */
+/** Every vehicle picture is now tightly cropped to the same frame (14 Nov 2026), so no per-vehicle zoom. */
 export const VEHICLE_ART_SCALE = {
   saloon: "scale-100",
   estate: "scale-100",
-  executive: "scale-[1.23]",
-  minibus: "scale-[1.45] -translate-y-[4%]",
+  executive: "scale-100",
+  minibus: "scale-100",
 } as const;
 
 export type VehicleArtId = keyof typeof VEHICLE_ART_SCALE;
