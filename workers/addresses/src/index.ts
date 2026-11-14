@@ -414,6 +414,7 @@ import {
   runBespokeExpirySweep,
 } from "./bespoke-quote-handlers";
 import { handleBelfastEventsRoute, isBelfastEventsPath } from "./belfast-events-handlers";
+import { mainQuoteRequestBody, priceWithMainQuoteTool } from "./main-quote-pricing";
 export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
@@ -5186,7 +5187,31 @@ export default {
     }
 
     if (isBespokeQuotePath(url.pathname)) {
-      return handleBespokeQuoteRoute(request, env, origin, { logPaidBookingCalendar });
+      return handleBespokeQuoteRoute(request, env, origin, {
+        logPaidBookingCalendar,
+        // Normal fare from the existing quote engine, called unchanged (no airport code:
+        // address-to-address). Airport journeys are left to the airport calculator.
+        priceEventJourney: async (journey) => {
+          const priced = await priceWithMainQuoteTool(
+            mainQuoteRequestBody({
+              pickupAddress: journey.pickupAddress,
+              dropoffAddress: journey.destinationAddress,
+              pickupPlaceId: journey.pickupPlaceId,
+              dropoffPlaceId: journey.destinationPlaceId,
+              returnJourney: journey.returnJourney,
+              outboundDate: journey.date,
+              outboundTime: journey.time,
+              returnDate: journey.returnDate,
+              returnTime: journey.returnTime,
+              passengers: journey.passengers,
+              suitcases: 0,
+            }),
+            env,
+          );
+          if (!priced.ok || priced.payload.airportTransfer === true) return null;
+          return priced.amount;
+        },
+      });
     }
     if (isBespokeDeliveryWebhookPath(url.pathname)) {
       return handleBespokeDeliveryWebhook(request, env);

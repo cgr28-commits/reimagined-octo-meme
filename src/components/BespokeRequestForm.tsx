@@ -4,8 +4,9 @@
  * Public request form for Event Transfers and bespoke Business Class journeys.
  * Posts to the existing bespoke backend (/bespoke-quotes/request), which
  * validates everything again, checks Turnstile and rate limits, and puts the
- * request in Owner Dashboard → Event & Business Class. No price is shown here:
- * the owner sends a personal quotation after checking availability.
+ * request in Owner Dashboard → Event & Business Class. No price is shown in the form.
+ * Eligible event transfers get an instant price link on the success screen; everything
+ * else gets a personal quotation from the owner after checking availability.
  */
 
 import Link from "next/link";
@@ -218,6 +219,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
   const [resetSignal, setResetSignal] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [quotationUrl, setQuotationUrl] = useState<string | null>(null);
   const design3 = useMobileDesign3();
   // Google Place IDs for chosen suggestions; cleared as soon as the text is edited.
   const [placeIds, setPlaceIds] = useState<{ pickup: string; destination: string }>({ pickup: "", destination: "" });
@@ -360,6 +362,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
         });
       }
       const result = await submitBespokeRequest(payload);
+      setQuotationUrl(result.quotationUrl ?? null);
       setReference(result.reference);
     } catch (e) {
       const problem = e instanceof BespokeRequestError ? e : null;
@@ -374,6 +377,25 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (reference && quotationUrl) {
+    return (
+      <div ref={successRef} tabIndex={-1} role="status" aria-live="polite" data-instant-price-ready className="rounded-2xl outline-none border border-emerald/30 bg-emerald/10 p-6 sm:p-8">
+        <h2 className="text-xl font-bold text-white">Your price is ready</h2>
+        <p className="mt-3 text-base leading-relaxed text-white/75">
+          Your reference is <strong className="text-white">{reference}</strong>. We&apos;ve also emailed the link to{" "}
+          <strong className="text-white">{fields.customerEmail}</strong>.
+        </p>
+        <a href={quotationUrl} className="mt-5 inline-flex min-h-12 items-center justify-center rounded-xl bg-emerald px-6 text-base font-bold text-navy">
+          See your price and book
+        </a>
+        <p className="mt-5 text-sm leading-relaxed text-white/75">Your booking is confirmed only once you accept and pay online.</p>
+        <p className="mt-3 text-sm text-white/60">
+          Questions? Call {SITE.officeLandlineDisplay} or WhatsApp us quoting {reference}.
+        </p>
+      </div>
+    );
   }
 
   if (reference) {

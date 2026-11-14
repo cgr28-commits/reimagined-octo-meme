@@ -6,6 +6,7 @@
  * dashboard sign-in (header only). No second dashboard, no second login.
  */
 
+import OwnerEventInstantPriceSettings from "@/components/OwnerEventInstantPriceSettings";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BESPOKE_PAYMENT_REVIEW_REASON_LABELS,
@@ -146,6 +147,8 @@ export default function OwnerBespokeRequestsPanel({ ownerKey, initialReference =
           customer emails are sent while they are off.
         </p>
       ) : null}
+
+      <OwnerEventInstantPriceSettings ownerKey={ownerKey} />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Category">
         {(["all", "event", "business_class"] as CategoryFilter[]).map((id) => (
@@ -448,6 +451,13 @@ function RequestDetail({ ownerKey, reference, onBack }: { ownerKey: string; refe
           {j.specialRequirements ? <Row label="Requirements" value={j.specialRequirements} /> : null}
         </dl>
       </section>
+
+      {r.quote?.instant ? (
+        <p className="rounded-xl border border-emerald/40 bg-emerald/10 px-3 py-2 text-sm text-white">
+          Instant price given automatically: <strong>£{r.quote.amountGbp.toFixed(2)}</strong> (normal fare £
+          {r.quote.instant.baseFareGbp.toFixed(2)} + {r.quote.instant.upliftPercent}%). You can still send a different quotation below.
+        </p>
+      ) : null}
 
       {r.status === "NEW" ? (
         <button type="button" className={primaryButton} disabled={Boolean(busy)} onClick={() => void run("Start review", { type: "owner_start_review" })}>

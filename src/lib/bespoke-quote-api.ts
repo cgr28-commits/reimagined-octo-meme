@@ -10,6 +10,7 @@ import type {
   BespokeQuoteRecord,
   BespokeQuoteStatus,
 } from "../../shared/bespoke-quote";
+import type { EventInstantQuoteSettings } from "../../shared/bespoke-instant-quote";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -116,6 +117,27 @@ export async function postOwnerBespokeAction(
       body: JSON.stringify(input),
     }),
   );
+}
+
+export async function fetchEventInstantSettings(ownerKey: string): Promise<EventInstantQuoteSettings> {
+  const data = await parse<{ settings: EventInstantQuoteSettings }>(
+    await fetch(`${WORKER_BASE}/owner/bespoke-quotes/instant-settings`, { headers: ownerHeaders(ownerKey), cache: "no-store" }),
+  );
+  return data.settings;
+}
+
+export async function saveEventInstantSettings(
+  ownerKey: string,
+  settings: Pick<EventInstantQuoteSettings, "enabled" | "upliftEnabled" | "upliftPercent">,
+): Promise<EventInstantQuoteSettings> {
+  const data = await parse<{ settings: EventInstantQuoteSettings }>(
+    await fetch(`${WORKER_BASE}/owner/bespoke-quotes/instant-settings`, {
+      method: "POST",
+      headers: ownerHeaders(ownerKey),
+      body: JSON.stringify(settings),
+    }),
+  );
+  return data.settings;
 }
 
 export function newIdempotencyKey(): string {
