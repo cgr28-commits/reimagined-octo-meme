@@ -16,8 +16,10 @@ import { fetchOwnerBespokeRequests } from "@/lib/bespoke-quote-api";
 import { fetchShortNoticeBookings, type ShortNoticeBookingSummary } from "@/lib/short-notice-api";
 import { BUSINESS_CLASS_REQUEST_SERVICE_LABELS, type BespokeQuoteOwnerSummary } from "../../shared/bespoke-quote";
 import { formatUkDate } from "../../shared/uk-time";
+import { fetchOwnerBelfastEvents } from "@/lib/belfast-events-api";
+import { isSuggestedBelfastEvent, todayInLondon, type BelfastEventRecord } from "../../shared/belfast-events";
 
-export type OwnerAttentionKind = "short_notice" | "a2a" | "bespoke";
+export type OwnerAttentionKind = "short_notice" | "a2a" | "bespoke" | "event_listing";
 
 export type OwnerAttentionItem = {
   key: string;
@@ -129,6 +131,24 @@ export function bespokeAttention(items: BespokeQuoteOwnerSummary[]): OwnerAttent
   return out;
 }
 
+/** Pure: upcoming event listings the weekly search added as drafts, waiting for the owner's approval. */
+export function eventListingAttention(events: BelfastEventRecord[], today = todayInLondon()): OwnerAttentionItem[] {
+  return events
+    .filter((e) => e.status === "draft" && e.date >= today && isSuggestedBelfastEvent(e))
+    .map((e) => ({
+      key: `ev:${e.id}`,
+      kind: "event_listing" as const,
+      reference: e.id,
+      typeLabel: "Event listing",
+      action: "Check and approve, or delete",
+      title: e.title,
+      detail: [e.venueName, when(e.date, e.startTime)].filter(Boolean).join(" · "),
+      urgent: false,
+      // Below customer requests: these are suggestions, not customers waiting.
+      rank: journeyRank(e.date, e.startTime) + 1e15,
+    }));
+}
+
 export function sortAttention(items: OwnerAttentionItem[]): OwnerAttentionItem[] {
   return [...items].sort((a, b) => a.rank - b.rank || a.key.localeCompare(b.key));
 }
@@ -149,7 +169,7 @@ export default function OwnerAttentionPanel({ ownerKey, onOpen }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     const failed: string[] = [];
-    const [shortNotice, a2a, bespoke] = await Promise.all([
+    const [shortNotice, a2a, bespoke, listings] = await Promise.all([
       fetchShortNoticeBookings(ownerKey).catch(() => {
         failed.push("short-notice requests");
         return [] as ShortNoticeBookingSummary[];
@@ -162,9 +182,13 @@ export default function OwnerAttentionPanel({ ownerKey, onOpen }: Props) {
         failed.push("Event & Business Class requests");
         return { items: [] as BespokeQuoteOwnerSummary[], publicEnabled: false };
       }),
+      fetchOwnerBelfastEvents(ownerKey).catch(() => {
+        failed.push("event listings");
+        return { events: [] as BelfastEventRecord[], publicEnabled: false };
+      }),
     ]);
     if (!alive.current) return;
-    setItems(sortAttention([...shortNoticeAttention(shortNotice as ShortNoticeRow[]), ...a2aAttention(a2a.quotes), ...bespokeAttention(bespoke.items)]));
+    setItems(sortAttention([...shortNoticeAttention(shortNotice as ShortNoticeRow[]), ...a2aAttention(a2a.quotes), ...bespokeAttention(bespoke.items), ...eventListingAttention(listings.events)]));
     setProblems(failed);
     setLoading(false);
   }, [ownerKey]);
@@ -225,7 +249,7 @@ export default function OwnerAttentionPanel({ ownerKey, onOpen }: Props) {
                 </span>
                 <span className="mt-1.5 block text-base font-bold text-white">{item.title}</span>
                 {item.detail ? <span className="mt-0.5 block text-sm text-white/70">{item.detail}</span> : null}
-                <span className="mt-1 block text-xs text-white/50">{item.reference} · Tap to open</span>
+                <span className="mt-1 block text-xs text-white/50">{item.kind === "event_listing" ? "Tap to open" : `${item.reference} · Tap to open`}</span>
               </button>
             </li>
           ))}

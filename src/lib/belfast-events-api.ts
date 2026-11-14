@@ -53,6 +53,16 @@ export async function fetchOwnerBelfastEvents(ownerKey: string): Promise<{ event
 
 export type BelfastEventOwnerAction = "create" | "save" | "publish" | "unpublish" | "postpone" | "cancel";
 
+/** Remove a draft (for example an unwanted suggestion). Published events cannot be deleted. */
+export async function deleteOwnerBelfastEventDraft(ownerKey: string, record: Pick<BelfastEventRecord, "id" | "version">): Promise<void> {
+  const response = await fetch(`${WORKER_BASE}/owner/belfast-events/action`, {
+    method: "POST",
+    headers: ownerHeaders(ownerKey),
+    body: JSON.stringify({ action: "delete", id: record.id, expectedVersion: record.version }),
+  });
+  await parse(response);
+}
+
 export async function postOwnerBelfastEventAction(
   ownerKey: string,
   input: { action: BelfastEventOwnerAction; id?: string; expectedVersion?: number; fields?: Record<string, unknown> },

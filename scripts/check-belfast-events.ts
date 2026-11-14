@@ -15,6 +15,7 @@ import {
   validateBelfastEventInput,
   type BelfastEventRecord,
 } from "../shared/belfast-events";
+import { isSuggestedBelfastEvent } from "../shared/belfast-events";
 import { handleBelfastEventsRoute, isBelfastEventsPath } from "../workers/addresses/src/belfast-events-handlers";
 
 const root = join(new URL(".", import.meta.url).pathname, "..");
@@ -110,14 +111,18 @@ async function main(): Promise<void> {
     async put(key: string, value: string) {
       kv.set(key, value);
     },
+    async delete(key: string) {
+      kv.delete(key);
+    },
     async list(opts: { prefix?: string }) {
       return { keys: [...kv.keys()].filter((k) => k.startsWith(opts.prefix ?? "")).map((name) => ({ name })), list_complete: true };
     },
   } as unknown as KVNamespace;
   const env = { TRACKING_STORE: store, OWNER_ACCESS_KEY: "owner-key-123", DRIVER_ACCESS_KEY: "driver-key-456", BESPOKE_QUOTES_ENABLED: "1" };
-  const call = async (path: string, init: { method?: string; body?: unknown; owner?: string; env?: Record<string, unknown> } = {}) => {
+  const call = async (path: string, init: { method?: string; body?: unknown; owner?: string; bearer?: string; env?: Record<string, unknown> } = {}) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (init.owner) headers["X-Owner-Key"] = init.owner;
+    if (init.bearer) headers.Authorization = `Bearer ${init.bearer}`;
     const res = await handleBelfastEventsRoute(
       new Request(`https://worker.example${path}`, { method: init.method ?? "GET", headers, ...(init.body ? { body: JSON.stringify(init.body) } : {}) }),
       { ...env, ...init.env } as never,
@@ -154,6 +159,66 @@ async function main(): Promise<void> {
   await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "cancel", id, expectedVersion: 2 } });
   assert.equal((await call("/events/public")).json.events[0].status, "cancelled");
   assert.ok(![...kv.keys()].some((k) => !k.startsWith("bevt:")), "only the bevt: KV prefix is used");
+
+  console.log("=== Weekly search: drafts only ===");
+  {
+    const TOKEN = "weekly-search-token-0123456789";
+    const on = { EVENT_SUGGESTIONS_TOKEN: TOKEN };
+    assert.ok(isBelfastEventsPath("/events/suggestions"));
+    const one = { title: "Winter Lights Show", category: "festival", venueId: "the-o2-belfast", date: day(20), startTime: "18:00", summary: "An evening light trail.", officialUrl: "https://example.org/winter-lights" };
+    // Off unless the secret is set; wrong, short or owner credentials do not open it.
+    assert.equal((await call("/events/suggestions", { method: "POST", bearer: TOKEN, body: { events: [one] } })).status, 404, "off without the secret");
+    assert.equal((await call("/events/suggestions", { method: "POST", bearer: "wrong-token-wrong-token-wrong!", body: { events: [one] }, env: on })).status, 404);
+    assert.equal((await call("/events/suggestions", { method: "POST", owner: OWNER, body: { events: [one] }, env: on })).status, 404);
+    assert.equal((await call("/events/suggestions", { method: "POST", bearer: "short", body: { events: [one] }, env: { EVENT_SUGGESTIONS_TOKEN: "short" } })).status, 404, "short secrets are refused");
+    // The token cannot use owner routes.
+    assert.equal((await call("/owner/belfast-events", { bearer: TOKEN, env: on })).status, 401);
+    assert.equal((await call("/owner/belfast-events/action", { method: "POST", bearer: TOKEN, env: on, body: { action: "publish", id, expectedVersion: 3 } })).status, 401);
+
+    const before = (await call("/events/public")).json.events.length;
+    const added = await call("/events/suggestions", {
+      method: "POST",
+      bearer: TOKEN,
+      env: on,
+      body: {
+        events: [
+          // Tries to arrive published and pre-confirmed: must be ignored.
+          { ...one, status: "published", ownWordsConfirmed: true, ownerNotes: "injected", publishedAt: "2026-01-01T00:00:00Z" },
+          { ...one },
+          { ...one, title: "Old Show", date: day(-3) },
+          { ...one, title: "Elsewhere Show", venueId: "other", venueName: "Town Hall", venueArea: "Lisburn BT27 4AA" },
+          { ...one, title: "<b>Bad</b>" },
+        ],
+      },
+    });
+    assert.equal(added.status, 200, added.text);
+    assert.deepEqual(added.json.added, ["Winter Lights Show"]);
+    assert.equal(added.json.skipped.length, 4);
+    assert.match(JSON.stringify(added.json.skipped), /Already listed/);
+    assert.match(JSON.stringify(added.json.skipped), /past/);
+    assert.match(JSON.stringify(added.json.skipped), /Belfast postcode/);
+    const all = (await call("/owner/belfast-events", { owner: OWNER })).json.events as BelfastEventRecord[];
+    const draft = all.find((e) => e.title === "Winter Lights Show")!;
+    assert.equal(draft.status, "draft");
+    assert.equal(draft.ownWordsConfirmed, false);
+    assert.equal(draft.ownerNotes, undefined);
+    assert.equal(draft.publishedAt, undefined);
+    assert.ok(isSuggestedBelfastEvent(draft));
+    assert.match(draft.sourceNote ?? "", /example\.org\/winter-lights/);
+    assert.equal((await call("/events/public")).json.events.length, before, "suggestions are never public");
+    // It cannot be published until the owner confirms the wording.
+    const early = await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "publish", id: draft.id, expectedVersion: 1 } });
+    assert.equal(early.status, 400);
+    // The search can see what exists (names and dates only), and is capped per call.
+    const seen = await call("/events/suggestions", { bearer: TOKEN, env: on });
+    assert.ok(seen.json.events.some((e: { title: string }) => e.title === "Winter Lights Show"));
+    assert.ok(!/sourceNote|ownerNotes|summary|club newsletter/.test(seen.text));
+    assert.equal((await call("/events/suggestions", { method: "POST", bearer: TOKEN, env: on, body: { events: Array.from({ length: 21 }, () => one) } })).status, 400);
+    // Owner can delete an unwanted draft, but not a published event.
+    assert.equal((await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "delete", id, expectedVersion: 3 } })).status, 400, "published history kept");
+    assert.equal((await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "delete", id: draft.id, expectedVersion: 1 } })).status, 200);
+    assert.ok(!(await call("/owner/belfast-events", { owner: OWNER })).json.events.some((e: { id: string }) => e.id === draft.id));
+  }
 
   console.log("=== Public pages stay off until approved ===");
   const flag = read("src/lib/bespoke-public.ts");

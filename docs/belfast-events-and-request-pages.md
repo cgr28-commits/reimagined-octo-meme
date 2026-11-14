@@ -41,6 +41,11 @@ Turnstile: the site key comes from `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. With no key
 - Hybrid publishing: the hub is built with the approved list (Worker, falling back to `src/data/belfast-events-snapshot.json`) and then refreshes live in the browser, so approvals and cancellations show without a rebuild.
 - A request for a listed event takes the event name, venue and date from the approved listing, not from the browser. Postponed or cancelled events refuse requests. Unknown or draft ids are dropped (typed details kept).
 
+## Weekly events search (drafts only)
+- A scheduled task searches for upcoming Belfast events every Monday and adds them as **drafts** through `POST /events/suggestions`.
+- Authentication: `Authorization: Bearer <EVENT_SUGGESTIONS_TOKEN>` (GitHub Actions secret, 24+ characters, synced by `deploy-worker.yml`). Without the secret the route answers 404. This token can only add drafts and read existing names and dates; it cannot edit, publish or see private notes.
+- Suggested drafts show a "Suggested — check and approve" badge, appear in "Needs your attention", and can be deleted with **Delete draft**. Publishing still needs the owner's own-words confirmation.
+
 ## Safeguards
 - 7-seater: requests of 5–7 passengers flag a 7-seater request, always "subject to availability". 8+ → call us. No other vehicles are mentioned.
 - Business Class request form: 1–3 passengers (shared `BUSINESS_CLASS_MAX_PASSENGERS`), also enforced by the Worker.

@@ -3317,6 +3317,11 @@ export default function DriverPageClient({
 
   /** Front-screen attention list: open the right tool at the request that was tapped. */
   function openAttentionItem(item: OwnerAttentionItem) {
+    if (item.kind === "event_listing") {
+      setOwnerToolTab("belfast-events");
+      window.scrollTo({ top: 0 });
+      return;
+    }
     if (item.kind === "bespoke") {
       setBespokeFocusRef(item.reference);
       setOwnerToolTab("bespoke-requests");
