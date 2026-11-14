@@ -9876,3 +9876,18 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
   html[data-mobile-light] [data-bespoke-owner-panel] :is(.text-red-100, .text-red-300) { color: #b42318 !important; -webkit-text-fill-color: #b42318; }
   html[data-mobile-light] [data-bespoke-owner-panel] .text-emerald { color: #16803c !important; -webkit-text-fill-color: #16803c; }
 }
+
+/* Homepage quick picks + "Popular" journeys (owner, 14 Nov 2026). */
+html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-label] { color: rgba(255, 255, 255, 0.88) !important; }
+/* Desktop (1200px+): the airport chips sit in the card title row, keeping the card short. */
+@media (min-width: 1200px) {
+  html:root:root:root:root:root:root:not([data-mobile-d3]) [data-quick-picks] { display: none !important; }
+}
+@media (max-width: 1199px) {
+  html:root:root:root:root:root:root [data-quick-picks-head] { display: none !important; }
+}
+/* Phones/tablets already have the "Where are you travelling?" block below the hero, so the
+   "Popular" row is desktop-only. */
+@media (max-width: 1199px) {
+  html:root:root:root:root:root:root [data-more-journeys] { display: none !important; }
+}
