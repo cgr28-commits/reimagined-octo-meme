@@ -1313,6 +1313,28 @@ export function nightWeekendSurchargeExplanation(
   return `${periods.join(" ")} Times are Europe/London. When periods overlap, only the highest surcharge applies to each leg’s base vehicle fare; fixed airport charges are excluded.`;
 }
 
+/**
+ * True when the time of day or the day of the week can change a fare: the evening, night or
+ * weekend surcharge is switched on in the owner dashboard.
+ *
+ * Every quote tool (website, WhatsApp assistant, phone assistant) asks for the pickup date and
+ * time before pricing only when this is true. With all three off, the customer gets the price
+ * first and gives the date and time at the booking step.
+ *
+ * The Christmas surcharge does not count (owner decision, 14 Nov 2026): the date is taken at the
+ * booking step, where a journey in the Christmas period is re-priced for the customer to confirm.
+ */
+export function quoteNeedsScheduleUpFront(
+  settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
+): boolean {
+  const options = ownerPricingEngineOptions(settings);
+  return (
+    (options.eveningEnabled && options.eveningRate > 0) ||
+    (options.nightEnabled && options.nightRate > 0) ||
+    (options.weekendEnabled && options.weekendRate > 0)
+  );
+}
+
 export function quoteIncludesSurchargeLabel(
   settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
 ): string {

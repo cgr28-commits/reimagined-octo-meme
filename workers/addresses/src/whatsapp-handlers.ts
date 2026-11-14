@@ -57,6 +57,7 @@ import {
   describeWhatsAppDraft,
   describeWhatsAppField,
   detectWhatsAppIntent,
+  conversationAsksSchedule,
   isWhatsAppSendQuoteMessage,
   newWhatsAppConversation,
   nextMissingField,
@@ -73,6 +74,8 @@ import {
   type WhatsAppJourneyLeg,
   type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
+import { quoteNeedsScheduleUpFront } from "../shared/owner-pricing-config";
+import { getOwnerPricingSettings } from "./owner-pricing-store";
 import {
   WHATSAPP_ADDRESS_MAX_OPTIONS,
   buildWhatsAppAddressPrompt,
@@ -962,6 +965,8 @@ async function handleInboundMessage(
       }
     }
   }
+  // The date and time are asked for only while a time-based surcharge is on (owner dashboard).
+  const scheduleUpFront = await whatsAppAsksSchedule(store);
   // Claude-led chat: Claude reads the message and decides; the rules flow is the fallback.
   const claudeLed =
     whatsAppClaudeLedEnabled(env, phone) &&
@@ -979,7 +984,7 @@ async function handleInboundMessage(
       base.draft[addressPick.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"] = addressPick.placeId;
       said = `[The customer tapped to confirm the ${addressPick.field === "pickupAddress" ? "pickup" : "destination"} address: ${addressPick.address}]`;
     }
-    decision = await decideWithClaude(env, store, phone, base, said, message.profileName);
+    decision = await decideWithClaude(env, store, phone, base, said, message.profileName, scheduleUpFront);
     if (decision) logEvent("whatsapp_claude_led", phone, { action: decision.action, endChat: Boolean(decision.endChat) });
   }
   if (!decision) {
@@ -987,6 +992,7 @@ async function handleInboundMessage(
       profileName: message.profileName,
       quickChoices: whatsAppQuickChoicesEnabled(env, phone),
       addressPick,
+      scheduleUpFront,
     });
   }
   let conversation = decision.conversation;
@@ -1105,7 +1111,7 @@ async function handleInboundMessage(
       text = answered.text;
       // The AI asked for journey details to start a quote: bare replies now fill them.
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
-        conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+        conversation.awaiting = nextMissingField(conversation.draft, conversationAsksSchedule(conversation)) ?? undefined;
       }
       if (answered.endChat) {
         // No longer needed: close the quote, no "Today / Tomorrow" choices, no chaser.
@@ -1207,6 +1213,7 @@ async function handleInboundMessage(
             returnJourney: pricedJourney.returnJourney,
           },
           linkHours: whatsAppQuoteLinkHours(conversation.draft),
+          scheduleChosen: Boolean(conversation.draft.outboundDate && conversation.draft.outboundTime),
           optionalExpressFeeLabel:
             optionalExpressFeeGbp > 0 ? formatExpressDropOffGbp(optionalExpressFeeGbp) : null,
           requestOnly: availability.requestOnly,
@@ -1595,6 +1602,18 @@ export async function describeBookingsForAi(
  * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
  * fixed fallback reply.
  */
+/**
+ * Whether quotes ask for the pickup date and time before the price: only while the evening,
+ * night or weekend surcharge is on in the owner dashboard. Asks on any error (the safe side).
+ */
+export async function whatsAppAsksSchedule(store: KVNamespace): Promise<boolean> {
+  try {
+    return quoteNeedsScheduleUpFront(await getOwnerPricingSettings(store));
+  } catch {
+    return true;
+  }
+}
+
 /** One Claude-led turn; null when Claude is unavailable (the rules flow then answers). */
 async function decideWithClaude(
   env: WhatsAppEnv,
@@ -1603,6 +1622,7 @@ async function decideWithClaude(
   existing: WhatsAppConversation | null,
   said: string,
   profileName: string | undefined,
+  scheduleUpFront = true,
 ): Promise<ClaudeLedDecision | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
@@ -1628,10 +1648,11 @@ async function decideWithClaude(
       bookingInfo,
       eventInfo,
       quoteFormAvailable: whatsAppQuoteFormEnabled(env, phone),
+      scheduleUpFront,
     });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
-    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
+    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone), scheduleUpFront });
   } catch (err) {
     logEvent("whatsapp_claude_led_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
