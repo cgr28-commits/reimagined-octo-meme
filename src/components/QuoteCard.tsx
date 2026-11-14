@@ -734,6 +734,8 @@ type BookingDelivery = "whatsapp" | "email";
 type QuoteCardProps = {
   restoredQuote?: SavedQuotePublicSummary;
   homepagePolish?: boolean;
+  /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
+  homepageQuickPicks?: boolean;
   bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
   initialAirportCode?: string;
@@ -844,6 +846,7 @@ function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" })
 function QuoteCard({
   restoredQuote,
   homepagePolish = false,
+  homepageQuickPicks = false,
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
@@ -3751,6 +3754,26 @@ function QuoteCard({
         place.placeId,
         quoteFunnelParams(),
       );
+    }
+  }
+
+  /**
+   * Homepage airport quick pick: fills the empty field (drop-off first, then pickup) with the
+   * airport as an already-picked place, exactly as if chosen from the suggestions.
+   */
+  function applyHomepageQuickPick(code: QuickSelectAirportCode) {
+    if (returnOfferToken) return;
+    const place = quickSelectToPlace(code);
+    if (!place) return;
+    setHomepagePriceRequested(false);
+    const dropoffReady = isQuoteReadyPlace(dropoffPlace);
+    const pickupReady = isQuoteReadyPlace(pickupPlace);
+    if (!dropoffReady && pickupPlace.placeId !== place.placeId) {
+      handleDropoffPlacesSuggestionSelect(place);
+    } else if (!pickupReady && dropoffPlace.placeId !== place.placeId) {
+      handlePickupPlacesSuggestionSelect(place);
+    } else if (pickupPlace.placeId !== place.placeId) {
+      handleDropoffPlacesSuggestionSelect(place);
     }
   }
 
@@ -9934,6 +9957,8 @@ function QuoteCard({
                 design2={design2Home}
                 design3={mobileDesign3}
                 homepagePolish={homepagePolish}
+                quickPicks={homepageQuickPicks}
+                onQuickPickAirport={applyHomepageQuickPick}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
                 onJourneyModeChange={(value) => {

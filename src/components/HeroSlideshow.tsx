@@ -1,3 +1,4 @@
+import Link from "next/link";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
 import FromAirportText from "./FromAirportText";
 import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
@@ -43,7 +44,30 @@ type Props = {
   };
   /** Saved-quote summary and Book button, shown above the quote tool at every step. */
   belowIntro?: ReactNode;
+  /** Homepage only: neutral quote tool with airport quick picks and "More journeys" links. */
+  homepageQuickPicks?: boolean;
 };
+
+/** Homepage only: other journey types, linking to their own pages (owner, 14 Nov 2026). */
+const MORE_JOURNEYS = [
+  { href: "/transfers/belfast-to-dublin-airport/", label: "Belfast ↔ Dublin" },
+  { href: "/belfast-cruise-terminal-transfers/", label: "Cruise port" },
+  { href: "/belfast-grand-central-station-taxi/", label: "Train station" },
+  { href: "/events/", label: "Events & concerts" },
+] as const;
+
+function HomepageMoreJourneys() {
+  return (
+    <nav aria-label="More journeys" data-more-journeys className="mx-auto mt-3 flex max-w-xl flex-wrap items-center justify-center gap-x-1.5 gap-y-2 text-[13px]">
+      <span data-more-journeys-label className="font-semibold">Popular:</span>
+      {MORE_JOURNEYS.map((j) => (
+        <Link key={j.href} href={j.href} className="inline-flex min-h-9 items-center rounded-full border border-white/25 bg-white/10 px-3 font-semibold text-white hover:border-emerald hover:bg-white/15">
+          {j.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 const HOMEPAGE_INTRO =
   "Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price.";
@@ -53,7 +77,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -90,8 +114,8 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
               <span className="text-white">{heading}</span>
             ) : (
               <>
-                <span className="text-white">Belfast &amp; Dublin Airport Transfers</span>{" "}
-                <span className="text-emerald">&amp; Premium Private Travel</span>
+                <span className="text-white">Airport, Port &amp; Event Transfers</span>{" "}
+                <span className="text-emerald">Across All of Ireland</span>
               </>
             )}
           </h1>
@@ -120,6 +144,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
           <QuoteCard
             presentation="homepage"
             homepagePolish
+            homepageQuickPicks={homepageQuickPicks}
             bookingIntroduction={journey?.bookingIntroduction}
             initialAirportCode={journey?.airportCode ?? ""}
             initialDirection={journey?.direction ?? "to-airport"}
@@ -135,6 +160,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
               initialDropoffHint: restore.dropoffHint,
             } : {})}
           />
+          {homepageQuickPicks ? <HomepageMoreJourneys /> : null}
           <QuoteHelpContact />
           <div className="mt-4 flex justify-center" data-hero-reviews-badge>
             <GoogleReviewsBadge />

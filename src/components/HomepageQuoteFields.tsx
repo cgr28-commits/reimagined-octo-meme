@@ -25,7 +25,49 @@ import { formatPublicSuitcaseChoice } from "../../shared/vehicle-capacity";
 
 type JourneyMode = "one-way" | "return";
 
+export type QuickPickAirportCode = "BFS" | "BHD" | "DUB" | "LDY";
+
+const QUICK_PICK_AIRPORTS: ReadonlyArray<{ code: QuickPickAirportCode; label: string }> = [
+  { code: "BFS", label: "Belfast Intl" },
+  { code: "BHD", label: "Belfast City" },
+  { code: "DUB", label: "Dublin" },
+  { code: "LDY", label: "Derry" },
+];
+
+/** One-tap airport chips (homepage only). `placement` picks the phone/tablet row or the desktop title row. */
+function QuickPickChips({ placement, onPick }: { placement: "fields" | "head"; onPick: (code: QuickPickAirportCode) => void }) {
+  return (
+    <div
+      role="group"
+      aria-label="Quick pick an airport"
+      {...(placement === "head" ? { "data-quick-picks-head": "" } : { "data-quick-picks": "" })}
+      className={placement === "head" ? "ml-auto flex items-center gap-1.5" : "flex items-center gap-1.5 pt-0.5"}
+    >
+      <span data-quick-picks-label className="hidden shrink-0 text-[11px] font-bold uppercase tracking-[0.06em] text-[#071c38]/70 md:inline">Airports</span>
+      {QUICK_PICK_AIRPORTS.map(({ code, label }) => (
+        <button
+          key={code}
+          type="button"
+          data-quick-pick={code}
+          onClick={() => onPick(code)}
+          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-[#071c38]/15 bg-white px-2.5 text-[13px] font-semibold text-[#071c38] hover:border-emerald hover:bg-emerald/10 md:px-3"
+        >
+          <Plane size={13} strokeWidth={2.4} className="hidden text-emerald md:inline" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 type HomepageQuoteFieldsProps = {
+  /**
+   * Homepage only (owner, 14 Nov 2026): neutral card title plus one-tap airport quick picks,
+   * so the homepage serves every journey type (route pages handle route-specific searches).
+   */
+  quickPicks?: boolean;
+  /** Fills the empty address field with the chosen airport as an already-picked place. */
+  onQuickPickAirport?: (code: QuickPickAirportCode) => void;
   /** Approved mobile Design 2: steppers, swap button, no journey type or schedule on this step. */
   design2?: boolean;
   homepagePolish?: boolean;
@@ -269,6 +311,8 @@ const DESIGN2_BENEFITS: ReadonlyArray<{ label: string; icon: LucideIcon }> = [
 export default function HomepageQuoteFields({
   design2 = false,
   homepagePolish = false,
+  quickPicks = false,
+  onQuickPickAirport,
   journeyMode,
   onJourneyModeChange,
   pickupAddress,
@@ -355,7 +399,7 @@ export default function HomepageQuoteFields({
         /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-d3-card-head aria-hidden="true">
           <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />
-          <span data-d3-card-head-title>Get Your Fixed Airport Fare</span>
+          <span data-d3-card-head-title>{quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare"}</span>
           <span data-d3-card-head-chip>
             <Zap size={13} strokeWidth={2.4} />
             Instant Quote
@@ -363,13 +407,14 @@ export default function HomepageQuoteFields({
         </div>
       ) : (
         /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
-        <div className="hidden" data-desktop-card-head aria-hidden="true">
+        <div className="hidden" data-desktop-card-head aria-hidden={quickPicks ? undefined : true}>
           <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />
-          <span data-desktop-card-head-title>Get Your Fixed Airport Fare</span>
+          <span data-desktop-card-head-title>{quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare"}</span>
           <span data-desktop-card-head-chip>
             <Zap size={14} strokeWidth={2.4} />
             Instant Quote
           </span>
+          {quickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} /> : null}
         </div>
       )}
       <div className="space-y-1" data-homepage-quote-scroll>
@@ -493,6 +538,8 @@ export default function HomepageQuoteFields({
           {INCOMPLETE_DROPOFF_ADDRESS_MESSAGE}
         </p>
       ) : null}
+
+      {quickPicks && onQuickPickAirport ? <QuickPickChips placement="fields" onPick={onQuickPickAirport} /> : null}
 
       {design3 ? (
         <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>
