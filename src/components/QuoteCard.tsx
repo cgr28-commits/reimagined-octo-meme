@@ -400,6 +400,7 @@ import {
   isBelfastAirportRoiInstantJourney,
   isRepublicOfIrelandJourney,
   isGreaterBelfastIrelandInstantJourney,
+  isIrelandPickupIntoGreaterBelfastJourney,
   journeyKindLabel,
   needsManualQuoteApproval,
   PLACES_LOOKUP_A2A,
@@ -1429,7 +1430,13 @@ function QuoteCard({
     isRepublicOfIrelandJourney(pickupPlace, dropoffPlace) &&
     !isDublinCityCorridorJourney(pickupPlace, dropoffPlace) &&
     !isBelfastAirportRoiInstantJourney(pickupPlace, dropoffPlace) &&
-    !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace);
+    !isGreaterBelfastIrelandInstantJourney(pickupPlace, dropoffPlace) &&
+    // Owner setting: Ireland pickups into Greater Belfast get an instant price, so no
+    // "request your fixed price" banner for them.
+    !(
+      publicPricing.irelandPickupsIntoBelfastInstant === true &&
+      isIrelandPickupIntoGreaterBelfastJourney(pickupPlace, dropoffPlace)
+    );
   const isDublinCityCorridor =
     isA2AFlow &&
     isPlaceSelected(pickupPlace) &&
@@ -2044,6 +2051,30 @@ function QuoteCard({
       window.removeEventListener("quote-prefill-draft", handleDraftPrefill);
     };
   }, [returnOfferToken]);
+
+  /**
+   * Google Ads "from the airport" landing: a town-to-airport page opened with ?from=airport
+   * (e.g. /transfers/derry-to-belfast-international/?from=airport) starts with the page's
+   * airport as the PICKUP and an empty drop-off, so people travelling from the airport don't
+   * have to find the swap button. Runs once; without ?from=airport nothing changes.
+   * Read with URLSearchParams so Google's added parameters (gclid etc.) don't break it.
+   */
+  const fromAirportLandingApplied = useRef(false);
+  useEffect(() => {
+    if (fromAirportLandingApplied.current) return;
+    fromAirportLandingApplied.current = true;
+    if (typeof window === "undefined") return;
+    if (presentation !== "homepage" || initialDirection !== "to-airport") return;
+    if (!initialAirportPlace || returnOfferToken) return;
+    if (new URLSearchParams(window.location.search).get("from") !== "airport") return;
+    setPickupPlace(initialAirportPlace);
+    setPickupAddress(placeDisplayText(initialAirportPlace));
+    saveConfirmedPickupPlace(initialAirportPlace);
+    setDropoffPlace(emptySelectedPlace());
+    setDropoffAddress("");
+    clearConfirmedDropoffPlace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const restoredQuoteApplied = useRef(false);
   useEffect(() => {
@@ -8483,12 +8514,16 @@ function QuoteCard({
           })}
         </ol>
         <p data-results-chips>
-          <span data-results-chip>
-            {journeySummaryDate(tripDate)}
-            {" · "}
-            {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
-            {tripTime ? tripTime.slice(0, 5) : "—"}
-          </span>
+          {/* No date or time yet (only asked up front while a time-based surcharge is on):
+              leave the chip out rather than show "– · flight lands –". */}
+          {tripDate || tripTime ? (
+            <span data-results-chip>
+              {journeySummaryDate(tripDate)}
+              {" · "}
+              {checkoutTimeLabel("outbound") === "Pickup time" ? "" : "flight lands "}
+              {tripTime ? tripTime.slice(0, 5) : "—"}
+            </span>
+          ) : null}
           <span data-results-chip>{returnJourney ? "Return" : "One way"}</span>
           <span data-results-chip>
             {party} passenger{party === 1 ? "" : "s"}
@@ -8497,7 +8532,7 @@ function QuoteCard({
               ? "5+ suitcases"
               : `${suitcases ?? 0} suitcase${suitcases === 1 ? "" : "s"}`}
           </span>
-          {returnJourney ? (
+          {returnJourney && (returnDate || returnTime) ? (
             <span data-results-chip data-results-chip-return>
               Return {journeySummaryDate(returnDate)}
               {" · "}
@@ -9014,60 +9049,6 @@ function QuoteCard({
     return typeof total === "number" && Number.isFinite(total) ? total : null;
   }
 
-  /** On-device estimate parts for a vehicle (existing shared calculators), shaped like the Worker parts. */
-  function desktopEstimateParts(vehicleType: typeof quoteVehicle) {
-    const estimate = estimateFareFor(vehicleType);
-    if (!estimate || typeof estimate.amount !== "number" || !Number.isFinite(estimate.amount)) return null;
-    const fixed =
-      typeof estimate.airportFixedCostsGbp === "number" && Number.isFinite(estimate.airportFixedCostsGbp)
-        ? Math.max(0, Math.round(estimate.airportFixedCostsGbp * 100) / 100)
-        : 0;
-    const journey =
-      typeof estimate.journeyFareGbp === "number" && Number.isFinite(estimate.journeyFareGbp)
-        ? Math.max(0, Math.round(estimate.journeyFareGbp * 100) / 100)
-        : Math.max(0, Math.round((estimate.amount - fixed) * 100) / 100);
-    const surcharge =
-      typeof estimate.nightWeekendSurchargeGbp === "number" && Number.isFinite(estimate.nightWeekendSurchargeGbp)
-        ? Math.max(0, Math.round(estimate.nightWeekendSurchargeGbp * 100) / 100)
-        : 0;
-    return {
-      journeyFareGbp: journey,
-      airportFixedCostsGbp: fixed,
-      nightWeekendSurchargeGbp: surcharge,
-      preserveBfsMinimumPence: Boolean(estimate.preserveBfsMinimumPence),
-    };
-  }
-
-  /**
-   * Desktop (1200px+): when the owner has made the 7 Seater request-only, its row shows the
-   * on-device estimate for this journey (existing shared formulas) as an indicative starting price, subject to
-   * availability, with Request a quote. Nothing is shown when no estimate is available.
-   */
-  function desktopRequestOnlyEstimates(): Partial<Record<string, string>> {
-    if (presentation !== "homepage" || quoteStep !== 1 || testChargeAmount != null) return {};
-    if (!publicVehicleRequiresPersonalQuote(MINIBUS_VEHICLE_TYPE, publicPricing)) return {};
-    if (
-      !openWebsiteFareBreakdown ||
-      !mayPaintNumericFare ||
-      vehicleFareUpdating ||
-      transferPaymentAmount == null ||
-      !Number.isFinite(transferPaymentAmount) ||
-      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
-      isExecutiveVehicle(quoteVehicle)
-    ) {
-      return {};
-    }
-    // Self-check: the same estimate method must reproduce the selected vehicle's real quoted price.
-    const selectedParts = desktopEstimateParts(quoteVehicle);
-    const selectedTotal = selectedParts ? desktopWebsiteTotalFromParts(quoteVehicle, selectedParts) : null;
-    if (selectedTotal == null || Math.abs(selectedTotal - transferPaymentAmount) >= 0.005) return {};
-    const minibusParts = desktopEstimateParts(MINIBUS_VEHICLE_TYPE);
-    const amount = minibusParts ? desktopWebsiteTotalFromParts(MINIBUS_VEHICLE_TYPE, minibusParts) : null;
-    return amount != null && Number.isFinite(amount) && amount > 0
-      ? { [MINIBUS_VEHICLE_TYPE]: formatQuote(amount) }
-      : {};
-  }
-
   function renderQuoteVehicleChoice() {
     if (passengers == null || suitcases == null) {
       return null;
@@ -9086,7 +9067,8 @@ function QuoteCard({
         hideUnsuitable={presentation === "homepage"}
         heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
-        desktopRequestPrices={desktopRequestOnlyEstimates()}
+        // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
+        desktopRequestPrices={{}}
       />
       </>
     );
@@ -10255,6 +10237,7 @@ function QuoteCard({
                             current quote, so the customer can check them before booking. */}
                         <div className="hidden" data-journey-schedule>
                           <span data-journey-type>{returnJourney ? "Return" : "One way"}</span>
+                          {tripDate || tripTime ? (
                           <span data-journey-when>
                             <JourneySummaryIcon name="calendar" />
                             <span data-journey-when-label>{returnJourney ? "Outbound" : "Pickup"}</span>
@@ -10265,7 +10248,8 @@ function QuoteCard({
                             </span>
                             <strong>{tripTime ? tripTime.slice(0, 5) : "—"}</strong>
                           </span>
-                          {returnJourney ? (
+                          ) : null}
+                          {returnJourney && (returnDate || returnTime) ? (
                             <span data-journey-when>
                               <JourneySummaryIcon name="return" />
                               <span data-journey-when-label>Return</span>
