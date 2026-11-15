@@ -1,3 +1,4 @@
+import type { PlaceChip } from "@/lib/quote-place-chips";
 import Link from "next/link";
 import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENTS_HUB_PATH } from "@/lib/bespoke-public";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
@@ -51,6 +52,8 @@ type Props = {
   belowIntro?: ReactNode;
   /** Homepage only: neutral quote tool with airport quick picks and "More journeys" links. */
   homepageQuickPicks?: boolean;
+  /** Route pages: one-tap place chips (cruise ports) under the address boxes. */
+  placeChips?: PlaceChip[];
 };
 
 /** Homepage only: other journey types, linking to their own pages (owner, 14 Nov 2026). */
@@ -83,7 +86,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = true }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, placeChips, heroBackground, showRotatingCards = true }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -151,6 +154,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
             presentation="homepage"
             homepagePolish
             homepageQuickPicks={homepageQuickPicks}
+            placeChips={placeChips}
             bookingIntroduction={journey?.bookingIntroduction}
             initialAirportCode={journey?.airportCode ?? ""}
             initialDirection={journey?.direction ?? "to-airport"}
