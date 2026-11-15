@@ -120,6 +120,7 @@ export default function QuoteVehicleCategories({
   desktopPrices = {},
   desktopRequestPrices = {},
   desktopTopNotice,
+  selectedFooter,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -142,6 +143,8 @@ export default function QuoteVehicleCategories({
   desktopRequestPrices?: Partial<Record<string, string>>;
   /** A notice above "Book with confidence" (e.g. big-event demand). */
   desktopTopNotice?: ReactNode;
+  /** Shown straight under the chosen vehicle (its price) — phones' date-specific booking message. */
+  selectedFooter?: ReactNode;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -332,6 +335,9 @@ export default function QuoteVehicleCategories({
                   </span>
                 )}
               </button>
+              {isSelected && selectedFooter ? (
+                <div data-vehicle-selected-footer>{selectedFooter}</div>
+              ) : null}
             </div>
           );
         })}
