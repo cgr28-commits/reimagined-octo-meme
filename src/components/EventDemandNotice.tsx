@@ -18,7 +18,7 @@ export default function EventDemandNotice({ addresses, dates }: Props) {
     <div
       role="status"
       data-event-demand-notice={event.id}
-      className="mt-2 rounded-xl border border-amber-400/50 bg-amber-50 px-3.5 py-2.5 text-left text-navy"
+      className="mb-2 rounded-xl border-2 border-[#F5B700] bg-[#FFF4D6] px-3.5 py-2.5 text-left text-navy"
     >
       <p className="text-sm font-bold leading-snug">
         <span aria-hidden="true">🎵 </span>

@@ -9106,6 +9106,7 @@ function QuoteCard({
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
         <>
+        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
           desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
@@ -9125,7 +9126,6 @@ function QuoteCard({
           }}
           bookButton={design2Home ? null : renderStep1BookButton()}
         />
-        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
         </>
       );
     }
@@ -9190,6 +9190,7 @@ function QuoteCard({
     ) : null;
     return (
       <>
+      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
         desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
@@ -9217,7 +9218,6 @@ function QuoteCard({
         bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
       {businessClassUpgrade}
-      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
       </>
     );
   }
