@@ -152,10 +152,10 @@ export const BC_ENQUIRY = {
 } as const;
 
 /**
- * Photography. `licensed` photographs come from licensed sources already used on
- * the site (credited at /photo-credits/). `placeholder` entries are clearly marked
- * art-directed panels: the exact photograph still needed is in `brief`, and nothing
- * here claims a licence for it.
+ * Photography. `licensed` photographs are the owner's own (supplied 15 Nov 2026 or already
+ * on the homepage) or Creative Commons photographs credited at /photo-credits/.
+ * `placeholder` entries render a clearly labelled panel (none in use at the moment).
+ * Vehicles shown are representative: the alt text says so and no make is named in copy.
  */
 export type BcPhotoKey = "hero" | "intro" | "airport" | "corporate" | "private";
 
@@ -163,11 +163,15 @@ export type BcPhoto =
   | {
       kind: "licensed";
       baseName: string;
+      /** Folder under /public. Defaults to /images/business-class. */
+      dir?: string;
       widths: readonly number[];
       width: number;
       height: number;
       alt: string;
-      credit: string;
+      /** Shown under the photograph when the licence asks for a credit. */
+      credit?: string;
+      source: string;
     }
   | {
       kind: "placeholder";
@@ -175,8 +179,41 @@ export type BcPhoto =
       brief: string;
     };
 
+export const BC_HERO_PORTRAIT = {
+  baseName: "business-class-airport-arrival-twilight-portrait",
+  widths: [640, 752],
+} as const;
+
 export const BC_PHOTOS: Record<BcPhotoKey, BcPhoto> = {
   hero: {
+    kind: "licensed",
+    baseName: "business-class-airport-arrival-twilight",
+    widths: [960, 1280, 1672],
+    width: 1672,
+    height: 941,
+    alt: "Representative image: a black executive saloon waiting outside a glass airport terminal at twilight",
+    source: "Supplied by the owner, 15 Nov 2026",
+  },
+  intro: {
+    kind: "licensed",
+    baseName: "business-class-executive-interior",
+    widths: [800, 1122],
+    width: 1122,
+    height: 1402,
+    alt: "Representative image: the rear cabin of an executive saloon with black leather seats and soft amber lighting",
+    source: "Supplied by the owner, 15 Nov 2026",
+  },
+  airport: {
+    kind: "licensed",
+    baseName: "business-class-executive-dublin",
+    dir: "/images/hero/optimized",
+    widths: [960, 1920],
+    width: 1920,
+    height: 1280,
+    alt: "Representative image: a driver holding the rear door of a black executive saloon for passengers at Dublin Airport Terminal 2",
+    source: "Owner's homepage Business Class photograph",
+  },
+  corporate: {
     kind: "licensed",
     baseName: "business-class-belfast-titanic-quarter-hero",
     widths: [1280, 1920, 2560],
@@ -184,33 +221,16 @@ export const BC_PHOTOS: Record<BcPhotoKey, BcPhoto> = {
     height: 1440,
     alt: "The faceted glass and metal facade of Titanic Belfast in Belfast’s Titanic Quarter",
     credit: "Titanic Belfast — Juan Antonio Segal, CC BY 2.0",
-  },
-  intro: {
-    kind: "placeholder",
-    label: "Executive interior",
-    brief:
-      "Rear cabin of a premium black saloon: leather seating in soft evening light, no visible badges or number plate. Landscape 3:2, minimum 2400px wide.",
-  },
-  airport: {
-    kind: "licensed",
-    baseName: "business-class-dublin-airport-terminal-2",
-    widths: [960, 1600],
-    width: 1600,
-    height: 864,
-    alt: "Dublin Airport Terminal 2, its curved glass and steel roof under a wide sky",
-    credit: "Dublin Airport Terminal 2 — 瑞丽江的河水, CC BY-SA 4.0",
-  },
-  corporate: {
-    kind: "placeholder",
-    label: "Business district",
-    brief:
-      "Belfast city-centre glass office architecture at dusk (e.g. Gasworks or Lanyon Place), cool blue tones. Landscape 4:3, minimum 2000px wide.",
+    source: "Wikimedia Commons, CC BY 2.0",
   },
   private: {
-    kind: "placeholder",
-    label: "Hotel arrival",
-    brief:
-      "Evening arrival at a premium hotel entrance — warm doorway light, the rear door of an unbadged dark saloon. Portrait 4:5, minimum 1600px tall.",
+    kind: "licensed",
+    baseName: "business-class-hotel-arrival-evening",
+    widths: [640, 752],
+    width: 752,
+    height: 941,
+    alt: "Representative image: a black executive saloon at a softly lit hotel entrance in the evening",
+    source: "Supplied by the owner, 15 Nov 2026",
   },
 };
 

@@ -38,7 +38,7 @@ const CREDITS: Credit[] = [
   },
   {
     subject: "Dublin Airport Terminal 2",
-    usedOn: "Dublin Airport pages and the Business Class page",
+    usedOn: "Dublin Airport pages",
     title: "Dublin Airport Terminal 2 - 2024-05-18",
     author: "瑞丽江的河水 (Wikimedia Commons user)",
     source: "https://commons.wikimedia.org/wiki/File:Dublin_Airport_Terminal_2_-_2024-05-18.jpg",

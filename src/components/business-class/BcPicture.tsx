@@ -3,8 +3,8 @@ import type { BcPhoto } from "@/lib/business-class-page-content";
 
 const DIR = "/images/business-class";
 
-function srcSet(baseName: string, ext: "avif" | "webp" | "jpg", widths: readonly number[]) {
-  return widths.map((w) => `${withBasePath(`${DIR}/${baseName}-${w}.${ext}`)} ${w}w`).join(", ");
+function srcSet(baseName: string, ext: "avif" | "webp" | "jpg", widths: readonly number[], dir = DIR) {
+  return widths.map((w) => `${withBasePath(`${dir}/${baseName}-${w}.${ext}`)} ${w}w`).join(", ");
 }
 
 type Props = {
@@ -45,6 +45,7 @@ export default function BcPicture({ photo, sizes, className = "", priority = fal
     );
   }
   const largest = photo.widths[photo.widths.length - 1];
+  const dir = photo.dir ?? DIR;
   return (
     <picture>
       {portrait ? (
@@ -54,11 +55,11 @@ export default function BcPicture({ photo, sizes, className = "", priority = fal
           <source media="(max-width: 767px)" srcSet={srcSet(portrait.baseName, "jpg", portrait.widths)} sizes="100vw" />
         </>
       ) : null}
-      <source type="image/avif" srcSet={srcSet(photo.baseName, "avif", photo.widths)} sizes={sizes} />
-      <source type="image/webp" srcSet={srcSet(photo.baseName, "webp", photo.widths)} sizes={sizes} />
+      <source type="image/avif" srcSet={srcSet(photo.baseName, "avif", photo.widths, dir)} sizes={sizes} />
+      <source type="image/webp" srcSet={srcSet(photo.baseName, "webp", photo.widths, dir)} sizes={sizes} />
       <img
-        src={withBasePath(`${DIR}/${photo.baseName}-${largest}.jpg`)}
-        srcSet={srcSet(photo.baseName, "jpg", photo.widths)}
+        src={withBasePath(`${dir}/${photo.baseName}-${largest}.jpg`)}
+        srcSet={srcSet(photo.baseName, "jpg", photo.widths, dir)}
         sizes={sizes}
         width={photo.width}
         height={photo.height}

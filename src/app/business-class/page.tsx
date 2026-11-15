@@ -13,6 +13,7 @@ import { BESPOKE_PUBLIC_PAGES_ENABLED } from "@/lib/bespoke-public";
 import {
   BC_ENQUIRY,
   BC_HERO,
+  BC_HERO_PORTRAIT,
   BC_INTRO,
   BC_PAGE_FAQS,
   BC_PHOTOS,
@@ -26,7 +27,7 @@ import {
 } from "@/lib/business-class-page-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
-const OG_IMAGE = "/images/business-class/business-class-belfast-titanic-quarter-hero-1280.jpg";
+const OG_IMAGE = "/images/business-class/business-class-airport-arrival-twilight-1280.jpg";
 
 export function generateMetadata(): Metadata {
   if (!BESPOKE_PUBLIC_PAGES_ENABLED) return { title: "Page not found", robots: { index: false, follow: false } };
@@ -41,7 +42,7 @@ export function generateMetadata(): Metadata {
       url: BUSINESS_CLASS_PAGE_PATH,
       siteName: SITE.name,
       locale: "en_GB",
-      images: [{ url: OG_IMAGE, width: 1280, height: 720, alt: "Titanic Belfast — Business Class & Executive Transfers" }],
+      images: [{ url: OG_IMAGE, width: 1280, height: 720, alt: "Business Class & Executive Transfers — My Airport Taxi NI" }],
     },
     twitter: {
       card: "summary_large_image",
@@ -154,8 +155,8 @@ export default function BusinessClassPage() {
               photo={hero}
               priority
               sizes="100vw"
-              portrait={{ baseName: "business-class-belfast-titanic-quarter-hero-portrait", widths: [640, 960, 1280] }}
-              className="bc-hero__img h-full w-full object-cover object-[50%_40%]"
+              portrait={BC_HERO_PORTRAIT}
+              className="bc-hero__img h-full w-full object-cover object-[60%_60%]"
             />
           </div>
           <div className="bc-hero__shade absolute inset-0 -z-10" aria-hidden="true" />
@@ -188,7 +189,7 @@ export default function BusinessClassPage() {
               </div>
             </div>
           </div>
-          {hero.kind === "licensed" ? (
+          {hero.kind === "licensed" && hero.credit ? (
             <p className="absolute bottom-3 right-4 text-[0.6875rem] bc-c-w45 sm:right-8">
               Photo: <Link href="/photo-credits/" className="underline underline-offset-2 bc-hover-w80">{hero.credit}</Link>
             </p>
@@ -247,7 +248,7 @@ export default function BusinessClassPage() {
               <div className="bc-photo-card relative aspect-[3/2] overflow-hidden rounded-[1.25rem]">
                 <BcPicture photo={BC_PHOTOS.airport} sizes="(min-width: 1024px) 55vw, 100vw" className="bc-zoom absolute inset-0 h-full w-full object-cover" tone="midnight" />
               </div>
-              {BC_PHOTOS.airport.kind === "licensed" ? (
+              {BC_PHOTOS.airport.kind === "licensed" && BC_PHOTOS.airport.credit ? (
                 <p className="mt-3 text-[0.6875rem] bc-c-w40">Photo: <Link href="/photo-credits/" className="underline underline-offset-2">{BC_PHOTOS.airport.credit}</Link></p>
               ) : null}
             </BcReveal>
@@ -263,7 +264,12 @@ export default function BusinessClassPage() {
             <div className="grid lg:grid-cols-12 lg:items-center">
               <BcReveal className="relative order-1 lg:order-2 lg:col-span-7 lg:col-start-6 lg:row-start-1">
                 <div className="bc-photo-card relative aspect-[4/3] overflow-hidden rounded-[1.25rem] lg:aspect-[16/11]">
-                  <BcPicture photo={BC_PHOTOS.corporate} sizes="(min-width: 1024px) 55vw, 100vw" className="bc-zoom absolute inset-0 h-full w-full object-cover" tone="midnight" labelAt="top" />
+                  <BcPicture photo={BC_PHOTOS.corporate} sizes="(min-width: 1024px) 55vw, 100vw" className="bc-zoom absolute inset-0 h-full w-full object-cover" tone="midnight" />
+                  {BC_PHOTOS.corporate.kind === "licensed" && BC_PHOTOS.corporate.credit ? (
+                    <p className="absolute right-3 top-3 rounded-full bg-black/45 px-3 py-1 text-[0.6875rem] bc-c-w85 backdrop-blur-sm">
+                      Photo: <Link href="/photo-credits/" className="underline underline-offset-2 bc-c-w">{BC_PHOTOS.corporate.credit}</Link>
+                    </p>
+                  ) : null}
                 </div>
               </BcReveal>
               <BcReveal className="relative z-10 order-2 -mt-16 mx-3 lg:order-1 lg:col-span-6 lg:col-start-1 lg:row-start-1 lg:mx-0 lg:mt-0" delay={120}>

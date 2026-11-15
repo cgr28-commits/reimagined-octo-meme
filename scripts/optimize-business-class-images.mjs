@@ -5,7 +5,8 @@
  *
  * Run: node scripts/optimize-business-class-images.mjs
  *
- * Sources are licensed photographs already in public/images/hero/ (see
+ * Sources: owner-supplied photographs (design/business-class/originals/) and licensed
+ * photographs already in public/images/hero/ (see
  * public/images/business-class/IMAGE-LICENSE.md and /photo-credits/). Adding a new
  * photograph: put the original in public/images/business-class/originals/, add it below,
  * record its licence in IMAGE-LICENSE.md and src/lib/business-class-page-content.ts.
@@ -26,27 +27,49 @@ const NAVY = { r: 4, g: 13, b: 27 };
  * (left, top, width, height) · widths: responsive sizes to write.
  */
 const jobs = [
+  // Owner-supplied photographs (15 Nov 2026), originals in design/business-class/originals/.
+  // Already warm/navy toned, so they get the light grade only.
+  {
+    output: "business-class-airport-arrival-twilight",
+    source: "../design/business-class/originals/business-class-airport-arrival-twilight.png",
+    crop: { left: 0, top: 0, width: 1, height: 1 },
+    widths: [960, 1280, 1672],
+    grade: "light",
+  },
+  {
+    output: "business-class-airport-arrival-twilight-portrait",
+    source: "../design/business-class/originals/business-class-airport-arrival-twilight.png",
+    crop: { left: 0.105, top: 0, width: 0.45, height: 1 },
+    widths: [640, 752],
+    grade: "light",
+  },
+  {
+    output: "business-class-executive-interior",
+    source: "../design/business-class/originals/business-class-executive-interior.png",
+    crop: { left: 0, top: 0, width: 1, height: 1 },
+    widths: [800, 1122],
+    grade: "light",
+  },
+  {
+    output: "business-class-hotel-arrival-evening",
+    source: "../design/business-class/originals/business-class-hotel-arrival-evening.png",
+    crop: { left: 0.5, top: 0, width: 0.45, height: 1 },
+    widths: [640, 752],
+    grade: "light",
+  },
   {
     output: "business-class-belfast-titanic-quarter-hero",
     source: "images/hero/titanic-belfast.jpg",
     crop: { left: 0, top: 0.2, width: 1, height: 0.5625 * (3648 / 2736) },
     widths: [1280, 1920, 2560],
   },
-  {
-    output: "business-class-belfast-titanic-quarter-hero-portrait",
-    source: "images/hero/titanic-belfast.jpg",
-    crop: { left: 0.2, top: 0, width: 0.6, height: 1 },
-    widths: [640, 960, 1280],
-  },
-  {
-    output: "business-class-dublin-airport-terminal-2",
-    source: "images/hero/dublin.jpg",
-    crop: { left: 0, top: 0.12, width: 1, height: 0.72 },
-    widths: [960, 1600],
-  },
 ];
 
 mkdirSync(outDir, { recursive: true });
+
+async function gradeLight(input) {
+  return sharp(input).modulate({ saturation: 0.94 }).toBuffer();
+}
 
 async function grade(input) {
   // Lower brightness/saturation slightly, cool the white balance, then lay a
@@ -71,7 +94,7 @@ for (const job of jobs) {
   const width = Math.min(W - left, Math.round(job.crop.width * W));
   const height = Math.min(H - top, Math.round(job.crop.height * H));
   const cropped = await sharp(src).rotate().extract({ left, top, width, height }).toBuffer();
-  const graded = await grade(cropped);
+  const graded = job.grade === "light" ? await gradeLight(cropped) : await grade(cropped);
   for (const w of job.widths) {
     const p = sharp(graded).resize({ width: w, withoutEnlargement: true });
     await p.clone().avif({ quality: 52, effort: 5 }).toFile(join(outDir, `${job.output}-${w}.avif`));

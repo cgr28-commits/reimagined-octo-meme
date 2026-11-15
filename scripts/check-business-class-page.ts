@@ -109,11 +109,12 @@ ok("licensed photographs exist in AVIF, WebP and JPEG at every width", () => {
     if (photo.kind !== "licensed") continue;
     for (const w of photo.widths) {
       for (const ext of ["avif", "webp", "jpg"]) {
-        const f = join(root, "public/images/business-class", `${photo.baseName}-${w}.${ext}`);
+        const f = join(root, "public", photo.dir ?? "/images/business-class", `${photo.baseName}-${w}.${ext}`);
         assert.ok(existsSync(f), f);
       }
     }
-    assert.ok(photo.credit && photo.alt.length > 20);
+    assert.ok(photo.source && photo.alt.length > 20);
+    if (/Representative image/.test(photo.alt) === false) assert.ok(!/saloon|car|vehicle/i.test(photo.alt), "vehicle photos must be marked representative");
   }
 });
 ok("placeholders are labelled as placeholders, never as licensed", () => {
