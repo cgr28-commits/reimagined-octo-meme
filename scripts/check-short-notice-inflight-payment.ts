@@ -4,6 +4,7 @@
  * Run: npx tsx scripts/check-short-notice-inflight-payment.ts
  */
 
+import { parseLondonLocalDateTime } from "../shared/uk-time";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -390,7 +391,13 @@ async function main() {
       },
     });
     await updateCustomerPaymentWindowMinutes(store, 60);
-    const pickupAt = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    // Request "sent" at 12:00 UK time tomorrow for a 18:00 pickup, so the check doesn't
+    // depend on the time it runs (requests sent 23:00–07:00 follow the overnight rule).
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", {
+      timeZone: "Europe/London",
+    });
+    const requestedAt = parseLondonLocalDateTime(tomorrow, "12:00")!;
+    const pickupAt = parseLondonLocalDateTime(tomorrow, "18:00")!;
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Europe/London",
       year: "numeric",
@@ -408,7 +415,7 @@ async function main() {
         tripTime: `${part("hour")}:${part("minute")}`,
       }),
       amount: 38,
-      now: new Date(),
+      now: requestedAt,
     });
     const approved = await handleOwnerApproveShortNotice(
       new Request("https://example.test/owner/short-notice/approve", {

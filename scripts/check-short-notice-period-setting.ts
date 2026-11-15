@@ -113,7 +113,8 @@ async function main() {
     assert.equal(normalizeMinimumBookingNoticeHours(6.5), 12);
     const settings = normalizeBookingSettings({ unavailablePeriods: [] });
     assert.equal(settings.minimumBookingNoticeHours, 12);
-    assert.match(minimumNoticeRequestBody(), /12-hour advance booking period/);
+    // Customers are never told the notice period (24/7 approval policy).
+    assert.doesNotMatch(minimumNoticeRequestBody(), /\d+-hour/);
   });
 
   check("Owner input validates 1–48 whole hours", () => {
@@ -174,12 +175,13 @@ async function main() {
     assert.equal(normal.underMinimumNotice, false);
   });
 
-  check("Customer wording displays 6 hours", () => {
-    assert.match(minimumNoticeRequestBody(6), /6-hour advance booking period/);
-    assert.doesNotMatch(minimumNoticeRequestBody(6), /12-hour advance booking period/);
-    assert.match(shortNoticeCheckoutSummary(6), /6-hour booking period/);
-    assert.match(shortNoticeCheckoutSummary(12), /12-hour booking period/);
-    assert.doesNotMatch(shortNoticeCheckoutSummary(6), /12-hour/);
+  check("Customer wording never reveals the notice period", () => {
+    for (const hours of [6, 12]) {
+      assert.match(minimumNoticeRequestBody(hours), /received successfully/);
+      assert.doesNotMatch(minimumNoticeRequestBody(hours), /\d+-hour/);
+      assert.match(shortNoticeCheckoutSummary(hours), /confirm your booking shortly/);
+      assert.doesNotMatch(shortNoticeCheckoutSummary(hours), /\d+-hour/);
+    }
     const email = buildShortNoticeRequestReceivedEmail({
       customerName: "Jill Example",
       customerEmail: "jill@example.com",
@@ -191,8 +193,8 @@ async function main() {
       reference: "MATNI-SN-6",
       noticeHours: 6,
     });
-    assert.match(email.text, /6-hour advance booking period/);
-    assert.doesNotMatch(email.text, /12-hour advance booking period/);
+    assert.match(email.text, /awaiting confirmation/);
+    assert.doesNotMatch(email.text, /\d+-hour/);
   });
 
   check("Smart Availability precedence uses the configured value", () => {
@@ -337,7 +339,8 @@ async function main() {
     assert.match(handlers, /set-notice-hours/);
     assert.match(handlers, /handlePublicGetBookingNotice/);
     assert.match(card, /noticeHours=\{minimumBookingNoticeHours\}/);
-    assert.match(saved, /noticeHours=\{minimumBookingNoticeHours\}/);
+    // The saved-quote page has no checkout of its own; it hands over to the booking page.
+    assert.match(saved, /heldPrice\.bookingUrl/);
     assert.match(bookQuote, /noticeHours=\{minimumBookingNoticeHours\}/);
     assert.match(read("src/components/ShortNoticeCheckoutNotice.tsx"), /shortNoticeCheckoutSummary/);
     assert.match(received, /minimumNoticeRequestBody\(noticeHours\)/);
