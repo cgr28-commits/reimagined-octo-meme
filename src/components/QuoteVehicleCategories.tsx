@@ -47,6 +47,8 @@ const DESKTOP_DESCRIPTIONS: Record<string, string> = {
   executive: "Send a request and we’ll confirm a price by email",
   minibus: "For families and groups travelling together",
 };
+/** Business Class with an instant price (owner switched it on, 15 Nov 2026). */
+const EXECUTIVE_INSTANT_DESCRIPTION = "Premium executive vehicle";
 
 const CATEGORIES = [
   {
@@ -269,7 +271,9 @@ export default function QuoteVehicleCategories({
                       </span>
                     )}
                     <span className="hidden" data-vehicle-desktop-desc>
-                      {DESKTOP_DESCRIPTIONS[option.id]}
+                      {option.id === "executive" && !requestQuoteVehicles.includes(option.vehicle)
+                        ? EXECUTIVE_INSTANT_DESCRIPTION
+                        : DESKTOP_DESCRIPTIONS[option.id]}
                     </span>
                   </span>
                   {fits && requestQuoteVehicles.includes(option.vehicle) ? (
