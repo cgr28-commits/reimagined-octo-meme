@@ -9098,6 +9098,9 @@ function QuoteCard({
     return (
       <SeasonalBookingMessage
         tripDate={tripDate}
+        returnDate={returnJourney ? returnDate : undefined}
+        pickup={pickupAddress}
+        dropoff={dropoffAddress}
         needsApproval={isAvailabilityRequest}
         placement={placement}
       />

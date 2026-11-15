@@ -11,6 +11,7 @@ import {
   seasonalBookingMessage,
   SEASONAL_CLOSING,
 } from "../shared/seasonal-booking-message";
+import { demandIndicatorFor } from "../shared/demand-indicator";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -141,6 +142,36 @@ check("every message says airport, cruise or event and makes no false claims", (
     assert.match(message.body, /airport, cruise or event transfer/, iso);
     assert.doesNotMatch(`${message.heading} ${message.body} ${message.closing ?? ""}`, banned, iso);
   }
+});
+
+check("expected demand levels", () => {
+  const now = new Date("2026-11-15T12:00:00Z");
+  const level = (tripDate: string, extra: Record<string, string> = {}) => demandIndicatorFor({ tripDate, ...extra }, now)?.level;
+  assert.equal(level("2026-12-20"), "very-high");
+  assert.equal(level("2026-12-25"), "very-high");
+  assert.equal(level("2027-01-02"), "very-high");
+  assert.equal(level("2027-03-26"), "high"); // Easter
+  assert.equal(level("2027-05-03"), "high"); // bank holiday
+  assert.equal(level("2027-07-20"), "high"); // summer
+  assert.equal(level("2026-11-17"), "soon"); // 2 days away
+  assert.equal(level("2026-11-18"), "soon"); // 3 days away
+  assert.equal(level("2026-11-19"), "normal");
+  assert.equal(level("2027-02-10"), "normal");
+  // Big event, Greater Belfast drop-off: very high even on an ordinary date.
+  assert.equal(level("2027-05-22", { pickup: "Dublin", dropoff: "City Hall, Belfast BT1 5GS" }), "very-high");
+  assert.equal(level("2027-05-22", { pickup: "Belfast", dropoff: "Derry BT48" }), "normal");
+  // Bar sizes, labels, and never "booked" wording.
+  const xmas = demandIndicatorFor({ tripDate: "2026-12-20" }, now)!;
+  assert.equal(xmas.filledSegments, 4);
+  assert.equal(xmas.label, "Very high");
+  assert.equal(demandIndicatorFor({ tripDate: "2027-05-03" }, now)!.filledSegments, 3);
+  assert.equal(demandIndicatorFor({ tripDate: "2027-02-10" }, now)!.filledSegments, 0);
+  for (const d of ["2026-12-20", "2027-05-03", "2026-11-17", "2027-02-10", "2027-05-22"]) {
+    const ind = demandIndicatorFor({ tripDate: d, dropoff: "Belfast BT1" }, now)!;
+    assert.doesNotMatch(`${ind.label ?? ""} ${ind.body}`, /\bbooked\b|%|only \d|last (few|seats|cars)/i, d);
+  }
+  assert.match(demandIndicatorFor({ tripDate: "2026-11-17", needsApproval: true }, now)!.body, /confirm/);
+  assert.equal(demandIndicatorFor({ tripDate: "" }, now), null);
 });
 
 console.log(`\n${passed} checks passed`);
