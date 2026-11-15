@@ -9093,6 +9093,7 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
+        desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />}
       />
       </>
     );
