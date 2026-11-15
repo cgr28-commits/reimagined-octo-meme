@@ -128,8 +128,11 @@ ok("placeholders are labelled as placeholders, never as licensed", () => {
 console.log("=== Launch switch ===");
 ok("page 404s and nav/sitemap stay off unless NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1", () => {
   assert.ok(pageSource.includes("if (!BESPOKE_PUBLIC_PAGES_ENABLED) notFound();"));
+  const nav = readFileSync(join(root, "src/lib/public-nav.ts"), "utf8");
+  assert.ok(nav.includes("BESPOKE_PUBLIC_PAGES_ENABLED"));
+  // The Worker imports src/lib/data.ts: it must never read process.env.
   const data = readFileSync(join(root, "src/lib/data.ts"), "utf8");
-  assert.ok(/businessClassPage: process\.env\.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1"/.test(data));
+  assert.ok(!/process\.env/.test(data), "src/lib/data.ts must not use process.env (breaks the Worker)");
   const sitemap = readFileSync(join(root, "scripts/generate-sitemap.mjs"), "utf8");
   const gated = sitemap.slice(sitemap.indexOf("...(BESPOKE_PUBLIC_PAGES_ENABLED"));
   assert.ok(gated.indexOf('"/business-class/"') > 0 && gated.indexOf('"/business-class/"') < gated.indexOf(": []"));

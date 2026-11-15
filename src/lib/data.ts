@@ -85,12 +85,6 @@ export const SITE_OFFLINE_ALLOWLIST = [
  */
 export const SERVICE_FLAGS = {
   dayTrips: true,
-  /**
-   * Business Class & Executive Transfers page (/business-class/). Follows the same
-   * build switch as the manual-quote request pages (src/lib/bespoke-public.ts), so the
-   * nav link only appears when the page and its enquiry form are switched on.
-   */
-  businessClassPage: process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1",
   chauffeur: false,
   /** Address-to-address quoting UI — code retained in QuoteCard. */
   addressToAddress: true,
@@ -117,7 +111,6 @@ export type ServiceFlagKey = keyof typeof SERVICE_FLAGS;
 
 export const ALL_NAV_LINKS = [
   { label: "Airports", href: "/airports/", service: null },
-  { label: "Business Class", href: "/business-class/", service: "businessClassPage" as const },
   { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
   { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
   { label: "Train Station", href: "/belfast-grand-central-station-taxi/", service: null },
