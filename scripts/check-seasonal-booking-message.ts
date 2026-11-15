@@ -159,7 +159,16 @@ check("expected demand levels", () => {
   assert.equal(level("2027-02-10"), "normal");
   // Big event, Greater Belfast drop-off: very high even on an ordinary date.
   assert.equal(level("2027-05-22", { pickup: "Dublin", dropoff: "City Hall, Belfast BT1 5GS" }), "very-high");
-  assert.equal(level("2027-05-22", { pickup: "Belfast", dropoff: "Derry BT48" }), "normal");
+  // Pickups in the city count too (owner, 15 Nov 2026); airports and other towns don't.
+  assert.equal(level("2027-05-22", { pickup: "City Hall, Belfast BT1 5GS", dropoff: "Derry BT48" }), "very-high");
+  assert.equal(level("2027-05-22", { pickup: "Belfast International Airport", dropoff: "Derry BT48" }), "normal");
+  assert.equal(level("2027-05-22", { pickup: "Newry BT34", dropoff: "Derry BT48" }), "normal");
+  // Events added 15 Nov 2026.
+  assert.equal(level("2027-03-17", { pickup: "Newry", dropoff: "Grafton St, Dublin 2, D02 X285" }), "very-high");
+  assert.equal(level("2027-07-25", { pickup: "Newry", dropoff: "Croke Park, Dublin 3" }), "very-high");
+  assert.equal(level("2027-10-24", { pickup: "Newry", dropoff: "Dublin, Ireland" }), "very-high");
+  assert.equal(level("2027-05-02", { pickup: "Lisburn", dropoff: "Ormeau Rd, Belfast BT7" }), "very-high");
+  assert.equal(level("2027-04-23", { pickup: "Lisburn", dropoff: "Malone Rd, Belfast BT9" }), "very-high");
   // Bar sizes, labels, and never "booked" wording.
   const xmas = demandIndicatorFor({ tripDate: "2026-12-20" }, now)!;
   assert.equal(xmas.filledSegments, 4);
