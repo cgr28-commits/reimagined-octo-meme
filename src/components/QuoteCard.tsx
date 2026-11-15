@@ -8973,6 +8973,10 @@ function QuoteCard({
    * Request-only vehicles never get a price here.
    */
   function desktopVehiclePriceLabels(): Partial<Record<string, string>> {
+    const airportAccessFreeForAllVehicles =
+      !(airportAccessQuote.airportAccessChargeGbp > 0) &&
+      !((airportAccessQuote.outboundAirportAccessChargeGbp ?? 0) > 0) &&
+      !((airportAccessQuote.returnAirportAccessChargeGbp ?? 0) > 0);
     if (presentation !== "homepage" || quoteStep !== 1 || passengers == null || suitcases == null) return {};
     const labels: Partial<Record<string, string>> = {};
     const requestOnly = (vehicleType: string) => publicVehicleRequiresPersonalQuote(vehicleType, publicPricing);
@@ -8992,7 +8996,9 @@ function QuoteCard({
       !openWebsiteFareBreakdown ||
       testChargeAmount != null ||
       bookingMeetGreetCharge !== 0 ||
-      isExecutiveVehicle(quoteVehicle) ||
+      // Business Class includes Meet & Greet, which changes the airport access charge.
+      // Its price sits beside the others only while that charge is nil (owner, 15 Nov 2026).
+      (isExecutiveVehicle(quoteVehicle) && !airportAccessFreeForAllVehicles) ||
       transferPaymentAmount == null
     ) {
       return labels;
@@ -9028,7 +9034,8 @@ function QuoteCard({
       publicMinibusEnabled,
       publicExecutiveEnabled,
     })) {
-      if (vehicleType === quoteVehicle || requestOnly(vehicleType) || isExecutiveVehicle(vehicleType)) continue;
+      if (vehicleType === quoteVehicle || requestOnly(vehicleType)) continue;
+      if (isExecutiveVehicle(vehicleType) && !airportAccessFreeForAllVehicles) continue;
       const total = totalFor(vehicleType);
       if (total != null) labels[vehicleType] = formatQuote(total);
     }
