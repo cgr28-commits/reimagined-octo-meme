@@ -12,6 +12,11 @@ import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
 import { handleOwnerPushRequest } from "./owner-push";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
+import {
+  loadJobForOwnerRequestToken,
+  ownerRequestPreview,
+  ownerRequestPriceUrl,
+} from "./owner-request-link";
 import { supersedeEarlierCheckouts } from "./supersede-checkout";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
@@ -1161,11 +1166,15 @@ async function sendBookingEmail(
   message: string,
   bookingReference: string | null,
   attribution?: unknown,
+  priceUrl?: string | null,
 ): Promise<void> {
   const toEmail = ownerInbox(env);
+  const priceBlock = priceUrl
+    ? `SEND A PRICE\nTap to see this request, type your fare and send it to the customer with a card payment link:\n${priceUrl}\n\n`
+    : "";
   const referencedBody = bookingReference
-    ? `Request reference: ${bookingReference}\n\n${message}`
-    : message;
+    ? `${priceBlock}Request reference: ${bookingReference}\n\n${message}`
+    : `${priceBlock}${message}`;
   const attributionLines = formatAdsAttributionForOwner(attribution);
   const body = attributionLines.length > 0
     ? `${referencedBody}\n\nATTRIBUTION\n${"=".repeat(40)}\n${attributionLines.join("\n")}`
@@ -1839,6 +1848,7 @@ async function handleBookingRequest(
 
   // Calendar is created only after the owner marks the booking as paid.
   let bookingJobId: string | undefined;
+  let bookingJobTripDate = "";
   let bookingSaved = false;
   if (
     bookingReference &&
@@ -1862,6 +1872,7 @@ async function handleBookingRequest(
         message,
       });
       bookingJobId = job?.id;
+      bookingJobTripDate = job?.tripDate ?? "";
       bookingSaved = Boolean(job?.id);
     } catch (error) {
       console.error("Failed to create booking job", error);
@@ -1896,12 +1907,16 @@ async function handleBookingRequest(
   let emailSent = false;
   if (shouldSendEmail) {
     try {
+      const priceUrl = bookingJobId
+        ? await ownerRequestPriceUrl(env, { id: bookingJobId, tripDate: bookingJobTripDate }).catch(() => null)
+        : null;
       await sendBookingEmail(
         env,
         customerName,
         message,
         bookingReference,
         body.booking?.attribution,
+        priceUrl,
       );
       emailSent = true;
     } catch (error) {
@@ -5931,6 +5946,44 @@ export default {
       );
       if ("error" in result) return json({ error: result.error }, result.status, origin);
       return json(result, 200, origin);
+    }
+
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/owner/request-link/preview" ||
+        url.pathname === "/api/owner/request-link/preview" ||
+        url.pathname === "/owner/request-link/send-quote" ||
+        url.pathname === "/api/owner/request-link/send-quote")
+    ) {
+      // "Send a price" link from the owner's New request email (signed, one booking only).
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const loaded = await loadJobForOwnerRequestToken(env, String(body.token ?? ""));
+      if (!loaded.ok) return json({ error: loaded.error }, loaded.status, origin);
+      if (url.pathname.endsWith("/preview")) {
+        return json(ownerRequestPreview(loaded.job), 200, origin);
+      }
+      const result = await handleBookingJobSendQuote(
+        internalOwnerRequest(env),
+        { ...env, TRACKING_STORE: env.TRACKING_STORE! },
+        { id: loaded.job.id, quotedPrice: body.quotedPrice, validityMinutes: body.validityMinutes },
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(
+        {
+          ok: true,
+          job: ownerRequestPreview(result.job),
+          payUrl: result.payUrl,
+          paymentEmailSent: result.paymentEmailSent,
+          ...(result.paymentEmailError ? { paymentEmailError: result.paymentEmailError } : {}),
+        },
+        200,
+        origin,
+      );
     }
 
     if (
