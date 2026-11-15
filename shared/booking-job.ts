@@ -133,6 +133,36 @@ export function driverDisplayFirstName(fullName: string | undefined | null): str
   return trimmed.split(/\s+/)[0] ?? "";
 }
 
+/**
+ * The driver email must describe the leg being assigned. A return booking has
+ * one booking job (outbound details) but a tracking job per leg, so take the
+ * pickup, drop-off, date, time and flight from the assigned leg.
+ */
+export function driverEmailJobForLeg(
+  job: BookingJobRecord,
+  leg: {
+    journeyLeg?: "outbound" | "return";
+    pickupLabel?: string;
+    dropoffLabel?: string;
+    tripDate?: string;
+    tripTime?: string;
+  },
+): BookingJobRecord {
+  const isReturn = leg.journeyLeg === "return";
+  return {
+    ...job,
+    pickupLabel: leg.pickupLabel?.trim() || (isReturn ? job.dropoffLabel : job.pickupLabel),
+    dropoffLabel: leg.dropoffLabel?.trim() || (isReturn ? job.pickupLabel : job.dropoffLabel),
+    tripDate: leg.tripDate?.trim() || (isReturn ? job.returnDate || job.tripDate : job.tripDate),
+    tripTime: leg.tripTime?.trim() || (isReturn ? job.returnTime || job.tripTime : job.tripTime),
+    flightNumber: isReturn ? job.returnFlightNumber || undefined : job.flightNumber,
+    // One leg per email: never append the other leg's return line.
+    returnJourney: false,
+    returnDate: undefined,
+    returnTime: undefined,
+  };
+}
+
 export function buildDriverAssignmentEmail(options: {
   job: BookingJobRecord;
   acceptUrl: string;
