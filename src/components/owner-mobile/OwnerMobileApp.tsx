@@ -359,10 +359,10 @@ export default function OwnerMobileApp({
 
   const openLeg = (leg: OwnerOpsLeg) => setView({ kind: "booking", ref: leg.bookingId, leg: leg.leg });
 
-  const copy = async (text: string) => {
+  const copy = async (text: string, copiedMessage = "Copied") => {
     try {
       await navigator.clipboard.writeText(text);
-      setToast("Copied");
+      setToast(copiedMessage);
     } catch {
       setToast("Couldn't copy on this device");
     }
@@ -1018,7 +1018,7 @@ function BookingDetail({
   threads: InboxListResponse["threads"];
   chats: MobileWhatsAppChat[];
   onBack: () => void;
-  onCopy: (text: string) => void;
+  onCopy: (text: string, copiedMessage?: string) => void;
   onOpenMessage: (item: Pick<MobileMessageItem, "channel" | "threadKey" | "phone">) => void;
   onFullControls: (date: string) => void;
 }) {
@@ -1148,6 +1148,21 @@ function BookingDetail({
           <Fact label="Vehicle" value={booking.vehicle || "—"} />
           <Fact label="Driver" value={driver || "Not assigned"} />
         </section>
+
+        {flight ? (
+          <button
+            type="button"
+            data-track-flight
+            className={styles.secondaryButton}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minHeight: 48, fontSize: 15 }}
+            onClick={() =>
+              onCopy(flight.replace(/\s+/g, ""), `${flight.replace(/\s+/g, "")} copied – paste it into Flighty's search`)
+            }
+          >
+            <PlaneIcon size={16} />
+            Track flight in Flighty – copy {flight.replace(/\s+/g, "")}
+          </button>
+        ) : null}
 
         {booking.notes?.trim() ? (
           <section aria-label="Notes" className={`${styles.card} ${styles.cardPad}`}>
