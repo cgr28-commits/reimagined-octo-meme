@@ -1,3 +1,4 @@
+import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 /**
  * Owner-only paid booking edit + automatic updated confirmation email.
  * Confirmation content always comes from the canonical PaidBookingRecord.
@@ -522,10 +523,11 @@ export async function handlePaidBookingEditRequest(
       const serviceAccount = parseServiceAccountJson(env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!);
       const accessToken = await getGoogleAccessToken(serviceAccount);
       const startDateTime = `${updated.tripDate}T${updated.tripTime}`;
+      const legIds = calendarEventIdsForEdit(updated);
       const result = await rescheduleCalendarEvents(
         accessToken,
         env.GOOGLE_CALENDAR_ID!.trim(),
-        updated.calendarEventIds,
+        legIds.outbound,
         {
           startDateTime,
           endDateTime: transferEventEndDateTime(startDateTime),
@@ -542,6 +544,36 @@ export async function handlePaidBookingEditRequest(
       );
       if (result.errors.length > 0) {
         warnings.push(...result.errors.map((message) => `Calendar: ${message}`));
+      }
+
+      // Return leg keeps its own slot; only move it when the return date/time changed.
+      const returnChanged =
+        existing.returnDate !== updated.returnDate || existing.returnTime !== updated.returnTime;
+      if (
+        legIds.return &&
+        updated.returnJourney &&
+        returnChanged &&
+        updated.returnDate &&
+        updated.returnTime
+      ) {
+        const returnStart = `${updated.returnDate}T${updated.returnTime}`;
+        const returnResult = await rescheduleCalendarEvents(
+          accessToken,
+          env.GOOGLE_CALENDAR_ID!.trim(),
+          [legIds.return],
+          {
+            startDateTime: returnStart,
+            endDateTime: transferEventEndDateTime(returnStart),
+            location: updated.dropoffLabel,
+            updateNote:
+              `Return updated via owner dashboard at ${changedAt}\n` +
+              `Payment reference preserved: ${updated.paymentReference}\n` +
+              `Was: ${existing.returnDate ?? "—"} ${existing.returnTime ?? ""}\nNow: ${updated.returnDate} ${updated.returnTime}\n`,
+          },
+        );
+        if (returnResult.errors.length > 0) {
+          warnings.push(...returnResult.errors.map((message) => `Calendar: ${message}`));
+        }
       }
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : "Calendar update failed");

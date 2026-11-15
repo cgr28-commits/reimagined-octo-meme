@@ -1,3 +1,4 @@
+import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 import { cardPaymentsConfigured, createHostedCheckout, hostedCheckoutStillOpen } from "./payment-provider";
 /**
  * SumUp top-up payments for higher-fare customer schedule amendments.
@@ -577,7 +578,7 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       await rescheduleCalendarEvents(
         accessToken,
         input.env.GOOGLE_CALENDAR_ID.trim(),
-        updated.calendarEventIds,
+        calendarEventIdsForEdit(updated).outbound,
         {
           startDateTime,
           endDateTime: transferEventEndDateTime(startDateTime),

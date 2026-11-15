@@ -1,3 +1,4 @@
+import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 /**
  * Customer self-service booking amendments for paid bookings.
  * Server-side 24h gate (Europe/London). Fare-sensitive changes always reprice
@@ -1064,7 +1065,7 @@ export async function handleCustomerAmendSchedule(
       const result = await rescheduleCalendarEvents(
         accessToken,
         env.GOOGLE_CALENDAR_ID!.trim(),
-        updated.calendarEventIds,
+        calendarEventIdsForEdit(updated).outbound,
         {
           startDateTime,
           endDateTime: transferEventEndDateTime(startDateTime),
