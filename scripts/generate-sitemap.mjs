@@ -291,6 +291,7 @@ const pages = [
     ? [
         { path: "/events/transfer-request/", source: "src/app/events/transfer-request/page.tsx" },
         { path: "/business-class-request/", source: "src/app/business-class-request/page.tsx" },
+        { path: "/business-class/", source: "src/app/business-class/page.tsx" },
       ]
     : []),
   // /driver/, /owner/, /track/demo/, /test-booking/ intentionally omitted from public sitemap

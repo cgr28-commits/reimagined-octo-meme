@@ -38,13 +38,24 @@ const CREDITS: Credit[] = [
   },
   {
     subject: "Dublin Airport Terminal 2",
-    usedOn: "Dublin Airport pages",
+    usedOn: "Dublin Airport pages and the Business Class page",
     title: "Dublin Airport Terminal 2 - 2024-05-18",
     author: "瑞丽江的河水 (Wikimedia Commons user)",
     source: "https://commons.wikimedia.org/wiki/File:Dublin_Airport_Terminal_2_-_2024-05-18.jpg",
     licence: "CC BY-SA 4.0",
     licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
     changes: "Cropped, resized and re-encoded. The adapted image is shared under the same licence.",
+  },
+  {
+    subject: "Titanic Belfast",
+    usedOn: "Belfast landing pages and the Business Class page",
+    title: "Building of Titanic Belfast - Belfast - Northern Ireland - UK (43588878982)",
+    author: "Juan Antonio Segal",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Building_of_Titanic_Belfast_-_Belfast_-_Northern_Ireland_-_UK_(43588878982).jpg",
+    licence: "CC BY 2.0",
+    licenceUrl: "https://creativecommons.org/licenses/by/2.0/",
+    changes: "Cropped, resized, colour-graded and re-encoded.",
   },
   {
     subject: "Belfast Grand Central Station",
