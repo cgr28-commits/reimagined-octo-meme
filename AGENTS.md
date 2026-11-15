@@ -73,8 +73,9 @@ bookings/addresses/tracking against your own backend.
 When changing Fonio prompt copy, spoken `say` strings, or related docs
 (`docs/fonio-receptionist-prompt.md`, `docs/fonio-tool-config.md`, `/voice/*`):
 
-- Use the full business name **My Airport Taxi NI once** in the opening greeting only
-  (e.g. “Good morning, My Airport Taxi NI. How can we help?”).
+- Use the business name **once** in the opening greeting only, spoken as **My Airport Taxi**
+  (e.g. “Good morning, My Airport Taxi. How can we help?”). Never say “NI” out loud — callers
+  hear it as “AI” (owner decision, 15 Nov 2026). Written SMS/WhatsApp/email keep “My Airport Taxi NI”.
 - After the greeting, speak as **we / us / our**. Do not repeat the full name when asking
   questions, quoting, confirming, sending links or ending calls.
 - Only repeat the full name if the caller asks who they are speaking to, or clarification is

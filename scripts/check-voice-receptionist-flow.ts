@@ -203,7 +203,7 @@ async function main() {
 
   // 8) Correction / interruption / AI-honesty are prompt behaviours (documented).
   assert.match(prompt, /interruptions and corrections/i);
-  assert.match(prompt, /automated phone receptionist/);
+  assert.match(prompt, /automated receptionist/);
   console.log("check-voice-receptionist-flow: OK");
 }
 

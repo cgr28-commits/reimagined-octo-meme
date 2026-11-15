@@ -2,8 +2,9 @@
  * Dropped phone calls → one WhatsApp follow-up with a link to the quote tool.
  *
  * fonio runs an "After the conversation" HTTP request to POST /voice/call-ended with the
- * caller's number and what the AI extracted from the call. We queue a follow-up only when:
- *   - the caller agreed on the call to a WhatsApp if they got cut off (followUpConsent = yes)
+ * caller's number and what the AI extracted from the call. We queue a follow-up when:
+ *   - (owner, 15 Nov 2026: no longer needs the caller to agree on the call — anyone who rang
+ *     and hung up without a link gets one, to the mobile they called from)
  *   - they did NOT already get a booking link (our own send-link marker, or the call says so)
  *   - it was a new enquiry, not about an existing booking or a complaint
  *   - the number is a UK mobile, and we haven't followed it up today
@@ -119,7 +120,6 @@ export async function handleVoiceCallEnded(request: Request, env: Env, now = new
     ]
       .map((key) => ukMobileForFollowUp(pick(input, [key])))
       .find(Boolean) ?? "";
-  const consent = truthy(pick(input, ["followUpConsent", "followup_consent", "follow_up_consent", "consent"]));
   const linkSentOnCall = truthy(pick(input, ["bookingLinkSent", "booking_link_sent", "link_sent"]));
   const existingBooking = truthy(pick(input, ["existingBooking", "existing_booking", "about_existing_booking"]));
   const name = pick(input, ["name", "callerName", "caller_name", "firstName"]).slice(0, 40);
@@ -141,7 +141,6 @@ export async function handleVoiceCallEnded(request: Request, env: Env, now = new
   };
 
   if (!mobile) await skip("not a UK mobile");
-  else if (!consent) await skip("no consent");
   else if (linkSentOnCall || existingBooking) await skip(linkSentOnCall ? "link sent on call" : "existing booking");
   else if (await store.get(`${LINK_SENT_PREFIX}${mobile}`)) await skip("link sent on call");
   else {
@@ -152,7 +151,8 @@ export async function handleVoiceCallEnded(request: Request, env: Env, now = new
     } else {
       queue.push({
         mobile,
-        name,
+        // "Hi there": a name caught on a short call is often misheard (15 Nov 2026).
+        name: "",
         enquiry,
         createdAt: now.toISOString(),
         dueAt: new Date(t + DELAY_MS).toISOString(),

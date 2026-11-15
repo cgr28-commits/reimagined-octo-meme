@@ -1,4 +1,4 @@
-/** Dropped phone calls: one WhatsApp follow-up with the quote tool link, only with consent. */
+/** Dropped phone calls: one WhatsApp follow-up with the quote tool link to the caller's mobile (no consent question since 15 Nov 2026). */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
@@ -45,18 +45,16 @@ async function main() {
   const env = { TRACKING_STORE: store as unknown as KVNamespace, D360_API_KEY: "k" };
   const t0 = new Date("2026-11-04T13:41:00Z");
 
-  // No consent → nothing queued.
-  let r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", followUpConsent: "no" }), env, t0)).json();
-  assert.equal(r.queued, false);
   // Existing-booking call → nothing.
+  let r: { queued: boolean; reason?: string };
   r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", followUpConsent: "yes", existingBooking: "yes" }), env, t0)).json();
   assert.equal(r.queued, false);
   // Landline → nothing.
   r = await (await handleVoiceCallEnded(call({ fromNumber: "02890000000", followUpConsent: "yes" }), env, t0)).json();
   assert.equal(r.queued, false);
 
-  // Consent, dropped before a link (fonio may wrap variables) → queued once.
-  r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", variables: { followup_consent: "Yes", name: "Marta Kowalska", pickup: "Dublin Airport, Co. Dublin", destination: "West Belfast" } }), env, t0)).json();
+  // Owner 15 Nov 2026: hung up before a link → queued once, even without agreeing on the call.
+  r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", variables: { followup_consent: "no", name: "Marta Kowalska", pickup: "Dublin Airport, Co. Dublin", destination: "West Belfast" } }), env, t0)).json();
   assert.equal(r.queued, true);
   r = await (await handleVoiceCallEnded(call({ fromNumber: "07700900123", followUpConsent: "yes" }), env, t0)).json();
   assert.equal(r.queued, false, "one follow-up per number per day");
@@ -85,7 +83,7 @@ async function main() {
   const msg = sent[0] as { to: string; template: { name: string; components: Array<{ parameters: Array<{ text: string }> }> } };
   assert.equal(msg.to, "447700900123");
   assert.equal(msg.template.name, "mat_call_followup");
-  assert.deepEqual(msg.template.components[0].parameters.map((x) => x.text), ["Marta", "a taxi from Dublin Airport to West Belfast"]);
+  assert.deepEqual(msg.template.components[0].parameters.map((x) => x.text), ["there", "a taxi from Dublin Airport to West Belfast"]);
   p = await processVoiceFollowUps(env, new Date(t0.getTime() + 20 * 60 * 1000));
   assert.equal(p.sent, 0, "never twice");
 
