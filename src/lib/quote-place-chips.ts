@@ -1,9 +1,9 @@
 import type { SelectedPlace } from "@/lib/selected-place";
 
 /**
- * One-tap place chips under a route page's quote tool (owner, 15 Nov 2026: only fixed
- * travel hubs such as cruise ports, never hotels or streets). Each chip fills the
- * non-airport box with an exact, already-confirmed place so the price works straight away.
+ * One-tap port chips under the cruise page quote tool (owner, 15 Nov 2026: cruise pages
+ * only, port chips only). Each chip fills an
+ * empty box with an exact, already-confirmed place so the price works straight away.
  */
 export type PlaceChipId = "belfast-cruise-terminal";
 

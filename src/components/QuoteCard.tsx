@@ -3781,14 +3781,20 @@ function QuoteCard({
   }
 
   /**
-   * Route-page place chip (e.g. Belfast Cruise Terminal): fills the box that is not the
-   * airport, exactly as if the place had been picked from the suggestions.
+   * Cruise-page port chip (Belfast Cruise Terminal): fills the empty box (pickup first),
+   * exactly as if the place had been picked from the suggestions.
    */
   function applyPlaceChip(place: SelectedPlace) {
     if (returnOfferToken) return;
     setHomepagePriceRequested(false);
-    const pickupIsAirport = isQuoteReadyPlace(pickupPlace) && Boolean(detectAirportCodeFromPlace(pickupPlace));
-    if (pickupIsAirport) {
+    const pickupReady = isQuoteReadyPlace(pickupPlace);
+    const dropoffReady = isQuoteReadyPlace(dropoffPlace);
+    if (pickupPlace.placeId === place.placeId || dropoffPlace.placeId === place.placeId) return;
+    if (!pickupReady) {
+      handlePickupPlacesSuggestionSelect(place);
+    } else if (!dropoffReady) {
+      handleDropoffPlacesSuggestionSelect(place);
+    } else if (detectAirportCodeFromPlace(pickupPlace)) {
       handleDropoffPlacesSuggestionSelect(place);
     } else {
       handlePickupPlacesSuggestionSelect(place);

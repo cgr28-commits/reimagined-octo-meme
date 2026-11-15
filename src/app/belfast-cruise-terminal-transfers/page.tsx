@@ -1,3 +1,4 @@
+import { getPlaceChips } from "@/lib/quote-place-chips";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Footer from "@/components/Footer";
@@ -71,6 +72,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
         <HeroSlideshow
           heading={CRUISE_TERMINAL_H1}
           intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal — airports, hotels and onward journeys."
+          placeChips={getPlaceChips(["belfast-cruise-terminal"])}
           journey={{
             bookingIntroduction:
               "Enter Belfast Cruise Terminal as your pickup or destination to see your fixed price.",
