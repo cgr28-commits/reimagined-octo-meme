@@ -1,3 +1,4 @@
+import { removeFlightyFlightEvents, resyncFlightyFlightEvents } from "./flighty-calendar";
 import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 import { cardPaymentsConfigured, createHostedCheckout, hostedCheckoutStillOpen } from "./payment-provider";
 /**
@@ -593,6 +594,8 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       // Calendar failure must not undo payment/commit.
     }
   }
+
+  await resyncFlightyFlightEvents(input.env, updated);
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
     env: input.env,

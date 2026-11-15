@@ -1,3 +1,4 @@
+import { removeFlightyFlightEvents, resyncFlightyFlightEvents } from "./flighty-calendar";
 import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 /**
  * Customer self-service booking amendments for paid bookings.
@@ -1084,6 +1085,9 @@ export async function handleCustomerAmendSchedule(
       warnings.push(error instanceof Error ? error.message : "Calendar update failed");
     }
   }
+
+  const flighty = await resyncFlightyFlightEvents(env, updated);
+  if (flighty.error) warnings.push(`Flight entry: ${flighty.error}`);
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
     env: env as Env & { TRACKING_STORE: KVNamespace },

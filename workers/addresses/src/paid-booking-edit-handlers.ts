@@ -1,3 +1,4 @@
+import { removeFlightyFlightEvents, resyncFlightyFlightEvents } from "./flighty-calendar";
 import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 /**
  * Owner-only paid booking edit + automatic updated confirmation email.
@@ -579,6 +580,10 @@ export async function handlePaidBookingEditRequest(
       warnings.push(error instanceof Error ? error.message : "Calendar update failed");
     }
   }
+
+  // Keep Flighty flight entries in step with the edited dates / flight numbers.
+  const flighty = await resyncFlightyFlightEvents(env, updated);
+  if (flighty.error) warnings.push(`Flight entry: ${flighty.error}`);
 
   const afterSnap = snapshotJourney(updated);
   const whatChanged = summarizeAmendmentChanges(beforeSnap, afterSnap);
