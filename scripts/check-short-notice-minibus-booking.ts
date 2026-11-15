@@ -72,9 +72,12 @@ check("1–3. Saloon/Estate/Minibus are instant-pay vehicle types", () => {
 });
 
 check("4–6. Existing pricing formulas produce distinct fares (no invented Minibus rates)", () => {
-  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, belfastBfsMetrics);
-  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE, false, {}, belfastBfsMetrics);
-  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, belfastBfsMetrics);
+  // 25 miles: above the £45 Belfast International Saloon/Estate minimum, which the
+  // 7-seater does not use, so Minibus = Estate × multiplier exactly.
+  const metrics = { distanceKm: 25 / 0.621371, durationMinutes: 40 };
+  const saloon = calculateQuote(belfast, "BFS", SALOON_VEHICLE, false, {}, metrics);
+  const estate = calculateQuote(belfast, "BFS", ESTATE_VEHICLE, false, {}, metrics);
+  const minibus = calculateQuote(belfast, "BFS", MINIBUS_VEHICLE, false, {}, metrics);
   assert.ok(saloon && estate && minibus);
   assert.ok(estate!.amount > saloon!.amount, "Estate > Saloon");
   const expectedMin = Math.round(estate!.amount * 1.55 * 100) / 100;
