@@ -312,7 +312,6 @@ import {
   AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
-import { universalDrivingMilesFromKm } from "../../shared/universal-distance-pricing";
 import { DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP } from "../../shared/business-class-minimum";
 import {
   RETURN_OFFER_CONFIG,
@@ -1159,16 +1158,15 @@ function QuoteCard({
     }
     return "";
   });
-  /** Business Class: Dublin Airport journeys, any journey over 40 miles, and golf transfers. */
-  const isDublinAirportJourney = IS_A2A_PRIMARY
-    ? detectAirportCodeFromPlace(pickupPlace) === "DUB" || detectAirportCodeFromPlace(dropoffPlace) === "DUB"
-    : airportCode === "DUB" || intentAirportCode === "DUB";
+  /**
+   * Business Class is offered on every journey (owner, 15 Nov 2026). Whether it shows an
+   * instant price or "request a quote" is decided by the distance rule (vehicleNeedsPersonalQuote):
+   * instant from 50 miles, request under 50. Previously it was hidden under 40 miles except
+   * Dublin Airport and golf routes; `businessClassAnyRoute` is kept for those pages' props.
+   */
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const isLongJourneyForBusinessClass =
-    routeMetrics != null && universalDrivingMilesFromKm(routeMetrics.distanceKm) > 40; // miles
-  const publicExecutiveEnabled =
-    publicExecutiveSettingEnabled &&
-    (businessClassAnyRoute || isDublinAirportJourney || isLongJourneyForBusinessClass);
+  void businessClassAnyRoute;
+  const publicExecutiveEnabled = publicExecutiveSettingEnabled;
   const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
