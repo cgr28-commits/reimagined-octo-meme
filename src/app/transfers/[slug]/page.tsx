@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getPlaceChips } from "@/lib/quote-place-chips";
 import { getLandingIdentity } from "@/lib/landing-identity";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -224,7 +225,11 @@ export default async function TransferRoutePage({ params }: Props) {
               : undefined
           }
           {...(identity
-            ? { heroBackground: identity.heroBackground, showRotatingCards: identity.showRotatingCards }
+            ? {
+                heroBackground: identity.heroBackground,
+                showRotatingCards: identity.showRotatingCards,
+                placeChips: getPlaceChips(identity.placeChips),
+              }
             : {})}
           journey={{
             airportCode: page.airport.code,

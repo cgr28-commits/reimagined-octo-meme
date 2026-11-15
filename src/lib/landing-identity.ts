@@ -1,3 +1,5 @@
+import type { PlaceChipId } from "@/lib/quote-place-chips";
+
 /**
  * Landing page identity (owner approved the prototype, 15 Nov 2026).
  * Per page: the hero background photo (laptops/tablets), whether the homepage's
@@ -15,6 +17,8 @@ export type LandingIdentity = {
   headingHighlight?: { toAirport: string; fromAirport?: string };
   /** Short, factual points for the premium summary card (only what the page already states). */
   keyFacts?: readonly string[];
+  /** One-tap place chips under the quote tool (cruise ports only, owner-approved). */
+  placeChips?: readonly PlaceChipId[];
 };
 
 const LANDING_IDENTITY: Record<string, LandingIdentity> = {
@@ -23,6 +27,7 @@ const LANDING_IDENTITY: Record<string, LandingIdentity> = {
     heroBackground: { baseName: "dublin-airport", widths: [960, 1920] },
     showRotatingCards: false,
     headingHighlight: { toAirport: "Dublin Airport", fromAirport: "Belfast" },
+    placeChips: ["belfast-cruise-terminal"],
     keyFacts: [
       "Around 2 hours, door to door",
       "Fixed price before you pay",
@@ -38,6 +43,7 @@ const LANDING_IDENTITY: Record<string, LandingIdentity> = {
     heroBackground: { baseName: "belfast-city", widths: [960, 1920] },
     showRotatingCards: false,
     headingHighlight: { toAirport: "Belfast", fromAirport: "Belfast" },
+    placeChips: ["belfast-cruise-terminal"],
     keyFacts: [
       "Met in Arrivals, T1 or T2",
       "Your flight tracked",

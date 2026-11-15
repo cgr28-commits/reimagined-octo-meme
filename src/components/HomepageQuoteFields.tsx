@@ -1,7 +1,8 @@
 "use client";
+import type { PlaceChip } from "@/lib/quote-place-chips";
 
 import { useState, type ReactNode } from "react";
-import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, type LucideIcon } from "lucide-react";
+import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, Ship, type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -68,6 +69,9 @@ type HomepageQuoteFieldsProps = {
   quickPicks?: boolean;
   /** Fills the empty address field with the chosen airport as an already-picked place. */
   onQuickPickAirport?: (code: QuickPickAirportCode) => void;
+  /** Route pages: one-tap place chips (cruise ports) that fill the non-airport box. */
+  placeChips?: PlaceChip[];
+  onPlaceChip?: (place: SelectedPlace) => void;
   /** Approved mobile Design 2: steppers, swap button, no journey type or schedule on this step. */
   design2?: boolean;
   homepagePolish?: boolean;
@@ -313,6 +317,8 @@ export default function HomepageQuoteFields({
   homepagePolish = false,
   quickPicks = false,
   onQuickPickAirport,
+  placeChips,
+  onPlaceChip,
   journeyMode,
   onJourneyModeChange,
   pickupAddress,
@@ -540,6 +546,23 @@ export default function HomepageQuoteFields({
       ) : null}
 
       {quickPicks && onQuickPickAirport ? <QuickPickChips placement="fields" onPick={onQuickPickAirport} /> : null}
+      {placeChips?.length && onPlaceChip ? (
+        <div role="group" aria-label="Quick pick a place" data-place-chips className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.06em] text-[#071c38]/70">Popular</span>
+          {placeChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              data-place-chip={chip.id}
+              onClick={() => onPlaceChip(chip.place)}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-[#071c38]/15 bg-white px-3 text-[13px] font-semibold text-[#071c38] hover:border-emerald hover:bg-emerald/10"
+            >
+              <Ship size={13} strokeWidth={2.4} className="text-emerald" aria-hidden="true" />
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {design3 ? (
         <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>

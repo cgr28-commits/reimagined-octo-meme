@@ -1,4 +1,5 @@
 "use client";
+import type { PlaceChip } from "@/lib/quote-place-chips";
 
 import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import CallUsButton from "@/components/CallUsButton";
@@ -736,6 +737,7 @@ type QuoteCardProps = {
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
+  placeChips?: PlaceChip[];
   bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
   initialAirportCode?: string;
@@ -847,6 +849,7 @@ function QuoteCard({
   restoredQuote,
   homepagePolish = false,
   homepageQuickPicks = false,
+  placeChips,
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
@@ -3774,6 +3777,21 @@ function QuoteCard({
       handlePickupPlacesSuggestionSelect(place);
     } else if (pickupPlace.placeId !== place.placeId) {
       handleDropoffPlacesSuggestionSelect(place);
+    }
+  }
+
+  /**
+   * Route-page place chip (e.g. Belfast Cruise Terminal): fills the box that is not the
+   * airport, exactly as if the place had been picked from the suggestions.
+   */
+  function applyPlaceChip(place: SelectedPlace) {
+    if (returnOfferToken) return;
+    setHomepagePriceRequested(false);
+    const pickupIsAirport = isQuoteReadyPlace(pickupPlace) && Boolean(detectAirportCodeFromPlace(pickupPlace));
+    if (pickupIsAirport) {
+      handleDropoffPlacesSuggestionSelect(place);
+    } else {
+      handlePickupPlacesSuggestionSelect(place);
     }
   }
 
@@ -9959,6 +9977,8 @@ function QuoteCard({
                 homepagePolish={homepagePolish}
                 quickPicks={homepageQuickPicks}
                 onQuickPickAirport={applyHomepageQuickPick}
+                placeChips={placeChips}
+                onPlaceChip={applyPlaceChip}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
                 onJourneyModeChange={(value) => {
