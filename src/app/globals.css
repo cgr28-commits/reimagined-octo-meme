@@ -9891,3 +9891,10 @@ html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-labe
 @media (max-width: 1199px) {
   html:root:root:root:root:root:root [data-more-journeys] { display: none !important; }
 }
+
+/* Big-event notice (Garth Brooks, May 2027): first item in the left results column on desktop. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-event-demand-notice] {
+    order: -1; grid-column: 1 !important; margin: 0 0 0.75rem !important;
+  }
+}
