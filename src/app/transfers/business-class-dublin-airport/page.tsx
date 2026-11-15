@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BESPOKE_PUBLIC_PAGES_ENABLED } from "@/lib/bespoke-public";
+import { BUSINESS_CLASS_PAGE_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -192,7 +192,7 @@ export default function BusinessClassDublinAirportPage() {
               </ol>
             </section>
 
-            {BESPOKE_PUBLIC_PAGES_ENABLED ? (
+            {BUSINESS_CLASS_PAGE_PUBLIC_ENABLED ? (
               <section className={lightCardClass}>
                 <h2 className="text-lg font-bold text-navy">Corporate and private executive travel</h2>
                 <p className="mt-2 text-sm leading-relaxed text-[#1a2a3d]">

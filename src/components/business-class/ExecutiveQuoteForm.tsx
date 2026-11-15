@@ -19,7 +19,6 @@ import { SITE } from "@/lib/data";
 import { TERMS_LAST_UPDATED } from "@/lib/terms";
 import { BESPOKE_TURNSTILE_ACTION, TURNSTILE_SITE_KEY } from "@/lib/bespoke-public";
 import { BespokeRequestError, submitBespokeRequest } from "@/lib/belfast-events-api";
-import { whatsAppChatUrl } from "@/lib/contact-card";
 import { BUSINESS_CLASS_MAX_PASSENGERS } from "../../../shared/passenger-limits";
 
 type Purpose = "airport" | "corporate" | "private" | "other";
@@ -115,6 +114,39 @@ function todayLocalIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function ukDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/** Plain-text enquiry for the email fallback (used until online enquiries are switched on). */
+function enquiryEmail(f: Fields): { subject: string; body: string } {
+  const purpose = f.purpose ? PURPOSE_LABELS[f.purpose as Purpose] : "";
+  const lines = [
+    "Business Class enquiry (website)",
+    "",
+    `Name: ${f.customerName.trim()}`,
+    `Email: ${f.customerEmail.trim()}`,
+    `Telephone: ${f.customerPhone.trim()}`,
+    "",
+    `Pickup: ${f.pickupAddress.trim()}`,
+    `Destination: ${f.destinationAddress.trim()}`,
+    `Date and time: ${ukDate(f.date)} at ${f.time}`,
+    `Journey: ${f.journeyType === "return" ? `Return — ${ukDate(f.returnDate)} at ${f.returnTime}` : "One way"}`,
+    `Passengers: ${f.passengers}`,
+    `Suitcases: ${luggageText(f.suitcases)}`,
+    `Purpose: ${purpose}`,
+    ...(f.purpose === "airport" && f.flightNumber.trim() ? [`Flight number: ${f.flightNumber.trim().toUpperCase()}`] : []),
+    ...(f.specialRequirements.trim() ? ["", `Additional requirements: ${f.specialRequirements.trim()}`] : []),
+    "",
+    "I accept the Terms & Conditions and have read the Privacy Policy.",
+  ];
+  return {
+    subject: `Business Class enquiry – ${f.customerName.trim()} – ${ukDate(f.date)}`,
+    body: lines.join("\n"),
+  };
+}
+
 function luggageText(value: string): string {
   if (value === "0") return "No large suitcases";
   if (value === "1") return "1 large suitcase";
@@ -139,6 +171,7 @@ export default function ExecutiveQuoteForm() {
   const [resetSignal, setResetSignal] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [emailPrepared, setEmailPrepared] = useState<string | null>(null);
   const [placeIds, setPlaceIds] = useState({ pickup: "", destination: "" });
   const [minDate, setMinDate] = useState("");
   const inFlight = useRef(false);
@@ -148,10 +181,10 @@ export default function ExecutiveQuoteForm() {
   useEffect(() => setMinDate(todayLocalIso()), []);
 
   useEffect(() => {
-    if (!reference || !successRef.current) return;
+    if ((!reference && !emailPrepared) || !successRef.current) return;
     successRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     successRef.current.focus({ preventScroll: true });
-  }, [reference]);
+  }, [reference, emailPrepared]);
 
   const set = <K extends keyof Fields>(key: K, value: Fields[K]) => {
     setFields((f) => {
@@ -225,6 +258,14 @@ export default function ExecutiveQuoteForm() {
       focusFirst(local);
       return;
     }
+    if (!onlineAvailable) {
+      // Online enquiries are not switched on yet: hand over a ready-written email.
+      const { subject, body } = enquiryEmail(fields);
+      const href = `mailto:${SITE.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      setEmailPrepared(href);
+      window.location.href = href;
+      return;
+    }
     if (!token) {
       setFormError("Please wait a moment for the security check to finish, then send again.");
       return;
@@ -274,6 +315,27 @@ export default function ExecutiveQuoteForm() {
       inFlight.current = false;
       setSubmitting(false);
     }
+  }
+
+  if (emailPrepared && !reference) {
+    return (
+      <div ref={successRef} tabIndex={-1} role="status" aria-live="polite" data-bc-enquiry-email className="bc-form-card rounded-[1.75rem] p-7 outline-none sm:p-10">
+        <span className="bc-gold-rule" aria-hidden="true" />
+        <p className="mt-6 text-[0.75rem] font-semibold uppercase tracking-[0.24em] bc-c-gold">Almost done</p>
+        <h3 className="mt-3 font-display text-3xl font-medium leading-tight bc-c-w sm:text-4xl">Your enquiry email is ready.</h3>
+        <p className="mt-4 text-base leading-relaxed bc-c-w80">
+          We&apos;ve opened your email app with your journey details addressed to <strong className="bc-c-w">{SITE.email}</strong>. Just press send and we&apos;ll reply with a personal quotation.
+        </p>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <a href={emailPrepared} className="bc-btn-primary">Open the email again</a>
+          <button type="button" className="bc-btn-ghost" onClick={() => setEmailPrepared(null)}>Edit my details</button>
+        </div>
+        <p className="mt-7 text-sm bc-c-w65">
+          Email didn&apos;t open? Write to {SITE.email}, or call{" "}
+          <a className="font-semibold bc-c-em underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>.
+        </p>
+      </div>
+    );
   }
 
   if (reference) {
@@ -519,13 +581,12 @@ export default function ExecutiveQuoteForm() {
         {onlineAvailable ? (
           <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} action={BESPOKE_TURNSTILE_ACTION} onToken={setToken} resetSignal={resetSignal} />
         ) : (
-          <p className="rounded-xl border border-[#C8AD79]/30 bg-[#C8AD79]/10 p-4 text-sm leading-relaxed bc-c-w85" role="note">
-            Online enquiries are not open just yet. Please call{" "}
-            <a className="font-semibold underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>{" "}
-            or <a className="font-semibold underline underline-offset-4" href={whatsAppChatUrl()}>message us on WhatsApp</a>.
+          <p className="text-sm leading-relaxed bc-c-w65" role="note">
+            Sending opens your email app with your enquiry ready to go to {SITE.email}. Prefer to talk? Call{" "}
+            <a className="font-semibold bc-c-w underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>.
           </p>
         )}
-        <button type="submit" disabled={submitting || !onlineAvailable} aria-disabled={submitting || !onlineAvailable} className="bc-btn-primary w-full sm:w-auto">
+        <button type="submit" disabled={submitting} aria-disabled={submitting} className="bc-btn-primary w-full sm:w-auto">
           {submitting ? "Sending your enquiry…" : "Request My Executive Quote"}
           <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
             <path d="M4 10h11m0 0-4.5-4.5M15 10l-4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />

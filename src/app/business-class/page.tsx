@@ -9,7 +9,7 @@ import BcReveal from "@/components/business-class/BcReveal";
 import ExecutiveQuoteForm from "@/components/business-class/ExecutiveQuoteForm";
 import { SITE } from "@/lib/data";
 import { whatsAppChatUrl } from "@/lib/contact-card";
-import { BESPOKE_PUBLIC_PAGES_ENABLED } from "@/lib/bespoke-public";
+import { BUSINESS_CLASS_PAGE_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import {
   BC_ENQUIRY,
   BC_HERO,
@@ -30,7 +30,7 @@ import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/l
 const OG_IMAGE = "/images/business-class/business-class-airport-arrival-twilight-1280.jpg";
 
 export function generateMetadata(): Metadata {
-  if (!BESPOKE_PUBLIC_PAGES_ENABLED) return { title: "Page not found", robots: { index: false, follow: false } };
+  if (!BUSINESS_CLASS_PAGE_PUBLIC_ENABLED) return { title: "Page not found", robots: { index: false, follow: false } };
   return {
     title: { absolute: BUSINESS_CLASS_PAGE_SEO_TITLE },
     description: BUSINESS_CLASS_PAGE_SEO_DESCRIPTION,
@@ -114,7 +114,7 @@ function ServiceHeader({ service }: { service: BcService }) {
 /* ---------- page ---------- */
 
 export default function BusinessClassPage() {
-  if (!BESPOKE_PUBLIC_PAGES_ENABLED) notFound();
+  if (!BUSINESS_CLASS_PAGE_PUBLIC_ENABLED) notFound();
 
   const breadcrumb = getBreadcrumbJsonLd([
     { name: "Home", path: "/" },
