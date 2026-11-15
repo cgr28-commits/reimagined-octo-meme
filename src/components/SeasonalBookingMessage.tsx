@@ -2,6 +2,7 @@
 
 import { seasonalBookingMessage } from "../../shared/seasonal-booking-message";
 import { DEMAND_BAR_SEGMENTS, demandIndicatorFor } from "../../shared/demand-indicator";
+import { websiteEventIcon } from "../../shared/website-event-notices";
 
 type Props = {
   /** Pickup date from the quote form (YYYY-MM-DD). */
@@ -27,6 +28,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
   const showBar = demand.filledSegments > 0;
   const soon = demand.level === "soon";
   const accent = veryHigh ? "#BA7517" : "#2FBF4A";
+  const icon = demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
   return (
     <div
       data-seasonal-booking-message={placement}
@@ -37,7 +39,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
       }`}
     >
       <p className="text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]">
-        {soon ? <span aria-hidden="true">⏱️ </span> : message.icon ? <span aria-hidden="true">{message.icon} </span> : null}
+        {icon ? <span aria-hidden="true">{icon} </span> : null}
         {showBar || soon ? (
           <span className="whitespace-nowrap">{message.travelDateLabel}</span>
         ) : (
