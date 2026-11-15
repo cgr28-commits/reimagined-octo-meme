@@ -121,6 +121,10 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 name = "EMAIL"
 
 [vars]
+# Manual-quote requests (Business Class page enquiry form) — owner approved 15 Nov 2026.
+# Needs the TURNSTILE_SECRET_KEY Worker secret (routes answer 503 without it).
+# The Event / Business Class request PAGES stay off on the website (their own switch).
+BESPOKE_QUOTES_ENABLED = "1"
 # Public Events page list (/events/public) without the bespoke request forms (owner, 15 Nov 2026).
 EVENTS_HUB_PUBLIC = "1"
 # Phone receptionist: allow Send Booking Link + Provisional Booking on live Fonio tools.

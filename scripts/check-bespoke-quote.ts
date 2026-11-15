@@ -1028,7 +1028,12 @@ async function main(): Promise<void> {
   }
   assert.ok(wrangler.indexOf("v6-short-notice-decision-coordinator") < wrangler.indexOf("v7-bespoke-quote-coordinator"), "bespoke migration (v7) appended after the existing v6");
   assert.match(wrangler, /new_sqlite_classes = \["BespokeQuoteCoordinator"\]/);
-  assert.ok(!/^\s*BESPOKE_QUOTES_ENABLED\s*=/m.test(wrangler), "public flag is not switched on in config");
+  // Owner approved switching manual-quote requests on for the Business Class page (15 Nov 2026).
+  // If the flag is set in the live config it must be exactly "1" with that approval noted.
+  if (/^\s*BESPOKE_QUOTES_ENABLED\s*=/m.test(wrangler)) {
+    assert.match(wrangler, /^BESPOKE_QUOTES_ENABLED = "1"$/m, "live flag is exactly \"1\"");
+    assert.match(wrangler, /owner approved 15 Nov 2026[\s\S]{0,300}BESPOKE_QUOTES_ENABLED = "1"/, "live flag carries the owner approval note");
+  }
   // Phase 3-prep guards: isolated preview config.
   const preview = read("workers/addresses/wrangler.bespoke-preview.toml");
   assert.match(preview, /^name = "reimagined-octo-meme-bespoke-preview"$/m);
