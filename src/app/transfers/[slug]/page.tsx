@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLandingIdentity } from "@/lib/landing-identity";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import Footer from "@/components/Footer";
@@ -132,6 +133,7 @@ export default async function TransferRoutePage({ params }: Props) {
   });
   const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
   const quoteFirstLede = QUOTE_FIRST_LEDE[page.slug];
+  const identity = getLandingIdentity(page.slug);
   const introDetails = (
     <>
       <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
@@ -219,6 +221,9 @@ export default async function TransferRoutePage({ params }: Props) {
               ? `Fixed-price taxi from ${page.airport.name} to ${page.town.name}. We track your flight, and up to 60 minutes' waiting is included.`
               : undefined
           }
+          {...(identity
+            ? { heroBackground: identity.heroBackground, showRotatingCards: identity.showRotatingCards }
+            : {})}
           journey={{
             airportCode: page.airport.code,
             direction: page.direction,
@@ -226,7 +231,10 @@ export default async function TransferRoutePage({ params }: Props) {
             // starts empty so it never looks filled in while the price button is still locked.
           }}
         />
-        {quoteFirstLede ? (
+        {identity ? (
+          // Prototype: the page photo shows on phones too, with its own short caption.
+          <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} caption={identity.photoCaption} />
+        ) : quoteFirstLede ? (
           <div className="hidden sm:block">
             <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} />
           </div>

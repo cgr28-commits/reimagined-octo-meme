@@ -43,6 +43,10 @@ type Props = {
     dropoffPlace: SelectedPlace;
     dropoffHint?: string;
   };
+  /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
+  heroBackground?: { baseName: string; widths: readonly number[] };
+  /** The rotating cards under the quote tool (laptops 1200px+). Default on (homepage). */
+  showRotatingCards?: boolean;
   /** Saved-quote summary and Book button, shown above the quote tool at every step. */
   belowIntro?: ReactNode;
   /** Homepage only: neutral quote tool with airport quick picks and "More journeys" links. */
@@ -79,7 +83,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = true }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -89,10 +93,10 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
     <section className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
       <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
         <OptimizedHeroPicture
-          baseName="belfast-international-homepage"
+          baseName={heroBackground?.baseName ?? "belfast-international-homepage"}
           alt=""
           priority
-          widths={[960, 1280]}
+          widths={heroBackground?.widths ?? [960, 1280]}
           width={1280}
           height={720}
           loadFromMinWidth={768}
@@ -109,7 +113,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
           Tablet (md): quote first, then the heading.
           Desktop (lg+): heading, then benefits above a centred quote form. */}
       <div className="homepage-hero-layout desktop-shell relative mx-auto grid w-full min-w-0 max-w-7xl grid-cols-1 gap-1.5 px-4 py-1.5 sm:px-6 md:gap-12 md:px-6 md:py-16 lg:max-w-[1400px] lg:items-start lg:gap-14 lg:px-10 lg:py-14 xl:gap-16 xl:px-12 xl:py-16">
-        <HomepageHeroSideRails />
+        {showRotatingCards ? <HomepageHeroSideRails /> : null}
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <h1 {...(navId ? { "data-site-nav-heading": navId, tabIndex: -1 } : {})} className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[2.9rem] xl:text-[3.15rem] xl:leading-[1.06]">
             {heading ? (
