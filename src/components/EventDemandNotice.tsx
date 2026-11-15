@@ -10,6 +10,7 @@ import {
   CARD_BALANCE_MIN_FARE_GBP,
   isCardBalanceDateEligible,
 } from "../../shared/deposit-card-balance";
+import { useCardBalanceDepositEnabled } from "@/lib/use-card-balance-deposit-enabled";
 
 type Props = {
   addresses: Array<string | undefined>;
@@ -23,9 +24,11 @@ type Props = {
 
 /** Big-event notice on the quote result (Garth Brooks, Six Nations, big Dublin/Belfast gigs). */
 export default function EventDemandNotice({ addresses, dates, dropoff, tripDate, tripTime, fareGbp }: Props) {
+  const cardBalanceDepositEnabled = useCardBalanceDepositEnabled();
   const event = matchWebsiteEventNotice({ pickup: addresses[0], dropoff: dropoff ?? addresses[1], dates });
   if (!event) return null;
   const depositOffered =
+    cardBalanceDepositEnabled &&
     fareGbp != null && fareGbp >= CARD_BALANCE_MIN_FARE_GBP && isCardBalanceDateEligible(tripDate, tripTime);
   return (
     <div

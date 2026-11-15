@@ -273,6 +273,7 @@ import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown
 import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import { PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE, previewNotificationsDisabled } from "@/lib/preview-notifications";
 import EventDemandNotice from "@/components/EventDemandNotice";
+import { useCardBalanceDepositEnabled } from "@/lib/use-card-balance-deposit-enabled";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -1252,6 +1253,8 @@ function QuoteCard({
   } | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
+  // Owner's 20% deposit switch (dashboard).
+  const cardBalanceDepositEnabled = useCardBalanceDepositEnabled();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
   const [bookingMeetGreetSelected, setBookingMeetGreetSelected] = useState(false);
@@ -4951,6 +4954,7 @@ function QuoteCard({
     !isAvailabilityRequest &&
     paymentAmount != null &&
     Number.isFinite(paymentAmount) &&
+    cardBalanceDepositEnabled &&
     isCardBalanceDateEligible(tripDate, tripTime)
       ? calculateCardBalanceQuote(paymentAmount)
       : null;
@@ -9162,6 +9166,7 @@ function QuoteCard({
       !appliedPersonalQuote &&
       testChargeAmount == null &&
       !isAvailabilityRequest &&
+      cardBalanceDepositEnabled &&
       isCardBalanceDateEligible(tripDate, tripTime)
         ? calculateCardBalanceQuote(authoritativeTotal)
         : null;

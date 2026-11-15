@@ -122,6 +122,8 @@ export type BookingSettings = {
     percent: number;
     minimumGbp: number;
   };
+  /** 20% deposit now, balance by card later (pickups 30+ days away). On unless switched off. */
+  cardBalanceDeposit?: { enabled: boolean };
   updatedAt: string;
 };
 
@@ -518,6 +520,8 @@ export async function fetchPublicBookingNotice(): Promise<{
   minibusMinimumBookingNoticeHours: number;
   minimumShortNoticeLeadHours: number;
   shortNoticeConfirmationWindowHours: number;
+  /** 20% deposit switch from the owner dashboard. True when unknown. */
+  cardBalanceDepositEnabled: boolean;
 }> {
   try {
     const response = await fetch(`${WORKER_BASE}/booking-notice`, {
@@ -531,9 +535,12 @@ export async function fetchPublicBookingNotice(): Promise<{
         minibusMinimumBookingNoticeHours: DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
         minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
         shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+        cardBalanceDepositEnabled: true,
       };
     }
     return {
+      cardBalanceDepositEnabled:
+        (payload.cardBalanceDeposit as { enabled?: unknown } | undefined)?.enabled !== false,
       minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
         payload.minimumBookingNoticeHours,
       ),
@@ -553,6 +560,7 @@ export async function fetchPublicBookingNotice(): Promise<{
       minibusMinimumBookingNoticeHours: DEFAULT_MINIBUS_MINIMUM_BOOKING_NOTICE_HOURS,
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
       shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
+      cardBalanceDepositEnabled: true,
     };
   }
 }
@@ -700,6 +708,26 @@ export async function updateDepositCashSettings(
   const payload = await parseJson(response);
   if (!response.ok) {
     throw new Error(String(payload.error || "Could not save Deposit + Cash settings"));
+  }
+  return payload.settings as BookingSettings;
+}
+
+export async function updateCardBalanceDepositSettings(
+  ownerKey: string,
+  enabled: boolean,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ action: "set-card-balance-deposit", cardBalanceDeposit: { enabled } }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save the 20% deposit setting"));
   }
   return payload.settings as BookingSettings;
 }

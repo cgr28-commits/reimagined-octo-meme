@@ -83,6 +83,7 @@ import {
   getBookingSettings,
   type BookingSettings,
   updateDepositCashSettings,
+  updateCardBalanceDepositSettings,
   updateMinimumBookingNoticeHours,
   updateMinibusMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
@@ -2338,6 +2339,13 @@ export async function handleOwnerSaveBookingSettings(
       const settings = await updateSaveQuoteSettings(env.TRACKING_STORE, body.saveQuote);
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
+    if (action === "set-card-balance-deposit") {
+      const settings = await updateCardBalanceDepositSettings(
+        env.TRACKING_STORE,
+        body.cardBalanceDeposit ?? body,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
     if (action === "set-deposit-cash" || action === "set-deposit-cash-settings") {
       const settings = await updateDepositCashSettings(
         env.TRACKING_STORE,
@@ -2465,6 +2473,7 @@ export async function handlePublicGetBookingNotice(env: {
   minimumShortNoticeLeadHours: number;
   shortNoticeConfirmationWindowHours: number;
   depositCash: { enabled: boolean; percent: number; minimumGbp: number };
+  cardBalanceDeposit: { enabled: boolean };
 }> {
   if (!env.TRACKING_STORE) {
     return {
@@ -2478,6 +2487,7 @@ export async function handlePublicGetBookingNotice(env: {
         percent: DEFAULT_DEPOSIT_PERCENT,
         minimumGbp: DEFAULT_DEPOSIT_MINIMUM_GBP,
       },
+      cardBalanceDeposit: { enabled: true },
     };
   }
   const settings = await getBookingSettings(env.TRACKING_STORE);
@@ -2492,6 +2502,7 @@ export async function handlePublicGetBookingNotice(env: {
       percent: settings.depositCash.percent,
       minimumGbp: settings.depositCash.minimumGbp,
     },
+    cardBalanceDeposit: { enabled: settings.cardBalanceDeposit.enabled === true },
   };
 }
 
