@@ -363,9 +363,19 @@ export function buildTransferCalendarEvents(
     isValidTime(booking.returnTime)
   ) {
     const returnStart = `${booking.returnDate}T${booking.returnTime}`;
+    // Return leg runs the other way: collect from the outbound drop-off.
+    const returnDescription = buildTransferDescription(
+      {
+        ...booking,
+        tripLabel: `${booking.tripLabel} — RETURN`,
+        pickupLabel: booking.dropoffLabel,
+        dropoffLabel: booking.pickupLabel,
+      },
+      message,
+    );
     events.push({
       summary: buildTransferSummary(booking, " (Return)"),
-      description,
+      description: returnDescription,
       location: booking.dropoffLabel,
       startDateTime: returnStart,
       endDateTime: addMinutes(returnStart, DEFAULT_TRANSFER_DURATION_MINUTES),
