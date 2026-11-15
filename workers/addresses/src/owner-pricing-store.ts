@@ -11,6 +11,7 @@ import {
   type OwnerPricingAuditChange,
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
+  businessClassInstantFromMiles,
 } from "../shared/owner-pricing-config";
 import { postcodeRuleKey } from "../shared/postcode-pricing";
 import {
@@ -142,6 +143,7 @@ export async function saveOwnerPricingSettings(
         ...defaultOwnerPricingSettings().executive,
         publicEnabled: current.executive.publicEnabled !== false,
         requestQuote: current.executive.requestQuote === true,
+        instantFromMiles: businessClassInstantFromMiles(current),
       },
       profitability: defaultProfitabilitySettings(),
       version: current.version + 1,

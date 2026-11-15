@@ -73,7 +73,16 @@ export type QuickQuoteCalculateResult =
       /** Empty Run: a cheaper pickup time the same day (estimate; re-quote at that time). */
       emptyRunOffer?: EmptyRunTimeOfferPublic;
     }
-  | { ok: false; reason?: string; message: string; error?: string };
+  | {
+      ok: false;
+      reason?: string;
+      message: string;
+      error?: string;
+      /** Measured route (km), sent with a personal-quote answer so the distance rule can apply. */
+      distanceKm?: number;
+      /** "business_class_distance" when Business Class is request-only because of the journey distance. */
+      requestReason?: string;
+    };
 
 export type EmptyRunTimeOfferPublic = {
   tripDate: string;
@@ -173,11 +182,14 @@ async function calculateServerQuoteOnce(
   );
   const payload = await parseJson(response);
   if (!response.ok) {
+    const failedDistanceKm = Number(payload.distanceKm);
     return {
       ok: false,
       reason: String(payload.reason ?? (response.status >= 500 ? "server_unavailable" : "")),
       message: String(payload.message || payload.error || "Could not calculate fare"),
       error: String(payload.error ?? ""),
+      ...(Number.isFinite(failedDistanceKm) && failedDistanceKm > 0 ? { distanceKm: failedDistanceKm } : {}),
+      ...(typeof payload.requestReason === "string" ? { requestReason: payload.requestReason } : {}),
     };
   }
   if (payload.ok !== true) {

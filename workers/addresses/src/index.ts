@@ -1802,7 +1802,14 @@ async function handleBookingRequest(
     tour: (body.tour as unknown as Record<string, unknown> | undefined) ?? null,
     publicMinibusEnabled: bookingPricing?.minibus.publicEnabled === true,
     deferFlightNumbers: Boolean(bookingPricing && body.booking &&
-      publicVehicleRequiresPersonalQuote(body.booking.vehicle, bookingPricing)),
+      publicVehicleRequiresPersonalQuote(
+        body.booking.vehicle,
+        bookingPricing,
+        false,
+        Number.isFinite(Number((body.booking as { routeDistanceKm?: unknown }).routeDistanceKm))
+          ? Number((body.booking as { routeDistanceKm?: unknown }).routeDistanceKm) * 0.621371
+          : null,
+      )),
   });
   if (!requestValidation.ok) {
     return json({ error: requestValidation.error }, 400, origin);
@@ -2961,8 +2968,9 @@ async function handlePaymentRequest(
       pickup: routeOutcome.pickup ?? null,
       dropoff: routeOutcome.dropoff ?? null,
     });
-    if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing)) {
-      return json({ error: vehiclePersonalQuoteMessage(booking.vehicle), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+    const paymentRouteMiles = routeMetrics.distanceKm * 0.621371;
+    if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing, false, paymentRouteMiles)) {
+      return json({ error: vehiclePersonalQuoteMessage(booking.vehicle, pricing, paymentRouteMiles), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
     }
     const requoteMinibusOn = pricing.minibus.publicEnabled === true;
     if (!isValidPublicPassengerCount(Number(booking.passengers), requoteMinibusOn)) {
@@ -3607,9 +3615,11 @@ async function handlePaymentRequest(
   }
 
   const paymentPricing = await loadOwnerPricingOrDefault(env);
+  const bookingRouteKm = Number((booking as { routeDistanceKm?: unknown }).routeDistanceKm);
+  const bookingRouteMiles = Number.isFinite(bookingRouteKm) && bookingRouteKm > 0 ? bookingRouteKm * 0.621371 : null;
   if (!quickQuoteId && !a2aQuoteToken && !shortNoticeToken && !personalQuoteCode &&
-      publicVehicleRequiresPersonalQuote(booking.vehicle, paymentPricing)) {
-    return json({ error: vehiclePersonalQuoteMessage(booking.vehicle), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+      publicVehicleRequiresPersonalQuote(booking.vehicle, paymentPricing, false, bookingRouteMiles)) {
+    return json({ error: vehiclePersonalQuoteMessage(booking.vehicle, paymentPricing, bookingRouteMiles), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
   }
   const paymentMinibusOn = paymentPricing.minibus.publicEnabled === true;
   if (!quickQuoteId && !isValidPublicPassengerCount(booking.passengers, paymentMinibusOn)) {
