@@ -63,6 +63,7 @@ import {
   isBelowMinimumShortNoticeLead,
 } from "../../../shared/booking-notice";
 import { useMinimumBookingNoticeHours } from "@/lib/use-minimum-booking-notice-hours";
+import { useCardBalanceDepositEnabled } from "@/lib/use-card-balance-deposit-enabled";
 
 const fieldClass =
   "quote-text-input min-h-12 rounded-xl border border-white/15 bg-navy px-3 text-base text-white placeholder:text-white/35";
@@ -89,6 +90,7 @@ function BookQuoteInner() {
     shortNoticeConfirmationWindowHours,
     minibusMinimumBookingNoticeHours,
   ] = useMinimumBookingNoticeHours();
+  const cardBalanceDepositEnabled = useCardBalanceDepositEnabled();
   const [shortNoticeResult, setShortNoticeResult] = useState<{
     reference: string;
     whatsappUrl: string;
@@ -315,7 +317,10 @@ function BookQuoteInner() {
   const isAvailabilityRequest = isMinimumNoticeRequest || isMinibusNoticeRequest;
   // Pay a deposit now, balance by card 7 days before (pickup 30+ days away).
   const cardBalanceOffer =
-    displayPricing && !isAvailabilityRequest && isCardBalanceDateEligible(tripDate, tripTime)
+    displayPricing &&
+    !isAvailabilityRequest &&
+    cardBalanceDepositEnabled &&
+    isCardBalanceDateEligible(tripDate, tripTime)
       ? calculateCardBalanceQuote(displayPricing.totalGbp)
       : null;
   const depositChosen = Boolean(cardBalanceOffer?.eligible && payDeposit);

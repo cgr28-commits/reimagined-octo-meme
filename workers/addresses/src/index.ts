@@ -3530,7 +3530,16 @@ async function handlePaymentRequest(
         );
       }
       const quote = calculateCardBalanceQuote(amount);
-      if (!booking || !quote.eligible || !isCardBalanceDateEligible(booking.tripDate, booking.tripTime)) {
+      // Owner can switch the 20% deposit off in the dashboard (15 Nov 2026).
+      const cardBalanceSwitchedOn = env.TRACKING_STORE
+        ? (await getBookingSettings(env.TRACKING_STORE)).cardBalanceDeposit.enabled === true
+        : true;
+      if (
+        !cardBalanceSwitchedOn ||
+        !booking ||
+        !quote.eligible ||
+        !isCardBalanceDateEligible(booking.tripDate, booking.tripTime)
+      ) {
         return json(
           {
             error:
