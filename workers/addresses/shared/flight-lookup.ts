@@ -27,6 +27,11 @@ export type VerifiedFlight = {
   arrivalIata?: string | null;
   departureScheduledUtc?: string | null;
   arrivalScheduledUtc?: string | null;
+  /** City names and scheduled local wall-clock times (YYYY-MM-DD HH:MM) for both ends. */
+  departureCity?: string | null;
+  arrivalCity?: string | null;
+  departureScheduledLocal?: string | null;
+  arrivalScheduledLocal?: string | null;
 };
 
 export type FlightLookupResult =
@@ -170,7 +175,7 @@ type AeroFlight = {
   status?: string;
   airline?: { name?: string; iata?: string; icao?: string };
   departure?: {
-    airport?: { iata?: string; name?: string; icao?: string };
+    airport?: { iata?: string; name?: string; icao?: string; municipalityName?: string };
     scheduledTime?: { local?: string; utc?: string };
     revisedTime?: { local?: string; utc?: string };
     predictedTime?: { local?: string; utc?: string };
@@ -178,7 +183,7 @@ type AeroFlight = {
     terminal?: string | null;
   };
   arrival?: {
-    airport?: { iata?: string; name?: string; icao?: string };
+    airport?: { iata?: string; name?: string; icao?: string; municipalityName?: string };
     scheduledTime?: { local?: string; utc?: string };
     revisedTime?: { local?: string; utc?: string };
     predictedTime?: { local?: string; utc?: string };
@@ -321,7 +326,17 @@ function mapAeroFlight(
     arrivalIata: arrAirport?.iata?.trim().toUpperCase() || null,
     departureScheduledUtc: aeroUtcToIso(flight.departure?.scheduledTime?.utc),
     arrivalScheduledUtc: aeroUtcToIso(flight.arrival?.scheduledTime?.utc),
+    departureCity: depAirport?.municipalityName?.trim() || null,
+    arrivalCity: arrAirport?.municipalityName?.trim() || null,
+    departureScheduledLocal: aeroLocalWallClock(flight.departure?.scheduledTime?.local),
+    arrivalScheduledLocal: aeroLocalWallClock(flight.arrival?.scheduledTime?.local),
   };
+}
+
+/** "2026-11-15 16:10+01:00" -> "2026-11-15 16:10" (the airport's own clock). */
+function aeroLocalWallClock(value: string | undefined | null): string | null {
+  const match = value?.trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+  return match ? `${match[1]} ${match[2]}` : null;
 }
 
 function aeroUtcToIso(value: string | undefined | null): string | null {

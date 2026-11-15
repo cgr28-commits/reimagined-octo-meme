@@ -3,12 +3,18 @@
  * airport collection with a flight number, so Flighty (which scans the owner's
  * calendar for flights) tracks the customer's flight automatically.
  */
-import { lookupFlight, normalizeFlightNumber, type VerifiedFlight } from "../shared/flight-lookup";
+import {
+  lookupFlight,
+  normalizeFlightNumber,
+  type VerifiedFlight,
+} from "../shared/flight-lookup";
 import {
   createFlightCalendarEvent,
   getGoogleAccessToken,
   parseServiceAccountJson,
 } from "./google-calendar";
+
+const FLIGHTY_MARKER = "Added for flight tracking by My Airport Taxi NI.";
 
 export type FlightyBookingInput = {
   customerName: string;
@@ -76,9 +82,61 @@ export function airportCollectionLegs(booking: FlightyBookingInput): AirportColl
   return legs;
 }
 
-export function flightyEventTitle(flightNumber: string, flight: VerifiedFlight): string | null {
+/** "IB1885" / "IB 1885" -> "IB 1885"; "EZY3022" -> "EZY 3022". Prefers the 2-character IATA airline code. */
+export function splitFlightDesignator(value: string): string {
+  const v = normalizeFlightNumber(value);
+  const iata = v.match(/^([A-Z][A-Z0-9]|[0-9][A-Z])(\d{1,4}[A-Z]?)$/);
+  if (iata) return `${iata[1]} ${iata[2]}`;
+  const icao = v.match(/^([A-Z]{3})(\d{1,4}[A-Z]?)$/);
+  if (icao) return `${icao[1]} ${icao[2]}`;
+  return v;
+}
+
+/** Use the IATA designator the lookup confirmed ("U2 3022"), not what the customer typed ("EZY3022"). */
+function designatorFor(typed: string, flight: VerifiedFlight): string {
+  const fromLookup = splitFlightDesignator(flight.flightNumber ?? "");
+  return /^[A-Z0-9]{2} \d/.test(fromLookup) ? fromLookup : splitFlightDesignator(typed);
+}
+
+/**
+ * Airline/Google-style flight entry: "Flight to Dublin (IB 1885)", location
+ * "Madrid MAD", airline + flight number + departure airport all present (the
+ * three fields Flighty's help says an event must contain).
+ */
+export function buildFlightyEvent(input: {
+  typedFlightNumber: string;
+  flight: VerifiedFlight;
+  leg: AirportCollectionLeg;
+  customerName: string;
+  paymentReference: string;
+}): { summary: string; location: string; description: string; startUtc: string; endUtc: string } | null {
+  const { flight, leg } = input;
   if (!flight.departureIata || !flight.arrivalIata) return null;
-  return `${normalizeFlightNumber(flightNumber)} ${flight.departureIata} to ${flight.arrivalIata}`;
+  if (!flight.departureScheduledUtc || !flight.arrivalScheduledUtc) return null;
+  if (Date.parse(flight.arrivalScheduledUtc) <= Date.parse(flight.departureScheduledUtc)) return null;
+  const designator = designatorFor(input.typedFlightNumber, flight);
+  const depCity = flight.departureCity || flight.departureIata;
+  const arrCity = flight.arrivalCity || flight.arrivalIata;
+  const airline = flight.airline && flight.airline !== "Airline" ? flight.airline : designator.split(" ")[0];
+  const times =
+    flight.departureScheduledLocal && flight.arrivalScheduledLocal
+      ? `Departs ${depCity} (${flight.departureIata}) ${flight.departureScheduledLocal} local time\n` +
+        `Arrives ${arrCity} (${flight.arrivalIata}) ${flight.arrivalScheduledLocal} local time\n`
+      : "";
+  return {
+    summary: `Flight to ${arrCity} (${designator})`,
+    location: `${depCity} ${flight.departureIata}`,
+    startUtc: flight.departureScheduledUtc,
+    endUtc: flight.arrivalScheduledUtc,
+    description:
+      `${airline} flight ${designator}\n` +
+      `${depCity} (${flight.departureIata}) to ${arrCity} (${flight.arrivalIata})\n` +
+      times +
+      `\nCustomer pickup: ${input.customerName}, ${leg.date} ${leg.pickupTime} at ${leg.airportName}.\n` +
+      `Leg: ${leg.leg}\n` +
+      `Payment reference: ${input.paymentReference}\n` +
+      FLIGHTY_MARKER,
+  };
 }
 
 export async function logFlightyFlightEvents(input: {
@@ -102,30 +160,23 @@ export async function logFlightyFlightEvents(input: {
       skipped.push(`${leg.leg}:${lookup.code}`);
       continue;
     }
-    const flight = lookup.flight;
-    const title = flightyEventTitle(leg.flightNumber, flight);
-    if (!title || !flight.departureScheduledUtc || !flight.arrivalScheduledUtc) {
+    const event = buildFlightyEvent({
+      typedFlightNumber: leg.flightNumber,
+      flight: lookup.flight,
+      leg,
+      customerName: input.booking.customerName,
+      paymentReference: input.paymentReference,
+    });
+    if (!event) {
       skipped.push(`${leg.leg}:incomplete`);
       continue;
     }
-    const id = await createFlightCalendarEvent(input.accessToken, input.calendarId, {
-      summary: title,
-      location: flight.departureAirport,
-      startUtc: flight.departureScheduledUtc,
-      endUtc: flight.arrivalScheduledUtc,
-      description:
-        `Flight ${title} (${flight.airline}).\n` +
-        `Customer pickup: ${input.booking.customerName}, ${leg.date} ${leg.pickupTime} at ${leg.airportName}.\n` +
-        `Leg: ${leg.leg}\n` +
-        `Payment reference: ${input.paymentReference}\n` +
-        `Added for flight tracking by My Airport Taxi NI.`,
-    });
+    const id = await createFlightCalendarEvent(input.accessToken, input.calendarId, event);
     if (id) eventIds.push(id);
   }
   return { eventIds, skipped };
 }
 
-const FLIGHTY_MARKER = "Added for flight tracking by My Airport Taxi NI.";
 
 export type FlightyEnv = {
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
