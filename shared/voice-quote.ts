@@ -104,13 +104,33 @@ export type VoiceDraftResult =
   | { ok: true; draft: WhatsAppQuoteDraft }
   | { ok: false; missing: string[]; askNext?: string; say: string };
 
-function askNextMissing(fields: string[]): VoiceDraftResult {
+/**
+ * Owner (15 Nov 2026): from an airport ask the flight arrival time, otherwise the pickup time.
+ * The website uses the same field for both ("Flight arrival time" on airport pickups).
+ */
+export const VOICE_ARRIVAL_TIME_QUESTIONS: Record<string, string> = {
+  time: "What time does your flight land?",
+  returnTime: "And what time does your return flight land?",
+};
+
+function askNextMissing(
+  fields: string[],
+  airport: { outbound?: boolean; return?: boolean } = {},
+): VoiceDraftResult {
   const askNext = fields[0]!;
+  const arrival =
+    (askNext === "time" && airport.outbound) || (askNext === "returnTime" && airport.return);
+  const label = (f: string) =>
+    (f === "time" && airport.outbound) || (f === "returnTime" && airport.return)
+      ? f === "time" ? "the flight arrival time" : "the return flight arrival time"
+      : FIELD_LABEL[f] ?? f;
   return {
     ok: false,
-    missing: fields.map((f) => FIELD_LABEL[f] ?? f),
+    missing: fields.map(label),
     askNext,
-    say: VOICE_QUOTE_QUESTIONS[askNext] ?? `Could I just check ${FIELD_LABEL[askNext] ?? askNext}?`,
+    say: arrival
+      ? VOICE_ARRIVAL_TIME_QUESTIONS[askNext]!
+      : VOICE_QUOTE_QUESTIONS[askNext] ?? `Could I just check ${label(askNext)}?`,
   };
 }
 
@@ -143,7 +163,12 @@ export function voiceQuoteDraft(
   if (!suitcasesProvided) missingFields.push("suitcases");
   if (askSchedule && returnJourney && !returnDate) missingFields.push("returnDate");
   if (askSchedule && returnJourney && !returnTime) missingFields.push("returnTime");
-  if (missingFields.length) return askNextMissing(missingFields);
+  if (missingFields.length) {
+    return askNextMissing(missingFields, {
+      outbound: Boolean(parseAirportCode(pickup)),
+      return: Boolean(parseAirportCode(dropoff)),
+    });
+  }
 
   const today = todayLondonDate(now);
   if (outboundDate && outboundDate < today) {
