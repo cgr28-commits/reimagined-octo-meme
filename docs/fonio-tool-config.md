@@ -263,3 +263,16 @@ Owner review: `GET …/owner/voice-calls` with `X-Owner-Key`.
 4. Paste prompt from `docs/fonio-receptionist-prompt.md`.  
 5. Create/update HTTP tools as above.  
 6. Real test call to a non-customer mobile before public routing.
+
+---
+
+## After-call text (fonio Send SMS, added 15 Nov 2026)
+
+Second fonio **SMS** integration (Abilities → Send SMS): Run **After the conversation**, Send **Only if…**
+"the caller's number is a UK mobile, the call was about a new price or booking, and they did not get a
+booking link on the call". To: **The caller**. From: `MyAirportNI`. Fixed message:
+
+> My Airport Taxi NI: thanks for calling. Get your fixed price and book here: https://www.myairporttaxini.co.uk/?src=call#quote
+
+Runs alongside the Worker's WhatsApp follow-up (`mat_call_followup`, `/voice/call-ended`), owner chose "both".
+fonio plan: 50 SMS/month included; extra 50 for £9.
