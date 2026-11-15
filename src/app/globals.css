@@ -9632,6 +9632,38 @@ html[data-mobile-d3] .quote-flow[data-quote-presentation]:not([data-d3-render]) 
 }
 }
 
+/* Desktop header balance (owner, 15 Nov 2026): logo a little further left and a little lower,
+   more even spacing on the menu row. Logo artwork and size unchanged. 1200px+ only;
+   phones and tablets keep their header exactly as before. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) {
+    max-width: 86rem !important;
+    padding: 0.625rem 1.75rem 0.25rem !important;
+    column-gap: 2rem !important;
+    row-gap: 0.4375rem !important;
+  }
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav {
+    column-gap: 2.25rem !important;
+    padding: 0.5rem 0 0.375rem !important;
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav > a {
+    font-size: 0.9375rem !important;
+    line-height: 1.25rem !important;
+    letter-spacing: 0.01em !important;
+  }
+  /* the header is a touch taller, so the page starts a touch lower */
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body { --desktop-header-extra: 5.25rem; }
+}
+}
+@media (min-width: 1200px) and (max-width: 1439.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]) header[data-site-header] .desktop-shell:has(> a > .quote-header-logo-wide) > nav { column-gap: 1.75rem !important; }
+  html:root:root:root:root:root:root:root:not([data-mobile-d3]):has(header[data-site-header] .quote-header-logo-wide) body { --desktop-header-extra: 4rem; }
+}
+}
+
 /* Desktop homepage intro (owner, 13 Nov 2026): a measured width so the first line ends at
    "Whether you're travelling to the airport," and "attending an event" starts line two.
    Sized in em so it holds at every desktop font size; narrower screens just wrap naturally. */

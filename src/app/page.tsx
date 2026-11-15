@@ -18,6 +18,7 @@ import Footer from "@/components/Footer";
 import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getFaqPageJsonLd } from "@/lib/structured-data";
+import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 
 export const metadata: Metadata = {
   title: HOMEPAGE_SEO_TITLE,
@@ -50,6 +51,8 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
+      {/* Seasonal switch: src/lib/seasonal.ts. Styles in seasonal-christmas.css key off this marker. */}
+      {CHRISTMAS_DECORATIONS.enabled ? <span data-seasonal-christmas hidden /> : null}
       <Header />
       <main className="overflow-x-clip">
         <HeroSlideshow homepageQuickPicks />

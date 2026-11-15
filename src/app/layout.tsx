@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import "./seasonal-christmas.css";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
