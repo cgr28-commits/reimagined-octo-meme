@@ -9896,3 +9896,8 @@ html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-labe
    page, the copy beside the price card is hidden so customers see it once. */
 .quote-flow:has([data-vehicle-top-notice] > [data-event-demand-notice]) [data-event-demand-notice]:not([data-vehicle-top-notice] > *) { display: none !important; }
 [data-vehicle-top-notice] > [data-event-demand-notice] { margin: 0 0 0.6rem !important; }
+
+/* Date-specific booking message: under the chosen car's price on phones/tablets, between the
+   price and the book button on desktop. Only one copy shows at a time. */
+html[data-mobile-light] [data-seasonal-booking-message="panel"] { display: none !important; }
+html:not([data-mobile-light]) [data-seasonal-booking-message="list"] { display: none !important; }

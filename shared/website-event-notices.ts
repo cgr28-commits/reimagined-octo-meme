@@ -11,7 +11,7 @@
 import { isGreaterBelfastServiceAddress } from "./ldy-service-area";
 
 export type WebsiteEventCity = "belfast" | "dublin";
-export type WebsiteEventKind = "concert" | "match" | "festival";
+export type WebsiteEventKind = "concert" | "match" | "festival" | "event";
 
 export type WebsiteEventNotice = {
   id: string;
@@ -34,6 +34,10 @@ const ORMEAU_PARK = /\bormeau park\b/i;
 const AVIVA = /\b(aviva stadium|lansdowne road)\b/i;
 const CROKE_PARK = /\bcroke park\b/i;
 const MARLAY_PARK = /\bmarlay park\b/i;
+const KINGSPAN = /\b(kingspan|affidea) stadium\b|\bravenhill\b/i;
+const STORMONT_OR_ORMEAU = /\b(stormont|ormeau park)\b/i;
+const DUBLIN_CITY_CENTRE = /\b(o'?connell st(reet)?|parnell sq(uare)?|st\.? stephen'?s green)\b/i;
+const MERRION_SQUARE = /\bmerrion sq(uare)?\b/i;
 
 export const WEBSITE_EVENT_NOTICES: WebsiteEventNotice[] = [
   // ── Belfast ─────────────────────────────────────────────────────────────
@@ -55,11 +59,20 @@ export const WEBSITE_EVENT_NOTICES: WebsiteEventNotice[] = [
   { id: "belsonic-amble-2027", title: "Amble at Belsonic, Ormeau Park", kind: "concert", city: "belfast", venuePattern: ORMEAU_PARK, dates: ["2027-06-23"], daysBefore: 0, daysAfter: 0 },
   { id: "belsonic-take-that-2027", title: "Take That at Belsonic, Ormeau Park", kind: "concert", city: "belfast", venuePattern: ORMEAU_PARK, dates: ["2027-06-30"], daysBefore: 0, daysAfter: 0 },
 
+  // Added 15 Nov 2026.
+  { id: "belfast-marathon-2027", title: "The Belfast City Marathon", kind: "event", city: "belfast", venuePattern: STORMONT_OR_ORMEAU, dates: ["2027-05-02"], daysBefore: 1, daysAfter: 0 },
+  { id: "ulster-leinster-2027", title: "Ulster v Leinster at the Affidea Stadium", kind: "match", city: "belfast", venuePattern: KINGSPAN, dates: ["2027-04-23"], daysBefore: 0, daysAfter: 0 },
+
   // ── Dublin ──────────────────────────────────────────────────────────────
   { id: "six-nations-ire-eng-2027", title: "Ireland v England at the Aviva", kind: "match", city: "dublin", venuePattern: AVIVA, dates: ["2027-02-05"], daysBefore: 1, daysAfter: 1 },
   { id: "six-nations-ire-fra-2027", title: "Ireland v France at the Aviva", kind: "match", city: "dublin", venuePattern: AVIVA, dates: ["2027-03-13"], daysBefore: 1, daysAfter: 1 },
   { id: "kingfishr-marlay-2027", title: "Kingfishr at Marlay Park", kind: "concert", city: "dublin", venuePattern: MARLAY_PARK, dates: ["2027-06-19"], daysBefore: 1, daysAfter: 0 },
   { id: "noah-kahan-aviva-2027", title: "Noah Kahan at the Aviva", kind: "concert", city: "dublin", venuePattern: AVIVA, dates: ["2027-07-17", "2027-07-18"], daysBefore: 1, daysAfter: 1 },
+  // Added 15 Nov 2026. GAA final dates are the GAA's provisional dates — check nearer the time.
+  { id: "st-patricks-day-dublin-2027", title: "St Patrick's Day in Dublin", kind: "festival", city: "dublin", venuePattern: DUBLIN_CITY_CENTRE, dates: ["2027-03-17"], daysBefore: 1, daysAfter: 1 },
+  { id: "all-ireland-hurling-final-2027", title: "The All-Ireland Hurling Final at Croke Park", kind: "match", city: "dublin", venuePattern: CROKE_PARK, dates: ["2027-07-18"], daysBefore: 1, daysAfter: 1 },
+  { id: "all-ireland-football-final-2027", title: "The All-Ireland Football Final at Croke Park", kind: "match", city: "dublin", venuePattern: CROKE_PARK, dates: ["2027-07-25"], daysBefore: 1, daysAfter: 1 },
+  { id: "dublin-marathon-2027", title: "The Dublin Marathon", kind: "event", city: "dublin", venuePattern: MERRION_SQUARE, dates: ["2027-10-24"], daysBefore: 1, daysAfter: 0 },
   { id: "harry-styles-croke-park-2027", title: "Harry Styles at Croke Park", kind: "concert", city: "dublin", venuePattern: CROKE_PARK, dates: ["2027-08-18", "2027-08-20", "2027-08-21"], daysBefore: 1, daysAfter: 1 },
 ];
 
@@ -106,8 +119,9 @@ export function matchWebsiteEventNotice(
     const inWindow = dates.some((d) => d >= window.from && d <= window.to);
     const venueNamed = event.venuePattern.test(places);
     if (venueNamed && (inWindow || (dates.length === 0 && event.showForVenueWithoutDate))) return event;
-    const dropoff = input.dropoff ?? "";
-    if (inWindow && dropoff && !isAirport(dropoff) && CITY_RULES[event.city](dropoff)) return event;
+    // Owner (15 Nov 2026): going into or out of the city — drop-off or pickup. Airports never count.
+    const inCity = (place: string | undefined) => Boolean(place) && !isAirport(place!) && CITY_RULES[event.city](place!);
+    if (inWindow && (inCity(input.dropoff) || inCity(input.pickup))) return event;
   }
   return null;
 }
@@ -124,9 +138,18 @@ export function websiteEventDatesLabel(event: WebsiteEventNotice): string {
 }
 
 export function websiteEventReason(event: WebsiteEventNotice): string {
-  return event.kind === "match" ? "match-day bookings" : event.kind === "festival" ? "festival bookings" : "concert bookings";
+  return event.kind === "match"
+    ? "match-day bookings"
+    : event.kind === "festival"
+      ? "festival bookings"
+      : event.kind === "event"
+        ? "event-day bookings"
+        : "concert bookings";
 }
 
 export function websiteEventIcon(event: WebsiteEventNotice): string {
-  return event.kind === "match" ? "🏉" : "🎵";
+  if (event.kind === "match") return /hurling|football/i.test(event.title) ? "🏆" : "🏉";
+  if (event.kind === "event") return "🏃";
+  if (event.kind === "festival") return "☘️";
+  return "🎵";
 }
