@@ -11,8 +11,6 @@ import { sameCustomerPhone } from "../shared/whatsapp-pickup-info";
 import { voiceOpeningGreeting } from "../shared/voice-greeting";
 import { listUpcomingPaidBookings } from "./paid-booking-store";
 import { voiceMobile } from "../shared/voice-booking";
-import { quoteNeedsScheduleUpFront } from "../shared/owner-pricing-config";
-import { getOwnerPricingSettings } from "./owner-pricing-store";
 
 type Env = { TRACKING_STORE?: KVNamespace };
 
@@ -76,16 +74,8 @@ export async function handleVoiceInbound(request: Request, env: Env, now = new D
     }
   }
 
-  // Whether a price needs the date and pickup time first: only while the evening, night or
-  // weekend surcharge is on in the owner dashboard. "yes" on any problem (the safe side).
-  let askDateTime = "yes";
-  if (store) {
-    try {
-      askDateTime = quoteNeedsScheduleUpFront(await getOwnerPricingSettings(store)) ? "yes" : "no";
-    } catch (error) {
-      console.error("voice inbound pricing lookup failed", error instanceof Error ? error.message : error);
-    }
-  }
+  // Owner decision (15 Nov 2026): the phone always asks the date and pickup time.
+  const askDateTime = "yes";
 
   const { dayPart, greeting } = voiceOpeningGreeting({ firstName: name || undefined, now });
   return reply({

@@ -203,6 +203,30 @@ SMS fallback same as Send Booking Link (`sendBySms` + `smsText`).
 ```
 
 Use for tool failures, out-of-hours, unclear journeys, callbacks and urgent escalation.
+Always fill `name`, `mobile` (confirmed number or caller ID) and `message` (journey, date, time,
+passengers). Without a mobile the Worker answers `ok: false` and nothing is saved — the
+receptionist must never say the message was passed on in that case (15 Nov 2026 call).
+
+---
+
+## 8b. Send Quote Form — during call (added 15 Nov 2026)
+
+- URL: `…/voice/quote-form`
+- Method: POST (same auth header as the other voice tools)
+- When: Olivia can't pin down an address after asking once for the street or postcode.
+- Sends the caller our WhatsApp quote form (the same Flow the WhatsApp assistant uses); they
+  tap their addresses, date, time and bags, and the fixed price comes back in WhatsApp.
+
+```json
+{
+  "mobile": "{{mobile}}",
+  "pickup": "{{pickup}}",
+  "dropoff": "{{dropoff}}"
+}
+```
+
+Reply: `{ ok, sent, say }`. `sent: false` happens when WhatsApp refuses a form to a number that
+hasn't messaged us in the last 24 hours; `say` then asks for the postcode instead.
 
 ---
 

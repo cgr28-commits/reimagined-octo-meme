@@ -97,3 +97,14 @@ assert.ok(handler.includes("(\\+?44|0)7\\d{9}"), "UK mobiles only");
 assert.match(handler, /sendBySms: true/, "Falls back to a text when WhatsApp can't send");
 assert.match(handler, /smsText: smsText\(memo, priced\.bookingUrl\)/);
 console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles; SMS backup");
+
+// Owner 15 Nov 2026: a request-only / short-notice / unavailable time still gets the link, never "too soon".
+if (ok.ok) {
+  const req = voiceQuoteSay({ amount: 60, draft: ok.draft, requestOnly: true, shortNotice: true });
+  assert.match(req, /confirmation email/);
+  assert.match(req, /text, WhatsApp, or email/);
+  assert.doesNotMatch(req, /too soon|bit soon|guarantee|team will confirm/i);
+  const soon = voiceQuoteSay({ amount: 60, draft: ok.draft, requestOnly: false, shortNotice: true });
+  assert.match(soon, /text, WhatsApp, or email/);
+  console.log("OK  never turned away: request-only and short-notice quotes still offer the booking link");
+}

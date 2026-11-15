@@ -19,7 +19,7 @@ import { resolveGooglePlaceDetails } from "../shared/google-places";
 import { servedAirportFromPlaceId } from "../shared/served-airports";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
-import { checkWhatsAppAvailability, whatsAppAsksSchedule } from "./whatsapp-handlers";
+import { checkWhatsAppAvailability, sendWhatsAppQuoteFormTo, type WhatsAppEnv } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
 import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
@@ -139,12 +139,11 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     }
   }
 
-  // The date and time are asked for only while a time-based surcharge is on (owner dashboard).
-  const scheduleUpFront = await whatsAppAsksSchedule(store);
+  // Owner decision (15 Nov 2026): the phone always asks the date and pickup time.
   const checked = voiceQuoteDraft(
     { ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff },
     new Date(),
-    { scheduleUpFront },
+    { scheduleUpFront: true },
   );
   if (!checked.ok) {
     return reply({
@@ -163,16 +162,11 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     });
   }
 
+  // Owner decision (15 Nov 2026): never turn a caller away ("too soon", "closed", "fully booked").
+  // Always price and send the booking link; the website applies the dashboard availability
+  // settings (request + payment held for the owner to accept, released if not accepted).
   const availability = await checkWhatsAppAvailability(draft, store);
-  if (!availability.ok) {
-    const say =
-      availability.reason === "notice" || availability.reason === "overnight"
-        ? "That's a bit soon for us to guarantee a car. Can I take your name and mobile so the team can see if they can fit you in?"
-        : availability.reason === "closed"
-          ? "We're not taking bookings for that time. Can I take a message and have the team call you back?"
-          : "We're fully booked at that time. Would a slightly earlier or later pickup work for you?";
-    return reply({ ok: false, unavailable: availability.reason, say });
-  }
+  const requestOnly = !availability.ok || availability.requestOnly;
 
   const quoteBody = {
     ...whatsAppDraftToQuoteBody(draft),
@@ -209,12 +203,12 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     price: priced.record.quotedAmountLabel,
     priceGbp: amount,
     returnJourney: Boolean(draft.returnJourney),
-    requestOnly: availability.requestOnly,
+    requestOnly,
     priceHeldHours: linkHours,
     bookingLink: priced.bookingUrl,
     smsText: smsText(memo, priced.bookingUrl),
     vehicle: priced.record.journey.vehicleType ?? null,
-    say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly: availability.requestOnly, shortNotice }),
+    say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly, shortNotice }),
   });
 }
 
@@ -450,4 +444,43 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   }
 
   return reply({ ok: false, messageStatus: "generated", delivered: false, say: fallback });
+}
+
+/**
+ * POST /voice/quote-form — when the phone receptionist can't pin down an address, send the
+ * caller our WhatsApp quote form (the same Flow the WhatsApp assistant uses): they tap their
+ * own addresses, date, time and bags, and the fixed price comes back in WhatsApp
+ * (owner decision 15 Nov 2026). Body: { mobile, pickup?, dropoff? }.
+ * WhatsApp only lets us send the form to someone who has messaged us in the last 24 hours,
+ * so this can fail; the reply then says what to do next instead.
+ */
+export async function handleVoiceQuoteForm(request: Request, env: Env & WhatsAppEnv): Promise<Response> {
+  const store = env.TRACKING_STORE;
+  const notSent = {
+    ok: false,
+    sent: false,
+    say: "I couldn't send that to WhatsApp just now. Could you give me the postcode instead?",
+  };
+  if (!store) return reply(notSent);
+  const input = readInput(await request.json().catch(() => null)) as Record<string, unknown>;
+  const mobile = String(input.mobile ?? input.phone ?? input.fromNumber ?? "").trim();
+  const to = whatsAppRecipient(mobile);
+  if (!to) {
+    return reply({
+      ok: false,
+      sent: false,
+      missing: ["mobile"],
+      say: "What's the mobile number you use for WhatsApp?",
+    });
+  }
+  const sent = await sendWhatsAppQuoteFormTo(env, store, to, {
+    pickup: String(input.pickup ?? "").trim().slice(0, 120),
+    dropoff: String(input.dropoff ?? "").trim().slice(0, 120),
+  }).catch(() => false);
+  if (!sent) return reply(notSent);
+  return reply({
+    ok: true,
+    sent: true,
+    say: "I've sent you a short form on WhatsApp — tap Get my price, pick your addresses from the list, and your fixed price comes straight back to you there.",
+  });
 }

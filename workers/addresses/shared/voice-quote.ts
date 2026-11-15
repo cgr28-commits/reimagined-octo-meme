@@ -244,10 +244,17 @@ export function voiceQuoteSay(input: {
     voiceVehicleSentence(input.vehicle, draft.suitcases ?? 0),
     waiting,
   ];
+  // Owner decision (15 Nov 2026): the phone never turns a journey away or says "too soon".
+  // The customer books on the link; the website and the dashboard settings decide the rest,
+  // and the booking is confirmed when the confirmation email arrives.
   if (input.requestOnly) {
-    parts.push("For that date and time we need to confirm we can do it before you pay, so the team will confirm with you.");
+    parts.push(
+      "You book it on the secure link, and your booking is confirmed once you receive our confirmation email. Shall I send the link by text, WhatsApp, or email?",
+    );
   } else if (input.shortNotice) {
-    parts.push("Because it's less than 24 hours away, that price is held for 2 hours.");
+    parts.push(
+      "Because it's less than 24 hours away, that price is held for 2 hours — shall I send the booking link by text, WhatsApp, or email?",
+    );
   } else if (!draft.outboundDate || !draft.outboundTime) {
     parts.push(
       "You choose your date and time on the secure booking link — shall I send it by text, WhatsApp, or email?",

@@ -784,6 +784,32 @@ async function sendWhatsAppQuoteForm(
 }
 
 /**
+ * The phone receptionist sends the same quote form when she can't pin down an address
+ * (owner decision 15 Nov 2026). `phone` is WhatsApp digits (447…). False when it couldn't
+ * be sent — e.g. WhatsApp refuses a form to someone who hasn't messaged us in 24 hours.
+ */
+export async function sendWhatsAppQuoteFormTo(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  prefill: { pickup?: string; dropoff?: string } = {},
+): Promise<boolean> {
+  const conversation = {
+    draft: {
+      ...(prefill.pickup ? { pickupAddress: prefill.pickup } : {}),
+      ...(prefill.dropoff ? { dropoffAddress: prefill.dropoff } : {}),
+    },
+  } as unknown as WhatsAppConversation;
+  return sendWhatsAppQuoteForm(
+    env,
+    store,
+    phone,
+    conversation,
+    "Thanks for calling. " + WHATSAPP_QUOTE_FORM_INTRO,
+  );
+}
+
+/**
  * A submitted form: its journey becomes the chat's quote, ready to price (stage "confirming",
  * as if the customer had tapped Yes on the summary). False if the form is unknown or unfinished.
  */

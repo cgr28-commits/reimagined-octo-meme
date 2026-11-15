@@ -51,7 +51,7 @@ import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-f
 import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
 import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
-import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
+import { handleVoiceQuote, handleVoiceQuoteForm, handleVoiceSendLink } from "./voice-quote";
 import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
 import { handleVoiceInbound } from "./voice-inbound";
 import { handleVoiceProvisionalBooking } from "./voice-provisional";
@@ -5130,6 +5130,10 @@ export default {
     }
     if (voicePath === "/voice/send-link" && request.method === "POST") {
       return handleVoiceSendLink(request, env);
+    }
+    // Caller's addresses unclear: send them the WhatsApp quote form (Flow) to tap their own.
+    if (voicePath === "/voice/quote-form" && request.method === "POST") {
+      return handleVoiceQuoteForm(request, env);
     }
     // Unpaid provisional hold from a phone-priced quote (never marks paid).
     if (voicePath === "/voice/provisional-booking" && request.method === "POST") {
