@@ -251,10 +251,11 @@ check("Worker approve wires auto-send + idempotent paymentLinkEmailSentAt", () =
   assert.match(handlers, /handleOwnerResendPaymentEmail/);
   assert.match(handlers, /buildShortNoticePaymentLinkEmail/);
   assert.match(handlers, /trySendBrandedCustomerEmail/);
-  assert.doesNotMatch(
-    handlers.slice(handlers.indexOf("handleOwnerResendPaymentEmail")),
-    /SUMUP|createCheckout|checkout\.sumup/i,
-  );
+  // Only the resend handler itself: later handlers (payment gate) still verify SumUp.
+  const resendStart = handlers.indexOf("export async function handleOwnerResendPaymentEmail");
+  const resendEnd = handlers.indexOf("\nexport ", resendStart + 1);
+  assert.ok(resendStart >= 0 && resendEnd > resendStart);
+  assert.doesNotMatch(handlers.slice(resendStart, resendEnd), /SUMUP|createCheckout|checkout\.sumup/i);
   assert.match(index, /handleOwnerResendPaymentEmail/);
   assert.match(index, /resend-payment-email/);
 });
