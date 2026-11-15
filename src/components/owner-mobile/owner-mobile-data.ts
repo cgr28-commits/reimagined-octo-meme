@@ -6,6 +6,8 @@
  * as the classic dashboard (owner-dashboard-ops). Nothing is estimated: when a value
  * can't be worked out reliably it is left out (null) and the UI shows a dash.
  */
+import type { BookingJobRecord } from "../../../shared/booking-job";
+import { groupOwnerRequests } from "../../../shared/owner-request-groups";
 import {
   earnedRevenueOnDay,
   expandOwnerPaidBookingLegs,
@@ -94,12 +96,12 @@ export type MobileMessageItem = {
 
 export type MobileUrgentItem = {
   id: string;
-  kind: "short_notice" | "email" | "whatsapp" | "unpaid";
+  kind: "short_notice" | "request" | "email" | "whatsapp" | "unpaid";
   title: string;
   detail: string;
   badge: string;
   tone: "red" | "amber" | "blue" | "green";
-  target: { tab: "bookings" | "inbox" | "requests" | "admin"; ref?: string };
+  target: { tab: "bookings" | "inbox" | "requests" | "enquiries" | "admin"; ref?: string };
 };
 
 export type MobileHomeSummary = {
@@ -254,6 +256,8 @@ export function buildHomeSummary(input: {
   shortNotice: MobileShortNotice[];
   threads: MobileInboxThread[];
   chats: MobileWhatsAppChat[];
+  /** Website requests / enquiries (booking jobs). New ones with no price sent show first. */
+  requests?: BookingJobRecord[];
   now: Date;
 }): MobileHomeSummary {
   const { now } = input;
@@ -284,6 +288,22 @@ export function buildHomeSummary(input: {
       badge: minsLeft === null ? "Decide" : minsLeft >= 60 ? `${Math.floor(minsLeft / 60)} h left` : `${minsLeft} min`,
       tone: "red",
       target: { tab: "requests", ref: item.reference },
+    });
+  }
+
+  const newRequests = groupOwnerRequests(input.requests ?? [], today).new;
+  for (const job of newRequests) {
+    const when = job.tripDate ? job.tripDate.slice(5).split("-").reverse().join("/") : "";
+    urgent.push({
+      id: `req:${job.id}`,
+      kind: "request",
+      title: job.customerName || "New website request",
+      detail: ["New request", when && `${when}${job.tripTime ? ` ${job.tripTime}` : ""}`, job.vehicle, job.returnJourney ? "Return" : ""]
+        .filter(Boolean)
+        .join(" · "),
+      badge: "Send price",
+      tone: "red",
+      target: { tab: "enquiries", ref: job.id },
     });
   }
 

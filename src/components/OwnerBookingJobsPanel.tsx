@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { groupOwnerRequests } from "../../shared/owner-request-groups";
 import {
   bookingJobAssignmentLabel,
   type BookingJobRecord,
@@ -26,10 +27,16 @@ type OwnerBookingJobsPanelProps = {
 };
 
 function statusBadge(job: BookingJobRecord): { label: string; className: string } {
+  if (job.status === "awaiting_payment" && !job.sentQuoteAt) {
+    return {
+      label: "Needs a price",
+      className: "border-red-600 bg-red-600 text-white",
+    };
+  }
   if (job.status === "awaiting_payment") {
     return {
-      label: "Awaiting payment",
-      className: "border-amber-400/30 bg-amber-500/10 text-amber-100",
+      label: "Price sent — awaiting payment",
+      className: "border-amber-500 bg-amber-400 text-navy",
     };
   }
   if (job.driverAssignmentStatus === "accepted") {
@@ -76,7 +83,8 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
   const [busyId, setBusyId] = useState("");
   const [paidAmountById, setPaidAmountById] = useState<Record<string, string>>({});
   const [paymentRefById, setPaymentRefById] = useState<Record<string, string>>({});
-  const [awaitingOpen, setAwaitingOpen] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<string>("");
   const [quotePriceById, setQuotePriceById] = useState<Record<string, string>>({});
   const [quoteValidityById, setQuoteValidityById] = useState<Record<string, number>>({});
   const [quoteNoticeById, setQuoteNoticeById] = useState<
@@ -98,6 +106,20 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     >
   >({});
 
+  const groups = useMemo(() => groupOwnerRequests(jobs), [jobs]);
+  const orderedJobs = useMemo(
+    () => [...groups.new, ...groups.priceSent, ...groups.booked, ...(pastOpen ? groups.past : [])],
+    [groups, pastOpen],
+  );
+  const sectionStarts = useMemo(() => {
+    const starts = new Map<string, { title: string; hint: string }>();
+    if (groups.new[0]) starts.set(groups.new[0].id, { title: `New — send a price (${groups.new.length})`, hint: "Newest first. Type a fare and tap Send price." });
+    if (groups.priceSent[0]) starts.set(groups.priceSent[0].id, { title: `Price sent — waiting for payment (${groups.priceSent.length})`, hint: "Moves to Booked by itself when the customer pays." });
+    if (groups.booked[0]) starts.set(groups.booked[0].id, { title: `Booked (${groups.booked.length})`, hint: "Paid jobs — assign a driver here." });
+    if (pastOpen && groups.past[0]) starts.set(groups.past[0].id, { title: `Past date — never booked (${groups.past.length})`, hint: "Kept for reference only." });
+    return starts;
+  }, [groups, pastOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -108,6 +130,9 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
       ]);
       setJobs(next);
       setStats(nextStats);
+      setLoadedAt(
+        new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load bookings");
     } finally {
@@ -126,8 +151,8 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
       const jobId = hash.slice("owner-booking-job-".length);
       const job = jobs.find((item) => item.id === jobId);
       if (!job) return;
-      if (job.status === "awaiting_payment" && !awaitingOpen) {
-        setAwaitingOpen(true);
+      if (!pastOpen && groups.past.some((item) => item.id === job.id)) {
+        setPastOpen(true);
         return;
       }
       window.requestAnimationFrame(() => {
@@ -142,7 +167,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     revealBookingRequestFromHash();
     window.addEventListener("hashchange", revealBookingRequestFromHash);
     return () => window.removeEventListener("hashchange", revealBookingRequestFromHash);
-  }, [jobs, awaitingOpen]);
+  }, [jobs, pastOpen, groups]);
 
   function draftFor(job: BookingJobRecord) {
     return (
@@ -280,14 +305,6 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
     }
   }
 
-  const awaitingJobs = useMemo(
-    () => jobs.filter((job) => job.status === "awaiting_payment"),
-    [jobs],
-  );
-  const otherJobs = useMemo(
-    () => jobs.filter((job) => job.status !== "awaiting_payment"),
-    [jobs],
-  );
 
   return (
     <section className="mb-10 rounded-2xl border border-emerald/25 bg-emerald/5 p-5 sm:p-6">
@@ -296,74 +313,23 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           <p className="text-xs font-semibold uppercase tracking-wider text-emerald">
             Booking requests
           </p>
-          <h2 className="mt-1 text-xl font-bold text-white">Quotes &amp; enquiry jobs</h2>
+          <h2 className="mt-1 text-xl font-bold text-white">Website requests</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/65">
-            Customers who request a quote / book via enquiry appear here. Website card payments
-            (Pay now on SumUp) are listed above under “Paid bookings (SumUp)”.
+            New requests are at the top. Type a fare and tap Send price — the customer gets the
+            price and a card payment link.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30"
+          disabled={loading}
+          className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
         >
-          Refresh
+          {loading ? "Refreshing…" : "Refresh"}
+          {!loading && loadedAt ? (
+            <span className="block text-[11px] font-normal text-white/50">Updated {loadedAt}</span>
+          ) : null}
         </button>
-      </div>
-
-      {stats ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-white/45">Website quotes</p>
-            <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsTotal}</p>
-            <p className="mt-1 text-xs text-white/50">
-              Unique fixed quotes emailed to you
-              {stats.quoteLeadsLastAt
-                ? ` · last ${formatUkInstant(stats.quoteLeadsLastAt)}`
-                : " · counting from deploy"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-white/45">Repeat views</p>
-            <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsDedupedTotal}</p>
-            <p className="mt-1 text-xs text-white/50">Same quote seen again (not re-emailed)</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-xs uppercase tracking-wider text-white/45">Booking refs</p>
-            <p className="mt-1 text-2xl font-bold text-white">{stats.bookingsIssuedTotal}</p>
-            <p className="mt-1 text-xs text-white/50">
-              MATNI references issued
-              {stats.nextBookingRef ? ` · next MATNI-${stats.nextBookingRef}` : ""}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-6 rounded-xl border border-white/10 bg-navy p-4" data-booking-funnel>
-        <h3 className="text-lg font-bold text-white">Customer booking journey</h3>
-        <label className="mt-3 block text-sm text-white/80">Quote date (London)
-          <input type="date" value={funnelDay || stats?.funnel?.day || ""} onChange={e => setFunnelDay(e.target.value)}
-            className="mt-1 block max-w-full rounded-lg border border-white/20 bg-navy px-3 py-2 text-white" />
-        </label>
-        <p className="mt-2 text-xs text-white/60">Website quote sessions, not identified people. Stages count once per quote. Payment confirmations come from the server. Records retained for 60 days; refresh for updates.</p>
-        {stats?.funnel ? <>
-          {stats.funnel.truncated && <p className="mt-2 text-sm text-amber-200">Showing a sample of up to 100 quote sessions for this date. These counts are not the full day totals.</p>}
-          <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-            {[["Quotes received", stats.funnel.quotes], ["Book My Transfer", stats.funnel.started], ["Contact stage opened", stats.funnel.detailsOpened],
-              ["Details submitted", stats.funnel.detailsSubmitted], ["Payment page opened", stats.funnel.paymentOpened], ["Payment confirmed", stats.funnel.paid]].map(([label, value]) =>
-              <div key={label} className="rounded-lg bg-white/5 p-3"><dt className="text-xs text-white/70">{label}</dt><dd className="text-2xl font-bold text-white">{value}</dd></div>)}
-          </dl>
-          <p className="mt-3 text-xs text-white/60">Possible abandonment means no later recorded stage for 10 minutes. Customers may still return. Older sessions have no historical click-stage data.</p>
-          <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
-            {stats.funnel.rows.map(row => <li key={row.quoteTransactionId} className="break-words rounded-lg border border-white/10 p-3 text-sm text-white/80">
-              <p>{row.pickupLabel} → {row.dropoffLabel}</p>
-              <p>{row.vehicle} · {row.estimatedPriceLabel} · {row.lastStage}</p>
-              <p className="text-xs text-white/55">{formatUkInstant(row.lastAt)} · {row.quoteTransactionId}</p>
-              {row.possiblyAbandoned && <p className="text-amber-200">Possibly abandoned — no recent stage recorded</p>}
-            </li>)}
-          </ul>
-          {stats.funnel.rows.length === 0 && <p className="mt-3 text-sm text-white/60">No quote sessions recorded for this date.</p>}
-        </> : <p className="mt-3 text-sm text-white/60">Booking journey data is unavailable.</p>}
       </div>
 
       {error ? (
@@ -380,25 +346,14 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
         </p>
       ) : (
         <>
-        {awaitingJobs.length > 0 ? (
-          <div className="mt-6 rounded-xl border border-white/10 bg-navy/40">
-            <button
-              type="button"
-              onClick={() => setAwaitingOpen((open) => !open)}
-              aria-expanded={awaitingOpen}
-              className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left"
-            >
-              <span className="text-sm font-bold text-white">
-                Awaiting Payment ({awaitingJobs.length})
-              </span>
-              <span className="text-emerald" aria-hidden>
-                {awaitingOpen ? "▲" : "▼"}
-              </span>
-            </button>
-          </div>
+        {groups.new.length === 0 ? (
+          <p className="mt-6 rounded-xl border border-white/10 bg-navy/40 px-4 py-3 text-sm text-white/70">
+            No new requests waiting for a price.
+          </p>
         ) : null}
         <ul className="mt-6 space-y-4">
-          {(awaitingOpen ? [...awaitingJobs, ...otherJobs] : otherJobs).map((job) => {
+          {orderedJobs.map((job) => {
+            const section = sectionStarts.get(job.id);
             const badge = statusBadge(job);
             const draft = draftFor(job);
             const jobNav = resolveOwnerDisplayedLegNav({
@@ -408,8 +363,14 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
               isFromAirport: job.isFromAirport,
             });
             return (
+              <Fragment key={job.id}>
+              {section ? (
+                <li className="list-none pt-2" aria-hidden={false}>
+                  <h3 className="text-base font-bold text-white">{section.title}</h3>
+                  <p className="mt-0.5 text-xs text-white/55">{section.hint}</p>
+                </li>
+              ) : null}
               <li
-                key={job.id}
                 id={`owner-booking-job-${job.id}`}
                 tabIndex={-1}
                 className="rounded-2xl border border-white/10 bg-navy/60 p-4 sm:p-5 outline-none focus:ring-2 focus:ring-emerald/50"
@@ -682,9 +643,82 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
                   </div>
                 ) : null}
               </li>
+              </Fragment>
             );
           })}
         </ul>
+        {groups.past.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setPastOpen((open) => !open)}
+            aria-expanded={pastOpen}
+            className="mt-6 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-navy/40 px-4 py-3 text-left"
+          >
+            <span className="text-sm font-semibold text-white/80">
+              {pastOpen ? "Hide" : "Show"} past-date requests that never booked ({groups.past.length})
+            </span>
+            <span className="text-emerald" aria-hidden>{pastOpen ? "▲" : "▼"}</span>
+          </button>
+        ) : null}
+        <details className="mt-8 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-white/80">
+            Quote stats &amp; booking journey
+          </summary>
+      {stats ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+              <p className="text-xs uppercase tracking-wider text-white/45">Website quotes</p>
+              <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsTotal}</p>
+              <p className="mt-1 text-xs text-white/50">
+                Unique fixed quotes emailed to you
+                {stats.quoteLeadsLastAt
+                  ? ` · last ${formatUkInstant(stats.quoteLeadsLastAt)}`
+                  : " · counting from deploy"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+              <p className="text-xs uppercase tracking-wider text-white/45">Repeat views</p>
+              <p className="mt-1 text-2xl font-bold text-white">{stats.quoteLeadsDedupedTotal}</p>
+              <p className="mt-1 text-xs text-white/50">Same quote seen again (not re-emailed)</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+              <p className="text-xs uppercase tracking-wider text-white/45">Booking refs</p>
+              <p className="mt-1 text-2xl font-bold text-white">{stats.bookingsIssuedTotal}</p>
+              <p className="mt-1 text-xs text-white/50">
+                MATNI references issued
+                {stats.nextBookingRef ? ` · next MATNI-${stats.nextBookingRef}` : ""}
+              </p>
+            </div>
+          </div>
+        ) : null}
+  
+        <div className="mt-6 rounded-xl border border-white/10 bg-navy p-4" data-booking-funnel>
+          <h3 className="text-lg font-bold text-white">Customer booking journey</h3>
+          <label className="mt-3 block text-sm text-white/80">Quote date (London)
+            <input type="date" value={funnelDay || stats?.funnel?.day || ""} onChange={e => setFunnelDay(e.target.value)}
+              className="mt-1 block max-w-full rounded-lg border border-white/20 bg-navy px-3 py-2 text-white" />
+          </label>
+          <p className="mt-2 text-xs text-white/60">Website quote sessions, not identified people. Stages count once per quote. Payment confirmations come from the server. Records retained for 60 days; refresh for updates.</p>
+          {stats?.funnel ? <>
+            {stats.funnel.truncated && <p className="mt-2 text-sm text-amber-200">Showing a sample of up to 100 quote sessions for this date. These counts are not the full day totals.</p>}
+            <dl className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+              {[["Quotes received", stats.funnel.quotes], ["Book My Transfer", stats.funnel.started], ["Contact stage opened", stats.funnel.detailsOpened],
+                ["Details submitted", stats.funnel.detailsSubmitted], ["Payment page opened", stats.funnel.paymentOpened], ["Payment confirmed", stats.funnel.paid]].map(([label, value]) =>
+                <div key={label} className="rounded-lg bg-white/5 p-3"><dt className="text-xs text-white/70">{label}</dt><dd className="text-2xl font-bold text-white">{value}</dd></div>)}
+            </dl>
+            <p className="mt-3 text-xs text-white/60">Possible abandonment means no later recorded stage for 10 minutes. Customers may still return. Older sessions have no historical click-stage data.</p>
+            <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
+              {stats.funnel.rows.map(row => <li key={row.quoteTransactionId} className="break-words rounded-lg border border-white/10 p-3 text-sm text-white/80">
+                <p>{row.pickupLabel} → {row.dropoffLabel}</p>
+                <p>{row.vehicle} · {row.estimatedPriceLabel} · {row.lastStage}</p>
+                <p className="text-xs text-white/55">{formatUkInstant(row.lastAt)} · {row.quoteTransactionId}</p>
+                {row.possiblyAbandoned && <p className="text-amber-200">Possibly abandoned — no recent stage recorded</p>}
+              </li>)}
+            </ul>
+            {stats.funnel.rows.length === 0 && <p className="mt-3 text-sm text-white/60">No quote sessions recorded for this date.</p>}
+          </> : <p className="mt-3 text-sm text-white/60">Booking journey data is unavailable.</p>}
+        </div>
+        </details>
         </>
       )}
     </section>
