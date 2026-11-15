@@ -4,7 +4,8 @@
  * When off, the pages return 404, are not in the sitemap and are not linked.
  * The Worker has its own switch (BESPOKE_QUOTES_ENABLED); both must be on.
  */
-export const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1";
+// PREVIEW BRANCH ONLY — never merge: pages forced on so Colin can see them.
+export const BESPOKE_PUBLIC_PAGES_ENABLED = true;
 
 /**
  * The Events page on its own (owner approved going live, 15 Nov 2026). Its buttons go to the
