@@ -138,7 +138,7 @@ export default function QuoteVehicleCategories({
   desktopPrices?: Partial<Record<string, string>>;
   /** Desktop only: indicative "From" price for a request-only vehicle (e.g. "£83"). */
   desktopRequestPrices?: Partial<Record<string, string>>;
-  /** Desktop only: a notice above "Book with confidence" (e.g. big-event demand). */
+  /** A notice above "Book with confidence" (e.g. big-event demand). */
   desktopTopNotice?: ReactNode;
 }) {
   const enabled = enabledVehicleTypesForQuote({
@@ -161,7 +161,7 @@ export default function QuoteVehicleCategories({
 
   return (
     <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
-      {desktopTopNotice ? <div className="hidden" data-vehicle-top-notice>{desktopTopNotice}</div> : null}
+      {desktopTopNotice ? <div data-vehicle-top-notice>{desktopTopNotice}</div> : null}
       {/* Book with confidence (owner, 14 Nov 2026): reassurance right before the vehicle choice. */}
       <div data-vehicle-confidence>
         <p data-vehicle-confidence-title>Book with confidence</p>

@@ -1,13 +1,15 @@
 /**
  * Big-event notices on the website quote tool (owner, 15 Nov 2026 — trial).
  *
- * A quote whose drop-off is in the event's city (or that names the venue) on a date inside
+ * A quote whose drop-off is in the event's city (Greater Belfast / Dublin) (or that names the venue) on a date inside
  * the event's notice window gets a "limited availability, book early" message.
  *
  * To add an event: copy an entry, set the dates (YYYY-MM-DD) and the window.
  * Past events drop off by themselves. The WhatsApp assistant has its own list
  * (whatsapp-events.ts) and is not affected by this one.
  */
+import { isGreaterBelfastServiceAddress } from "./ldy-service-area";
+
 export type WebsiteEventCity = "belfast" | "dublin";
 export type WebsiteEventKind = "concert" | "match" | "festival";
 
@@ -62,12 +64,9 @@ export const WEBSITE_EVENT_NOTICES: WebsiteEventNotice[] = [
 ];
 
 const CITY_RULES: Record<WebsiteEventCity, (dropoff: string) => boolean> = {
-  // Belfast city: BT1–BT17. Airports are never "into the city".
-  belfast: (dropoff) => {
-    const pc = dropoff.toUpperCase().match(/\bBT(\d{1,2})\b/);
-    if (pc) return Number(pc[1]) >= 1 && Number(pc[1]) <= 17;
-    return /\bbelfast\b/i.test(dropoff);
-  },
+  // Owner (15 Nov 2026): any drop-off in Greater Belfast — the same area the instant quotes use.
+  // Airports are never counted.
+  belfast: (dropoff) => isGreaterBelfastServiceAddress(dropoff),
   // Dublin city: Dublin 1–24 / D01–D24 Eircodes, or "Dublin" with no other county named.
   dublin: (dropoff) => {
     const eircode = dropoff.toUpperCase().match(/\bD(\d{2})\b|\bD6W\b/);
