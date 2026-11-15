@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENTS_HUB_PATH } from "@/lib/bespoke-public";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
 import FromAirportText from "./FromAirportText";
 import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
@@ -53,8 +54,9 @@ const MORE_JOURNEYS = [
   { href: "/transfers/belfast-to-dublin-airport/", label: "Belfast ↔ Dublin" },
   { href: "/belfast-cruise-terminal-transfers/", label: "Cruise port" },
   { href: "/belfast-grand-central-station-taxi/", label: "Train station" },
-  { href: "/events/", label: "Events & concerts" },
-] as const;
+  // Only while the Events pages are switched on; otherwise this link would 404.
+  ...(BESPOKE_PUBLIC_PAGES_ENABLED ? [{ href: EVENTS_HUB_PATH, label: "Events & concerts" }] : []),
+];
 
 function HomepageMoreJourneys() {
   return (
