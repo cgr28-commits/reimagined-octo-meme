@@ -1,5 +1,6 @@
 import {
   buildDriverAssignmentEmail,
+  driverEmailJobForLeg,
   type BookingJobRecord,
 } from "../shared/booking-job";
 import { authorizeDriverJobAction, driverPortalMagicLink } from "../shared/driver-portal-access";
@@ -420,6 +421,7 @@ export async function handleDriverAssignRequest(
       driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
       driverAcceptToken: acceptToken,
+      assignedLeg: record.journeyLeg === "return" ? "return" : "outbound",
       assignedAt: now,
       driverAcceptedAt: undefined,
       driverDeclinedAt: undefined,
@@ -442,7 +444,7 @@ export async function handleDriverAssignRequest(
         : null;
     const cashDue = paidRecord ? remainingCashDueGbp(paidRecord) : 0;
     const email = buildDriverAssignmentEmail({
-      job: updatedBooking,
+      job: driverEmailJobForLeg(updatedBooking, record),
       meetGreetSelected: typeof paidRecord?.meetGreetFeeGbp === "number" && record.journeyLeg !== "return",
       acceptUrl,
       businessName: BUSINESS_NAME,
