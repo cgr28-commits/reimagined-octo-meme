@@ -1,9 +1,11 @@
 "use client";
 
 import {
-  matchEventForWebsiteQuote,
+  matchWebsiteEventNotice,
   websiteEventDatesLabel,
-} from "../../shared/whatsapp-events";
+  websiteEventIcon,
+  websiteEventReason,
+} from "../../shared/website-event-notices";
 import {
   CARD_BALANCE_MIN_FARE_GBP,
   isCardBalanceDateEligible,
@@ -19,9 +21,9 @@ type Props = {
   fareGbp?: number | null;
 };
 
-/** Big-event notice on the quote result (e.g. Garth Brooks at Boucher Road, May 2027). */
+/** Big-event notice on the quote result (Garth Brooks, Six Nations, big Dublin/Belfast gigs). */
 export default function EventDemandNotice({ addresses, dates, dropoff, tripDate, tripTime, fareGbp }: Props) {
-  const event = matchEventForWebsiteQuote({ addresses, dates, dropoff });
+  const event = matchWebsiteEventNotice({ pickup: addresses[0], dropoff: dropoff ?? addresses[1], dates });
   if (!event) return null;
   const depositOffered =
     fareGbp != null && fareGbp >= CARD_BALANCE_MIN_FARE_GBP && isCardBalanceDateEligible(tripDate, tripTime);
@@ -32,11 +34,11 @@ export default function EventDemandNotice({ addresses, dates, dropoff, tripDate,
       className="mb-2 rounded-xl border-2 border-[#F5B700] bg-[#FFF4D6] px-3.5 py-2.5 text-left text-navy"
     >
       <p className="text-sm font-bold leading-snug">
-        <span aria-hidden="true">🎵 </span>
-        Garth Brooks at Boucher Road – {websiteEventDatesLabel(event)}
+        <span aria-hidden="true">{websiteEventIcon(event)} </span>
+        {event.title} – {websiteEventDatesLabel(event)}
       </p>
       <p className="mt-0.5 text-[0.82rem] font-medium leading-snug">
-        Limited availability due to concert bookings. Booking early is advisable to secure your car.
+        Limited availability due to {websiteEventReason(event)}. Booking early is advisable to secure your car.
       </p>
       {depositOffered ? (
         <p className="mt-1 text-[0.82rem] font-bold leading-snug" data-event-demand-deposit>
