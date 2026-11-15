@@ -38,6 +38,8 @@ export type BookingJobRecord = {
   returnTime?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Leg the current driver assignment is for (set by per-leg assignment). */
+  assignedLeg?: "outbound" | "return";
   passengers: number;
   suitcases: number;
   vehicle: string;

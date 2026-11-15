@@ -421,6 +421,7 @@ export async function handleDriverAssignRequest(
       driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
       driverAcceptToken: acceptToken,
+      assignedLeg: record.journeyLeg === "return" ? "return" : "outbound",
       assignedAt: now,
       driverAcceptedAt: undefined,
       driverDeclinedAt: undefined,
