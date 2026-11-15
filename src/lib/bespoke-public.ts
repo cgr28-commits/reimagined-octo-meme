@@ -6,6 +6,13 @@
  */
 export const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1";
 
+/**
+ * The Events page on its own (owner approved going live, 15 Nov 2026). Its buttons go to the
+ * instant quote tool and WhatsApp. The request forms stay behind BESPOKE_PUBLIC_PAGES_ENABLED
+ * until Cloudflare Turnstile is set up for the live site.
+ */
+export const EVENTS_HUB_PUBLIC_ENABLED = true;
+
 export const EVENTS_HUB_PATH = "/events/";
 export const EVENT_TRANSFER_REQUEST_PATH = "/events/transfer-request/";
 export const BUSINESS_CLASS_REQUEST_PATH = "/business-class-request/";

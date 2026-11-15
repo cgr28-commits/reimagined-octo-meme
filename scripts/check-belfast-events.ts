@@ -45,7 +45,10 @@ function created(overrides: Record<string, unknown> = {}): BelfastEventRecord {
 async function main(): Promise<void> {
   console.log("=== Model ===");
   assert.deepEqual([...BELFAST_EVENT_CATEGORIES], ["concert", "sport", "theatre", "comedy", "festival", "exhibition"]);
-  for (const v of BELFAST_VENUES) assert.match(v.area, /Belfast BT(?:[1-9]|1[0-7])\b/, `${v.name} is a Belfast venue`);
+  // Belfast or Dublin venues (owner, 15 Nov 2026).
+  for (const v of BELFAST_VENUES) {
+    assert.match(v.area, /Belfast BT(?:[1-9]|1[0-7])\b|Dublin (?:[1-9]|1\d|2[0-4])\b/, `${v.name} is a Belfast or Dublin venue`);
+  }
   const draft = created();
   assert.equal(draft.status, "draft", "new events are drafts");
   assert.equal(toBelfastEventPublic(draft), null, "drafts are never public");
@@ -56,6 +59,10 @@ async function main(): Promise<void> {
   const lisburn = validateBelfastEventInput(valid({ venueId: "other", venueName: "Lagan Valley LeisurePlex", venueArea: "Lisburn BT28 1LP" }));
   assert.ok(!lisburn.ok && /Belfast/.test(lisburn.errors.venueArea), "non-Belfast postcode refused");
   assert.ok(validateBelfastEventInput(valid({ venueId: "other", venueName: "Custom House Square", venueArea: "Belfast BT1 3ET" })).ok);
+  assert.ok(validateBelfastEventInput(valid({ venueId: "other", venueName: "Fairview Park", venueArea: "Fairview, Dublin 3" })).ok, "Dublin postal district accepted");
+  assert.ok(validateBelfastEventInput(valid({ venueId: "other", venueName: "RDS Arena", venueArea: "Ballsbridge, D04 AK83" })).ok, "Dublin Eircode accepted");
+  assert.ok(!validateBelfastEventInput(valid({ venueId: "other", venueName: "Pearse Stadium", venueArea: "Salthill, Galway H91" })).ok, "other cities refused");
+  assert.ok(validateBelfastEventInput(valid({ venueId: "aviva-stadium" })).ok, "listed Dublin venue accepted");
   // Plain text only; https links only.
   assert.ok(!validateBelfastEventInput(valid({ summary: "<img src=x onerror=alert(1)>" })).ok);
   assert.ok(!validateBelfastEventInput(valid({ officialUrl: "http://example.com" })).ok);
@@ -155,16 +162,24 @@ async function main(): Promise<void> {
   assert.equal((await call("/events/public")).json.events[0].status, "cancelled");
   assert.ok(![...kv.keys()].some((k) => !k.startsWith("bevt:")), "only the bevt: KV prefix is used");
 
-  console.log("=== Public pages stay off until approved ===");
+  console.log("=== Events page on; request forms stay off until approved ===");
   const flag = read("src/lib/bespoke-public.ts");
   assert.match(flag, /BESPOKE_PUBLIC_PAGES_ENABLED = process\.env\.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1"/);
-  for (const page of ["src/app/events/page.tsx", "src/app/events/transfer-request/page.tsx", "src/app/business-class-request/page.tsx"]) {
+  // Owner approved the Events page on its own (15 Nov 2026).
+  assert.match(flag, /EVENTS_HUB_PUBLIC_ENABLED = true/);
+  assert.match(read("src/app/events/page.tsx"), /if \(!EVENTS_HUB_PUBLIC_ENABLED\) notFound\(\);/, "events page has its own switch");
+  for (const page of ["src/app/events/transfer-request/page.tsx", "src/app/business-class-request/page.tsx"]) {
     const src = read(page);
     assert.match(src, /if \(!BESPOKE_PUBLIC_PAGES_ENABLED\) notFound\(\);/, `${page} 404s while off`);
     assert.match(src, /robots: \{ index: false/, `${page} noindex while off`);
   }
-  assert.match(read("scripts/generate-sitemap.mjs"), /\.\.\.\(BESPOKE_PUBLIC_PAGES_ENABLED\s*\?/, "sitemap entries gated");
-  assert.match(read("scripts/build-bespoke-preview-site.mjs"), /NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES: "1"/, "only the preview build enables them");
+  // With the forms off, the events page never links to them.
+  const hub = read("src/app/events/page.tsx") + read("src/components/BelfastEventsList.tsx");
+  assert.match(hub, /FORMS \? \(/, "request links only when the forms are on");
+  const sitemap = read("scripts/generate-sitemap.mjs");
+  assert.match(sitemap, /\{ path: "\/events\/", source/, "events page in the sitemap");
+  assert.match(sitemap, /\.\.\.\(BESPOKE_PUBLIC_PAGES_ENABLED\s*\?\s*\[\s*\{ path: "\/events\/transfer-request\/"/, "request pages still gated");
+  assert.match(read("scripts/build-bespoke-preview-site.mjs"), /NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES: "1"/, "only the preview build enables the forms");
   for (const wf of ["deploy-pages.yml", "site-watchdog.yml"]) {
     let text = "";
     try {
@@ -172,7 +187,7 @@ async function main(): Promise<void> {
     } catch {
       continue;
     }
-    assert.ok(!/NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES/.test(text), `${wf} never enables the pages`);
+    assert.ok(!/NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES/.test(text), `${wf} never enables the forms`);
   }
   assert.ok(!/NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES/.test(read("src/components/Header.tsx") + read("src/components/Footer.tsx")), "no nav links added");
 

@@ -285,9 +285,10 @@ const pages = [
     : []),
   // Belfast events hub + bespoke request pages: listed only when the site is built with
   // NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1 (owner-approved launch). Off → the pages 404.
+  // Events page on its own (owner approved 15 Nov 2026; mirrors EVENTS_HUB_PUBLIC_ENABLED).
+  { path: "/events/", source: "src/app/events/page.tsx" },
   ...(BESPOKE_PUBLIC_PAGES_ENABLED
     ? [
-        { path: "/events/", source: "src/app/events/page.tsx" },
         { path: "/events/transfer-request/", source: "src/app/events/transfer-request/page.tsx" },
         { path: "/business-class-request/", source: "src/app/business-class-request/page.tsx" },
       ]

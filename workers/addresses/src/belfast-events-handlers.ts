@@ -28,6 +28,8 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 export type BelfastEventsEnv = DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
   BESPOKE_QUOTES_ENABLED?: string;
+  /** Events page on its own, without the request forms (owner, 15 Nov 2026). */
+  EVENTS_HUB_PUBLIC?: string;
 };
 
 const KEY_PREFIX = "bevt:";
@@ -97,7 +99,7 @@ export async function handleBelfastEventsRoute(
   const path = url.pathname.replace(/^\/api/, "").replace(/\/$/, "");
 
   if (path === "/events/public") {
-    if (env.BESPOKE_QUOTES_ENABLED !== "1") return respond({ error: "Not found" }, 404, origin);
+    if (env.BESPOKE_QUOTES_ENABLED !== "1" && env.EVENTS_HUB_PUBLIC !== "1") return respond({ error: "Not found" }, 404, origin);
     if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, origin);
     if (!env.TRACKING_STORE) return respond({ error: "Temporarily unavailable" }, 503, origin);
     const events = await listPublicBelfastEvents(env.TRACKING_STORE, now);
@@ -115,7 +117,7 @@ export async function handleBelfastEventsRoute(
 
   if (path === "/owner/belfast-events" && request.method === "GET") {
     const events = await listBelfastEventRecords(store);
-    return respond({ ok: true, events, publicEnabled: env.BESPOKE_QUOTES_ENABLED === "1" }, 200, origin);
+    return respond({ ok: true, events, publicEnabled: env.BESPOKE_QUOTES_ENABLED === "1" || env.EVENTS_HUB_PUBLIC === "1" }, 200, origin);
   }
 
   if (path === "/owner/belfast-events/action" && request.method === "POST") {

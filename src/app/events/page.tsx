@@ -11,23 +11,40 @@ import {
   BESPOKE_PUBLIC_PAGES_ENABLED,
   BUSINESS_CLASS_REQUEST_PATH,
   EVENTS_HUB_PATH,
+  EVENTS_HUB_PUBLIC_ENABLED,
   EVENT_TRANSFER_REQUEST_PATH,
 } from "@/lib/bespoke-public";
 import {
-  EVENTS_HUB_H1,
-  EVENTS_HUB_INTRO,
-  EVENTS_HUB_SEO_DESCRIPTION,
-  EVENTS_HUB_SEO_TITLE,
-  EVENT_FAQS,
+  EVENTS_HUB_H1 as REQUEST_H1,
+  EVENTS_HUB_INSTANT_H1,
+  EVENTS_HUB_INSTANT_INTRO,
+  EVENTS_HUB_INSTANT_SEO_DESCRIPTION,
+  EVENTS_HUB_INSTANT_SEO_TITLE,
+  EVENTS_HUB_INTRO as REQUEST_INTRO,
+  EVENTS_HUB_SEO_DESCRIPTION as REQUEST_SEO_DESCRIPTION,
+  EVENTS_HUB_SEO_TITLE as REQUEST_SEO_TITLE,
+  EVENT_FAQS as REQUEST_FAQS,
   EVENT_GROUP_NOTE,
-  EVENT_STEPS,
+  EVENT_INSTANT_FAQS,
+  EVENT_INSTANT_STEPS,
+  EVENT_STEPS as REQUEST_STEPS,
 } from "@/lib/belfast-events-content";
+import { bookingHelpWhatsAppUrl } from "@/lib/booking-help-whatsapp";
 import { loadBuildTimeBelfastEvents } from "@/lib/belfast-events-snapshot";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { BELFAST_VENUES } from "../../../shared/belfast-events";
 
+// Request forms on → personal-quotation copy; off → instant-quote copy (Belfast & Dublin).
+const FORMS = BESPOKE_PUBLIC_PAGES_ENABLED;
+const EVENTS_HUB_H1 = FORMS ? REQUEST_H1 : EVENTS_HUB_INSTANT_H1;
+const EVENTS_HUB_INTRO = FORMS ? REQUEST_INTRO : EVENTS_HUB_INSTANT_INTRO;
+const EVENTS_HUB_SEO_TITLE = FORMS ? REQUEST_SEO_TITLE : EVENTS_HUB_INSTANT_SEO_TITLE;
+const EVENTS_HUB_SEO_DESCRIPTION = FORMS ? REQUEST_SEO_DESCRIPTION : EVENTS_HUB_INSTANT_SEO_DESCRIPTION;
+const EVENT_STEPS = FORMS ? REQUEST_STEPS : EVENT_INSTANT_STEPS;
+const EVENT_FAQS = FORMS ? REQUEST_FAQS : EVENT_INSTANT_FAQS;
+
 export function generateMetadata(): Metadata {
-  if (!BESPOKE_PUBLIC_PAGES_ENABLED) {
+  if (!EVENTS_HUB_PUBLIC_ENABLED) {
     return { title: "Page not found", robots: { index: false, follow: false } };
   }
   return {
@@ -40,7 +57,7 @@ export function generateMetadata(): Metadata {
 
 export default async function BelfastEventsHubPage() {
   // Public launch needs owner approval: 404 (and no sitemap entry) until then.
-  if (!BESPOKE_PUBLIC_PAGES_ENABLED) notFound();
+  if (!EVENTS_HUB_PUBLIC_ENABLED) notFound();
   const initialEvents = await loadBuildTimeBelfastEvents();
 
   const breadcrumb = getBreadcrumbJsonLd([
@@ -52,7 +69,7 @@ export default async function BelfastEventsHubPage() {
     name: `${SITE.name} — ${EVENTS_HUB_H1}`,
     description: EVENTS_HUB_SEO_DESCRIPTION,
     path: EVENTS_HUB_PATH,
-    areaServed: ["Belfast", ...BELFAST_VENUES.slice(0, 8).map((v) => v.name)],
+    areaServed: FORMS ? ["Belfast", ...BELFAST_VENUES.slice(0, 8).map((v) => v.name)] : ["Belfast", "Dublin"],
     serviceType: "Private event transfer",
   });
   const faqLd = getFaqPageJsonLd(EVENT_FAQS);
@@ -65,16 +82,32 @@ export default async function BelfastEventsHubPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_CLASS} data-belfast-events-hub>
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Belfast events" }]} />
+          <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: FORMS ? "Belfast events" : "Events" }]} />
 
           <header className="mt-6 max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Belfast events</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{FORMS ? "Belfast events" : "Belfast & Dublin events"}</p>
             <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{EVENTS_HUB_H1}</h1>
             <p className="mt-5 text-lg leading-relaxed text-white/70">{EVENTS_HUB_INTRO}</p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link href={EVENT_TRANSFER_REQUEST_PATH} className="btn-primary inline-flex min-h-12 items-center rounded-full px-6 text-base font-bold">
-                Request an event transfer
-              </Link>
+              {FORMS ? (
+                <Link href={EVENT_TRANSFER_REQUEST_PATH} className="btn-primary inline-flex min-h-12 items-center rounded-full px-6 text-base font-bold">
+                  Request an event transfer
+                </Link>
+              ) : (
+                <>
+                  <Link href="/#quote" className="btn-primary inline-flex min-h-12 items-center rounded-full px-6 text-base font-bold">
+                    Get a fixed price
+                  </Link>
+                  <a
+                    href={bookingHelpWhatsAppUrl("Hi, I'd like a price for an event transfer.")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
+                  >
+                    WhatsApp us
+                  </a>
+                </>
+              )}
               <a
                 href={`tel:${SITE.officeLandline}`}
                 className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
@@ -101,7 +134,7 @@ export default async function BelfastEventsHubPage() {
 
           <section aria-labelledby="upcoming-events" className="mt-14">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <h2 id="upcoming-events" className="text-xl font-bold text-white">Upcoming Belfast events</h2>
+              <h2 id="upcoming-events" className="text-xl font-bold text-white">{FORMS ? "Upcoming Belfast events" : "Upcoming big events"}</h2>
               <p className="text-sm text-white/55">Concerts, sport, theatre, comedy, festivals and exhibitions.</p>
             </div>
             <div className="mt-5">
@@ -109,9 +142,15 @@ export default async function BelfastEventsHubPage() {
             </div>
             <p className="mt-5 text-sm text-white/55">
               Not listed?{" "}
-              <Link href={EVENT_TRANSFER_REQUEST_PATH} className="font-semibold text-emerald underline">
-                Request a transfer for any Belfast event
-              </Link>
+              {FORMS ? (
+                <Link href={EVENT_TRANSFER_REQUEST_PATH} className="font-semibold text-emerald underline">
+                  Request a transfer for any Belfast event
+                </Link>
+              ) : (
+                <Link href="/#quote" className="font-semibold text-emerald underline">
+                  Get a fixed price for any venue
+                </Link>
+              )}
               . We don&apos;t sell tickets; please buy them from the official seller.
             </p>
           </section>
@@ -121,7 +160,8 @@ export default async function BelfastEventsHubPage() {
               <h2 id="groups" className="text-lg font-bold text-white">{EVENT_GROUP_NOTE.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-white/70">{EVENT_GROUP_NOTE.body}</p>
             </section>
-            <section aria-labelledby="business-class" className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+{FORMS ? (
+                        <section aria-labelledby="business-class" className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
               <h2 id="business-class" className="text-lg font-bold text-white">Business Class for your night out</h2>
               <p className="mt-2 text-sm leading-relaxed text-white/70">
                 For up to 3 passengers who&apos;d like our Business Class car, send a bespoke request and we&apos;ll quote personally.
@@ -130,10 +170,21 @@ export default async function BelfastEventsHubPage() {
                 Request Business Class
               </Link>
             </section>
+            ) : (
+            <section aria-labelledby="business-class" className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+              <h2 id="business-class" className="text-lg font-bold text-white">Business Class for your night out</h2>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                For up to 3 passengers, choose Business Class in our quote tool for a premium car and an instant fixed price.
+              </p>
+              <Link href="/#quote" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald underline">
+                Get a Business Class price
+              </Link>
+            </section>
+            )}
           </div>
 
           <section aria-labelledby="venues" className="mt-14">
-            <h2 id="venues" className="text-xl font-bold text-white">Belfast venues we cover</h2>
+            <h2 id="venues" className="text-xl font-bold text-white">{FORMS ? "Belfast venues we cover" : "Venues we cover"}</h2>
             <ul className="mt-5 grid gap-x-6 gap-y-2 text-sm text-white/70 sm:grid-cols-2 lg:grid-cols-3">
               {BELFAST_VENUES.map((v) => (
                 <li key={v.id} className="flex gap-2">

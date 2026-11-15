@@ -9,7 +9,7 @@
  */
 import snapshot from "@/data/belfast-events-snapshot.json";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import { BESPOKE_PUBLIC_PAGES_ENABLED } from "@/lib/bespoke-public";
+import { EVENTS_HUB_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import { sortBelfastEvents, todayInLondon, type BelfastEventPublic } from "../../shared/belfast-events";
 
 function upcoming(events: BelfastEventPublic[]): BelfastEventPublic[] {
@@ -19,7 +19,7 @@ function upcoming(events: BelfastEventPublic[]): BelfastEventPublic[] {
 
 export async function loadBuildTimeBelfastEvents(): Promise<BelfastEventPublic[]> {
   const fallback = upcoming((snapshot as { events: BelfastEventPublic[] }).events ?? []);
-  if (!BESPOKE_PUBLIC_PAGES_ENABLED) return fallback;
+  if (!EVENTS_HUB_PUBLIC_ENABLED) return fallback;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4000);
   try {
