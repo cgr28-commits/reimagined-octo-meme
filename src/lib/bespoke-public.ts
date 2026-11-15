@@ -4,7 +4,8 @@
  * When off, the pages return 404, are not in the sitemap and are not linked.
  * The Worker has its own switch (BESPOKE_QUOTES_ENABLED); both must be on.
  */
-export const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1";
+// PREVIEW BRANCH ONLY — never merge: pages forced on so Colin can see them.
+export const BESPOKE_PUBLIC_PAGES_ENABLED = true;
 
 export const EVENTS_HUB_PATH = "/events/";
 export const EVENT_TRANSFER_REQUEST_PATH = "/events/transfer-request/";
