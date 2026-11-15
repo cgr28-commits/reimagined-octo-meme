@@ -272,6 +272,7 @@ import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived"
 import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown";
 import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import { PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE, previewNotificationsDisabled } from "@/lib/preview-notifications";
+import EventDemandNotice from "@/components/EventDemandNotice";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -9104,6 +9105,7 @@ function QuoteCard({
     if (isVehiclePersonalQuote) {
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
+        <>
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
           desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
@@ -9123,6 +9125,8 @@ function QuoteCard({
           }}
           bookButton={design2Home ? null : renderStep1BookButton()}
         />
+        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
+        </>
       );
     }
     const authoritativeTotal =
@@ -9213,6 +9217,7 @@ function QuoteCard({
         bookButton={design2Home ? null : renderStep1BookButton({ instantTransferLabel: true })}
       />
       {businessClassUpgrade}
+      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
       </>
     );
   }

@@ -73,3 +73,32 @@ export function describeWhatsAppEventForAi(match: WhatsAppEventMatch): string {
         `Say so naturally once (e.g. "Is this for Garth Brooks?" or "Heading to see Garth Brooks?"), and mention once: ${event.note}`
     : `${head} The journey involves this venue but the date isn't known yet: if they give one of these dates, it's for the concert.`;
 }
+
+/**
+ * Website quote tool (15 Nov 2026): anyone quoting to or from the venue for the event
+ * month (or before picking a date) sees a "limited availability, book early" notice.
+ */
+export function matchEventForWebsiteQuote(
+  input: { addresses: Array<string | undefined>; dates: Array<string | undefined> },
+  now: Date = new Date(),
+  events: WhatsAppEvent[] = WHATSAPP_EVENTS,
+): WhatsAppEvent | null {
+  const today = now.toISOString().slice(0, 10);
+  const places = input.addresses.filter(Boolean).join(" \n ");
+  const dates = input.dates.filter((d): d is string => Boolean(d));
+  for (const event of events) {
+    if (event.dates.every((d) => d < today)) continue;
+    if (!event.venuePattern.test(places)) continue;
+    const months = new Set(event.dates.map((d) => d.slice(0, 7)));
+    if (dates.length === 0 || dates.some((d) => months.has(d.slice(0, 7)))) return event;
+  }
+  return null;
+}
+
+/** "Fri 21 & Sat 22 May" for the website notice. */
+export function websiteEventDatesLabel(event: WhatsAppEvent): string {
+  const parts = event.dates.map((iso) => new Date(`${iso}T12:00:00Z`));
+  const day = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" });
+  const month = parts[parts.length - 1].toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
+  return `${parts.map(day).join(" & ")} ${month}`;
+}
