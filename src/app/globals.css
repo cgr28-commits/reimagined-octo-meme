@@ -9892,9 +9892,7 @@ html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-labe
   html:root:root:root:root:root:root [data-more-journeys] { display: none !important; }
 }
 
-/* Big-event notice (Garth Brooks, May 2027): on desktop, top of the vehicle list instead of under it. */
-@media (min-width: 1200px) {
-  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-event-demand-notice] { display: none !important; }
-  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] [data-vehicle-top-notice] { display: block !important; }
-  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] [data-vehicle-top-notice] > [data-event-demand-notice] { margin: 0 0 0.6rem !important; }
-}
+/* Big-event notice: shown above the vehicle list on every screen size. When the list is on the
+   page, the copy beside the price card is hidden so customers see it once. */
+.quote-flow:has([data-vehicle-top-notice] > [data-event-demand-notice]) [data-event-demand-notice]:not([data-vehicle-top-notice] > *) { display: none !important; }
+[data-vehicle-top-notice] > [data-event-demand-notice] { margin: 0 0 0.6rem !important; }

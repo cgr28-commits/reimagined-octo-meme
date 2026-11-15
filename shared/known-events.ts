@@ -7,6 +7,7 @@ export type KnownEvent = { id: string; label: string; date: string };
 export const KNOWN_EVENTS: KnownEvent[] = [
   { id: "garth-brooks-2027-05-21", label: "Garth Brooks – Boucher Road (Fri 21 May 2027)", date: "2027-05-21" },
   { id: "garth-brooks-2027-05-22", label: "Garth Brooks – Boucher Road (Sat 22 May 2027)", date: "2027-05-22" },
+  { id: "garth-brooks-2027-05-23", label: "Garth Brooks – Boucher Road (Sun 23 May 2027)", date: "2027-05-23" },
 ];
 
 /** Events still to come (today included), soonest first. */
