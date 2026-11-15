@@ -214,7 +214,7 @@ export default async function TransferRoutePage({ params }: Props) {
                 fromAirportHighlight={identity?.headingHighlight?.fromAirport}
               />
             ) : (
-              page.h1
+              <FromAirportText text={page.h1} highlight={identity?.headingHighlight?.fromAirport} />
             )
           }
           intro={quoteFirstLede ?? firstSentence(page.intro)}

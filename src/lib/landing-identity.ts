@@ -34,6 +34,21 @@ const LANDING_IDENTITY: Record<string, LandingIdentity> = {
       text: "One fixed price agreed before you travel, a pre-booked driver, and your flight tracked if you're coming back with us.",
     },
   },
+  "dublin-airport-to-belfast": {
+    heroBackground: { baseName: "belfast-city", widths: [960, 1920] },
+    showRotatingCards: false,
+    headingHighlight: { toAirport: "Belfast", fromAirport: "Belfast" },
+    keyFacts: [
+      "Met in Arrivals, T1 or T2",
+      "Your flight tracked",
+      "Up to 60 minutes' free waiting",
+      "M1 tolls included",
+    ],
+    photoCaption: {
+      title: "Dublin Airport to Belfast, met in Arrivals",
+      text: "One fixed price agreed before you travel, your flight tracked, and your driver waiting when you land.",
+    },
+  },
 };
 
 export function getLandingIdentity(slug: string): LandingIdentity | null {
