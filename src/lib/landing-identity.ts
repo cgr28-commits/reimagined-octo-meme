@@ -11,6 +11,10 @@ export type LandingIdentity = {
   showRotatingCards: boolean;
   /** Two or three lines shown with the page photo. */
   photoCaption?: { title: string; text: string };
+  /** Destination words shown in brand green in the H1 (and for ?from=airport). */
+  headingHighlight?: { toAirport: string; fromAirport?: string };
+  /** Short, factual points for the premium summary card (only what the page already states). */
+  keyFacts?: readonly string[];
 };
 
 const LANDING_IDENTITY: Record<string, LandingIdentity> = {
@@ -18,6 +22,13 @@ const LANDING_IDENTITY: Record<string, LandingIdentity> = {
   "belfast-to-dublin-airport": {
     heroBackground: { baseName: "dublin-airport", widths: [960, 1920] },
     showRotatingCards: false,
+    headingHighlight: { toAirport: "Dublin Airport", fromAirport: "Belfast" },
+    keyFacts: [
+      "Around 2 hours, door to door",
+      "Fixed price before you pay",
+      "M1 tolls included",
+      "Business Class available",
+    ],
     photoCaption: {
       title: "Belfast to Dublin Airport, door to door",
       text: "One fixed price agreed before you travel, a pre-booked driver, and your flight tracked if you're coming back with us.",
