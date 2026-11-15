@@ -49,3 +49,22 @@ const flight = { departureIata: "MAD", arrivalIata: "DUB" } as Parameters<typeof
 assert.equal(flightyEventTitle("ib1885", flight), "IB1885 MAD to DUB");
 assert.equal(flightyEventTitle("IB1885", { ...flight, departureIata: null }), null);
 console.log("flighty calendar checks passed");
+
+// Finding our flight entries for a booking when it's edited or cancelled.
+import { isFlightyEventFor } from "../workers/addresses/src/flighty-calendar";
+const ours = {
+  summary: "IB1885 MAD to DUB",
+  description:
+    "Flight IB1885 MAD to DUB (Iberia).\nCustomer pickup: N, 2026-11-15 17:50 at Dublin Airport.\nLeg: return\nPayment reference: pi_123\nAdded for flight tracking by My Airport Taxi NI.",
+};
+assert.equal(isFlightyEventFor(ours, "pi_123"), true);
+assert.equal(isFlightyEventFor(ours, "pi_123", "return"), true);
+assert.equal(isFlightyEventFor(ours, "pi_123", "outbound"), false);
+assert.equal(isFlightyEventFor(ours, "pi_999"), false);
+// The booking's own job entry must never be deleted.
+assert.equal(
+  isFlightyEventFor({ summary: "My Airport Taxi NI — Airport pickup — N", description: "Payment reference: pi_123" }, "pi_123"),
+  false,
+);
+assert.equal(isFlightyEventFor({ ...ours, status: "cancelled" }, "pi_123"), false);
+console.log("flighty edit/cancel checks passed");
