@@ -9891,3 +9891,10 @@ html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-labe
 @media (max-width: 1199px) {
   html:root:root:root:root:root:root [data-more-journeys] { display: none !important; }
 }
+
+/* Big-event notice (Garth Brooks, May 2027): on desktop, top of the vehicle list instead of under it. */
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-event-demand-notice] { display: none !important; }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] [data-vehicle-top-notice] { display: block !important; }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] [data-vehicle-top-notice] > [data-event-demand-notice] { margin: 0 0 0.6rem !important; }
+}

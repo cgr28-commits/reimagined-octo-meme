@@ -272,6 +272,7 @@ import ShortNoticeRequestReceived from "@/components/ShortNoticeRequestReceived"
 import { customerFacingFareBreakdown } from "../../shared/website-fare-breakdown";
 import { PREVIEW_PAYMENTS_DISABLED_MESSAGE, previewPaymentsDisabled } from "@/lib/preview-payments";
 import { PREVIEW_NOTIFICATIONS_DISABLED_MESSAGE, previewNotificationsDisabled } from "@/lib/preview-notifications";
+import EventDemandNotice from "@/components/EventDemandNotice";
 import ShortNoticeCheckoutNotice, {
   MinibusNoticeCheckoutNotice,
   ShortNoticePaymentFollowUp,
@@ -9092,6 +9093,7 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
+        desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />}
       />
       </>
     );
@@ -9104,6 +9106,8 @@ function QuoteCard({
     if (isVehiclePersonalQuote) {
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
+        <>
+        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
           desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
@@ -9123,6 +9127,7 @@ function QuoteCard({
           }}
           bookButton={design2Home ? null : renderStep1BookButton()}
         />
+        </>
       );
     }
     const authoritativeTotal =
@@ -9186,6 +9191,7 @@ function QuoteCard({
     ) : null;
     return (
       <>
+      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dates={[tripDate, returnJourney ? returnDate : undefined]} />
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
         desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
