@@ -18,6 +18,8 @@ export type WhatsAppEvent = {
   note: string;
   /** Website quote tool: a drop-off anywhere in this city on a show day also gets the notice. */
   cityDropoff?: { namePattern: RegExp; postcodeDistricts: number[] };
+  /** Website quote tool: journey dates (inclusive, YYYY-MM-DD) that get the notice. */
+  websiteNoticeWindow?: { from: string; to: string };
 };
 
 export const WHATSAPP_EVENTS: WhatsAppEvent[] = [
@@ -30,6 +32,8 @@ export const WHATSAPP_EVENTS: WhatsAppEvent[] = [
     showTime: "18:00",
     note: "We already have a lot of bookings for the Garth Brooks concerts, so availability is limited and it's worth booking soon.",
     // Belfast city: BT1–BT17 (Belfast City Airport and Belfast International excluded as airports).
+    // Owner (15 Nov 2026): from a few days before the shows up to the Sunday after.
+    websiteNoticeWindow: { from: "2027-05-18", to: "2027-05-23" },
     cityDropoff: { namePattern: /\bbelfast\b/i, postcodeDistricts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] },
   },
 ];
@@ -79,8 +83,8 @@ export function describeWhatsAppEventForAi(match: WhatsAppEventMatch): string {
 }
 
 /**
- * Website quote tool (15 Nov 2026): anyone quoting to or from the venue for the event
- * month (or before picking a date) sees a "limited availability, book early" notice.
+ * Website quote tool (15 Nov 2026): anyone quoting to or from the venue, or into the city,
+ * for a date in the event's notice window sees a "limited availability, book early" notice.
  */
 export function matchEventForWebsiteQuote(
   input: {
@@ -97,14 +101,12 @@ export function matchEventForWebsiteQuote(
   const dates = input.dates.filter((d): d is string => Boolean(d));
   for (const event of events) {
     if (event.dates.every((d) => d < today)) continue;
-    if (event.venuePattern.test(places)) {
-      const months = new Set(event.dates.map((d) => d.slice(0, 7)));
-      if (dates.length === 0 || dates.some((d) => months.has(d.slice(0, 7)))) return event;
-    }
-    // Owner (15 Nov 2026): anyone going into Belfast from anywhere on a show day.
-    if (event.cityDropoff && isCityDropoff(input.dropoff, event.cityDropoff) && dates.some((d) => event.dates.includes(d))) {
-      return event;
-    }
+    const window = event.websiteNoticeWindow ?? { from: event.dates[0], to: event.dates[event.dates.length - 1] };
+    const inWindow = dates.some((d) => d >= window.from && d <= window.to);
+    // Venue named, date not picked yet: likely for the show.
+    if (event.venuePattern.test(places) && (dates.length === 0 || inWindow)) return event;
+    // Owner (15 Nov 2026): anyone going into Belfast from anywhere in the window.
+    if (event.cityDropoff && isCityDropoff(input.dropoff, event.cityDropoff) && inWindow) return event;
   }
   return null;
 }

@@ -9093,7 +9093,7 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
-        desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} />}
+        desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} tripDate={tripDate} tripTime={tripTime} fareGbp={pricedFare?.totalGbp ?? null} />}
       />
       </>
     );
@@ -9107,7 +9107,7 @@ function QuoteCard({
       const businessClass = isExecutiveVehicle(quoteVehicle);
       return (
         <>
-        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} />
+        <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} tripDate={tripDate} tripTime={tripTime} fareGbp={pricedFare?.totalGbp ?? null} />
         <QuoteResultShowcase
           ref={quoteSelectedVehicleCardRef}
           desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}
@@ -9191,7 +9191,7 @@ function QuoteCard({
     ) : null;
     return (
       <>
-      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} />
+      <EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} tripDate={tripDate} tripTime={tripTime} fareGbp={pricedFare?.totalGbp ?? null} />
       <QuoteResultShowcase
         ref={quoteSelectedVehicleCardRef}
         desktopJourney={<>{renderDesktopResultsJourney()}{renderDesktopResultsIncluded()}{renderDesktopResultsFlight()}{renderDesktopResultsTotal()}</>}

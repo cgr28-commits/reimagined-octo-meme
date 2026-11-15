@@ -4,17 +4,27 @@ import {
   matchEventForWebsiteQuote,
   websiteEventDatesLabel,
 } from "../../shared/whatsapp-events";
+import {
+  CARD_BALANCE_MIN_FARE_GBP,
+  isCardBalanceDateEligible,
+} from "../../shared/deposit-card-balance";
 
 type Props = {
   addresses: Array<string | undefined>;
   dates: Array<string | undefined>;
   dropoff?: string;
+  /** Pickup date/time and fare: the 20% deposit line shows only when a deposit is offered. */
+  tripDate?: string;
+  tripTime?: string;
+  fareGbp?: number | null;
 };
 
 /** Big-event notice on the quote result (e.g. Garth Brooks at Boucher Road, May 2027). */
-export default function EventDemandNotice({ addresses, dates, dropoff }: Props) {
+export default function EventDemandNotice({ addresses, dates, dropoff, tripDate, tripTime, fareGbp }: Props) {
   const event = matchEventForWebsiteQuote({ addresses, dates, dropoff });
   if (!event) return null;
+  const depositOffered =
+    fareGbp != null && fareGbp >= CARD_BALANCE_MIN_FARE_GBP && isCardBalanceDateEligible(tripDate, tripTime);
   return (
     <div
       role="status"
@@ -28,6 +38,11 @@ export default function EventDemandNotice({ addresses, dates, dropoff }: Props) 
       <p className="mt-0.5 text-[0.82rem] font-medium leading-snug">
         Limited availability due to concert bookings. Booking early is advisable to secure your car.
       </p>
+      {depositOffered ? (
+        <p className="mt-1 text-[0.82rem] font-bold leading-snug" data-event-demand-deposit>
+          Only a 20% deposit is needed to secure your booking.
+        </p>
+      ) : null}
     </div>
   );
 }
