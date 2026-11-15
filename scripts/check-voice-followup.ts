@@ -71,13 +71,13 @@ async function main() {
     assert.equal(r4.queued, false, "no mobile given on a diverted call → nothing to send");
   }
 
-  // Not due for 5 minutes; idle run is one read.
+  // Not due for 1 minute; idle run is one read.
   const before = store.reads();
-  let p = await processVoiceFollowUps(env, new Date(t0.getTime() + 2 * 60 * 1000));
+  let p = await processVoiceFollowUps(env, new Date(t0.getTime() + 30 * 1000));
   assert.equal(p.sent, 0);
   assert.equal(store.reads() - before, 1);
 
-  p = await processVoiceFollowUps(env, new Date(t0.getTime() + 6 * 60 * 1000));
+  p = await processVoiceFollowUps(env, new Date(t0.getTime() + 2 * 60 * 1000));
   assert.equal(p.sent, 1);
   assert.equal(sent.length, 1);
   const msg = sent[0] as { to: string; template: { name: string; components: Array<{ parameters: Array<{ text: string }> }> } };

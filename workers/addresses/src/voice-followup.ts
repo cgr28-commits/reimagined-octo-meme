@@ -8,7 +8,8 @@
  *   - they did NOT already get a booking link (our own send-link marker, or the call says so)
  *   - it was a new enquiry, not about an existing booking or a complaint
  *   - the number is a UK mobile, and we haven't followed it up today
- * The message goes ~5 minutes after the call (5-minute cron), using the approved
+ * The message is due 1 minute after the call (owner, 15 Nov 2026) and goes on the next
+ * 5-minute cron run, using the approved
  * mat_call_followup template. One small KV queue key; an idle cron run is one read.
  */
 import { sendCallFollowUpWhatsApp, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
@@ -16,7 +17,7 @@ import { appendVoiceCallLog } from "./voice-call-log-store";
 
 export const VOICE_FOLLOWUP_QUEUE_KEY = "voice:followup:queue";
 const LINK_SENT_PREFIX = "voice:link-sent:";
-const DELAY_MS = 5 * 60 * 1000;
+const DELAY_MS = 60 * 1000;
 const KEEP_MS = 2 * 24 * 60 * 60 * 1000;
 const MAX_QUEUE = 100;
 const MAX_SENDS_PER_RUN = 5;
