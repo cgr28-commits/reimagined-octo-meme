@@ -77,3 +77,57 @@ export const BUSINESS_CLASS_REQUEST_POINTS = [
   "Corporate travel, VIP transfers, special occasions and private journeys",
   "A personal fixed quotation by email, no payment until you accept",
 ] as const;
+
+/*
+ * Events page while the request forms are off (owner, 15 Nov 2026): Belfast and Dublin,
+ * buttons go to the instant quote tool and WhatsApp. Our own words only.
+ */
+export const EVENTS_HUB_INSTANT_SEO_TITLE = "Belfast & Dublin Event Transfers: Concerts, Sport & Festivals";
+export const EVENTS_HUB_INSTANT_SEO_DESCRIPTION =
+  "Private transfers to and from big concerts, matches, marathons and festivals in Belfast and Dublin. Fixed prices online, a pre-booked driver and a lift home afterwards.";
+export const EVENTS_HUB_INSTANT_H1 = "Belfast & Dublin Event Transfers";
+export const EVENTS_HUB_INSTANT_INTRO =
+  "Going to Garth Brooks at Boucher Road, a Six Nations match at the Aviva or a summer gig at Croke Park? We'll take you there and bring you home afterwards. Get a fixed price online in seconds, or message us on WhatsApp.";
+
+export const EVENT_INSTANT_STEPS = [
+  {
+    title: "Get your fixed price",
+    body: "Enter your pickup and the venue in our quote tool and see your fixed price straight away.",
+  },
+  {
+    title: "Book and pay securely",
+    body: "Book online in a few minutes and pay securely by card. Your confirmation arrives by email.",
+  },
+  {
+    title: "We take you there and back",
+    body: "Add a return journey for the ride home. We agree a pickup point near the venue with you before the day.",
+  },
+] as const;
+
+export const EVENT_INSTANT_FAQS = [
+  {
+    question: "Can you collect us after the event?",
+    answer:
+      "Yes. Choose Return in the quote tool and give us your best guess for the finish time. We agree a meeting point close to the venue with you before the day.",
+  },
+  {
+    question: "How much does an event transfer cost?",
+    answer:
+      "Enter your pickup and the venue in our quote tool for an instant fixed price. The price you see is the price you pay.",
+  },
+  {
+    question: "Do you cover Dublin events from Northern Ireland?",
+    answer:
+      "Yes. We run regular journeys between Belfast and Dublin, so we can take you from anywhere in Northern Ireland to Dublin events and bring you home afterwards.",
+  },
+  {
+    question: "My event isn't listed. Can I still book?",
+    answer:
+      "Yes. We list the biggest events by hand, so not everything appears. Just enter the venue in our quote tool, or message us on WhatsApp.",
+  },
+  {
+    question: "Do you sell event tickets?",
+    answer:
+      "No. We only provide transport. Please buy tickets from the official seller.",
+  },
+] as const;

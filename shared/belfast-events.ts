@@ -1,9 +1,9 @@
 /**
- * Belfast event listings (hand-entered by the owner, published only after approval).
+ * Belfast and Dublin event listings (hand-entered by the owner, published only after approval).
  *
  * Rules enforced here, used by the Worker and the website:
- * - Belfast only: a listed venue, or another venue whose address has a Belfast
- *   postcode (BT1–BT17).
+ * - Belfast or Dublin (owner, 15 Nov 2026): a listed venue, or another venue whose address
+ *   has a Belfast postcode (BT1–BT17) or a Dublin one ("Dublin 1"–"Dublin 24" or a D01–D24 Eircode).
  * - Six categories: concerts, sport, theatre, comedy, festivals, exhibitions.
  * - No images, and no imported text. The summary is written by the owner, who
  *   must confirm that before publishing ("ownWordsConfirmed").
@@ -57,7 +57,9 @@ export const BELFAST_VENUES: readonly BelfastVenue[] = [
   { id: "the-empire", name: "The Empire Music Hall", area: "Botanic Avenue, Belfast BT7" },
   { id: "limelight", name: "Limelight Belfast", area: "Ormeau Avenue, Belfast BT2" },
   { id: "national-stadium-windsor-park", name: "National Football Stadium at Windsor Park", area: "Donegall Avenue, Belfast BT12" },
-  { id: "kingspan-stadium", name: "Kingspan Stadium", area: "Ravenhill Park, Belfast BT6" },
+  { id: "kingspan-stadium", name: "Affidea Stadium (Ravenhill)", area: "Ravenhill Park, Belfast BT6" },
+  { id: "boucher-road-playing-fields", name: "Boucher Road Playing Fields", area: "Boucher Road, Belfast BT12" },
+  { id: "stormont-estate", name: "Stormont Estate", area: "Upper Newtownards Road, Belfast BT4" },
   { id: "casement-park", name: "Casement Park", area: "Andersonstown Road, Belfast BT11" },
   { id: "the-oval", name: "The Oval", area: "Mersey Street, Belfast BT4" },
   { id: "titanic-exhibition-centre", name: "Titanic Exhibition Centre", area: "Titanic Quarter, Belfast BT3" },
@@ -66,7 +68,21 @@ export const BELFAST_VENUES: readonly BelfastVenue[] = [
   { id: "ormeau-park", name: "Ormeau Park", area: "Ormeau Road, Belfast BT7" },
   { id: "belfast-city-hall", name: "Belfast City Hall grounds", area: "Donegall Square, Belfast BT1" },
   { id: "ulster-museum", name: "Ulster Museum", area: "Botanic Gardens, Belfast BT9" },
+  // Dublin (owner, 15 Nov 2026).
+  { id: "aviva-stadium", name: "Aviva Stadium", area: "Lansdowne Road, Dublin 4" },
+  { id: "croke-park", name: "Croke Park", area: "Jones' Road, Dublin 3" },
+  { id: "3arena", name: "3Arena", area: "North Wall Quay, Dublin 1" },
+  { id: "marlay-park", name: "Marlay Park", area: "Grange Road, Rathfarnham, Dublin 16" },
+  { id: "dublin-city-centre", name: "Dublin city centre", area: "O'Connell Street, Dublin 1" },
+  { id: "merrion-square", name: "Merrion Square", area: "Merrion Square, Dublin 2" },
 ];
+
+export type EventCity = "belfast" | "dublin";
+
+/** Which city a venue address is in (Dublin postcodes/Eircodes, otherwise Belfast). */
+export function eventCityForArea(area: string): EventCity {
+  return DUBLIN_POSTCODE.test(area) ? "dublin" : "belfast";
+}
 
 export const BELFAST_VENUE_OTHER = "other";
 
@@ -148,6 +164,8 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const BELFAST_EVENT_ID = /^[a-z0-9][a-z0-9-]{0,119}$/;
 /** Belfast postcode districts BT1–BT17. */
 const BELFAST_POSTCODE = /\bBT(?:[1-9]|1[0-7])\b/i;
+/** Dublin postal districts ("Dublin 1"–"Dublin 24", "Dublin 6W") or D01–D24 / D6W Eircodes. */
+const DUBLIN_POSTCODE = /\bDublin\s+(?:[1-9]|1\d|2[0-4]|6W)\b|\bD(?:0[1-9]|1\d|2[0-4]|6W)\b/i;
 
 function clean(value: unknown, max: number): string | null {
   if (value === undefined || value === null) return "";
@@ -210,11 +228,11 @@ export function validateBelfastEventInput(input: BelfastEventInput): BelfastEven
   } else if (venueId === BELFAST_VENUE_OTHER) {
     venueName = field("venueName", LIMITS.venueName, true, "Venue name");
     venueArea = field("venueArea", LIMITS.venueArea, true, "Venue address");
-    if (venueArea && !BELFAST_POSTCODE.test(venueArea)) {
-      errors.venueArea = "Belfast events only: include a Belfast postcode (BT1–BT17).";
+    if (venueArea && !BELFAST_POSTCODE.test(venueArea) && !DUBLIN_POSTCODE.test(venueArea)) {
+      errors.venueArea = "Belfast or Dublin events only: include a Belfast postcode (BT1–BT17) or a Dublin one (e.g. Dublin 4 or D04).";
     }
   } else {
-    errors.venueId = "Choose a Belfast venue.";
+    errors.venueId = "Choose a Belfast or Dublin venue.";
   }
 
   const date = field("date", 10, true, "Date");

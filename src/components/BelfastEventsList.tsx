@@ -18,7 +18,13 @@ import {
   type BelfastEventPublic,
 } from "../../shared/belfast-events";
 import { fetchPublicBelfastEvents } from "@/lib/belfast-events-api";
-import { EVENT_TRANSFER_REQUEST_PATH } from "@/lib/bespoke-public";
+import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENT_TRANSFER_REQUEST_PATH } from "@/lib/bespoke-public";
+import { bookingHelpWhatsAppUrl } from "@/lib/booking-help-whatsapp";
+import { eventCityForArea, type EventCity } from "../../shared/belfast-events";
+
+/** Request forms off → each event goes to the instant quote tool and WhatsApp. */
+const FORMS = BESPOKE_PUBLIC_PAGES_ENABLED;
+const CITY_LABELS: Record<EventCity, string> = { belfast: "Belfast", dublin: "Dublin" };
 
 type Filter = "all" | BelfastEventCategory;
 
@@ -36,24 +42,50 @@ function dateParts(date: string): { day: string; month: string; weekday: string;
 export default function BelfastEventsList({ initialEvents }: { initialEvents: BelfastEventPublic[] }) {
   const [events, setEvents] = useState<BelfastEventPublic[]>(initialEvents);
   const [filter, setFilter] = useState<Filter>("all");
+  const [city, setCity] = useState<"all" | EventCity>("all");
 
   useEffect(() => {
     const controller = new AbortController();
     void fetchPublicBelfastEvents(controller.signal).then((live) => {
-      if (live) setEvents(sortBelfastEvents(live.filter((e) => e.date >= todayInLondon())));
+      // An empty live list (e.g. before the dashboard list is filled) never wipes the built-in list.
+      if (live && (live.length > 0 || initialEvents.length === 0)) {
+        setEvents(sortBelfastEvents(live.filter((e) => e.date >= todayInLondon())));
+      }
     });
     return () => controller.abort();
-  }, []);
+  }, [initialEvents.length]);
 
   const counts = useMemo(() => {
     const c: Partial<Record<BelfastEventCategory, number>> = {};
     for (const e of events) c[e.category] = (c[e.category] ?? 0) + 1;
     return c;
   }, [events]);
-  const shown = filter === "all" ? events : events.filter((e) => e.category === filter);
+  const cities = useMemo(() => Array.from(new Set(events.map((e) => eventCityForArea(e.venueArea)))), [events]);
+  const inCity = city === "all" ? events : events.filter((e) => eventCityForArea(e.venueArea) === city);
+  const shown = filter === "all" ? inCity : inCity.filter((e) => e.category === filter);
 
   return (
     <div>
+      {cities.length > 1 ? (
+        <div className="mb-2 flex gap-2" role="group" aria-label="Filter events by city" data-events-city-filter>
+          {(["all", ...cities] as const).map((id) => {
+            const active = city === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setCity(id)}
+                className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-bold ${
+                  active ? "border-emerald bg-emerald text-navy" : "border-white/15 text-white/75 hover:border-emerald/40"
+                }`}
+              >
+                {id === "all" ? "Belfast & Dublin" : CITY_LABELS[id]}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]" role="group" aria-label="Filter events by type">
         {(["all", ...BELFAST_EVENT_CATEGORIES] as const).map((id) => {
           const active = filter === id;
@@ -82,14 +114,25 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
             {events.length === 0 ? "No events listed just now." : "No events in this category just now."}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-white/65">
-            You can still request a transfer for any Belfast event.{" "}
-            <Link href={EVENT_TRANSFER_REQUEST_PATH} className="font-semibold text-emerald underline">
-              Request an event transfer
-            </Link>
+            {FORMS ? (
+              <>
+                You can still request a transfer for any Belfast event.{" "}
+                <Link href={EVENT_TRANSFER_REQUEST_PATH} className="font-semibold text-emerald underline">
+                  Request an event transfer
+                </Link>
+              </>
+            ) : (
+              <>
+                You can still get a fixed price for any venue.{" "}
+                <Link href="/#quote" className="font-semibold text-emerald underline">
+                  Get a fixed price
+                </Link>
+              </>
+            )}
           </p>
         </div>
       ) : (
-        <ul className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Upcoming Belfast events">
+        <ul className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Upcoming events">
           {shown.map((e) => {
             const d = dateParts(e.date);
             const open = belfastEventAcceptsRequests(e);
@@ -110,7 +153,10 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
                       <time dateTime={e.date}>{d.full}</time>
                       {e.startTime ? ` · ${e.startTime}` : ""}
                     </p>
-                    <p className="text-sm text-white/70">{e.venueName}</p>
+                    <p className="text-sm text-white/70">
+                      {e.venueName}
+                      {FORMS ? "" : `, ${CITY_LABELS[eventCityForArea(e.venueArea)]}`}
+                    </p>
                     {e.status !== "published" ? (
                       <p className="mt-3 inline-flex rounded-full bg-amber-400/20 px-3 py-1 text-sm font-semibold text-[#8a5a00]">
                         {e.status === "cancelled" ? "Cancelled" : "Postponed"}
@@ -120,7 +166,25 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
                   </div>
                 </article>
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
-                  {open ? (
+                  {open && !FORMS ? (
+                    <>
+                      <Link
+                        href="/#quote"
+                        className="btn-primary inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold"
+                        aria-label={`Get a fixed price for ${e.title}`}
+                      >
+                        Get a fixed price
+                      </Link>
+                      <a
+                        href={bookingHelpWhatsAppUrl(`Hi, I'd like a price for ${e.title} on ${d.full}.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald underline"
+                      >
+                        WhatsApp us<span className="sr-only"> about {e.title} (opens in a new tab)</span>
+                      </a>
+                    </>
+                  ) : open ? (
                     <Link
                       href={`${EVENT_TRANSFER_REQUEST_PATH}?event=${encodeURIComponent(e.id)}`}
                       className="btn-primary inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold"

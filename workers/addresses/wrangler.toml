@@ -121,6 +121,8 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 name = "EMAIL"
 
 [vars]
+# Public Events page list (/events/public) without the bespoke request forms (owner, 15 Nov 2026).
+EVENTS_HUB_PUBLIC = "1"
 # Phone receptionist: allow Send Booking Link + Provisional Booking on live Fonio tools.
 VOICE_ENABLE_BOOKING_TOOLS = "1"
 # Flighty ignores flight entries we create (Nov 2026 tests), so do not add them to the diary.

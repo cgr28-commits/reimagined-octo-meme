@@ -729,6 +729,7 @@ type Env = {
   BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
   /** "1" turns on PUBLIC bespoke quote routes. Unset/anything else = off (default). */
   BESPOKE_QUOTES_ENABLED?: string;
+  EVENTS_HUB_PUBLIC?: string;
   /** Cloudflare Turnstile secret (Worker secret). Public bespoke requests fail closed without it. */
   TURNSTILE_SECRET_KEY?: string;
   TURNSTILE_ALLOWED_HOSTNAMES?: string;
