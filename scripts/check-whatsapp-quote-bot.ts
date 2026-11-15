@@ -277,9 +277,13 @@ async function main() {
     );
 
     const requestReply = buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", requestOnly: true });
-    assert.match(requestReply, /request only/);
-    assert.match(requestReply, /confirm we can do it before you pay/);
-    assert.doesNotMatch(buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }), /request only/);
+    // Short notice: the customer books and pays (card held); we confirm shortly after.
+    assert.match(requestReply, /Book now and we'll confirm your booking shortly/);
+    assert.match(requestReply, /only charged once we confirm/);
+    assert.match(requestReply, /released right away/);
+    assert.match(requestReply, /pay securely here/);
+    assert.doesNotMatch(requestReply, /request only|before you pay/);
+    assert.doesNotMatch(buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }), /confirm your booking shortly/);
   }
 
   console.log("=== Greeting name ===");

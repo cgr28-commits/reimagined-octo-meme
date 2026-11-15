@@ -91,7 +91,7 @@ assert.match(laterReply, /link valid for 24 hours/);
 assert.doesNotMatch(laterReply, /less than 24 hours away/);
 assert.match(
   buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", journey: soon, linkHours: 2, requestOnly: true }),
-  /request only[\s\S]*link valid for 2 hours/,
+  /confirm your booking shortly[\s\S]*link valid for 2 hours/,
 );
 assert.match(
   buildWhatsAppDiscountOfferReply({ amountLabel: "£38", bookingUrl: "https://x", journey: soon, linkHours: 2 }),
