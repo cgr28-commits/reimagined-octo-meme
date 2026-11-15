@@ -48,3 +48,10 @@ const outEmail = buildDriverAssignmentEmail({ job: out, acceptUrl: "https://exam
 assert.match(outEmail.subject, /11-11-2026 05:00/);
 assert.doesNotMatch(outEmail.text, /Flight: IB1885/);
 console.log("driver email leg checks passed");
+
+// Same driver both ways: the return leg must get its own driver-details message.
+import { driverDetailsJobKey } from "../workers/addresses/src/customer-driver-details";
+assert.equal(driverDetailsJobKey("pi_test", "outbound"), "pi_test");
+assert.equal(driverDetailsJobKey("pi_test", undefined), "pi_test");
+assert.equal(driverDetailsJobKey("pi_test", "return"), "pi_test:return");
+console.log("driver details per-leg key checks passed");

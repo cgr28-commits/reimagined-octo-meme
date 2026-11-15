@@ -52,7 +52,7 @@ import {
 } from "./tracking-store";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
-import { sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
+import { driverDetailsJobKey, sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
 
 async function trackingJobsForBooking(
   store: KVNamespace,
@@ -757,7 +757,7 @@ export async function handleDriverAcceptConfirmRequest(
       }
     }
     const sent = await sendCustomerDriverDetailsOnAccept(env, {
-      jobKey: accepted.paymentReference || accepted.id,
+      jobKey: driverDetailsJobKey(accepted.paymentReference || accepted.id, accepted.assignedLeg),
       customerName: accepted.customerName,
       customerEmail: accepted.customerEmail,
       customerMobile: accepted.customerMobile,

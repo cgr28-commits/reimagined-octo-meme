@@ -86,6 +86,15 @@ export function assignedDriverIsOwner(
   );
 }
 
+/**
+ * De-duplication key for the customer's driver-details message. The return leg
+ * gets its own key so a customer with the same driver both ways still hears
+ * about the return (outbound keeps the original key, so nothing is re-sent).
+ */
+export function driverDetailsJobKey(reference: string, leg?: string | null): string {
+  return leg === "return" ? `${reference}:return` : reference;
+}
+
 export function customerDriverDetailsMarkerKey(jobKey: string, driver: { email?: string | null; mobile?: string | null; name?: string | null }): string {
   const who = normEmail(driver.email) || normMobile(driver.mobile) || String(driver.name ?? "").trim().toLowerCase() || "driver";
   return `customer-driver-details:${jobKey}:${who}`;
