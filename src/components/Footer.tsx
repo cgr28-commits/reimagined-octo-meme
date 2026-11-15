@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import FooterContact from "./FooterContact";
-import { NAV_LINKS, SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
+import { SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
+import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
 import { AIRPORT_PAGES, airportTaxiAnchor, TOWN_HUB_PAGES } from "@/lib/location-pages";
 import { TOURS } from "@/lib/tours";
 

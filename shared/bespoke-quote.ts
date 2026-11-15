@@ -38,6 +38,8 @@ export const BUSINESS_CLASS_REQUEST_SERVICE_TYPES = [
   "vip",
   "special_occasion",
   "bespoke_private",
+  /** Business Class page: journey purpose "Other". */
+  "other",
 ] as const;
 export type BusinessClassRequestServiceType = (typeof BUSINESS_CLASS_REQUEST_SERVICE_TYPES)[number];
 
@@ -47,6 +49,7 @@ export const BUSINESS_CLASS_REQUEST_SERVICE_LABELS: Record<BusinessClassRequestS
   vip: "VIP transfer",
   special_occasion: "Special occasion",
   bespoke_private: "Bespoke private journey",
+  other: "Other",
 };
 
 /**

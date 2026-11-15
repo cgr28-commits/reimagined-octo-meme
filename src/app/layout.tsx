@@ -29,6 +29,8 @@ const manrope = Manrope({
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
+  // Italic faces are only downloaded where italic display type is used (Business Class page).
+  style: ["normal", "italic"],
   variable: "--font-cormorant",
   display: "swap",
 });

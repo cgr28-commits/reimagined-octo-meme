@@ -13,6 +13,14 @@ export const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBL
  */
 export const EVENTS_HUB_PUBLIC_ENABLED = true;
 
+/**
+ * The Business Class & Executive Transfers page (/business-class/) on its own (owner approved
+ * going live, 15 Nov 2026). Its enquiry form sends online only when Turnstile is configured
+ * (TURNSTILE_SITE_KEY below + the Worker's BESPOKE_QUOTES_ENABLED); until then it opens a
+ * ready-written email to the bookings inbox.
+ */
+export const BUSINESS_CLASS_PAGE_PUBLIC_ENABLED = true;
+
 export const EVENTS_HUB_PATH = "/events/";
 export const EVENT_TRANSFER_REQUEST_PATH = "/events/transfer-request/";
 export const BUSINESS_CLASS_REQUEST_PATH = "/business-class-request/";

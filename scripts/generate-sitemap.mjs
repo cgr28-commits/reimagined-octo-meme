@@ -283,6 +283,9 @@ const pages = [
   ...(EMERGE_CAMPAIGN_ACTIVE
     ? [{ path: emergeConfig.path, source: "src/lib/emerge-belfast-config.json" }]
     : []),
+  // Business Class page on its own (owner approved going live, 15 Nov 2026;
+  // mirrors BUSINESS_CLASS_PAGE_PUBLIC_ENABLED in src/lib/bespoke-public.ts).
+  { path: "/business-class/", source: "src/app/business-class/page.tsx" },
   // Belfast events hub + bespoke request pages: listed only when the site is built with
   // NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1 (owner-approved launch). Off → the pages 404.
   // Events page on its own (owner approved 15 Nov 2026; mirrors EVENTS_HUB_PUBLIC_ENABLED).

@@ -7,7 +7,8 @@ import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import CallUsButton from "./CallUsButton";
 import SiteNavLink from "./SiteNavLink";
-import { NAV_LINKS, SITE } from "@/lib/data";
+import { SITE } from "@/lib/data";
+import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
 
 /** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
 // Laptop/desktop bar: these sit under "More" so the links never run into the logo or

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BUSINESS_CLASS_PAGE_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
@@ -190,6 +191,19 @@ export default function BusinessClassDublinAirportPage() {
                 </li>
               </ol>
             </section>
+
+            {BUSINESS_CLASS_PAGE_PUBLIC_ENABLED ? (
+              <section className={lightCardClass}>
+                <h2 className="text-lg font-bold text-navy">Corporate and private executive travel</h2>
+                <p className="mt-2 text-sm leading-relaxed text-[#1a2a3d]">
+                  Planning meetings, visiting guests or a special occasion?{" "}
+                  <Link href="/business-class/" className="font-semibold text-emerald-dark underline underline-offset-4">
+                    Explore Business Class &amp; executive transfers
+                  </Link>{" "}
+                  and request a personal quotation.
+                </p>
+              </section>
+            ) : null}
 
             <section className={lightCardClass}>
               <h2 className="text-lg font-bold text-navy">Belfast, Northern Ireland and Dublin Airport</h2>
