@@ -1,3 +1,4 @@
+import { logFlightyFlightEvents } from "./flighty-calendar";
 // Must stay first: disables all outbound requests on the dashboard staging build only.
 import {
   handleQuoteFormRequest,
@@ -692,6 +693,8 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  /** Set to "false" to stop adding flight-shaped diary entries for Flighty. */
+  FLIGHTY_CALENDAR_EVENTS?: string;
   /** "false" stops automatic flight delay checks for airport collections. */
   FLIGHT_WATCH_ENABLED?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
@@ -1277,6 +1280,29 @@ async function logPaidBookingCalendar(
         paid: true,
       },
     });
+    if (env.FLIGHTY_CALENDAR_EVENTS?.trim().toLowerCase() !== "false") {
+      try {
+        const accessToken = await getGoogleAccessToken(
+          parseServiceAccountJson(env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!),
+        );
+        const flighty = await logFlightyFlightEvents({
+          accessToken,
+          calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+          apiKey: env.AERODATABOX_RAPIDAPI_KEY,
+          booking,
+          paymentReference,
+        });
+        if (flighty.skipped.length) {
+          console.log("Flighty flight entry skipped", paymentReference, flighty.skipped.join(","));
+        }
+      } catch (error) {
+        console.error(
+          "Flighty flight entry failed",
+          paymentReference,
+          error instanceof Error ? error.message : "",
+        );
+      }
+    }
     return {
       logged: true,
       events: eventIds.length,
