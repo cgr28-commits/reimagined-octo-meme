@@ -1151,11 +1151,11 @@ export function buildWhatsAppQuoteReply(input: {
       : "To book, check your details and pay securely here";
   if (input.requestOnly) {
     return (
-      `Your fixed price is *${input.amountLabel}*\n\n` +
+      `Your fixed price is *${input.amountLabel}* ✅\n\n` +
       `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
-      `⚠️ This date and time is *request only*, so we need to confirm we can do it before you pay.\n\n` +
-      `Send your booking request here (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
-      `We'll get back to you as soon as possible. Reply *NEW* for a new quote.`
+      `⏳ Book now and we'll confirm your booking shortly. Your card is held for the fare and only charged once we confirm. If we can't do it, the funds are released right away.\n\n` +
+      `${toBook} (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
+      `Need to change something? Just tell me. Reply *NEW* for a new quote.`
     );
   }
   return (
