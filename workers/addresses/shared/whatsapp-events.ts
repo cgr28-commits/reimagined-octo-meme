@@ -16,6 +16,8 @@ export type WhatsAppEvent = {
   /** Show start, 24-hour HH:MM. */
   showTime: string;
   note: string;
+  /** Website quote tool: a drop-off anywhere in this city on a show day also gets the notice. */
+  cityDropoff?: { namePattern: RegExp; postcodeDistricts: number[] };
 };
 
 export const WHATSAPP_EVENTS: WhatsAppEvent[] = [
@@ -27,6 +29,8 @@ export const WHATSAPP_EVENTS: WhatsAppEvent[] = [
     dates: ["2027-05-21", "2027-05-22"],
     showTime: "18:00",
     note: "We already have a lot of bookings for the Garth Brooks concerts, so availability is limited and it's worth booking soon.",
+    // Belfast city: BT1–BT17 (Belfast City Airport and Belfast International excluded as airports).
+    cityDropoff: { namePattern: /\bbelfast\b/i, postcodeDistricts: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] },
   },
 ];
 
@@ -79,7 +83,12 @@ export function describeWhatsAppEventForAi(match: WhatsAppEventMatch): string {
  * month (or before picking a date) sees a "limited availability, book early" notice.
  */
 export function matchEventForWebsiteQuote(
-  input: { addresses: Array<string | undefined>; dates: Array<string | undefined> },
+  input: {
+    addresses: Array<string | undefined>;
+    dates: Array<string | undefined>;
+    /** Where the customer is going: a Belfast drop-off on a show day also gets the notice. */
+    dropoff?: string;
+  },
   now: Date = new Date(),
   events: WhatsAppEvent[] = WHATSAPP_EVENTS,
 ): WhatsAppEvent | null {
@@ -88,11 +97,24 @@ export function matchEventForWebsiteQuote(
   const dates = input.dates.filter((d): d is string => Boolean(d));
   for (const event of events) {
     if (event.dates.every((d) => d < today)) continue;
-    if (!event.venuePattern.test(places)) continue;
-    const months = new Set(event.dates.map((d) => d.slice(0, 7)));
-    if (dates.length === 0 || dates.some((d) => months.has(d.slice(0, 7)))) return event;
+    if (event.venuePattern.test(places)) {
+      const months = new Set(event.dates.map((d) => d.slice(0, 7)));
+      if (dates.length === 0 || dates.some((d) => months.has(d.slice(0, 7)))) return event;
+    }
+    // Owner (15 Nov 2026): anyone going into Belfast from anywhere on a show day.
+    if (event.cityDropoff && isCityDropoff(input.dropoff, event.cityDropoff) && dates.some((d) => event.dates.includes(d))) {
+      return event;
+    }
   }
   return null;
+}
+
+/** Drop-off in the city itself: city name or city postcode, and not an airport. */
+function isCityDropoff(dropoff: string | undefined, city: NonNullable<WhatsAppEvent["cityDropoff"]>): boolean {
+  if (!dropoff || /\bairport\b/i.test(dropoff)) return false;
+  const postcode = dropoff.toUpperCase().match(/\bBT(\d{1,2})\b/);
+  if (postcode) return city.postcodeDistricts.includes(Number(postcode[1]));
+  return city.namePattern.test(dropoff);
 }
 
 /** "Fri 21 & Sat 22 May" for the website notice. */

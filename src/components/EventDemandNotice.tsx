@@ -8,11 +8,12 @@ import {
 type Props = {
   addresses: Array<string | undefined>;
   dates: Array<string | undefined>;
+  dropoff?: string;
 };
 
 /** Big-event notice on the quote result (e.g. Garth Brooks at Boucher Road, May 2027). */
-export default function EventDemandNotice({ addresses, dates }: Props) {
-  const event = matchEventForWebsiteQuote({ addresses, dates });
+export default function EventDemandNotice({ addresses, dates, dropoff }: Props) {
+  const event = matchEventForWebsiteQuote({ addresses, dates, dropoff });
   if (!event) return null;
   return (
     <div
