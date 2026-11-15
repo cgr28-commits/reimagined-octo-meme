@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getLandingIdentity } from "@/lib/landing-identity";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import Footer from "@/components/Footer";
@@ -132,6 +133,7 @@ export default async function TransferRoutePage({ params }: Props) {
   });
   const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
   const quoteFirstLede = QUOTE_FIRST_LEDE[page.slug];
+  const identity = getLandingIdentity(page.slug);
   const introDetails = (
     <>
       <p className="mt-6 text-lg leading-relaxed text-white/70">{page.intro}</p>
@@ -208,9 +210,11 @@ export default async function TransferRoutePage({ params }: Props) {
               <FromAirportText
                 text={page.h1}
                 fromAirportText={`${page.airport.name} to ${page.town.name} Taxi`}
+                highlight={identity?.headingHighlight?.toAirport}
+                fromAirportHighlight={identity?.headingHighlight?.fromAirport}
               />
             ) : (
-              page.h1
+              <FromAirportText text={page.h1} highlight={identity?.headingHighlight?.fromAirport} />
             )
           }
           intro={quoteFirstLede ?? firstSentence(page.intro)}
@@ -219,6 +223,9 @@ export default async function TransferRoutePage({ params }: Props) {
               ? `Fixed-price taxi from ${page.airport.name} to ${page.town.name}. We track your flight, and up to 60 minutes' waiting is included.`
               : undefined
           }
+          {...(identity
+            ? { heroBackground: identity.heroBackground, showRotatingCards: identity.showRotatingCards }
+            : {})}
           journey={{
             airportCode: page.airport.code,
             direction: page.direction,
@@ -226,7 +233,10 @@ export default async function TransferRoutePage({ params }: Props) {
             // starts empty so it never looks filled in while the price button is still locked.
           }}
         />
-        {quoteFirstLede ? (
+        {identity ? (
+          // Prototype: the page photo shows on phones too, with its own short caption.
+          <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} caption={identity.photoCaption} />
+        ) : quoteFirstLede ? (
           <div className="hidden sm:block">
             <LandingHeroMedia baseName={page.airport.heroBase} alt={page.airport.heroAlt} />
           </div>
@@ -268,6 +278,41 @@ export default async function TransferRoutePage({ params }: Props) {
             </Link>
           )}
 
+          {identity?.keyFacts ? (
+            <section
+              data-landing-summary
+              className="mt-6 rounded-3xl bg-white p-6 shadow-[0_18px_40px_-24px_rgba(7,28,56,0.35)] ring-1 ring-navy/5 sm:p-8"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald">
+                {isFromAirport ? `${page.airport.shortName} · ${page.town.name}` : `${page.town.name} · ${page.airport.code}`}
+              </p>
+              {quoteFirstLede ? (
+                <p className="mt-3 text-xl font-semibold leading-snug text-navy sm:text-2xl">{quoteFirstLede}</p>
+              ) : null}
+              <ul className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {identity.keyFacts.map((fact) => (
+                  <li key={fact} className="flex items-center gap-3 rounded-2xl bg-[#F4F7FA] px-4 py-3 text-[0.95rem] font-semibold text-navy">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald/15 text-emerald" aria-hidden>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                    {fact}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-col gap-4 border-t border-navy/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                {quoteFirstLede ? (
+                  <p className="text-navy">
+                    <span className="block text-xs font-semibold uppercase tracking-wider text-navy/60">Fixed price from</span>
+                    <span className="text-3xl font-extrabold text-emerald">£241</span>
+                    <span className="mt-1 block text-sm text-navy/70">Enter your address in the quote box for your exact price.</span>
+                  </p>
+                ) : null}
+                <GoogleReviewsBadge />
+              </div>
+            </section>
+          ) : (
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {isFromAirport
@@ -288,11 +333,18 @@ export default async function TransferRoutePage({ params }: Props) {
               <GoogleReviewsBadge />
             </div>
           </header>
+          )}
         </div>
 
 
         {quoteFirstLede ? (
-          <div className="mx-auto mb-8 max-w-3xl px-4 sm:px-6 lg:px-8">{introDetails}</div>
+          identity?.keyFacts ? (
+            <div className="mx-auto mb-8 mt-6 max-w-3xl px-4 sm:px-6 lg:px-8">
+              <div data-landing-intro-card className="rounded-3xl bg-white p-6 ring-1 ring-navy/5 sm:p-8 [&>p:first-child]:mt-0 [&_p]:text-navy/80 [&>p:first-child]:text-base [&>p:first-child]:leading-7">{introDetails}</div>
+            </div>
+          ) : (
+            <div className="mx-auto mb-8 max-w-3xl px-4 sm:px-6 lg:px-8">{introDetails}</div>
+          )
         ) : null}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">

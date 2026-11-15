@@ -17,9 +17,15 @@ export default function FromAirportText({
   text,
   fromAirportText,
   fromValue = "airport",
+  highlight,
+  fromAirportHighlight,
 }: {
   text: string;
   fromAirportText?: string;
+  /** Words to show in brand green (e.g. the destination in a heading). */
+  highlight?: string;
+  /** Green words for the swapped (?from=airport) text. */
+  fromAirportHighlight?: string;
   /** The ?from= value that switches the text (default "airport"). */
   fromValue?: string;
 }) {
@@ -27,5 +33,15 @@ export default function FromAirportText({
   useEffect(() => {
     if (fromAirportText && openedFromAirport(fromValue)) setSwap(true);
   }, [fromAirportText, fromValue]);
-  return <>{swap && fromAirportText ? fromAirportText : text}</>;
+  const shown = swap && fromAirportText ? fromAirportText : text;
+  const green = swap && fromAirportText ? fromAirportHighlight : highlight;
+  const at = green ? shown.indexOf(green) : -1;
+  if (!green || at < 0) return <>{shown}</>;
+  return (
+    <>
+      {shown.slice(0, at)}
+      <span className="text-emerald">{green}</span>
+      {shown.slice(at + green.length)}
+    </>
+  );
 }
