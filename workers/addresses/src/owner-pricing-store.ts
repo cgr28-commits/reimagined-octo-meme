@@ -1,3 +1,4 @@
+import { RETURN_BOOKING_DISCOUNT_RETIRED, returnDiscountRateForRecord } from "../shared/return-journey-discount";
 /**
  * Owner pricing settings + lightweight audit history (KV).
  * Public Minibus never fails open. Corrupt payloads fall back to approved defaults.
@@ -65,6 +66,25 @@ function attachProfitability(
   };
 }
 
+/**
+ * The automatic 5% return-booking discount is retired (owner, Nov 2026 — replaced by email
+ * promo codes). Whatever rate an older saved pricing record holds, live pricing uses 0%.
+ * Legacy saved quotes / Personal Quotes put their own rate back (see savedQuotePricingFor).
+ */
+export function retireReturnBookingDiscount<T extends { returnDiscount: { rate: number } }>(settings: T): T {
+  if (!RETURN_BOOKING_DISCOUNT_RETIRED) return settings;
+  return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+}
+
+/** A saved quote made before the retirement is re-priced with the 5% it was quoted with. */
+export function savedQuotePricingFor<T extends { returnDiscount: { rate: number } }>(
+  settings: T,
+  record: { returnDiscountRate?: number | null },
+): T {
+  const rate = returnDiscountRateForRecord(record);
+  return rate === settings.returnDiscount.rate ? settings : { ...settings, returnDiscount: { ...settings.returnDiscount, rate } };
+}
+
 export function ownerPricingDefaults(): StoredOwnerPricingSettings {
   return {
     ...defaultOwnerPricingSettings(),
@@ -77,8 +97,8 @@ export async function getOwnerPricingSettings(
 ): Promise<StoredOwnerPricingSettings> {
   try {
     const raw = await store.get(SETTINGS_KEY, "json");
-    if (!raw) return ownerPricingDefaults();
-    return attachProfitability(raw, normalizeOwnerPricingSettings(raw));
+    if (!raw) return retireReturnBookingDiscount(ownerPricingDefaults());
+    return retireReturnBookingDiscount(attachProfitability(raw, normalizeOwnerPricingSettings(raw)));
   } catch {
     return ownerPricingDefaults();
   }

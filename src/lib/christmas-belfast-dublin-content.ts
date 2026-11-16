@@ -31,7 +31,7 @@ export const CHRISTMAS_BELFAST_DUBLIN_PAGE = {
   timeText:
     "Booking for the office Christmas party? One booking covers the whole group, and a 7-Seater Minibus is offered when available for larger groups. For bigger parties we can arrange more than one vehicle, so just enter everyone travelling in the quote or send us a WhatsApp. The journey is usually around two hours each way, depending on the addresses and traffic, so we plan pickups around your dinner or event time. December dates go quickly, so book as early as you can.",
   quoteText:
-    "Enter your pickup and drop-off addresses, choose Return if you need the journey home, then add the number of passengers and suitcases. Where an instant fare is shown you can book and pay online in minutes, and eligible return journeys get 5% off the combined fare. Otherwise send the request and we confirm a fixed price and availability before you pay.",
+    "Enter your pickup and drop-off addresses, choose Return if you need the journey home, then add the number of passengers and suitcases. Where an instant fare is shown you can book and pay online in minutes. Otherwise send the request and we confirm a fixed price and availability before you pay.",
   hero: {
     base: "xmas-belfast-city-hall",
     alt: "Belfast City Hall lit up at night with a Christmas tree and a Merry Christmas Belfast sign",

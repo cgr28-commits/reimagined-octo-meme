@@ -168,6 +168,7 @@ import {
   buildPaymentRedirectUrl,
   createPaymentCheckout,
   isPaymentFareMismatchError,
+  isPaymentPromoRejectedError,
   isPaymentVehicleUnavailableError,
   isPaymentOwnerNoAvailabilityError,
   isPaymentRouteReconfirmationError,
@@ -415,6 +416,20 @@ import {
 import { fetchSelectedPlaceDetails } from "@/lib/google-maps";
 import { readCachedCustomerProfile } from "@/lib/customer-account-api";
 import { setWhatsAppJourney, whatsAppSendQuoteHref } from "@/lib/whatsapp-journey-context";
+import {
+  fetchPromoConfig,
+  rememberPromoCodeFromUrl,
+  validatePromoCode,
+  type PublicPromoConfig,
+} from "@/lib/promo-api";
+import {
+  normalizePromoCode,
+  promoBlackoutFor,
+  promoBlackoutMessage,
+  promoRejectMessage,
+} from "../../shared/promo-code";
+import PromoCodeField from "@/components/PromoCodeField";
+import PromoQuoteBanner from "@/components/PromoQuoteBanner";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -1283,6 +1298,38 @@ function QuoteCard({
   const [termsError, setTermsError] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [heardAbout, setHeardAbout] = useState("");
+  /** Email promo code (10% welcome discount): public config + the code applied at checkout. */
+  const [promoConfig, setPromoConfig] = useState<PublicPromoConfig | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<
+    { code: string; discountRate: number; minimumVehicleFareGbp: number; email: string } | null
+  >(null);
+  const [promoMessage, setPromoMessage] = useState("");
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    void fetchPromoConfig().then((config) => {
+      if (live) setPromoConfig(config);
+    });
+    // Code carried in from the email's "Book online" link: pre-fill (applied at checkout).
+    const fromLink = normalizePromoCode(rememberPromoCodeFromUrl());
+    if (fromLink) setPromoInput(fromLink);
+    return () => {
+      live = false;
+    };
+  }, []);
+
+
+  // A code is bound to the email it was sent to: a changed email needs the code re-checked.
+  useEffect(() => {
+    if (!appliedPromo) return;
+    if (customerEmail.trim().toLowerCase() !== appliedPromo.email) {
+      setAppliedPromo(null);
+      setPromoInput(appliedPromo.code);
+      setPromoMessage("Your email address changed. Please apply your promo code again.");
+    }
+  }, [customerEmail, appliedPromo]);
   const [testChargeAmount, setTestChargeAmount] = useState<number | null>(null);
   const [testBookingLabel, setTestBookingLabel] = useState<string | null>(null);
   const [appliedPersonalQuote, setAppliedPersonalQuote] =
@@ -3419,6 +3466,13 @@ function QuoteCard({
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
+      // Promo codes never stack with a return offer or a special (Empty Run) price.
+      ...(appliedPromo &&
+      !applyReturnOffer &&
+      !(Number(currentServerFareParts?.emptyRunSavingGbp) > 0) &&
+      !promoBlackoutFor([tripDate, returnJourney ? returnDate : null], promoConfig?.blackoutDates)
+        ? { promoCode: appliedPromo }
+        : {}),
       ...(businessClass
         ? {
             businessClassMinimumFareGbp:
@@ -3435,6 +3489,11 @@ function QuoteCard({
         : {}),
     });
   }, [
+    appliedPromo,
+    promoConfig?.blackoutDates,
+    tripDate,
+    returnDate,
+    currentServerFareParts?.emptyRunSavingGbp,
     useOpenWebsitePromoPricing,
     configuredSurchargeLabel,
     configuredSurchargeExplanation,
@@ -3567,6 +3626,16 @@ function QuoteCard({
       exceedsOnlineCapacity ||
       isEnquiryOnly);
   const quoteResultsReady = resultsCanRender;
+
+  // Let site-wide promotions know a booking is under way (they never interrupt it).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (quoteStep >= 2 || quoteResultsReady) root.dataset.bookingInProgress = "1";
+    else delete root.dataset.bookingInProgress;
+    return () => {
+      delete root.dataset.bookingInProgress;
+    };
+  }, [quoteStep, quoteResultsReady]);
   useEffect(() => {
     if (!quoteResultsReady || quoteStep !== 1) setDesktopJourneyEditing(false);
   }, [quoteResultsReady, quoteStep]);
@@ -4903,6 +4972,128 @@ function QuoteCard({
     return false;
   }
 
+  /** Why a promo code can't go on this booking (null = it can). */
+  function promoUnavailableReason(): string | null {
+    if (!openWebsiteFareBreakdown) return null;
+    if (openWebsiteFareBreakdown.returnOfferSavingGbp > 0) {
+      return "Promo codes can't be combined with your return journey offer.";
+    }
+    if (Number(currentServerFareParts?.emptyRunSavingGbp) > 0) {
+      return "Your special price already includes a saving, so a promo code can't be added to this booking.";
+    }
+    return null;
+  }
+
+  /** Owner-excluded travel date on this booking (outward or return), as a customer message. */
+  function promoBlackoutNotice(): string | null {
+    const hit = promoBlackoutFor([tripDate, returnJourney ? returnDate : null], promoConfig?.blackoutDates);
+    return hit ? promoBlackoutMessage(hit) : null;
+  }
+
+  async function applyPromoCode() {
+    const code = normalizePromoCode(promoInput);
+    setPromoMessage("");
+    if (!code) {
+      setPromoMessage(promoRejectMessage("not_found"));
+      return;
+    }
+    const email = customerEmail.trim();
+    if (!email) {
+      setPromoMessage("Enter your email address above first. Your code is linked to it.");
+      return;
+    }
+    if (!openWebsiteFareBreakdown) {
+      setPromoMessage(promoRejectMessage("not_eligible_booking"));
+      return;
+    }
+    const blocked = promoUnavailableReason() ?? promoBlackoutNotice();
+    if (blocked) {
+      setPromoMessage(blocked);
+      return;
+    }
+    setPromoChecking(true);
+    const result = await validatePromoCode({
+      code,
+      email,
+      vehicleFareGbp: openWebsiteFareBreakdown.promoEligibleVehicleFareGbp,
+      tripDate,
+      ...(returnJourney ? { returnDate } : {}),
+    });
+    setPromoChecking(false);
+    if (!result.ok) {
+      setPromoMessage(result.error);
+      return;
+    }
+    if (!result.meetsMinimum) {
+      setPromoMessage(result.warning || promoRejectMessage("minimum_fare", result));
+      return;
+    }
+    setPromoInput(result.code);
+    setAppliedPromo({
+      code: result.code,
+      discountRate: result.discountRate,
+      minimumVehicleFareGbp: result.minimumVehicleFareGbp,
+      email: email.toLowerCase(),
+    });
+  }
+
+  function removePromoCode() {
+    setAppliedPromo(null);
+    setPromoMessage("");
+  }
+
+  /** "Have a promo code?" in the checkout summary (open website instant bookings only). */
+  function renderPromoCodeField() {
+    if (!promoConfig?.enabled || !openWebsiteFareBreakdown || appliedPersonalQuote || testChargeAmount != null) {
+      return null;
+    }
+    const breakdown = openWebsiteFareBreakdown;
+    const applied =
+      appliedPromo && breakdown.promoCodeStatus === "applied" && breakdown.promoCode
+        ? (() => {
+            const extras = bookingMeetGreetActive ? bookingMeetGreetCharge : 0;
+            const total = Math.round((breakdown.finalAmountPayableGbp + extras) * 100) / 100;
+            const airport = Math.round((breakdown.airportFixedCostsGbp + breakdown.airportAccessChargeGbp) * 100) / 100;
+            const saving = breakdown.promoCodeSavingGbp;
+            return {
+              code: breakdown.promoCode,
+              percentLabel: `${Math.round(Number(breakdown.promoCodeDiscountRate ?? appliedPromo.discountRate) * 1000) / 10}%`,
+              savingGbp: saving,
+              airportChargesGbp: airport,
+              extrasGbp: extras,
+              totalGbp: total,
+              // Remainder, so the rows always add up to the total charged.
+              vehicleFareGbp: Math.round((total - extras - airport + saving) * 100) / 100,
+            };
+          })()
+        : null;
+    const belowMinimum = appliedPromo && breakdown.promoCodeStatus === "below_minimum";
+    // A date changed after the code was applied: keep the code, explain why it isn't counted.
+    const blackoutNotice = appliedPromo ? promoBlackoutNotice() : null;
+    return (
+      <PromoCodeField
+        value={promoInput}
+        onChange={(value) => {
+          setPromoInput(value);
+          if (promoMessage) setPromoMessage("");
+        }}
+        onApply={() => void applyPromoCode()}
+        onRemove={removePromoCode}
+        checking={promoChecking}
+        message={
+          blackoutNotice
+            ? blackoutNotice
+            : belowMinimum
+              ? promoRejectMessage("minimum_fare", appliedPromo ?? undefined)
+              : promoMessage
+        }
+        applied={applied}
+        unavailableReason={promoUnavailableReason() ?? undefined}
+        defaultOpen={Boolean(promoInput)}
+      />
+    );
+  }
+
   function buildPaymentDescription(): string {
     const vehicleLabel = vehicleShortLabel(quoteVehicle);
     const tripSummary = isAirportTrip || pickupAirportCode || dropoffAirportCode
@@ -5246,6 +5437,9 @@ function QuoteCard({
                 ? removedAirportFeeIds
                 : [],
               acceptedFinalAmountGbp: paymentAmount ?? undefined,
+              ...(openWebsiteFareBreakdown?.promoCodeStatus === "applied" && openWebsiteFareBreakdown.promoCode
+                ? { promoCode: openWebsiteFareBreakdown.promoCode }
+                : {}),
               ...(currentServerFareParts?.quoteReceipt
                 ? { quoteReceipt: currentServerFareParts.quoteReceipt }
                 : {}),
@@ -5389,6 +5583,16 @@ function QuoteCard({
       }
       if (isPaymentVehicleUnavailableError(error)) {
         setPaymentError(error.message || PUBLIC_MINIBUS_UNAVAILABLE_MESSAGE);
+        setPaymentLoading(false);
+        return;
+      }
+      if (isPaymentPromoRejectedError(error)) {
+        // The server refused the code: take it off so the price shown is the price to pay.
+        setAppliedPromo(null);
+        setPromoMessage(error.message);
+        setTermsAccepted(false);
+        setTermsError("Your price has changed. Please review it and accept the terms again.");
+        setPaymentError(`${error.message} Your price has been updated without the promo code.`);
         setPaymentLoading(false);
         return;
       }
@@ -7160,10 +7364,6 @@ function QuoteCard({
                   expressSelection.eligible && expressSelection.feeGbp === 0
                 }
               />
-            ) : returnJourney ? (
-              <p className="mt-2 text-xs font-medium text-emerald/90">
-                Includes 5% return booking discount on the guide price.
-              </p>
             ) : null}
           </>
         ) : isEnquiryOnly ? (
@@ -7840,6 +8040,7 @@ function QuoteCard({
             }
           >
             {bookingMeetGreetActive ? <p className="mt-1 text-sm font-semibold" data-meet-greet-summary>Meet &amp; Greet: {formatMeetGreetGbp(bookingMeetGreetCharge)}</p> : null}
+            {renderPromoCodeField()}
             {/* Desktop (1200px+) only: the fare breakdown beside the summary (vehicle fare,
                 airport access, return discount, total) — same breakdown as the quote. */}
             {openWebsiteFareBreakdown ? (
@@ -8783,15 +8984,17 @@ function QuoteCard({
     const returnSaving = pence(fare.returnJourneySavingGbp);
     const offerSaving = pence(fare.returnOfferSavingGbp);
     const specialSaving = pence(currentServerFareParts?.emptyRunSavingGbp ?? 0);
-    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving + specialSaving);
+    const promoSaving = pence(fare.promoCodeSavingGbp ?? 0);
+    const vehicleFare = pence(paymentAmount - access - fixed + returnSaving + offerSaving + specialSaving + promoSaving);
     if (!(vehicleFare > 0)) return null;
     const total = pence(paymentAmount + upgrades.reduce((sum, upgrade) => sum + upgrade.feeGbp, 0));
     const vehicleName = quoteVehicle === ESTATE_VEHICLE ? "Estate" : vehicleShortLabel(quoteVehicle);
     const rows: Array<[string, string]> = [
       [fare.returnJourney ? `${vehicleName} fare, both journeys` : `${vehicleName} fare`, formatQuote(vehicleFare)],
       ...(specialSaving > 0 ? [["Special price saving", `−${formatQuote(specialSaving)}`] as [string, string]] : []),
-      ...(returnSaving > 0 ? [["5% return discount", `−${formatQuote(returnSaving)}`] as [string, string]] : []),
+      ...(returnSaving > 0 ? [["Return discount", `−${formatQuote(returnSaving)}`] as [string, string]] : []),
       ...(offerSaving > 0 ? [[`Return saving (${fare.returnOfferDiscountPercentLabel})`, `−${formatQuote(offerSaving)}`] as [string, string]] : []),
+      ...(promoSaving > 0 && fare.promoCode ? [[`Promo code (${fare.promoCode})`, `−${formatQuote(promoSaving)}`] as [string, string]] : []),
       ...(fixed > 0 ? [["Airport charges", `+${formatQuote(fixed)}`] as [string, string]] : []),
       ...(access > 0 ? [["Airport access", `+${formatQuote(access)}`] as [string, string]] : []),
       ...upgrades.map(
@@ -10037,7 +10240,6 @@ function QuoteCard({
                     }}
                   >
                     Return
-                    <span data-return-discount-note>Save 5%</span>
                   </button>
                 </div>
                 {scheduleUpFront ? renderQuoteScheduleFields("quote", true) : null}
@@ -10340,7 +10542,7 @@ function QuoteCard({
                         </p>
                         {returnJourney ? (
                           <p className="mt-1 text-xs font-medium text-emerald">
-                            Return journey reverses this route. The 5% return booking discount is included.
+                            Return journey reverses this route.
                           </p>
                         ) : (
                           <p className="mt-1 text-xs text-white/70">
@@ -10387,6 +10589,9 @@ function QuoteCard({
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}
+                    {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() ? (
+                      <PromoQuoteBanner config={promoConfig} className="mt-3" />
+                    ) : null}
                     {renderDesktopMeetGreetUpgrades()}
                     {design2Home ? (
                       /* Design 3 (?mobile=d3) only, shown by its stylesheet: what the fare includes,
@@ -10607,7 +10812,7 @@ function QuoteCard({
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
-              Return · 5% off
+              Return
             </button>
           </div>
           {journeyMode == null && (
@@ -10953,6 +11158,9 @@ function QuoteCard({
               aria-hidden="true"
             />
             {renderQuoteVehicleChoice()}
+            {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() ? (
+              <PromoQuoteBanner config={promoConfig} className="mt-3" />
+            ) : null}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>

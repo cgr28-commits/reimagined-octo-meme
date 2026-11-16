@@ -18,6 +18,7 @@ import {
 import type { PaidBookingRecord } from "../shared/paid-booking-record";
 import {
   grossAmountCollectedOf,
+  netAmountRetainedOf,
   separatelyRefundedExtraPaymentsGbp,
   journeyFareOf,
 } from "../shared/paid-booking-record";
@@ -45,6 +46,7 @@ import {
   REFUND_REASON_CATEGORIES,
 } from "../shared/refund-ops";
 import { shouldMarkTrackingJobsOnRefundSideEffects } from "../shared/refund-tracking-side-effects";
+import { reinstatePromoForCancelledBooking } from "./promo-checkout";
 import {
   assertLegCancelTarget,
   bothReturnLegsCancelled,
@@ -92,6 +94,9 @@ import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
 export type RefundEnv = WorkerEmailEnv &
   DriverAuthEnv & {
+    /** Email promo codes (migration 0005). */
+    DRIVER_DB?: unknown;
+    PROMO_HASH_SECRET?: string;
     SUMUP_API_KEY?: string;
     SUMUP_MERCHANT_CODE?: string;
     TRACKING_STORE?: KVNamespace;
@@ -1759,6 +1764,21 @@ async function completeRefundSideEffects(
       );
     }
   } else if (input.cancelBooking) {
+    // Whole booking cancelled and every penny refunded: give the customer their promo code back.
+    if (record.promoCode && !record.isRefundTest) {
+      const gross = grossAmountCollectedOf(record);
+      const fullyRefunded =
+        netAmountRetainedOf(record) <= 0.005 || input.refundAmount + 0.005 >= gross;
+      if (fullyRefunded) {
+        const reinstated = await reinstatePromoForCancelledBooking(env, {
+          promoCode: record.promoCode,
+          bookingReference: record.customerReference || record.paymentReference,
+          refundedGbp: gross,
+          paidGbp: gross,
+        });
+        if (reinstated) warnings.push(`Promo code ${record.promoCode} is usable again (booking fully refunded).`);
+      }
+    }
     if (calendarConfigured(env) && record.calendarEventIds.length > 0) {
       try {
         const serviceAccount = parseServiceAccountJson(
@@ -2302,6 +2322,20 @@ export async function savePaidBookingRecordFromConfirm(input: {
       ? {
           returnOfferSavingGbp:
             Math.round(Number(input.booking.returnOfferSavingGbp) * 100) / 100,
+        }
+      : {}),
+    ...(input.booking.promoCode?.trim() &&
+    typeof input.booking.promoCodeSavingGbp === "number" &&
+    Number.isFinite(input.booking.promoCodeSavingGbp)
+      ? {
+          promoCode: input.booking.promoCode.trim(),
+          promoCodeSavingGbp: Math.round(Number(input.booking.promoCodeSavingGbp) * 100) / 100,
+          ...(typeof input.booking.promoCodeDiscountRate === "number"
+            ? { promoCodeDiscountRate: input.booking.promoCodeDiscountRate }
+            : {}),
+          ...(typeof input.booking.promoEligibleVehicleFareGbp === "number"
+            ? { promoEligibleVehicleFareGbp: input.booking.promoEligibleVehicleFareGbp }
+            : {}),
         }
       : {}),
     ...(typeof input.booking.outboundFare === "number" &&

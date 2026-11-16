@@ -252,6 +252,7 @@ function PersonalQuoteInner() {
       expressDropOffSelected: expressSelection.eligible ? expressDropOffSelected : false,
       expressDropOffFee: expressSelection.feeGbp,
       expressDropOffAirport: expressSelection.airportCode,
+      returnDiscountRate: quote.returnDiscountRate,
     });
   }, [quote, returnJourney, expressSelection, expressDropOffSelected]);
 
@@ -656,7 +657,7 @@ function PersonalQuoteInner() {
               <>
                 <p className="text-white/70">One-way fare: {paymentDisplay.oneWayAgreedLabel}</p>
                 <p className="text-white/70">
-                  Return journey discount: {formatReturnJourneyDiscountPercent()}
+                  Return journey discount: {formatReturnJourneyDiscountPercent(quote?.returnDiscountRate ?? 0)}
                 </p>
                 <p className="text-lg font-bold text-white">
                   Return total: {paymentDisplay.paymentAmountLabel}

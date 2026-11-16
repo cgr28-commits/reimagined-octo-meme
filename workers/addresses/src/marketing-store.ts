@@ -31,6 +31,7 @@ export async function recordMarketingOptIn(
     name?: string;
     source: MarketingOptInSource;
     consentVersion?: string;
+    consentWording?: string;
     optedInAt?: string;
   },
 ): Promise<MarketingSubscriber | null> {
@@ -50,6 +51,11 @@ export async function recordMarketingOptIn(
     optedInAt: existing?.unsubscribedAt ? now : existing?.optedInAt || now,
     source: input.source,
     consentVersion,
+    ...(input.consentWording?.trim()
+      ? { consentWording: input.consentWording.trim() }
+      : existing?.consentWording
+        ? { consentWording: existing.consentWording }
+        : {}),
     unsubscribedAt: undefined,
     unsubscribeToken: existing?.unsubscribeToken,
   };
@@ -123,12 +129,12 @@ export async function ensureMarketingUnsubscribeToken(
   return token;
 }
 
-/** One-click unsubscribe from an email link. */
-export async function unsubscribeMarketingToken(store: KVNamespace, tokenInput: string): Promise<boolean> {
+/** One-click unsubscribe from an email link. Returns the address unsubscribed ("" when none). */
+export async function unsubscribeMarketingToken(store: KVNamespace, tokenInput: string): Promise<string> {
   const token = tokenInput.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
-  if (token.length < 20) return false;
+  if (token.length < 20) return "";
   const email = await store.get(`${UNSUB_TOKEN_PREFIX}${token}`);
-  if (!email) return false;
-  await unsubscribeMarketingEmail(store, email);
-  return true;
+  if (!email) return "";
+  const result = await unsubscribeMarketingEmail(store, email);
+  return result.ok ? email : "";
 }

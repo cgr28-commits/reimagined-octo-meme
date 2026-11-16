@@ -24,6 +24,11 @@ export type WebsitePromoPricingFields = {
   /** Airport barrier / parking costs built into the transfer fare (e.g. Dublin £13 on a return). */
   airportFixedCostsGbp?: number;
   finalAmountPayableGbp?: number;
+  /** Email promo code applied to this booking (server-set only). */
+  promoCode?: string;
+  promoCodeDiscountRate?: number;
+  promoCodeSavingGbp?: number;
+  promoEligibleVehicleFareGbp?: number;
 };
 
 export function promoFieldsFromFareBreakdown(
@@ -41,6 +46,14 @@ export function promoFieldsFromFareBreakdown(
     journeyFareAfterPromotionsGbp: breakdown.journeyFareAfterPromotionsGbp,
     nightWeekendSurchargeGbp: breakdown.nightWeekendSurchargeGbp,
     finalAmountPayableGbp: breakdown.finalAmountPayableGbp,
+    ...(breakdown.promoCodeStatus === "applied" && breakdown.promoCode
+      ? {
+          promoCode: breakdown.promoCode,
+          promoCodeDiscountRate: breakdown.promoCodeDiscountRate,
+          promoCodeSavingGbp: breakdown.promoCodeSavingGbp,
+          promoEligibleVehicleFareGbp: breakdown.promoEligibleVehicleFareGbp,
+        }
+      : {}),
   };
 }
 
@@ -67,7 +80,20 @@ export function parseWebsitePromoPricingFields(
     nightWeekendSurchargeGbp: num("nightWeekendSurchargeGbp"),
     airportFixedCostsGbp: num("airportFixedCostsGbp"),
     finalAmountPayableGbp: num("finalAmountPayableGbp"),
+    ...(typeof input.promoCode === "string" && /^MATNI-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(input.promoCode)
+      ? {
+          promoCode: input.promoCode,
+          promoCodeDiscountRate: num("promoCodeDiscountRate"),
+          promoCodeSavingGbp: num("promoCodeSavingGbp"),
+          promoEligibleVehicleFareGbp: num("promoEligibleVehicleFareGbp"),
+        }
+      : {}),
   };
+}
+
+function promoCodeRowLabel(fields: WebsitePromoPricingFields): string {
+  const pct = Math.round(Number(fields.promoCodeDiscountRate ?? 0.1) * 1000) / 10;
+  return `${pct}% promo code (${fields.promoCode})`;
 }
 
 /**
@@ -96,7 +122,8 @@ function displayJourneyRows(fields: WebsitePromoPricingFields): {
   const shown =
     journey -
     (fields.returnJourneySavingGbp ?? 0) -
-    (fields.returnOfferSavingGbp ?? 0) +
+    (fields.returnOfferSavingGbp ?? 0) -
+    (fields.promoCodeSavingGbp ?? 0) +
     (fields.nightWeekendSurchargeGbp ?? 0) +
     fixed +
     access;
@@ -120,8 +147,11 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
-      `5% Return Booking Discount: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
+      `Return Booking Discount: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
     );
+  }
+  if ((fields.promoCodeSavingGbp ?? 0) > 0 && fields.promoCode) {
+    lines.push(`${promoCodeRowLabel(fields)}: −${formatGbpFare(fields.promoCodeSavingGbp ?? 0)}`);
   }
   if ((fields.returnOfferSavingGbp ?? 0) > 0) {
     lines.push(
@@ -183,8 +213,14 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     rows.push({
-      label: "5% Return Booking Discount",
+      label: "Return Booking Discount",
       value: `−${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
+    });
+  }
+  if ((fields.promoCodeSavingGbp ?? 0) > 0 && fields.promoCode) {
+    rows.push({
+      label: promoCodeRowLabel(fields),
+      value: `−${formatGbpFare(fields.promoCodeSavingGbp ?? 0)}`,
     });
   }
   if ((fields.returnOfferSavingGbp ?? 0) > 0) {

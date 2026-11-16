@@ -10125,3 +10125,7 @@ label.cookie-wall-category { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .cookie-wall, .cookie-wall-panel { animation: none; }
 }
+
+/* Email promo code (Nov 2026): error text stays red on the light mobile design. */
+html[data-mobile-light] [data-promo-message] { color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
+html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }

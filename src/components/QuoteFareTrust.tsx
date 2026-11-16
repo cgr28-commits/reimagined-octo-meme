@@ -31,6 +31,8 @@ export function buildOpenWebsiteFareBreakdown(input: {
   returnOneWayBeforeAccessGbp?: number;
   returnDiscountRate?: number;
   preserveFixedFarePence?: boolean;
+  /** Applied email promo code (vehicle fare only; ignored below its minimum fare). */
+  promoCode?: { code: string; discountRate: number; minimumVehicleFareGbp: number } | null;
 }): WebsiteFareBreakdown {
   return composeWebsiteFareBreakdown({
     preserveFixedFarePence: input.preserveFixedFarePence,
@@ -43,6 +45,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
     nightWeekendSurchargeLabel: input.nightWeekendSurchargeLabel,
     nightWeekendSurchargeExplanation: input.nightWeekendSurchargeExplanation,
     returnJourney: Boolean(input.returnJourney),
+    ...(input.promoCode ? { promoCode: input.promoCode } : {}),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }
       : {}),
@@ -55,6 +58,11 @@ export function buildOpenWebsiteFareBreakdown(input: {
         }
       : {}),
   });
+}
+
+function promoRowLabel(breakdown: WebsiteFareBreakdown): string {
+  const pct = Math.round(Number(breakdown.promoCodeDiscountRate ?? 0) * 1000) / 10;
+  return `${pct}% promo code (${breakdown.promoCode})`;
 }
 
 /** Compact reinforcement directly under the dominant fixed price. */
@@ -131,6 +139,11 @@ export function PromotionalSavingsSummary({
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
           ✓ {breakdown.returnOfferDiscountPercentLabel} RETURN JOURNEY SAVING — YOU SAVE{" "}
           {formatGbpFare(breakdown.returnOfferSavingGbp)}
+        </p>
+      ) : null}
+      {breakdown.promoCodeSavingGbp > 0 && breakdown.promoCode ? (
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald">
+          ✓ PROMO CODE {breakdown.promoCode} — YOU SAVE {formatGbpFare(breakdown.promoCodeSavingGbp)}
         </p>
       ) : null}
       {breakdown.totalPromotionalSavingGbp > 0 ? (
@@ -223,7 +236,7 @@ export function PromotionalPriceBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3">
-            <dt>5% Return Booking Discount</dt>
+            <dt>Return Booking Discount</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
             </dd>
@@ -234,6 +247,14 @@ export function PromotionalPriceBreakdown({
             <dt>Return journey saving ({breakdown.returnOfferDiscountPercentLabel})</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnOfferSavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.promoCodeSavingGbp > 0 && breakdown.promoCode ? (
+          <div className="flex justify-between gap-3" data-breakdown-promo-line>
+            <dt>{promoRowLabel(breakdown)}</dt>
+            <dd className="shrink-0 text-emerald/90">
+              −{formatGbpFare(breakdown.promoCodeSavingGbp)}
             </dd>
           </div>
         ) : null}
@@ -357,9 +378,17 @@ export function FinalPayableBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>5% Return Booking Discount</dt>
+            <dt>Return Booking Discount</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
+            </dd>
+          </div>
+        ) : null}
+        {breakdown.promoCodeSavingGbp > 0 && breakdown.promoCode ? (
+          <div className="flex justify-between gap-3 text-emerald/90" data-breakdown-promo-line>
+            <dt>{promoRowLabel(breakdown)}</dt>
+            <dd className="shrink-0 tabular-nums">
+              −{formatGbpFare(breakdown.promoCodeSavingGbp)}
             </dd>
           </div>
         ) : null}

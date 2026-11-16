@@ -67,7 +67,7 @@ export const DERRY_TRANSFER_PAGE = {
     {
       question: "Can I book the journey back as well?",
       answer:
-        "Yes. Choose Return on the quote form and enter both journeys. Where an instant return price is shown, you save 5% on the combined fare.",
+        "Yes. Choose Return on the quote form and enter both journeys.",
     },
   ],
 } as const;

@@ -410,7 +410,7 @@ export default function QuoteProgressiveRoute({
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
-              Return · 5% off
+              Return
             </button>
           </div>
           {journeyMode == null && (

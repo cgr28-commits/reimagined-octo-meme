@@ -2135,7 +2135,7 @@ const MORE_GROUPS: Array<{ title: string; items: Array<{ tool: OwnerDashboardToo
     title: "Pricing & marketing",
     items: [
       { tool: "pricing", label: "Fares & pricing", hint: "The existing pricing screen, unchanged" },
-      { tool: "marketing", label: "Marketing list", hint: "Customers who opted in to marketing" },
+      { tool: "marketing", label: "Promo Codes & Email Marketing", hint: "10% email codes, redemptions and the marketing list" },
       { tool: "google-ads", label: "Google Ads", hint: "Ad spend and booking upload file" },
     ],
   },

@@ -1,3 +1,4 @@
+import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
 /**
  * KV store for Personal Quote Codes (individually agreed fares).
  */
@@ -251,6 +252,8 @@ export async function createPersonalQuote(
     code,
     customerToken,
     customerName,
+    // Stamp the return discount in force today, so later rule changes never move this price.
+    returnDiscountRate: RETURN_JOURNEY_DISCOUNT_RATE,
     ...(input.customerEmail?.trim() ? { customerEmail: input.customerEmail.trim() } : {}),
     ...(input.customerMobile?.trim() ? { customerMobile: input.customerMobile.trim() } : {}),
     agreedAmount: pricing.agreedAmount,

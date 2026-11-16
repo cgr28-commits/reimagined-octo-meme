@@ -229,7 +229,7 @@ export const WHATSAPP_QUOTE_FORM_JSON = {
               {
                 id: "return",
                 title: "Return",
-                description: "Book your return too and save 5%",
+                description: "Book your return journey too",
                 "on-select-action": { name: "update_data", payload: { show_return: true } },
               },
             ],

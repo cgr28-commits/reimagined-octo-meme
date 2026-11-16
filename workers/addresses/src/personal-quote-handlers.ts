@@ -1,3 +1,4 @@
+import { returnDiscountRateForRecord } from "../shared/return-journey-discount";
 /**
  * Personal Quote Codes — owner create/list/deactivate + public validate / token lookup.
  * Authorised amount always comes from KV; never trust the browser.
@@ -550,6 +551,8 @@ export async function resolvePersonalQuoteForPayment(
     standardWebsiteAmount: stored.standardWebsiteAmount,
     returnJourney: Boolean(options?.returnJourney),
     expressDropOffFee: expressFields.expressDropOffFee,
+    // Quotes issued before the 5% return discount was retired keep the price they were given.
+    returnDiscountRate: returnDiscountRateForRecord(stored),
   });
   if (!Number.isFinite(amount) || amount < 1) {
     return { ok: false, error: personalQuoteCustomerError("invalid_amount"), status: 400 };

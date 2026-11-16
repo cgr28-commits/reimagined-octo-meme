@@ -33,7 +33,7 @@ async function main(){
  eq(premium('2026-10-26','01:00',overlapping),25,'end is exclusive');
  eq(premium('2026-10-26','19:00',{...settings,evening:{...settings.evening!,enabled:false}}),0,'disabled Evening');
  const returning=applyTripPremium(100,{outboundDate:'2026-10-26',outboundTime:'19:00',returnDate:'2026-10-27',returnTime:'23:00',returnJourney:true},undefined,{pricing:settings});
- eq(returning.premiumAmount,40,'different rate on each original base');eq(returning.total,230,'5% discount only on base');
+ eq(returning.premiumAmount,40,'different rate on each original base');eq(returning.total,240,'no automatic return discount (retired Nov 2026)');
  for(const bad of [-.1,1.01,NaN,'',null])eq(validateOwnerPricingInput({...settings,evening:{...settings.evening,surchargeRate:bad}}).ok,false,'invalid rate');
  for(const bad of [-1,1440,1080])eq(validateOwnerPricingInput({...settings,evening:{...settings.evening,endMinutes:bad}}).ok,false,'invalid/equal time');
  eq(nightWeekendSurchargeLabel(settings),'Evening 15% / Night 25% / Weekend 10% surcharge','configured label');

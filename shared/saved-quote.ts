@@ -132,6 +132,11 @@ export type SavedQuoteRecord = {
   /** Fixed-price booking link, when the journey had a pickup date and time. */
   heldPrice?: SavedQuoteHeldPrice;
   /**
+   * Return discount in force when the quote was saved (0 since the 5% return discount was
+   * retired). Missing on older saved quotes, which keep the 5% they were quoted with.
+   */
+  returnDiscountRate?: number;
+  /**
    * Private Ads attribution for later paid booking. Never exposed on public quote APIs,
    * customer emails, WhatsApp messages, or quote URLs. Click IDs only when
    * attributionConsent is "accepted".

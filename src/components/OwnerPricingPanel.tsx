@@ -822,7 +822,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
               />
               <p className="mt-1 text-xs text-white/55">
                 Derry city ↔ the Belfast area, both directions. Whole pounds. Replaces the mileage fare and drive-to-pickup charge only when it is lower.
-                Estate supplement, return discount, surcharges and airport extras still apply. Dublin and
+                Estate supplement, surcharges and airport extras still apply. Dublin and
                 City of Derry Airport journeys are never affected.
               </p>
             </div>
@@ -987,7 +987,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
             <p className="mt-1 text-sm text-white/70">
               Adds a charge for the road miles between your base and the customer&apos;s address,
               beyond the free miles, to each leg of an airport transfer. It is included in the
-              journey fare (Night &amp; Weekend surcharge and the return discount apply as normal)
+              journey fare (Night &amp; Weekend surcharge applies as normal)
               and is never shown as a separate line. Address-to-address and airport-to-airport
               journeys are not affected. Works whether or not vehicle MPG is set.
             </p>
@@ -1263,14 +1263,10 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Return pricing</h3>
-        <PercentField
-          label="Return Booking Discount"
-          value={Math.round(draft.returnDiscount.rate * 1000) / 10}
-          onChange={(value) => update("returnDiscount", { rate: value / 100 })}
-        />
-        <p className="mt-1 text-xs text-white/55">
-          Applies only to eligible base vehicle fares. Airport, Express and other fixed charges are
-          not discounted.
+        <p className="mt-2 text-sm text-white/75" data-return-discount-retired>
+          The automatic 5% Return Booking Discount has been switched off and replaced by the 10% email
+          promo code (Promo Codes &amp; Email Marketing). Return journeys are priced as two full journeys.
+          Quotes issued before the change keep the price the customer was given.
         </p>
       </section>
 
@@ -1652,8 +1648,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
           />
           <p className="mt-1 text-xs text-white/55">
             Increases the journey fare for transfers to and from Dublin Airport. Tolls, parking,
-            airport access fees and optional extras stay the same. The 5% return discount is
-            calculated on the adjusted journey fare. 0% keeps current fares.
+            airport access fees and optional extras stay the same. 0% keeps current fares.
           </p>
         </div>
         <p className="mt-3 text-xs text-white/55">

@@ -23,6 +23,7 @@ const SOURCE_LABELS: Record<string, string> = {
   "booking-request": "Booking request",
   "tour-enquiry": "Tour enquiry",
   "vehicle-enquiry": "Vehicle enquiry",
+  "promo-signup": "Discount code sign-up",
 };
 
 function when(iso?: string): string {
@@ -86,7 +87,8 @@ export default function OwnerMarketingPanel({ ownerKey }: { ownerKey: string }) 
   const shown = showUnsubscribed ? subscribers : active;
 
   function downloadCsv() {
-    const blob = new Blob([marketingSubscribersCsv(subscribers)], { type: "text/csv;charset=utf-8" });
+    // Only customers with valid marketing permission (opted in and not unsubscribed).
+    const blob = new Blob([marketingSubscribersCsv(active)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -148,10 +150,10 @@ export default function OwnerMarketingPanel({ ownerKey }: { ownerKey: string }) 
             <button
               type="button"
               onClick={downloadCsv}
-              disabled={!subscribers.length}
+              disabled={!active.length}
               className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white disabled:opacity-40"
             >
-              Download CSV
+              Download CSV (subscribed only)
             </button>
             <button
               type="button"

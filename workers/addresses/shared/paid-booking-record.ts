@@ -310,6 +310,11 @@ export type PaidBookingRecord = {
   /** Original paid booking that generated a follow-up return offer. */
   returnOfferOriginalPaymentReference?: string;
   returnOfferSavingGbp?: number;
+  /** Email promo code redeemed by this booking (owner reporting + cancellation reinstatement). */
+  promoCode?: string;
+  promoCodeDiscountRate?: number;
+  promoCodeSavingGbp?: number;
+  promoEligibleVehicleFareGbp?: number;
   /**
    * Per-leg fares for return bookings (owner ops / earned revenue).
    * Optional and non-breaking — historic records may omit these.
