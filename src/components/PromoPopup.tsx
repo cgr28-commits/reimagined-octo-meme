@@ -47,6 +47,7 @@ const EXCLUDED_PREFIXES = [
   "/tip",
   "/track",
   "/unsubscribe",
+  "/promo-code",
   "/business-class-request",
   "/driver",
   "/driver-accept",

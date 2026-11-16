@@ -715,6 +715,9 @@ async function main() {
     assert.equal(email.subject, "Your Black Friday 15% Airport Transfer Discount");
     assert.ok(email.text.includes("Your exclusive Black Friday 15% discount code is:"));
     assert.ok(email.text.includes("15% off your vehicle fare"));
+    assert.ok(email.text.includes("Copy your code: https://www.myairporttaxini.co.uk/promo-code/?code=MATNI-AAAA-BBBB"));
+    assert.ok(email.html.includes("/promo-code/?code=MATNI-AAAA-BBBB") && email.html.includes("Copy code"));
+    assert.ok(email.html.includes("user-select:all"));
   });
 
   await check("email copy: subject, business sign-off only, validity reflects settings", () => {
