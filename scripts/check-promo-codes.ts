@@ -131,8 +131,18 @@ async function main() {
     const ranges = DEFAULT_PROMO_SETTINGS.blackoutDates;
     assert.deepEqual(ranges, [
       { from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" },
+      { from: "2027-03-24", to: "2027-04-05", label: "Easter" },
       { from: "2027-05-21", to: "2027-05-23", label: "Garth Brooks" },
+      { from: "2027-07-09", to: "2027-07-18", label: "Twelfth fortnight" },
+      { from: "2027-08-17", to: "2027-08-21", label: "Harry Styles in Dublin" },
     ]);
+    assert.equal(promoBlackoutFor(["2027-03-23"], ranges), null);
+    assert.equal(promoBlackoutFor(["2027-03-28"], ranges)?.label, "Easter");
+    assert.equal(promoBlackoutFor(["2027-04-06"], ranges), null);
+    assert.equal(promoBlackoutFor(["2027-07-12"], ranges)?.label, "Twelfth fortnight");
+    assert.equal(promoBlackoutFor(["2027-07-19"], ranges), null);
+    assert.equal(promoBlackoutFor(["2027-08-18"], ranges)?.label, "Harry Styles in Dublin");
+    assert.equal(promoBlackoutFor(["2027-08-22"], ranges), null);
     assert.equal(promoBlackoutFor(["2027-05-20"], ranges), null);
     assert.equal(promoBlackoutFor(["2027-05-22"], ranges)?.label, "Garth Brooks");
     assert.equal(promoBlackoutFor(["2027-05-24"], ranges), null);
