@@ -7,6 +7,10 @@ import {
 const SUBSCRIBER_PREFIX = "marketing:sub:";
 const INDEX_KEY = "marketing:index";
 const UNSUB_TOKEN_PREFIX = "marketing:unsub:";
+/** Past customers (not on the opt-in list) who unsubscribed from a customer offer email. */
+const OPTOUT_PREFIX = "marketing:optout:";
+/** Customer-offer unsubscribe token per email (customers who never opted in). */
+const CUSTOMER_TOKEN_PREFIX = "marketing:custtoken:";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -61,6 +65,8 @@ export async function recordMarketingOptIn(
   };
 
   await store.put(key, JSON.stringify(record));
+  // Opting in again overrides an earlier "no offers" from a customer offer email.
+  await store.delete(`${OPTOUT_PREFIX}${email}`);
 
   const index = await store.get<string[]>(INDEX_KEY, "json");
   const emails = Array.isArray(index) ? index : [];
@@ -83,7 +89,14 @@ export async function unsubscribeMarketingEmail(
 
   const key = subscriberKey(email);
   const existing = await store.get<MarketingSubscriber>(key, "json");
-  if (!existing || existing.unsubscribedAt) {
+  if (!existing) {
+    // Not on the opt-in list (e.g. a past customer who got a thank-you offer): remember the
+    // "no offers" so customer-list sends skip them from now on.
+    if (await store.get(`${OPTOUT_PREFIX}${email}`)) return { ok: false, reason: "not_found" };
+    await store.put(`${OPTOUT_PREFIX}${email}`, new Date().toISOString());
+    return { ok: true };
+  }
+  if (existing.unsubscribedAt) {
     return { ok: false, reason: "not_found" };
   }
 
@@ -137,4 +150,30 @@ export async function unsubscribeMarketingToken(store: KVNamespace, tokenInput: 
   if (!email) return "";
   const result = await unsubscribeMarketingEmail(store, email);
   return result.ok ? email : "";
+}
+
+/** True when this address has said no to offers (unsubscribed subscriber or opted-out customer). */
+export async function isMarketingOptedOut(store: KVNamespace, emailInput: string): Promise<boolean> {
+  const email = normalizeEmail(emailInput);
+  if (!isValidEmail(email)) return false;
+  if (await store.get(`${OPTOUT_PREFIX}${email}`)) return true;
+  const existing = await store.get<MarketingSubscriber>(subscriberKey(email), "json");
+  return Boolean(existing?.unsubscribedAt);
+}
+
+/**
+ * One-click unsubscribe token for any address (subscriber or past customer). Subscribers keep
+ * their existing token; past customers get one stored outside the opt-in list, so sending them
+ * an offer never adds them to the marketing list.
+ */
+export async function ensureCustomerUnsubscribeToken(store: KVNamespace, emailInput: string): Promise<string> {
+  const email = normalizeEmail(emailInput);
+  const subscriber = await store.get<MarketingSubscriber>(subscriberKey(email), "json");
+  if (subscriber?.email) return ensureMarketingUnsubscribeToken(store, subscriber);
+  const existing = await store.get(`${CUSTOMER_TOKEN_PREFIX}${email}`);
+  if (existing) return existing;
+  const token = randomToken();
+  await store.put(`${UNSUB_TOKEN_PREFIX}${token}`, email);
+  await store.put(`${CUSTOMER_TOKEN_PREFIX}${email}`, token);
+  return token;
 }
