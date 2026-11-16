@@ -1,0 +1,59 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Christmas decorations — homepage only (owner, 15 Nov 2026).
+   On/off switch: CHRISTMAS_DECORATIONS in src/lib/seasonal.ts (renders the
+   [data-seasonal-christmas] marker on the homepage). Nothing here touches the
+   logo artwork, the quote form's fields or any booking behaviour: both pieces
+   are pseudo-elements with pointer-events: none.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Santa hat perched on the taxi's roof sign, top-left of the logo */
+body:has([data-seasonal-christmas]) header[data-site-header] .quote-header-logo-wide {
+  position: relative;
+}
+body:has([data-seasonal-christmas]) header[data-site-header] .quote-header-logo-wide::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 3.6%;
+  top: -21%;
+  width: 11.5%;
+  aspect-ratio: 100 / 80;
+  background: url("/seasonal/santa-hat.svg") center / contain no-repeat;
+  transform: rotate(-14deg);
+  transform-origin: 50% 85%;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+/* 2. Fairy lights draped along the top edge of the white quote card
+      (journey step only — hidden once prices or checkout show) */
+body:has([data-seasonal-christmas]) main > section.homepage-hero #quote > .quote-flow[data-quote-presentation="homepage"]:not([data-quote-results], :has(#step3-payment-actions))::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 3;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: -0.4375rem;
+  height: 30px;
+  background: url("/seasonal/fairy-lights.svg") left top / auto 30px repeat-x;
+  background-repeat: round no-repeat;
+  pointer-events: none;
+  opacity: 1;
+  transform: none;
+}
+@media (max-width: 1199.98px) {
+  body:has([data-seasonal-christmas]) main > section.homepage-hero #quote > .quote-flow[data-quote-presentation="homepage"]:not([data-quote-results], :has(#step3-payment-actions))::after {
+    left: 1rem;
+    right: 1rem;
+    top: -0.375rem;
+    height: 22px;
+    background-size: auto 22px;
+    background-repeat: repeat-x;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has([data-seasonal-christmas]) main > section.homepage-hero #quote > .quote-flow[data-quote-presentation="homepage"]:not([data-quote-results], :has(#step3-payment-actions))::after {
+    background-image: url("/seasonal/fairy-lights-still.svg");
+  }
+}
