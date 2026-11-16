@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, type LucideIcon } from "lucide-react";
+import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, Ticket, type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -66,6 +66,8 @@ type HomepageQuoteFieldsProps = {
    * so the homepage serves every journey type (route pages handle route-specific searches).
    */
   quickPicks?: boolean;
+  /** Page-specific card title (e.g. "Events & Concerts"); shown with a ticket icon. */
+  cardTitle?: string;
   /** Fills the empty address field with the chosen airport as an already-picked place. */
   onQuickPickAirport?: (code: QuickPickAirportCode) => void;
   /** Approved mobile Design 2: steppers, swap button, no journey type or schedule on this step. */
@@ -312,6 +314,7 @@ export default function HomepageQuoteFields({
   design2 = false,
   homepagePolish = false,
   quickPicks = false,
+  cardTitle,
   onQuickPickAirport,
   journeyMode,
   onJourneyModeChange,
@@ -398,8 +401,8 @@ export default function HomepageQuoteFields({
       {design3 ? (
         /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-d3-card-head aria-hidden="true">
-          <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />
-          <span data-d3-card-head-title>{quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare"}</span>
+          {cardTitle ? <Ticket size={20} strokeWidth={2.2} data-d3-card-head-icon /> : <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />}
+          <span data-d3-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
           <span data-d3-card-head-chip>
             <Zap size={13} strokeWidth={2.4} />
             Instant Quote
@@ -407,9 +410,9 @@ export default function HomepageQuoteFields({
         </div>
       ) : (
         /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
-        <div className="hidden" data-desktop-card-head aria-hidden={quickPicks ? undefined : true}>
-          <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />
-          <span data-desktop-card-head-title>{quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare"}</span>
+        <div className="hidden" data-desktop-card-head aria-hidden={quickPicks || cardTitle ? undefined : true}>
+          {cardTitle ? <Ticket size={22} strokeWidth={2.2} data-desktop-card-head-icon /> : <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />}
+          <span data-desktop-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
           <span data-desktop-card-head-chip>
             <Zap size={14} strokeWidth={2.4} />
             Instant Quote

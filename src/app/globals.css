@@ -9933,3 +9933,12 @@ html:root:root:root:root:root:root [data-more-journeys] [data-more-journeys-labe
    price and the book button on desktop. Only one copy shows at a time. */
 html[data-mobile-light] [data-seasonal-booking-message="panel"] { display: none !important; }
 html:not([data-mobile-light]) [data-seasonal-booking-message="list"] { display: none !important; }
+
+/* Phones/tablets (Design 3 navy hero): the green part of a page heading (e.g. "Dublin Airport",
+   "Events & Concerts") was coloured navy by the light-mode heading rule and disappeared on the navy
+   background. Same bright green as the homepage heading (16 Nov 2026). */
+@layer base {
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] #homepage-booking-intro h1 span.text-emerald { color: #4be03c !important; }
+}
+}

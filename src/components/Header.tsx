@@ -15,6 +15,7 @@ import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
 // the phone number (the bar is capped at 1400px wide, so this holds on big screens too).
 const DESKTOP_MORE_HREFS = new Set([
   "/belfast-grand-central-station-taxi/",
+  "/events/",
   "/belfast-cruise-terminal-transfers/",
   "/#vehicles",
   "/#flight-status",
@@ -33,6 +34,7 @@ const WIDE_BAR_HREFS = new Set(["/tours/"]);
 const DESKTOP_WIDE_DIRECT_HREFS = new Set([
   "/tours/",
   "/belfast-grand-central-station-taxi/",
+  "/events/",
   "/belfast-cruise-terminal-transfers/",
   "/#faq",
 ]);

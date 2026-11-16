@@ -3,10 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import BelfastEventsList from "@/components/BelfastEventsList";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   BESPOKE_PUBLIC_PAGES_ENABLED,
   BUSINESS_CLASS_REQUEST_PATH,
@@ -34,8 +35,9 @@ import { loadBuildTimeBelfastEvents } from "@/lib/belfast-events-snapshot";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { BELFAST_VENUES } from "../../../shared/belfast-events";
 
-// Request forms on → personal-quotation copy; off → instant-quote copy (Belfast & Dublin).
-const FORMS = BESPOKE_PUBLIC_PAGES_ENABLED;
+// Instant-quote copy with the page's own Events & Concerts quote tool (owner, 16 Nov 2026).
+// The request form stays off on this page, previews included.
+const FORMS = false && BESPOKE_PUBLIC_PAGES_ENABLED;
 const EVENTS_HUB_H1 = FORMS ? REQUEST_H1 : EVENTS_HUB_INSTANT_H1;
 const EVENTS_HUB_INTRO = FORMS ? REQUEST_INTRO : EVENTS_HUB_INSTANT_INTRO;
 const EVENTS_HUB_SEO_TITLE = FORMS ? REQUEST_SEO_TITLE : EVENTS_HUB_INSTANT_SEO_TITLE;
@@ -80,34 +82,31 @@ export default async function BelfastEventsHubPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS} data-belfast-events-hub>
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: FORMS ? "Belfast events" : "Events" }]} />
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} data-belfast-events-hub>
+        {/* The page's own quote tool first: tapping an event below fills in its venue. */}
+        <HeroSlideshow
+          heading={<>Taxis to <span className="text-emerald">Events &amp; Concerts</span></>}
+          intro="Fixed-price taxi to concerts, sport and shows in Belfast and Dublin — and home afterwards. Pick an event below and we'll fill in the venue."
+          navId="events"
+          quoteCardTitle="Events & Concerts"
+          journey={{ bookingIntroduction: "Book your event transfer in just a few clicks." }}
+        />
+        <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
+          <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Events" }]} />
 
           <header className="mt-6 max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald">{FORMS ? "Belfast events" : "Belfast & Dublin events"}</p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{EVENTS_HUB_H1}</h1>
+            <p className="text-sm font-semibold uppercase tracking-widest text-emerald">Belfast &amp; Dublin events</p>
+            <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{EVENTS_HUB_H1}</h2>
             <p className="mt-5 text-lg leading-relaxed text-white/70">{EVENTS_HUB_INTRO}</p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              {FORMS ? (
-                <Link href={EVENT_TRANSFER_REQUEST_PATH} className="btn-primary inline-flex min-h-12 items-center rounded-full px-6 text-base font-bold">
-                  Request an event transfer
-                </Link>
-              ) : (
-                <>
-                  <Link href="/#quote" className="btn-primary inline-flex min-h-12 items-center rounded-full px-6 text-base font-bold">
-                    Get a fixed price
-                  </Link>
-                  <a
-                    href={bookingHelpWhatsAppUrl("Hi, I'd like a price for an event transfer.")}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
-                  >
-                    WhatsApp us
-                  </a>
-                </>
-              )}
+              <a
+                href={bookingHelpWhatsAppUrl("Hi, I'd like a price for an event transfer.")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
+              >
+                WhatsApp us
+              </a>
               <a
                 href={`tel:${SITE.officeLandline}`}
                 className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
@@ -147,9 +146,9 @@ export default async function BelfastEventsHubPage() {
                   Request a transfer for any Belfast event
                 </Link>
               ) : (
-                <Link href="/#quote" className="font-semibold text-emerald underline">
+                <a href="#quote" className="font-semibold text-emerald underline">
                   Get a fixed price for any venue
-                </Link>
+                </a>
               )}
               . We don&apos;t sell tickets; please buy them from the official seller.
             </p>
@@ -176,7 +175,7 @@ export default async function BelfastEventsHubPage() {
               <p className="mt-2 text-sm leading-relaxed text-white/70">
                 For up to 3 passengers, choose Business Class in our quote tool for a premium car and an instant fixed price.
               </p>
-              <Link href="/#quote" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald underline">
+              <Link href="#quote" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-emerald underline">
                 Get a Business Class price
               </Link>
             </section>
@@ -214,7 +213,7 @@ export default async function BelfastEventsHubPage() {
             <h2 className="text-lg font-bold text-white">Flying instead?</h2>
             <p className="mt-2 text-sm leading-relaxed text-white/75">
               Airport transfers have instant fixed prices, including our Business Class option.{" "}
-              <Link href="/#quote" className="font-semibold text-emerald underline">
+              <Link href="#quote" className="font-semibold text-emerald underline">
                 Get an instant airport quote
               </Link>
             </p>
