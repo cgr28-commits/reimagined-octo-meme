@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import HeroSlideshow from "@/components/HeroSlideshow";
+import FromAirportText from "@/components/FromAirportText";
 import { SITE } from "@/lib/data";
 import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import { DERRY_TRANSFER_PAGE as page } from "@/lib/derry-transfer-content";
@@ -25,7 +26,14 @@ export default function DerryTransferLanding() {
       <style>{`@media (max-width: 767px) { body:has(.derry-transfer-page) [data-sticky-quote-bar] { display: none; } }`}</style>
       <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} derry-transfer-page`}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={page.title} intro={firstSentence(page.intro)} />
+        {/* Google Ads "Derry to Belfast" landings open with ?from=derry: same page, heading the other way round. */}
+        <HeroSlideshow
+          heading={<FromAirportText text={page.title} fromAirportText="Derry to Belfast Taxi & Private Transfer" fromValue="derry" />}
+          intro={firstSentence(page.intro)}
+          introFromAirport="Pre-booked private taxi from Derry~Londonderry to Belfast, door to door from your home, hotel or office."
+          introFromValue="derry"
+          quoteCardTitle="Get Your Fixed Price"
+        />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Long-distance transfers", href: "/long-distance-transfers/" }, { name: page.title }]} />
           <header className="mt-6">
