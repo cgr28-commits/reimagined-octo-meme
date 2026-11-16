@@ -9937,6 +9937,8 @@ html:not([data-mobile-light]) [data-seasonal-booking-message="list"] { display: 
 /* Phones/tablets (Design 3 navy hero): the green part of a page heading (e.g. "Dublin Airport",
    "Events & Concerts") was coloured navy by the light-mode heading rule and disappeared on the navy
    background. Same bright green as the homepage heading (16 Nov 2026). */
+@layer base {
 @media (max-width: 1199.98px) {
-  html:root:root:root[data-mobile-d3] #homepage-booking-intro#homepage-booking-intro h1 span.text-emerald { color: #4be03c !important; -webkit-text-fill-color: #4be03c !important; }
+  html[data-mobile-d3] #homepage-booking-intro h1 span.text-emerald { color: #4be03c !important; }
+}
 }
