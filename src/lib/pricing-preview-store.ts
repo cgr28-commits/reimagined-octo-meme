@@ -11,6 +11,7 @@ import {
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
   type PublicOwnerPricingConfig,
+  businessClassInstantFromMiles,
 } from "../../shared/owner-pricing-config";
 import { hostnameIsPricingPreview } from "../../shared/pricing-preview-isolation";
 import { postcodePricingIsEnabled } from "../../shared/postcode-pricing";
@@ -35,6 +36,19 @@ export function previewMinibusQueryOverride(): boolean | null {
   const value = new URLSearchParams(window.location.search).get("previewMinibus");
   if (value === "1" || value === "on" || value === "true") return true;
   if (value === "0" || value === "off" || value === "false") return false;
+  return null;
+}
+
+/**
+ * Preview hosts only: ?previewSchedule=ask shows the quote tools as they are when a time-based
+ * surcharge is on (date and time asked before the price); ?previewSchedule=later shows them as
+ * they are with none on. Never read on the live site.
+ */
+export function previewScheduleUpFrontOverride(): boolean | null {
+  if (typeof window === "undefined" || !isBrowserPricingPreview()) return null;
+  const value = new URLSearchParams(window.location.search).get("previewSchedule");
+  if (value === "ask" || value === "on" || value === "1") return true;
+  if (value === "later" || value === "off" || value === "0") return false;
   return null;
 }
 
@@ -215,6 +229,7 @@ export function restorePreviewPricingState(expectedVersion: number): {
       ...defaultOwnerPricingSettings().executive,
       publicEnabled: current.settings.executive.publicEnabled !== false,
       requestQuote: current.settings.executive.requestQuote === true,
+      instantFromMiles: businessClassInstantFromMiles(current.settings),
     },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),

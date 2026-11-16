@@ -39,10 +39,14 @@ async function main() {
  };
  const request=async(path:string,body?:unknown)=>{const r=await worker.fetch(new Request("https://worker.example"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json",Origin:"https://www.myairporttaxini.co.uk",...(path.startsWith("/owner/")?{"X-Owner-Key":"test-owner"}:{})},...(body?{body:JSON.stringify(body)}:{})}),env as never);return{status:r.status,body:await r.json() as any}};
  const historical=await startLegacyHarness(process.cwd());
+ const realDateNow=Date.now;
+ const pinnedNow=(()=>{const d=new Date(realDateNow());d.setUTCDate(d.getUTCDate()+1);d.setUTCHours(12,0,0,0);return d.getTime();})();
  try{
   await historical.call({kind:"init",settings:legacy});
   const before=data.get("owner:pricing-settings");const config=await request("/pricing/public");assert.equal(config.body.config.postcodePricingEnabled,true);assert.equal(data.get("owner:pricing-settings"),before,"Read must not migrate/write production-shaped config");
   const oldConfig=(await historical.call({path:"/pricing/public"})).body.config;
+  // Pin a UK-daytime clock (tomorrow 12:00 UTC): overnight requests need owner approval under the 24/7 policy.
+  Date.now=()=>pinnedNow;
   const date=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
   for(const district of ["BT1","BT2"])for(const [airport,saloon] of [["BHD",35],["BFS",55],["DUB",245]] as const)for(const vehicle of [S,E]){
    const address=district==="BT1"?"Belfast City Hall, Belfast BT1 5GS":"Grand Central Hotel, Belfast BT2 7FF";
@@ -75,6 +79,6 @@ async function main() {
   const on=await request("/owner/pricing",{settings:{...latest,postcodePricingEnabled:true},expectedVersion:latest.version,postcodeRulesEditorVersion:2});assert.equal(on.status,200);assert.equal(on.body.settings.postcodePricingEnabled,true);assert.equal((await request("/pricing/public")).body.config.postcodeRules.length,6);
   const off=await request("/owner/pricing",{settings:{...on.body.settings,postcodePricingEnabled:false},expectedVersion:on.body.settings.version,postcodeRulesEditorVersion:2});assert.equal(off.status,200);assert.equal((await request("/pricing/public")).body.config.postcodeRules.length,0);
   console.log("OK explicit OFF/ON, only six approved enabled outbound rules, legacy-client omitted fields preserved, metadata/record-erasing older saves rejected without mutation");
- }finally{try{await historical.close();}finally{globalThis.fetch=original;}}
+ }finally{Date.now=realDateNow;try{await historical.close();}finally{globalThis.fetch=original;}}
 }
 void main().catch(e=>{console.error(e);process.exitCode=1});

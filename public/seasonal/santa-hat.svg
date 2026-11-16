@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 80" width="100" height="80">
+  <defs>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e5383b"/>
+      <stop offset="0.55" stop-color="#c1121f"/>
+      <stop offset="1" stop-color="#8d0b16"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e3e7ec"/>
+    </linearGradient>
+    <radialGradient id="pom" cx="0.38" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe4ea"/>
+    </radialGradient>
+  </defs>
+  <!-- hat body: rises from the brim and flops over to the right -->
+  <path d="M14 60 C 16 38, 30 16, 56 10 C 70 7, 82 12, 88 24 C 84 22, 78 22, 74 26 C 76 38, 80 50, 84 60 Z" fill="url(#red)"/>
+  <!-- soft fold shading -->
+  <path d="M56 10 C 66 9, 76 12, 82 19 C 76 18, 70 20, 66 25 C 64 18, 61 13, 56 10 Z" fill="#7a0a14" opacity="0.35"/>
+  <path d="M24 56 C 26 40, 34 26, 48 17" fill="none" stroke="#ff6b6b" stroke-width="2.5" stroke-linecap="round" opacity="0.45"/>
+  <!-- fur brim -->
+  <rect x="7" y="54" width="84" height="17" rx="8.5" fill="url(#fur)" stroke="#c9d0d8" stroke-width="0.8"/>
+  <path d="M15 58 h66" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+  <!-- pom-pom -->
+  <circle cx="88" cy="27" r="9.5" fill="url(#pom)" stroke="#c9d0d8" stroke-width="0.8"/>
+</svg>

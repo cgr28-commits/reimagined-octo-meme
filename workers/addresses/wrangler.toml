@@ -49,6 +49,16 @@ class_name = "ConsentLedger"
 name = "WHATSAPP_REPLY_RUNNER"
 class_name = "WhatsAppReplyRunner"
 
+[[durable_objects.bindings]]
+name = "SHORT_NOTICE_DECISION_COORDINATOR"
+class_name = "ShortNoticeDecisionCoordinator"
+
+# Bespoke Event / Business Class quotes (manual pricing). Added in Phase 1 —
+# public routes stay OFF unless BESPOKE_QUOTES_ENABLED = "1".
+[[durable_objects.bindings]]
+name = "BESPOKE_QUOTE_COORDINATOR"
+class_name = "BespokeQuoteCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
@@ -70,6 +80,16 @@ new_sqlite_classes = ["ConsentLedger"]
 [[migrations]]
 tag = "v5-whatsapp-reply-runner"
 new_sqlite_classes = ["WhatsAppReplyRunner"]
+
+[[migrations]]
+tag = "v6-short-notice-decision-coordinator"
+new_sqlite_classes = ["ShortNoticeDecisionCoordinator"]
+
+# Additive: creates the new class only. Applied by the NEXT production Worker
+# deploy (deploy-worker.yml runs on merge to main) — owner approval required first.
+[[migrations]]
+tag = "v7-bespoke-quote-coordinator"
+new_sqlite_classes = ["BespokeQuoteCoordinator"]
 
 [build]
 command = "node ../../scripts/sync-worker-shared.mjs && npm run typecheck"
@@ -101,8 +121,16 @@ id = "869e2c2e02004d4a88c9cfbf563f1d6a"
 name = "EMAIL"
 
 [vars]
+# Manual-quote requests (Business Class page enquiry form) — owner approved 15 Nov 2026.
+# Needs the TURNSTILE_SECRET_KEY Worker secret (routes answer 503 without it).
+# The Event / Business Class request PAGES stay off on the website (their own switch).
+BESPOKE_QUOTES_ENABLED = "1"
+# Public Events page list (/events/public) without the bespoke request forms (owner, 15 Nov 2026).
+EVENTS_HUB_PUBLIC = "1"
 # Phone receptionist: allow Send Booking Link + Provisional Booking on live Fonio tools.
 VOICE_ENABLE_BOOKING_TOOLS = "1"
+# Flighty ignores flight entries we create (Nov 2026 tests), so do not add them to the diary.
+FLIGHTY_CALENDAR_EVENTS = "false"
 # Minutes after journey COMPLETE before automated Google review email (hourly cron sends when due).
 REVIEW_REQUEST_DELAY_MINUTES = "120"
 # Return Journey Offer delays (hours). JSON defaults live in shared/return-offer-config.json.
@@ -118,6 +146,13 @@ WHATSAPP_ADDRESS_CHECK = "all"
 # WhatsApp: Claude runs the chat (reads every message; prices still only from the quote engine;
 # falls back to the fixed flow if Claude is unavailable). "off" to switch back.
 WHATSAPP_CLAUDE_LED = "all"
+# WhatsApp quote form (opens inside WhatsApp) for chats the bot struggles with. On for every
+# customer ("all"); a comma-separated number list limits it, "off" switches it off.
+# WHATSAPP_QUOTE_FORM_ID is the published Flow id from WhatsApp Manager (empty = off);
+# MODE "draft" sends an unpublished draft, for testing only.
+WHATSAPP_QUOTE_FORM = "all"
+WHATSAPP_QUOTE_FORM_ID = "1136470702219959"
+WHATSAPP_QUOTE_FORM_MODE = "published"
 
 # */5 expires unanswered short-notice requests and sends four-hour journey reminders.
 # 30 * * * * keeps the existing hourly jobs, including the 19:30 London quote report.

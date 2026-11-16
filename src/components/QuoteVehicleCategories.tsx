@@ -1,5 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { LockKeyhole, ShieldCheck, Star } from "lucide-react";
+import { GOOGLE_REVIEW_COUNT, GOOGLE_REVIEW_RATING } from "../../shared/google-business-profile";
 import { withBasePath } from "@/lib/paths";
 import {
   ESTATE_VEHICLE,
@@ -11,7 +14,6 @@ import {
   suitableVehicleTypesForParty,
 } from "@/lib/vehicle-selection";
 import {
-  EXECUTIVE_CUSTOMER_CAPACITY,
   EXECUTIVE_CUSTOMER_DESCRIPTION,
   EXECUTIVE_CUSTOMER_NAME,
   MINIBUS_CUSTOMER_DESCRIPTION,
@@ -19,6 +21,7 @@ import {
   SALOON_CUSTOMER_DESCRIPTION,
   SALOON_CUSTOMER_NAME,
 } from "../../shared/vehicle-display";
+import { BUSINESS_CLASS_MAX_PASSENGERS } from "../../shared/passenger-limits";
 import { VehicleQuoteArt, type VehicleArtId } from "@/components/vehicle-quote-art";
 import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-line-icons";
 
@@ -27,7 +30,10 @@ import { QuoteCrownIcon, QuoteLuggageIcon } from "@/components/quote-vehicle-lin
  * (23kg) plus 2 small hand-luggage bags; that capacity is not changed here.
  */
 const SALOON_LUGGAGE_CAPACITY = <>2 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
-const ESTATE_LUGGAGE_CAPACITY = <>Up to 4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
+const ESTATE_LUGGAGE_CAPACITY = <>4 suitcases + <span className="whitespace-nowrap">2 small bags</span></>;
+
+/** Card wording (owner, 13 Nov 2026). Booking records and emails keep EXECUTIVE_CUSTOMER_CAPACITY. */
+const BUSINESS_CLASS_CARD_CAPACITY = `Up to ${BUSINESS_CLASS_MAX_PASSENGERS} passengers`;
 
 const SALOON_IMAGE = withBasePath("/images/vehicles/quote-saloon.webp");
 const ESTATE_IMAGE = withBasePath("/images/vehicles/quote-estate.webp");
@@ -41,6 +47,8 @@ const DESKTOP_DESCRIPTIONS: Record<string, string> = {
   executive: "Send a request and we’ll confirm a price by email",
   minibus: "For families and groups travelling together",
 };
+/** Business Class with an instant price (owner switched it on, 15 Nov 2026). */
+const EXECUTIVE_INSTANT_DESCRIPTION = "Premium executive vehicle";
 
 const CATEGORIES = [
   {
@@ -71,7 +79,7 @@ const CATEGORIES = [
     id: "executive" as const,
     vehicle: EXECUTIVE_VEHICLE,
     title: EXECUTIVE_CUSTOMER_NAME,
-    capacity: EXECUTIVE_CUSTOMER_CAPACITY,
+    capacity: BUSINESS_CLASS_CARD_CAPACITY,
     luggage: "2 suitcases",
     luggageIcon: "suitcase" as const,
     detail: EXECUTIVE_CUSTOMER_DESCRIPTION,
@@ -111,6 +119,8 @@ export default function QuoteVehicleCategories({
   heading,
   desktopPrices = {},
   desktopRequestPrices = {},
+  desktopTopNotice,
+  selectedFooter,
 }: {
   passengers: number | null;
   suitcases: number | null;
@@ -131,6 +141,10 @@ export default function QuoteVehicleCategories({
   desktopPrices?: Partial<Record<string, string>>;
   /** Desktop only: indicative "From" price for a request-only vehicle (e.g. "£83"). */
   desktopRequestPrices?: Partial<Record<string, string>>;
+  /** A notice above "Book with confidence" (e.g. big-event demand). */
+  desktopTopNotice?: ReactNode;
+  /** Shown straight under the chosen vehicle (its price) — phones' date-specific booking message. */
+  selectedFooter?: ReactNode;
 }) {
   const enabled = enabledVehicleTypesForQuote({
     publicMinibusEnabled,
@@ -152,6 +166,27 @@ export default function QuoteVehicleCategories({
 
   return (
     <div className="scroll-mt-20 space-y-1.5" data-quote-vehicle-categories>
+      {desktopTopNotice ? <div data-vehicle-top-notice>{desktopTopNotice}</div> : null}
+      {/* Book with confidence (owner, 14 Nov 2026): reassurance right before the vehicle choice. */}
+      <div data-vehicle-confidence>
+        <p data-vehicle-confidence-title>Book with confidence</p>
+        <ul data-vehicle-confidence-list>
+          <li>
+            <ShieldCheck size={18} strokeWidth={2.2} aria-hidden="true" />
+            <span>100% refund if cancelled 24+ hours before pickup</span>
+          </li>
+          <li>
+            <Star size={18} strokeWidth={2.2} aria-hidden="true" data-vehicle-confidence-star />
+            <span>
+              {GOOGLE_REVIEW_RATING} Google rating · {GOOGLE_REVIEW_COUNT} reviews
+            </span>
+          </li>
+          <li>
+            <LockKeyhole size={18} strokeWidth={2.2} aria-hidden="true" />
+            <span>Secure online booking</span>
+          </li>
+        </ul>
+      </div>
       <p
         className="form-label mb-0 scroll-mt-20"
         data-quote-vehicle-options-heading
@@ -239,7 +274,9 @@ export default function QuoteVehicleCategories({
                       </span>
                     )}
                     <span className="hidden" data-vehicle-desktop-desc>
-                      {DESKTOP_DESCRIPTIONS[option.id]}
+                      {option.id === "executive" && !requestQuoteVehicles.includes(option.vehicle)
+                        ? EXECUTIVE_INSTANT_DESCRIPTION
+                        : DESKTOP_DESCRIPTIONS[option.id]}
                     </span>
                   </span>
                   {fits && requestQuoteVehicles.includes(option.vehicle) ? (
@@ -298,6 +335,9 @@ export default function QuoteVehicleCategories({
                   </span>
                 )}
               </button>
+              {isSelected && selectedFooter ? (
+                <div data-vehicle-selected-footer>{selectedFooter}</div>
+              ) : null}
             </div>
           );
         })}

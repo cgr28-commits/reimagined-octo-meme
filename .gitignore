@@ -42,3 +42,4 @@ __pycache__/
 *.pyc
 
 .compat-baseline/
+workers/addresses/wrangler.bespoke-preview.generated.toml

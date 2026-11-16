@@ -61,7 +61,8 @@ async function main() {
   };
   try {
     for(const paymentMethod of ["FULL_ONLINE", "DEPOSIT_CASH"] as const) for(const configuredFee of [5,7.25]) for(const outboundChoice of ["free","express","meet-greet"] as const) for(const returnChoice of ["free","express","meet-greet"] as const) for(const minimum of [45]) for(const mode of [true]) for(const target of [40]) for(const route of reviewed.routes) for(const vehicle of [SALOON_VEHICLE,ESTATE_VEHICLE]) for(const returning of [false,true]) {
-      now+=61_000;store.clear();
+      now+=61_000;if (new Date(now).getUTCHours() >= 21) now += 10 * 3600_000; // stay in UK daytime (24/7 approval policy)
+      store.clear();
       const depositSettings={enabled:true,percent:20,minimumGbp:15};
       store.set("booking:settings",JSON.stringify({depositCash:depositSettings}));
       const pricing=defaultOwnerPricingSettings();pricing.version=checkouts+1; pricing.terminalAccess={bfsGbp:configuredFee,bhdGbp:configuredFee===5?4:6.35};

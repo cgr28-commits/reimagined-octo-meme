@@ -1,0 +1,31 @@
+# Adds the owner-approved events (src/data/events-hub-seed.json) to the live Events list.
+# Runs when that file changes on main. Existing events are never overwritten.
+name: Seed Events page
+
+"on":
+  push:
+    branches: [main]
+    paths:
+      - src/data/events-hub-seed.json
+  workflow_dispatch:
+
+concurrency:
+  group: seed-events-hub
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Add and publish events
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+        run: node scripts/seed-events-hub.mjs

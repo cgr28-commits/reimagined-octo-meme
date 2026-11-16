@@ -213,7 +213,7 @@ check("Book This Transfer uses the booking heading for the longer homepage hero 
   assert.match(card, /document\.getElementById\("homepage-booking-intro"\)/);
   const hero = fs.readFileSync(path.join(root, "src/components/HeroSlideshow.tsx"), "utf8");
   assert.match(hero, /id="homepage-booking-intro"/);
-  assert.match(hero, /<QuoteCard presentation="homepage" homepagePolish/);
+  assert.match(hero, /<QuoteCard\s+presentation="homepage"\s+homepagePolish/);
   assert.doesNotMatch(card, /navigator\.vibrate|tickSelectionHaptic|requestSelectionHaptic/);
 });
 

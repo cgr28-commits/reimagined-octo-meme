@@ -1,8 +1,11 @@
-"""Generate social share image (Open Graph) with readable branding on navy background."""
+"""Generate social share image (Open Graph) with readable branding on navy background.
+Uses the side-by-side brand logo (owner, 13 Nov 2026)."""
 
 from __future__ import annotations
 
 from pathlib import Path
+import io
+import subprocess
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -35,6 +38,12 @@ def paste_centered(canvas: Image.Image, logo: Image.Image, y_offset: int = 0) ->
     canvas.paste(logo, (x, y), logo)
 
 
+def load_wide_logo() -> Image.Image:
+    """Render the vector brand logo (public/logo-wide.svg) at high resolution."""
+    png = subprocess.run(["rsvg-convert", "-w", "2400", str(PUBLIC / "logo-wide.svg")], check=True, capture_output=True).stdout
+    return Image.open(io.BytesIO(png)).convert("RGBA")
+
+
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     for path in (
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -46,10 +55,10 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 
 
 def main() -> None:
-    logo = trim_transparent(Image.open(PUBLIC / "logo.png").convert("RGBA"))
+    logo = trim_transparent(load_wide_logo())
 
-    max_logo_w = int(OG_WIDTH * 0.62)
-    max_logo_h = int(OG_HEIGHT * 0.52)
+    max_logo_w = int(OG_WIDTH * 0.8)
+    max_logo_h = int(OG_HEIGHT * 0.4)
     scale = min(max_logo_w / logo.width, max_logo_h / logo.height)
     logo = logo.resize(
         (max(1, int(logo.width * scale)), max(1, int(logo.height * scale))),
@@ -78,24 +87,16 @@ def main() -> None:
     # Square crop-friendly variant for apps that prefer 1:1 previews
     square_size = 1200
     square = Image.new("RGB", (square_size, square_size), NAVY)
-    sq_logo = trim_transparent(Image.open(PUBLIC / "logo.png").convert("RGBA"))
-    sq_scale = min(square_size * 0.72 / sq_logo.width, square_size * 0.55 / sq_logo.height)
+    # Square previews (WhatsApp shows a small square thumbnail): the stacked logo reads far better
+    # than the wide one at that size, so it fills most of the square with no small print.
+    png = subprocess.run(["rsvg-convert", "-w", "2400", str(PUBLIC / "logo-stacked.svg")], check=True, capture_output=True).stdout
+    sq_logo = trim_transparent(Image.open(io.BytesIO(png)).convert("RGBA"))
+    sq_scale = min(square_size * 0.78 / sq_logo.width, square_size * 0.66 / sq_logo.height)
     sq_logo = sq_logo.resize(
         (max(1, int(sq_logo.width * sq_scale)), max(1, int(sq_logo.height * sq_scale))),
         Image.Resampling.LANCZOS,
     )
-    paste_centered(square, sq_logo, y_offset=40)
-    sq_font = load_font(30)
-    sq_tagline = "Premium Airport Transfers · Northern Ireland"
-    sq_bbox = draw.textbbox((0, 0), sq_tagline, font=sq_font)
-    sq_text_w = sq_bbox[2] - sq_bbox[0]
-    sq_draw = ImageDraw.Draw(square)
-    sq_draw.text(
-        ((square_size - sq_text_w) // 2, square_size - 96),
-        sq_tagline,
-        fill=GOLD,
-        font=sq_font,
-    )
+    paste_centered(square, sq_logo, y_offset=0)
     square_out = PUBLIC / "og-image-square.png"
     square.save(square_out, format="PNG", optimize=True)
     print(f"Created {square_out} ({square_size}x{square_size})")

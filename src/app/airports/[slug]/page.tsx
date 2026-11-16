@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   AIRPORT_PAGES,
   getAirportPage,
@@ -100,7 +100,13 @@ export default async function AirportTransferPage({ params }: Props) {
         />
       ) : null}
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading={page.title}
+          intro={`Pre-booked, fixed-price transfers to and from ${page.shortName}. ${page.durationNote}`}
+          journey={{ airportCode: page.code, direction: "to-airport" }}
+        />
         <div data-d2-airport-photo data-d2-badge={`${page.code} · ${D2_AIRPORT_PLACE[page.code] ?? page.shortName}`}>
           <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
         </div>
@@ -125,7 +131,6 @@ export default async function AirportTransferPage({ params }: Props) {
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
               {page.code} · Airport transfers
             </p>
-            <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">{page.title}</h1>
             <p className="hidden" data-d2-airport-sub>
               Pre-booked, fixed-price transfers to and from {D2_AIRPORT_PLACE[page.code] ?? page.shortName}. {page.durationNote}
             </p>
@@ -145,17 +150,6 @@ export default async function AirportTransferPage({ params }: Props) {
           </header>
         </div>
 
-        {/* Quote form directly under the hero on every airport page (ad and organic
-            landings) so visitors can price and book without scrolling past guides. */}
-        <LocationQuoteSection
-          airportCode={page.code}
-          direction="to-airport"
-          heading={
-            page.code === "DUB"
-              ? "Your Dublin Airport transfer quote"
-              : `Quote a ${page.shortName} transfer`
-          }
-        />
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           {/* Mobile Design 2 shows the longer introduction after the quote form. */}

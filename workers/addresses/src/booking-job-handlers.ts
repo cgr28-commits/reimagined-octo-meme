@@ -3,6 +3,7 @@ import { getPaidBookingRecord } from "./paid-booking-store";
 import {
   bookingJobAssignmentLabel,
   buildDriverAssignmentEmail,
+  driverEmailJobForLeg,
   type BookingJobKind,
   type BookingJobRecord,
 } from "../shared/booking-job";
@@ -51,7 +52,7 @@ import {
 } from "./tracking-store";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
-import { sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
+import { driverDetailsJobKey, sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
 
 async function trackingJobsForBooking(
   store: KVNamespace,
@@ -573,6 +574,8 @@ export async function handleBookingJobAssignDriverRequest(
     driverProfileKey: identity?.driverProfileKey,
     driverAssignmentStatus: "pending",
     driverAcceptToken: acceptToken,
+    // Whole-booking assignment: not tied to one leg.
+    assignedLeg: undefined,
     assignedAt: new Date().toISOString(),
     driverAcceptedAt: undefined,
     driverDeclinedAt: undefined,
@@ -741,15 +744,27 @@ export async function handleDriverAcceptConfirmRequest(
   if (action === "accept" && accepted) {
     // Email the customer their driver's first name, mobile and partial reg.
     // Never blocks the driver's accept: failures are logged only.
+    // Describe the leg that was assigned (a return booking's booking job holds the outbound details).
+    let legDetails: { tripDate: string; tripTime: string; pickupLabel: string; dropoffLabel: string } | null = null;
+    if (accepted.assignedLeg) {
+      const legs = await trackingJobsForBooking(store, accepted);
+      const leg = legs.find((entry) => (entry.journeyLeg ?? "outbound") === accepted.assignedLeg);
+      if (leg) {
+        legDetails = { tripDate: leg.tripDate, tripTime: leg.tripTime, pickupLabel: leg.pickupLabel, dropoffLabel: leg.dropoffLabel };
+      } else if (accepted.assignedLeg === "return") {
+        const emailJob = driverEmailJobForLeg(accepted, { journeyLeg: "return" });
+        legDetails = { tripDate: emailJob.tripDate, tripTime: emailJob.tripTime, pickupLabel: emailJob.pickupLabel, dropoffLabel: emailJob.dropoffLabel };
+      }
+    }
     const sent = await sendCustomerDriverDetailsOnAccept(env, {
-      jobKey: accepted.paymentReference || accepted.id,
+      jobKey: driverDetailsJobKey(accepted.paymentReference || accepted.id, accepted.assignedLeg),
       customerName: accepted.customerName,
       customerEmail: accepted.customerEmail,
       customerMobile: accepted.customerMobile,
-      tripDate: accepted.tripDate,
-      tripTime: accepted.tripTime,
-      pickupLabel: accepted.pickupLabel,
-      dropoffLabel: accepted.dropoffLabel,
+      tripDate: legDetails?.tripDate ?? accepted.tripDate,
+      tripTime: legDetails?.tripTime ?? accepted.tripTime,
+      pickupLabel: legDetails?.pickupLabel ?? accepted.pickupLabel,
+      dropoffLabel: legDetails?.dropoffLabel ?? accepted.dropoffLabel,
       driverName: accepted.driverFirstName,
       driverEmail: accepted.driverEmail,
       driverMobile: accepted.driverMobile,
@@ -758,7 +773,7 @@ export async function handleDriverAcceptConfirmRequest(
       carColour: accepted.driverCarColour,
       registration: accepted.driverReg,
       paymentReference: accepted.paymentReference || accepted.id,
-      journeyLeg: "any",
+      journeyLeg: accepted.assignedLeg ?? "any",
       airportCode: accepted.airportCode,
     }).catch((error: unknown) => ({ sent: false as const, reason: "send_failed" as const, error: String(error) }));
     if (!sent.sent && sent.reason === "send_failed") {

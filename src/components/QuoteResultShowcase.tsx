@@ -52,6 +52,8 @@ type QuoteResultShowcaseProps = {
   desktopBreakdown?: ReactNode;
   /** Desktop (1200px+) only: after the main action (secondary quote actions). */
   desktopActions?: ReactNode;
+  /** Date-specific booking message: under the price, straight above the book button. */
+  bookingMessage?: ReactNode;
 };
 
 // Presentational only: image follows the vehicle type already chosen for
@@ -105,6 +107,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       desktopJourney = null,
       desktopBreakdown = null,
       desktopActions = null,
+      bookingMessage = null,
     },
     ref,
   ) {
@@ -304,6 +307,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </div>
         </div>
         {desktopBreakdown}
+        {bookingMessage}
         <div className="mt-3" data-quote-result-main-action>{bookButton}</div>
         {desktopActions}
         <div data-quote-footer-grid>

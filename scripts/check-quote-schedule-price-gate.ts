@@ -1,6 +1,9 @@
 /**
- * Public quote calculator: no monetary price until schedule + party are complete.
+ * Public quote calculator: no monetary price until schedule + party are complete,
+ * whenever the evening, night or weekend surcharge is switched on.
  * Night/weekend 10% is included in the first displayed price.
+ * With all three off the date and time are taken at the booking step instead
+ * (see scripts/check-quote-schedule-only-with-surcharge.ts).
  * Run: npx tsx scripts/check-quote-schedule-price-gate.ts
  */
 
@@ -144,10 +147,11 @@ check("customer flow order: journey type → date/time → passengers → suitca
   assert.match(scheduleUi, /id="returnDate"/);
   assert.match(scheduleUi, /id="returnTime"/);
   assert.match(card, /showScheduleFields=/);
-  // The homepage form always carries the schedule; only the Design 2 mobile preview moves it to the
-  // Vehicle step (mobile Design 3 keeps it on the form).
-  assert.match(card, /scheduleFields=\{design2Home && !mobileDesign3 \? null : renderQuoteScheduleFields\("quote", true\)\}/);
-  assert.match(card, /scheduleComplete=\{design2Home && !mobileDesign3 \? true : isScheduleComplete\}/);
+  // With a time-based surcharge on, the homepage form carries the schedule; only the Design 2 mobile
+  // preview moves it to the Vehicle step (mobile Design 3 keeps it on the form). With none on, no
+  // quote form carries it: the booking step asks for it.
+  assert.match(card, /scheduleFields=\{\(design2Home && !mobileDesign3\) \|\| !scheduleUpFront \? null : renderQuoteScheduleFields\("quote", true\)\}/);
+  assert.match(card, /scheduleComplete=\{\(design2Home && !mobileDesign3\) \|\| !scheduleUpFront \? true : isScheduleComplete\}/);
   assert.match(homepageFields, /\{scheduleFields\}/);
   assert.doesNotMatch(homepageFields, /QuoteActionDialog|data-homepage-schedule-dialog|data-edit-quote-schedule/);
   assert.doesNotMatch(homepageFields, /data-homepage-schedule-before-vehicle/);
@@ -156,15 +160,16 @@ check("customer flow order: journey type → date/time → passengers → suitca
 check("vehicle cards / Book Now stay hidden until complete quote", () => {
   assert.match(card, /quoteResultsReady && quoteStep === 1 &&/);
   // Mobile Design 2/3 also gate the homepage form on the schedule.
-  assert.match(card, /\(presentation !== "homepage" \|\| design2Home\) && !isScheduleComplete/);
+  assert.match(card, /scheduleUpFront && \(presentation !== "homepage" \|\| design2Home\) && !isScheduleComplete/);
   assert.match(
     card,
-    /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*\(presentation === "homepage" \? false : !isScheduleComplete\)/,
+    /disabled=\{\s*submitted \|\|\s*!quoteChoicesReady \|\|\s*\(presentation === "homepage" \? false : scheduleUpFront && !isScheduleComplete\)/,
   );
   assert.match(card, /failStep1\(\s*"missing_schedule"/);
   assert.match(card, /scrollQuoteStage\("quote-section-schedule"\)/);
   assert.match(card, /Choose your vehicle/);
-  assert.doesNotMatch(card, /From £/);
+  // Code comments may mention it; only the rendered copy matters.
+  assert.doesNotMatch(card.replace(/^\s*\/\/.*$/gm, ""), /From £/);
 });
 
 const weekday = calculateQuote(cityHall, "BFS", SALOON_VEHICLE, false, {

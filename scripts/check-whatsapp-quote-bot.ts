@@ -181,6 +181,9 @@ async function main() {
     await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Pick one", [WHATSAPP_BUTTONS.oneWay, WHATSAPP_BUTTONS.return], stub);
     assert.equal(payload!.type, "interactive");
     assert.equal(payload!.interactive.action.buttons[1].reply.id, "txt:return");
+    assert.equal(payload!.interactive.header, undefined, "no banner unless asked");
+    await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "Your quote", [WHATSAPP_BUTTONS.newQuote], stub, "https://www.myairporttaxini.co.uk/whatsapp/header.jpg");
+    assert.deepEqual(payload!.interactive.header, { type: "image", image: { link: "https://www.myairporttaxini.co.uk/whatsapp/header.jpg" } });
     await sendWhatsAppButtons({ D360_API_KEY: "k" }, "447700900123", "x".repeat(1100), [WHATSAPP_BUTTONS.newQuote], stub);
     assert.equal(payload!.type, "text", "long bodies fall back to plain text");
 
@@ -274,9 +277,13 @@ async function main() {
     );
 
     const requestReply = buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x", requestOnly: true });
-    assert.match(requestReply, /request only/);
-    assert.match(requestReply, /confirm we can do it before you pay/);
-    assert.doesNotMatch(buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }), /request only/);
+    // Short notice: the customer books and pays (card held); we confirm shortly after.
+    assert.match(requestReply, /Book now and we'll confirm your booking shortly/);
+    assert.match(requestReply, /only charged once we confirm/);
+    assert.match(requestReply, /released right away/);
+    assert.match(requestReply, /pay securely here/);
+    assert.doesNotMatch(requestReply, /request only|before you pay/);
+    assert.doesNotMatch(buildWhatsAppQuoteReply({ amountLabel: "£40", bookingUrl: "https://x" }), /confirm your booking shortly/);
   }
 
   console.log("=== Greeting name ===");
@@ -1291,6 +1298,58 @@ void (async () => {
   const missing = await describeBookingsForAi(fakeStore, "447700900123", ["it's MAT-9999"]);
   assert.match(missing!, /MAT-9999: no booking found/);
   console.log("OK  booking references sent on WhatsApp are looked up for the assistant");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+// A hotel in Dublin is an address, not Dublin Airport, and is checked on the map (12 Nov 2026).
+void (async () => {
+  const { applyClaudeLedUpdates } = await import("../shared/whatsapp-claude-led");
+  const { whatsAppAddressFieldToCheck, parseWhatsAppAddressReply } = await import("../shared/whatsapp-address-check");
+  const { newWhatsAppConversation, explicitAirportCode } = await import("../shared/whatsapp-quote-bot");
+  const convo = newWhatsAppConversation(new Date());
+  convo.draft.pickupAddress = "Boucher Playing Fields, Belfast BT12 6LR";
+  convo.draft.pickupPlaceId = "p1";
+  convo.draft.dropoffAddress = "Dublin Airport";
+  convo.draft.airportCode = "DUB";
+  convo.draft.fromAirport = false;
+  applyClaudeLedUpdates(convo.draft, { dropoff: "The Mercantile Hotel, Dublin" });
+  assert.equal(convo.draft.dropoffAddress, "The Mercantile Hotel, Dublin");
+  assert.equal(convo.draft.airportCode, undefined);
+  assert.equal(whatsAppAddressFieldToCheck(convo, { includePostcoded: true }), "dropoffAddress");
+  assert.equal(explicitAirportCode("Dublin Airport"), "DUB");
+  assert.equal(explicitAirportCode("Dublin city centre"), null);
+  const check = { field: "pickupAddress" as const, typed: "x", options: [{ placeId: "a", address: "A" }, { placeId: "b", address: "B" }] };
+  for (const t of ["Number 2.", "2", "option 2", "the second one"]) {
+    const got = parseWhatsAppAddressReply(t, check);
+    assert.equal(got?.kind === "pick" ? got.option.placeId : null, "b", t);
+  }
+  console.log("OK  a Dublin hotel is checked as an address; typed 'Number 2' picks option 2");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+// A pickup at Boucher Road on a Garth Brooks date is recognised as the concert (12 Nov 2026).
+void (async () => {
+  const { matchWhatsAppEvent, describeWhatsAppEventForAi } = await import("../shared/whatsapp-events");
+  const now = new Date("2026-11-12T12:00:00Z");
+  const onTheNight = matchWhatsAppEvent(
+    { addresses: ["Boucher Playing Fields, Belfast BT12 6LR", "The Mercantile Hotel, Dublin"], dates: ["2027-05-21"] },
+    now,
+  );
+  assert.equal(onTheNight?.event.id, "garth-brooks-belfast-2027");
+  assert.equal(onTheNight?.date, "2027-05-21");
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /availability is limited/);
+  assert.match(describeWhatsAppEventForAi(onTheNight!), /21 May 2027/);
+  const noDateYet = matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, now);
+  assert.equal(noDateYet?.date, null);
+  assert.doesNotMatch(describeWhatsAppEventForAi(noDateYet!), /availability is limited/);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: ["2027-06-10"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Europa Hotel, Belfast"], dates: ["2027-05-21"] }, now), null);
+  assert.equal(matchWhatsAppEvent({ addresses: ["Boucher Playing Fields"], dates: [] }, new Date("2027-06-01T00:00:00Z")), null);
+  console.log("OK  Garth Brooks at Boucher Road is recognised from the journey");
 })().catch((err) => {
   console.error(err);
   process.exit(1);

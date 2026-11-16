@@ -24,6 +24,7 @@ import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { emptyRunPreviewForced, evaluateEmptyRunSafely } from "./empty-run-handlers";
 import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { signQuoteReceipt, LEGACY_QUOTE_RECEIPT_FORMAT, QUOTE_RECEIPT_FORMAT } from "./quote-receipt";
 import { isProfitabilityProtectionActive } from "../../../src/lib/owner-profitability-settings";
@@ -36,6 +37,8 @@ import {
   publicMaxPassengers,
   publicMinibusAllowed,
   publicVehicleRequiresPersonalQuote,
+  businessClassInstantFromMiles,
+  businessClassShortJourneyNeedsQuote,
   MINIBUS_PERSONAL_QUOTE_CODE,
   vehiclePersonalQuoteMessage,
 } from "../shared/owner-pricing-config";
@@ -541,8 +544,25 @@ export async function handleQuoteCalculateRequest(
     );
   }
 
-  if (publicVehicleRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode)) {
-    return json({ ok: false, reason: MINIBUS_PERSONAL_QUOTE_CODE, code: MINIBUS_PERSONAL_QUOTE_CODE, message: vehiclePersonalQuoteMessage(resolved.vehicleType) }, 409, origin);
+  // One-way road miles: Business Class has an instant price from the owner's distance
+  // up (default 50 miles); shorter journeys are request-only.
+  const journeyMilesForRules = drivingMilesFromKm(routeMetrics.distanceKm);
+  if (publicVehicleRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode, journeyMilesForRules)) {
+    return json(
+      {
+        ok: false,
+        reason: MINIBUS_PERSONAL_QUOTE_CODE,
+        code: MINIBUS_PERSONAL_QUOTE_CODE,
+        message: vehiclePersonalQuoteMessage(resolved.vehicleType, pricing, journeyMilesForRules),
+        // Lets the quote tool apply the distance rule for this route without a page reload.
+        distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
+        ...(businessClassShortJourneyNeedsQuote(pricing, journeyMilesForRules) && pricing.executive.requestQuote !== true
+          ? { requestReason: "business_class_distance", instantFromMiles: businessClassInstantFromMiles(pricing) }
+          : {}),
+      },
+      409,
+      origin,
+    );
   }
 
   const schedule = {
@@ -699,6 +719,51 @@ export async function handleQuoteCalculateRequest(
     }
   }
 
+  // Empty Run: cheaper fare when this journey fills the empty drive to a
+  // confirmed far-away pickup. Owner switch, OFF by default, fail-open.
+  let emptyRun: Awaited<ReturnType<typeof evaluateEmptyRunSafely>> = null;
+  // Airport-to-airport one-ways count too (e.g. Belfast City → Dublin Airport).
+  if (result.ok && !ownerMode) {
+    emptyRun = await evaluateEmptyRunSafely({
+      store: env?.TRACKING_STORE,
+      forceEnabled: emptyRunPreviewForced(env),
+      request: {
+        pickupLabel: pickupAddress,
+        dropoffLabel: dropoffAddress,
+        pickup: serverPickup ?? (Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null),
+        dropoff: serverDropoff ?? (Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null),
+        airportCode: airportCode ?? null,
+        // Pickup at an airport (incl. airport-to-airport): time is the landing time.
+        fromAirport: Boolean(fromAirport) || Boolean(addressAirport.ok && addressAirport.context.pickupAirportCode),
+        tripDate: schedule.outboundDate,
+        tripTime: schedule.outboundTime,
+        durationMinutes: routeMetrics.durationMinutes,
+        returnJourney,
+        vehicle: result.vehicleType,
+      },
+      fare: {
+        amountGbp: result.amount,
+        journeyFareGbp: result.journeyFareGbp ?? result.amount - (result.airportFixedCostsGbp ?? 0),
+        airportFixedCostsGbp: result.airportFixedCostsGbp ?? 0,
+        nightWeekendSurchargeGbp: result.nightWeekendSurchargeGbp ?? 0,
+      },
+    });
+    if (emptyRun?.applied && emptyRun.fare) {
+      result = {
+        ...result,
+        amount: emptyRun.fare.amountGbp,
+        amountLabel: formatQuote(emptyRun.fare.amountGbp),
+        journeyFareGbp: emptyRun.fare.journeyFareGbp,
+        airportFixedCostsGbp: emptyRun.fare.airportFixedCostsGbp,
+        nightWeekendSurchargeGbp: emptyRun.fare.nightWeekendSurchargeGbp,
+        outboundOneWayBeforeAccessGbp:
+          typeof result.outboundOneWayBeforeAccessGbp === "number"
+            ? Math.round((result.outboundOneWayBeforeAccessGbp - (emptyRun.savingGbp ?? 0)) * 100) / 100
+            : undefined,
+      };
+    }
+  }
+
   const miles = Math.round(drivingMilesFromKm(routeMetrics.distanceKm) * 10) / 10;
   const diagnostics = {
     pickupAddress,
@@ -760,6 +825,10 @@ export async function handleQuoteCalculateRequest(
 
   const quoteBody: Record<string, unknown> = {
     ...result,
+    ...(emptyRun?.applied
+      ? { emptyRunSavingGbp: emptyRun.savingGbp, emptyRunNormalAmountGbp: emptyRun.normalAmountGbp }
+      : {}),
+    ...(emptyRun?.offer ? { emptyRunOffer: emptyRun.offer } : {}),
     nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing, [schedule.outboundDate, schedule.returnDate]),
     nightWeekendSurchargeExplanation: nightWeekendSurchargeExplanation(pricing),
     vehicleChoice: resolved.vehicleChoice,

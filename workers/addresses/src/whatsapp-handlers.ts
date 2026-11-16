@@ -26,6 +26,7 @@ import {
   parseWhatsAppWebhook,
   register360dialogWebhook,
   sendWhatsAppButtons,
+  sendWhatsAppFlow,
   sendWhatsAppImage,
   sendWhatsAppList,
   sendWhatsAppLocation,
@@ -56,6 +57,7 @@ import {
   describeWhatsAppDraft,
   describeWhatsAppField,
   detectWhatsAppIntent,
+  conversationAsksSchedule,
   isWhatsAppSendQuoteMessage,
   newWhatsAppConversation,
   nextMissingField,
@@ -66,21 +68,27 @@ import {
   type WhatsAppAiTask,
   type WhatsAppAddressCheck,
   type WhatsAppAddressField,
+  type WhatsAppAddressOption,
   type WhatsAppAddressPick,
   type WhatsAppConversation,
   type WhatsAppJourneyLeg,
   type WhatsAppQuoteDraft,
 } from "../shared/whatsapp-quote-bot";
+import { quoteNeedsScheduleUpFront } from "../shared/owner-pricing-config";
+import { getOwnerPricingSettings } from "./owner-pricing-store";
 import {
   WHATSAPP_ADDRESS_MAX_OPTIONS,
   buildWhatsAppAddressPrompt,
   buildWhatsAppAddressRetry,
   clearStaleWhatsAppPlaces,
+  hasFullPostcode,
   parseWhatsAppAddressReply,
   whatsAppAddressFieldToCheck,
+  whatsAppAddressNotFoundReply,
   whatsAppFullAddress,
 } from "../shared/whatsapp-address-check";
 import { resolveGooglePlaceDetails } from "../shared/google-places";
+import { describeWhatsAppEventForAi, matchWhatsAppEvent } from "../shared/whatsapp-events";
 import {
   applyClaudeLedTurn,
   buildClaudeLedContext,
@@ -147,9 +155,16 @@ import {
   WHATSAPP_DRIVER_NOT_FOUND_REPLY,
 } from "../shared/whatsapp-driver-contact";
 import { OWNER_VEHICLE_PROFILE_KEY } from "../shared/driver-vehicle";
+import { WHATSAPP_BRAND_HEADER_URL } from "./whatsapp-templates";
 import { getDriverVehicleProfile } from "./driver-vehicle-store";
 import { listTrackingJobsForDateRange } from "./tracking-store";
 import { trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
+import type { QuoteFormSession } from "../shared/whatsapp-quote-form";
+import {
+  QUOTE_FORM_SESSION_TTL_SECONDS,
+  quoteFormSessionKey,
+  registerQuoteFormPublicKey,
+} from "./whatsapp-quote-form-endpoint";
 
 export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -189,6 +204,15 @@ export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
    * from the quote engine). Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all").
    */
   WHATSAPP_CLAUDE_LED?: string;
+  /**
+   * The quote form that opens inside WhatsApp (a WhatsApp Flow) for customers the bot struggles
+   * with. Same values as WHATSAPP_QUICK_CHOICES (off / numbers / "all"); needs WHATSAPP_QUOTE_FORM_ID.
+   */
+  WHATSAPP_QUOTE_FORM?: string;
+  /** The form's Flow id from WhatsApp Manager. */
+  WHATSAPP_QUOTE_FORM_ID?: string;
+  /** "draft" to send the form before it's published (testing); otherwise published. */
+  WHATSAPP_QUOTE_FORM_MODE?: string;
 };
 
 /** Pilot switch: unset/"off" nobody, "all" everyone, else comma-separated numbers. */
@@ -215,6 +239,16 @@ export function whatsAppClaudeLedEnabled(env: WhatsAppEnv, phone: string): boole
   return Boolean(env.ANTHROPIC_API_KEY?.trim()) && whatsAppPilotEnabled(env.WHATSAPP_CLAUDE_LED, phone);
 }
 
+/** Whether this customer can be sent the quote form (see WHATSAPP_QUOTE_FORM). */
+export function whatsAppQuoteFormEnabled(env: WhatsAppEnv, phone: string): boolean {
+  return Boolean(env.WHATSAPP_QUOTE_FORM_ID?.trim()) && whatsAppPilotEnabled(env.WHATSAPP_QUOTE_FORM, phone);
+}
+
+/** Customer asks for the form ("form", "quote form", "send me the form"). */
+export function isWhatsAppQuoteFormRequest(text: string): boolean {
+  return /^\s*(?:(?:can you |please )?send(?: me)?(?: the)? )?(?:quote |price |booking )?form(?: please)?[.!]?\s*$/i.test(text);
+}
+
 /** Whether typed addresses are checked on Google for this customer (see WHATSAPP_ADDRESS_CHECK). */
 export function whatsAppAddressCheckEnabled(env: WhatsAppEnv, phone: string): boolean {
   return whatsAppPilotEnabled(env.WHATSAPP_ADDRESS_CHECK, phone);
@@ -233,18 +267,19 @@ export const whatsAppAddressLookup = {
 };
 
 /**
- * Look the typed address up on Google: up to three full addresses with postcode, or null
- * (no key, rate limited, no match, Google down) — then the chat carries on as before.
+ * Google matches for a typed address: up to three full addresses with postcode (one when
+ * there's a clear winner); "not_found" when Google has nothing; null when the lookup can't
+ * run (no key, rate limited, Google down). Used by the chat and the quote form.
  */
-async function lookUpWhatsAppAddress(
+export async function findWhatsAppAddressMatches(
   env: WhatsAppEnv,
   store: KVNamespace,
   phone: string,
-  conversation: WhatsAppConversation,
-  field: WhatsAppAddressField,
-): Promise<WhatsAppAddressCheck | null> {
+  typed: string,
+  bias: string,
+  options: { maxOptions?: number; alwaysOffer?: boolean } = {},
+): Promise<WhatsAppAddressOption[] | "not_found" | null> {
   if (!env.GOOGLE_PLACES_API_KEY?.trim()) return null;
-  const typed = conversation.draft[field]!.trim();
   try {
     const quota = await consumeQuickQuoteCreateQuota(
       store,
@@ -252,8 +287,6 @@ async function lookUpWhatsAppAddress(
       ADDRESS_LOOKUPS_PER_CUSTOMER_PER_HOUR,
     );
     if (quota === "limited") return null;
-    // Same bias as the website's address box: the journey's airport, else island-wide.
-    const bias = conversation.draft.airportCode ?? "A2A";
     const { suggestions } = await whatsAppAddressLookup.suggest(env, typed, bias);
     // The phone receptionist's scoring: one clear winner is confirmed on its own. Unlike the
     // phone, same-street matches in different towns stay separate — on screen they're readable.
@@ -270,23 +303,45 @@ async function lookUpWhatsAppAddress(
       }))
       .sort((a, b) => b.score - a.score);
     const [top, second] = scored;
-    if (!top) return null;
+    if (!top) return "not_found";
+    const max = options.maxOptions ?? WHATSAPP_ADDRESS_MAX_OPTIONS;
     const clearWinner =
-      scored.length === 1 ||
-      (top.score >= 0.6 && (!second || top.score - second.score >= 0.25 || second.score < 0.45));
-    const candidates = clearWinner ? [top] : scored.slice(0, WHATSAPP_ADDRESS_MAX_OPTIONS);
+      !options.alwaysOffer &&
+      (scored.length === 1 ||
+        (top.score >= 0.6 && (!second || top.score - second.score >= 0.25 || second.score < 0.45)));
+    const candidates = clearWinner ? [top] : scored.slice(0, max);
     const places = await Promise.all(
       candidates.map((c) => whatsAppAddressLookup.details(env, c.placeId, bias, typed).catch(() => null)),
     );
-    const options = places
+    const found = places
       .filter((p): p is NonNullable<typeof p> => Boolean(p?.placeId))
       .map((p) => ({ placeId: p.placeId, address: whatsAppFullAddress(p) }))
       .filter((o) => o.address);
-    return options.length ? { field, typed, options } : null;
+    return found.length ? found : "not_found";
   } catch (error) {
     console.error("whatsapp address lookup failed", error instanceof Error ? error.message : error);
     return null;
   }
+}
+
+/**
+ * Look the typed address up on Google: up to three full addresses with postcode;
+ * "not_found" when Google has nothing for it (e.g. a hotel name the customer has wrong);
+ * or null (no key, rate limited, Google down) — then the chat carries on as before.
+ */
+async function lookUpWhatsAppAddress(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  conversation: WhatsAppConversation,
+  field: WhatsAppAddressField,
+): Promise<WhatsAppAddressCheck | "not_found" | null> {
+  const typed = conversation.draft[field]!.trim();
+  // Same bias as the website's address box: the journey's airport, else island-wide.
+  const bias = conversation.draft.airportCode ?? "A2A";
+  const found = await findWhatsAppAddressMatches(env, store, phone, typed, bias);
+  if (found === null || found === "not_found") return found;
+  return { field, typed, options: found };
 }
 
 /** Matches the WhatsApp customer service window — free-form replies are allowed inside it. */
@@ -393,7 +448,8 @@ const BUSINESS_PROFILE = {
   websites: ["https://www.myairporttaxini.co.uk"],
   vertical: "TRAVEL",
 };
-const PROFILE_LOGO_PATH = "/facebook-profile-logo-navy.png";
+// New logo, words centred under the car and plane so it fits the round photo (owner, 13 Nov 2026).
+const PROFILE_LOGO_PATH = "/whatsapp/profile.png";
 
 async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise<string[]> {
   const lines: string[] = [];
@@ -414,14 +470,18 @@ async function applyBusinessProfile(apiKey: string, siteOrigin: string): Promise
   } catch {
     lines.push("Logo could not be downloaded. You can add it in 360dialog → Profile.");
   }
-  const updated = await update360dialogBusinessProfile(apiKey, {
-    ...BUSINESS_PROFILE,
-    ...(pictureHandle ? { profile_picture_handle: pictureHandle } : {}),
-  });
+  // Photo on its own first, so a rejected photo can't block the profile text (and the reason shows).
+  let photoSet = false;
+  if (pictureHandle) {
+    const photo = await update360dialogBusinessProfile(apiKey, { profile_picture_handle: pictureHandle });
+    photoSet = photo.ok;
+    lines.push(photo.ok ? "Profile photo updated ✅" : `Profile photo not accepted: ${photo.error ?? "unknown error"}`);
+  }
+  const updated = await update360dialogBusinessProfile(apiKey, BUSINESS_PROFILE);
   if (updated.ok) {
-    lines.unshift(`Business profile updated ✅${pictureHandle ? " (with logo)" : ""}`);
+    lines.unshift(`Business profile updated ✅${photoSet ? " (with logo)" : ""}`);
   } else {
-    lines.unshift(`Business profile not updated: ${updated.error ?? "unknown error"}`);
+    lines.unshift(`Business profile text not updated: ${updated.error ?? "unknown error"}`);
   }
   return lines;
 }
@@ -605,6 +665,7 @@ function silentWhatsAppMessageLog(message: WhatsAppInboundMessage): string | nul
 }
 
 function describeNonTextWhatsAppMessage(type: string): string {
+  if (type === "quote_form") return "[Filled in the quote form]";
   if (type === "image") return "[Photo]";
   if (type === "video") return "[Video]";
   if (type === "document") return "[File]";
@@ -674,6 +735,103 @@ async function customerHasUpcomingBooking(store: KVNamespace, phone: string): Pr
   return (await findCustomerUpcomingBookings(store, phone)).length > 0;
 }
 
+export const WHATSAPP_QUOTE_FORM_INTRO =
+  "Tap below to fill in your journey: pick the addresses from a list, then the date and time. Your fixed price will come straight back here.";
+
+/**
+ * Send the quote form (a WhatsApp Flow) when it's switched on for this customer. Its
+ * session remembers the number and what the chat already knows. False when not sent
+ * (not enabled, no form id, or WhatsApp refused) — the caller then replies as normal.
+ */
+async function sendWhatsAppQuoteForm(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  conversation: WhatsAppConversation | null,
+  body: string,
+): Promise<boolean> {
+  if (!whatsAppQuoteFormEnabled(env, phone)) return false;
+  // The form can't open until WhatsApp has our public key (done once, re-checked every few hours).
+  const key = await registerQuoteFormPublicKey(env, store).catch(() => null);
+  if (!key?.ok) {
+    logEvent("whatsapp_quote_form_key_not_registered", phone, { error: key?.error ?? "unknown" });
+  }
+  const token = `qf_${crypto.randomUUID()}`;
+  const draft = conversation?.draft ?? {};
+  const session: QuoteFormSession = {
+    phone,
+    createdAt: nowIso(),
+    places: {},
+    prefill: { pickup: draft.pickupAddress ?? "", dropoff: draft.dropoffAddress ?? "" },
+  };
+  await store.put(quoteFormSessionKey(token), JSON.stringify(session), {
+    expirationTtl: QUOTE_FORM_SESSION_TTL_SECONDS,
+  });
+  const result = await sendWhatsAppFlow(env, phone, {
+    body,
+    cta: "Get my price",
+    flowId: env.WHATSAPP_QUOTE_FORM_ID!.trim(),
+    flowToken: token,
+    mode: env.WHATSAPP_QUOTE_FORM_MODE?.trim().toLowerCase() === "draft" ? "draft" : "published",
+  });
+  if (!result.sent) {
+    logEvent("whatsapp_quote_form_send_failed", phone, { error: result.error ?? "unknown" });
+    return false;
+  }
+  await appendWhatsAppChat(store, phone, { from: "assistant", text: `${body}\n[Button: Get my price (quote form)]` });
+  logEvent("whatsapp_quote_form_sent", phone);
+  return true;
+}
+
+/**
+ * The phone receptionist sends the same quote form when she can't pin down an address
+ * (owner decision 15 Nov 2026). `phone` is WhatsApp digits (447…). False when it couldn't
+ * be sent — e.g. WhatsApp refuses a form to someone who hasn't messaged us in 24 hours.
+ */
+export async function sendWhatsAppQuoteFormTo(
+  env: WhatsAppEnv,
+  store: KVNamespace,
+  phone: string,
+  prefill: { pickup?: string; dropoff?: string } = {},
+): Promise<boolean> {
+  const conversation = {
+    draft: {
+      ...(prefill.pickup ? { pickupAddress: prefill.pickup } : {}),
+      ...(prefill.dropoff ? { dropoffAddress: prefill.dropoff } : {}),
+    },
+  } as unknown as WhatsAppConversation;
+  return sendWhatsAppQuoteForm(
+    env,
+    store,
+    phone,
+    conversation,
+    "Thanks for calling. " + WHATSAPP_QUOTE_FORM_INTRO,
+  );
+}
+
+/**
+ * A submitted form: its journey becomes the chat's quote, ready to price (stage "confirming",
+ * as if the customer had tapped Yes on the summary). False if the form is unknown or unfinished.
+ */
+async function applySubmittedQuoteForm(store: KVNamespace, phone: string, token?: string): Promise<boolean> {
+  if (!token) return false;
+  const session = await store.get<QuoteFormSession>(quoteFormSessionKey(token), "json");
+  if (!session?.draft || session.phone !== phone) return false;
+  const stored = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+  const conversation = stored ?? newWhatsAppConversation(new Date());
+  conversation.draft = { ...session.draft };
+  conversation.stage = "confirming";
+  delete conversation.awaiting;
+  delete conversation.addressCheck;
+  delete conversation.lastQuoteUrl;
+  delete conversation.lastQuoteAmountLabel;
+  conversation.updatedAt = nowIso();
+  await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
+  await store.delete(quoteFormSessionKey(token));
+  logEvent("whatsapp_quote_form_submitted", phone);
+  return true;
+}
+
 async function handleInboundMessage(
   message: WhatsAppInboundMessage,
   env: WhatsAppEnv,
@@ -736,9 +894,28 @@ async function handleInboundMessage(
       return skip("paused for this customer (handoff or owner reply)");
     }
   }
+  // A submitted quote form: its journey goes on the quote and is priced straight away.
+  let fromQuoteForm = false;
+  if (message.type === "quote_form") {
+    if (!(await applySubmittedQuoteForm(store, phone, message.formToken))) {
+      await reply(
+        env,
+        phone,
+        "Sorry, that form has expired. Tap *Get my price* on the newest form, or just tell me your journey here.",
+      );
+      return;
+    }
+    fromQuoteForm = true;
+    message = { ...message, text: "yes" };
+  }
   if (!message.text) {
     await replyToNonTextMessage(env, store, message, isTeamPhone);
     return;
+  }
+  // "Send me the form": the quote form, for customers who'd rather fill it in.
+  if (isWhatsAppQuoteFormRequest(message.text)) {
+    const current = await store.get<WhatsAppConversation>(conversationKey(phone), "json");
+    if (await sendWhatsAppQuoteForm(env, store, phone, current, WHATSAPP_QUOTE_FORM_INTRO)) return;
   }
 
   // "Where's my driver?": the driver's name and mobile for today's journey.
@@ -799,14 +976,28 @@ async function handleInboundMessage(
           expirationTtl: CONVERSATION_TTL_SECONDS,
         });
         logEvent("whatsapp_address_declined", phone);
+        if (
+          await sendWhatsAppQuoteForm(
+            env,
+            store,
+            phone,
+            existing,
+            "No problem. Tap below to fill in your journey and search for the right address. Your price will come straight back here.",
+          )
+        ) {
+          return;
+        }
         await reply(env, phone, buildWhatsAppAddressRetry(check.field));
         return;
       }
     }
   }
+  // The date and time are asked for only while a time-based surcharge is on (owner dashboard).
+  const scheduleUpFront = await whatsAppAsksSchedule(store);
   // Claude-led chat: Claude reads the message and decides; the rules flow is the fallback.
   const claudeLed =
     whatsAppClaudeLedEnabled(env, phone) &&
+    !fromQuoteForm &&
     !isWhatsAppSendQuoteMessage(message.text) &&
     !isWhatsAppMachineReply(message.text);
   let decision: ClaudeLedDecision | null = null;
@@ -820,7 +1011,7 @@ async function handleInboundMessage(
       base.draft[addressPick.field === "pickupAddress" ? "pickupPlaceId" : "dropoffPlaceId"] = addressPick.placeId;
       said = `[The customer tapped to confirm the ${addressPick.field === "pickupAddress" ? "pickup" : "destination"} address: ${addressPick.address}]`;
     }
-    decision = await decideWithClaude(env, store, phone, base, said, message.profileName);
+    decision = await decideWithClaude(env, store, phone, base, said, message.profileName, scheduleUpFront);
     if (decision) logEvent("whatsapp_claude_led", phone, { action: decision.action, endChat: Boolean(decision.endChat) });
   }
   if (!decision) {
@@ -828,10 +1019,21 @@ async function handleInboundMessage(
       profileName: message.profileName,
       quickChoices: whatsAppQuickChoicesEnabled(env, phone),
       addressPick,
+      scheduleUpFront,
     });
   }
   let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
+
+  // Claude decided the form is the easier way (e.g. the chat is going round in circles).
+  if (decision.sendQuoteForm) {
+    await store.put(conversationKey(phone), JSON.stringify(conversation), {
+      expirationTtl: CONVERSATION_TTL_SECONDS,
+    });
+    if (await sendWhatsAppQuoteForm(env, store, phone, conversation, decision.reply || WHATSAPP_QUOTE_FORM_INTRO)) {
+      return;
+    }
+  }
 
   // A pickup / destination typed without a postcode: confirm the full Google address
   // (with postcode) before it goes on the quote. No match or no Google: carry on as before.
@@ -842,7 +1044,33 @@ async function handleInboundMessage(
     const field = whatsAppAddressFieldToCheck(conversation, { includePostcoded: claudeLed });
     if (field) {
       const check = await lookUpWhatsAppAddress(env, store, phone, conversation, field);
-      if (check) {
+      const typed = conversation.draft[field]!.trim();
+      if (check === "not_found" && !hasFullPostcode(typed)) {
+        // Not on the map (a hotel or place name spelt wrong, or a name that isn't real): ask,
+        // rather than quote for it as typed (12 Nov 2026). If they send the same again, it's
+        // taken as given, so the chat never gets stuck.
+        conversation.addressChecked = [...(conversation.addressChecked ?? []), typed];
+        conversation.stage = "collecting";
+        await store.put(conversationKey(phone), JSON.stringify(conversation), {
+          expirationTtl: CONVERSATION_TTL_SECONDS,
+        });
+        logEvent("whatsapp_address_not_found", phone, { field });
+        // The quote form lets them pick the address from a list instead (12 Nov 2026).
+        if (
+          await sendWhatsAppQuoteForm(
+            env,
+            store,
+            phone,
+            conversation,
+            `I couldn't find "${typed}" on the map. Tap below to fill in your journey and pick the addresses from a list. Your price will come straight back here.`,
+          )
+        ) {
+          return;
+        }
+        await reply(env, phone, whatsAppAddressNotFoundReply(field, typed));
+        return;
+      }
+      if (check && check !== "not_found") {
         conversation.addressCheck = check;
         conversation.stage = "collecting";
         await store.put(conversationKey(phone), JSON.stringify(conversation), {
@@ -858,6 +1086,7 @@ async function handleInboundMessage(
   }
   let text = decision.reply;
   let buttons: WhatsAppReplyButton[] | undefined = decision.buttons;
+  let quoteBanner = false;
   // Only set when asking for a journey detail; the quote/discount/handoff paths never carry one.
   let list: WhatsAppReplyList | undefined = decision.list;
 
@@ -910,7 +1139,7 @@ async function handleInboundMessage(
       text = answered.text;
       // The AI asked for journey details to start a quote: bare replies now fill them.
       if (answered.startQuote && conversation.stage === "collecting" && !conversation.awaiting) {
-        conversation.awaiting = nextMissingField(conversation.draft) ?? undefined;
+        conversation.awaiting = nextMissingField(conversation.draft, conversationAsksSchedule(conversation)) ?? undefined;
       }
       if (answered.endChat) {
         // No longer needed: close the quote, no "Today / Tomorrow" choices, no chaser.
@@ -939,6 +1168,7 @@ async function handleInboundMessage(
       conversation.lastQuoteAmountLabel = offer.amountLabel;
       text = buildWhatsAppDiscountOfferReply({ ...offer, previousAmountLabel, journey: conversation.draft });
       buttons = WHATSAPP_QUOTED_BUTTONS;
+      quoteBanner = true;
       if (followUpDelay) {
         const draft = conversation.draft;
         const place = (label?: string) => (label ?? "").split(",")[0]!.trim();
@@ -1012,11 +1242,13 @@ async function handleInboundMessage(
             returnJourney: pricedJourney.returnJourney,
           },
           linkHours: whatsAppQuoteLinkHours(conversation.draft),
+          scheduleChosen: Boolean(conversation.draft.outboundDate && conversation.draft.outboundTime),
           optionalExpressFeeLabel:
             optionalExpressFeeGbp > 0 ? formatExpressDropOffGbp(optionalExpressFeeGbp) : null,
           requestOnly: availability.requestOnly,
         });
         buttons = WHATSAPP_QUOTED_BUTTONS;
+        quoteBanner = true;
         logEvent("whatsapp_quote_sent", phone, {
           idSuffix: priced.record.id.slice(-6),
           quotedAmount: priced.record.quotedAmount,
@@ -1054,7 +1286,7 @@ async function handleInboundMessage(
   await store.put(conversationKey(phone), JSON.stringify(conversation), {
     expirationTtl: CONVERSATION_TTL_SECONDS,
   });
-  if (text) await reply(env, phone, text, buttons, list);
+  if (text) await reply(env, phone, text, buttons, list, quoteBanner ? WHATSAPP_BRAND_HEADER_URL : undefined);
 }
 
 /**
@@ -1400,6 +1632,18 @@ export async function describeBookingsForAi(
  * and, mid-quote, asks for the next journey detail in its own words. Null keeps the
  * fixed fallback reply.
  */
+/**
+ * Whether quotes ask for the pickup date and time before the price: only while the evening,
+ * night or weekend surcharge is on in the owner dashboard. Asks on any error (the safe side).
+ */
+export async function whatsAppAsksSchedule(store: KVNamespace): Promise<boolean> {
+  try {
+    return quoteNeedsScheduleUpFront(await getOwnerPricingSettings(store));
+  } catch {
+    return true;
+  }
+}
+
 /** One Claude-led turn; null when Claude is unavailable (the rules flow then answers). */
 async function decideWithClaude(
   env: WhatsAppEnv,
@@ -1408,6 +1652,7 @@ async function decideWithClaude(
   existing: WhatsAppConversation | null,
   said: string,
   profileName: string | undefined,
+  scheduleUpFront = true,
 ): Promise<ClaudeLedDecision | null> {
   try {
     const chat = await getWhatsAppChat(store, phone);
@@ -1417,10 +1662,27 @@ async function decideWithClaude(
       .map(chatLineForAi)
       .join("\n");
     const bookingInfo = await describeBookingsForAi(store, phone, [said, recentChat]);
-    const context = buildClaudeLedContext({ conversation: existing, message: said, recentChat, profileName, bookingInfo });
+    // A concert at the pickup / destination on its date: the assistant says so (12 Nov 2026).
+    const d = existing?.draft;
+    const eventMatch = matchWhatsAppEvent({
+      addresses: [d?.pickupAddress, d?.dropoffAddress],
+      dates: [d?.outboundDate, d?.returnDate],
+      text: said,
+    });
+    const eventInfo = eventMatch ? describeWhatsAppEventForAi(eventMatch) : undefined;
+    const context = buildClaudeLedContext({
+      conversation: existing,
+      message: said,
+      recentChat,
+      profileName,
+      bookingInfo,
+      eventInfo,
+      quoteFormAvailable: whatsAppQuoteFormEnabled(env, phone),
+      scheduleUpFront,
+    });
     const turn = await claudeLedClient.turn(env, context);
     if (!turn) return null;
-    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone) });
+    return applyClaudeLedTurn(existing, turn, { quickChoices: whatsAppQuickChoicesEnabled(env, phone), scheduleUpFront });
   } catch (err) {
     logEvent("whatsapp_claude_led_failed", phone, { error: err instanceof Error ? err.message : String(err) });
     return null;
@@ -1615,6 +1877,7 @@ async function reply(
   text: string,
   buttons?: WhatsAppReplyButton[],
   list?: WhatsAppReplyList,
+  headerImageUrl?: string,
 ): Promise<void> {
   const store = env.TRACKING_STORE;
   if (list?.rows.length) {
@@ -1630,7 +1893,12 @@ async function reply(
     logEvent("whatsapp_list_failed", phone, { error: withList.error });
   }
   if (buttons?.length) {
-    const withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    let withButtons = await sendWhatsAppButtons(env, phone, text, buttons, fetch, headerImageUrl);
+    if (!withButtons.sent && headerImageUrl) {
+      // Banner refused (e.g. image unreachable): the quote still goes out, just without it.
+      logEvent("whatsapp_banner_failed", phone, { error: withButtons.error });
+      withButtons = await sendWhatsAppButtons(env, phone, text, buttons);
+    }
     if (withButtons.sent) {
       await recordDiag(store, { lastReplyOkAt: nowIso() });
       await appendWhatsAppChat(store, phone, {

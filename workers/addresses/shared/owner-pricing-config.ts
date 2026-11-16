@@ -25,6 +25,10 @@ import {
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "./return-journey-discount";
 import { NIGHT_WEEKEND_SURCHARGE_RATE } from "./night-weekend-surcharge";
 import { DEFAULT_EXECUTIVE_MULTIPLIER, isExecutiveVehicle } from "./executive-vehicle";
+
+/** Business Class: instant price from this one-way road distance up; under it is request-only (owner, 15 Nov 2026). */
+export const DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES = 50;
+export const MAX_BUSINESS_CLASS_INSTANT_FROM_MILES = 500;
 import {
   DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
   MAX_BUSINESS_CLASS_MINIMUM_FARE_GBP,
@@ -122,6 +126,14 @@ export type OwnerPricingSettings = {
   /** Executive fare = Saloon journey fare × this multiplier. Missing values use 1.50. */
   executive: {
     requestQuote?: boolean;
+    /**
+     * Instant price when the one-way road distance is this many miles or more;
+     * shorter journeys are request-only (personal quote).
+     * 0 = instant at any distance. Missing stored values use 50 (owner, 15 Nov 2026:
+     * "50 miles plus for an instant quote, under 50 miles it's a request").
+     * Ignored while requestQuote is on (everything is request-only then).
+     */
+    instantFromMiles?: number;
     /** Missing stored values stay bookable. */
     publicEnabled: boolean;
     multiplier: number;
@@ -208,6 +220,7 @@ export type PublicOwnerPricingConfig = {
   };
   executive: {
     requestQuote?: boolean;
+    instantFromMiles?: number;
     publicEnabled: boolean;
     multiplier: number;
     minimumFareGbp: number;
@@ -298,6 +311,7 @@ export function defaultOwnerPricingSettings(
     },
     executive: {
       requestQuote: false,
+      instantFromMiles: DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES,
       publicEnabled: true,
       multiplier: DEFAULT_EXECUTIVE_MULTIPLIER,
       minimumFareGbp: DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP,
@@ -493,6 +507,20 @@ export function validateOwnerPricingInput(
   let executiveMultiplier = DEFAULT_EXECUTIVE_MULTIPLIER;
   let executivePublicEnabled = true;
   let executiveMinimumFareGbp = DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP;
+  let executiveInstantFromMiles = DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES;
+  if (executiveExplicit && Object.prototype.hasOwnProperty.call(executiveRaw, "instantFromMiles")) {
+    const raw = executiveRaw.instantFromMiles;
+    const miles = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() !== "" ? Number(raw) : NaN;
+    if (!Number.isFinite(miles) || miles < 0 || miles > MAX_BUSINESS_CLASS_INSTANT_FROM_MILES) {
+      reject(
+        errors,
+        "executive.instantFromMiles",
+        `Business Class instant-price distance must be between 0 and ${MAX_BUSINESS_CLASS_INSTANT_FROM_MILES} miles.`,
+      );
+    } else {
+      executiveInstantFromMiles = Math.round(miles * 10) / 10;
+    }
+  }
   if (executiveExplicit) {
     if (executiveRaw.publicEnabled != null && typeof executiveRaw.publicEnabled !== "boolean") {
       reject(errors, "executive.publicEnabled", "Offer Executive online must be on or off.");
@@ -696,6 +724,7 @@ export function validateOwnerPricingInput(
       },
       executive: {
         requestQuote: executiveRaw.requestQuote === true,
+        instantFromMiles: executiveInstantFromMiles,
         publicEnabled: executivePublicEnabled,
         multiplier: executiveMultiplier,
         minimumFareGbp: executiveMinimumFareGbp,
@@ -793,6 +822,7 @@ export function toPublicOwnerPricingConfig(
     },
     executive: {
       requestQuote: settings.executive.requestQuote === true,
+      instantFromMiles: businessClassInstantFromMiles(settings),
       publicEnabled: settings.executive.publicEnabled !== false,
       multiplier: settings.executive.multiplier,
       minimumFareGbp:
@@ -910,6 +940,10 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return String(settings.minibus.multiplier);
     case "executive.requestQuote":
       return settings.executive.requestQuote ? "Request a personal quote" : "Instant price";
+    case "executive.instantFromMiles": {
+      const miles = businessClassInstantFromMiles(settings);
+      return miles > 0 ? `Instant price from ${miles} miles` : "Instant price at any distance";
+    }
     case "executive.publicEnabled":
       return settings.executive.publicEnabled ? "ON" : "OFF";
     case "executive.multiplier":
@@ -981,6 +1015,7 @@ const DIFF_PATHS = [
   "minibus.requestQuote",
   "minibus.multiplier",
   "executive.requestQuote",
+  "executive.instantFromMiles",
   "executive.publicEnabled",
   "executive.multiplier",
   "executive.minimumFareGbp",
@@ -1025,6 +1060,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "minibus.requestQuote": "7 Seater Minibus quote mode",
   "minibus.multiplier": "7 Seater Minibus multiplier",
   "executive.requestQuote": "Business Class quote mode",
+  "executive.instantFromMiles": "Business Class instant-price distance",
   "executive.publicEnabled": "Offer Executive online",
   "executive.multiplier": "Executive multiplier",
   "executive.minimumFareGbp": "Business Class minimum fare",
@@ -1313,6 +1349,28 @@ export function nightWeekendSurchargeExplanation(
   return `${periods.join(" ")} Times are Europe/London. When periods overlap, only the highest surcharge applies to each leg’s base vehicle fare; fixed airport charges are excluded.`;
 }
 
+/**
+ * True when the time of day or the day of the week can change a fare: the evening, night or
+ * weekend surcharge is switched on in the owner dashboard.
+ *
+ * Every quote tool (website, WhatsApp assistant, phone assistant) asks for the pickup date and
+ * time before pricing only when this is true. With all three off, the customer gets the price
+ * first and gives the date and time at the booking step.
+ *
+ * The Christmas surcharge does not count (owner decision, 14 Nov 2026): the date is taken at the
+ * booking step, where a journey in the Christmas period is re-priced for the customer to confirm.
+ */
+export function quoteNeedsScheduleUpFront(
+  settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
+): boolean {
+  const options = ownerPricingEngineOptions(settings);
+  return (
+    (options.eveningEnabled && options.eveningRate > 0) ||
+    (options.nightEnabled && options.nightRate > 0) ||
+    (options.weekendEnabled && options.weekendRate > 0)
+  );
+}
+
 export function quoteIncludesSurchargeLabel(
   settings?: OwnerPricingSettings | PublicOwnerPricingConfig | null,
 ): string {
@@ -1351,18 +1409,54 @@ export function publicMinibusRequiresPersonalQuote(
 export const MINIBUS_PERSONAL_QUOTE_CODE = "personal_quote_required";
 export const MINIBUS_PERSONAL_QUOTE_MESSAGE = "Please request a personal quote for your 7 Seater Minibus journey. We’ll confirm your fare before payment.";
 
-/** Each public vehicle follows its own mode; owner-priced payment links are exempt. */
+/** Business Class instant-price distance (miles): instant at this distance or more. 0 = any distance. */
+export function businessClassInstantFromMiles(
+  settings: Pick<OwnerPricingSettings | PublicOwnerPricingConfig, "executive"> | null | undefined,
+): number {
+  const raw = settings?.executive?.instantFromMiles;
+  return typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= MAX_BUSINESS_CLASS_INSTANT_FROM_MILES
+    ? raw
+    : DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES;
+}
+
+/**
+ * Business Class is request-only for this journey because it is under the
+ * instant-price distance. Unknown distance → false here; the Worker always
+ * measures the route before pricing, so the rule is enforced server-side.
+ */
+export function businessClassShortJourneyNeedsQuote(
+  settings: Pick<OwnerPricingSettings | PublicOwnerPricingConfig, "executive">,
+  journeyMiles: number | null | undefined,
+): boolean {
+  const over = businessClassInstantFromMiles(settings);
+  if (over <= 0) return false;
+  if (typeof journeyMiles !== "number" || !Number.isFinite(journeyMiles) || journeyMiles <= 0) return false;
+  return Math.round(journeyMiles * 10) / 10 < over;
+}
+
+/**
+ * Each public vehicle follows its own mode; owner-priced payment links are exempt.
+ * `journeyMiles` (one-way road miles) applies the Business Class distance rule.
+ */
 export function publicVehicleRequiresPersonalQuote(
   vehicleType: string | null | undefined,
   settings: OwnerPricingSettings | PublicOwnerPricingConfig,
   ownerMode = false,
+  journeyMiles?: number | null,
 ): boolean {
   if (ownerMode) return false;
-  return publicMinibusRequiresPersonalQuote(vehicleType, settings) ||
-    (isExecutiveVehicle(vehicleType) && settings.executive.requestQuote === true);
+  if (publicMinibusRequiresPersonalQuote(vehicleType, settings)) return true;
+  if (!isExecutiveVehicle(vehicleType)) return false;
+  return settings.executive.requestQuote === true || businessClassShortJourneyNeedsQuote(settings, journeyMiles);
 }
-export function vehiclePersonalQuoteMessage(vehicleType: string | null | undefined): string {
-  return isExecutiveVehicle(vehicleType)
-    ? "Please request a personal quote for your Business Class journey. We’ll confirm availability and your fare before payment."
-    : MINIBUS_PERSONAL_QUOTE_MESSAGE;
+export function vehiclePersonalQuoteMessage(
+  vehicleType: string | null | undefined,
+  settings?: Pick<OwnerPricingSettings | PublicOwnerPricingConfig, "executive"> | null,
+  journeyMiles?: number | null,
+): string {
+  if (!isExecutiveVehicle(vehicleType)) return MINIBUS_PERSONAL_QUOTE_MESSAGE;
+  if (settings && settings.executive.requestQuote !== true && businessClassShortJourneyNeedsQuote(settings, journeyMiles)) {
+    return `Business Class has an instant price for journeys of ${businessClassInstantFromMiles(settings)} miles or more. For this journey, please request a personal quote and we’ll confirm availability and your fare before payment.`;
+  }
+  return "Please request a personal quote for your Business Class journey. We’ll confirm availability and your fare before payment.";
 }

@@ -31,6 +31,7 @@ Execution sentence for every during-call tool:
 ```
 
 Speak returned `greeting` **once only** (Europe/London morning/afternoon/evening, including daylight saving, + full business name once).  
+`askDateTime` is `"yes"` while an evening, night or weekend surcharge is switched on in the owner dashboard, otherwise `"no"`. Only ask for the date and pickup time when it is `"yes"`; when `"no"` the caller picks them on the booking link (Get Quote still accepts them if the caller volunteers them, and asks for them via `askNext` if the setting changes mid-call). Declare `askDateTime` as a Fonio inbound variable.  
 Use `name` / `sayHint` only as guidance. Never invent booking details from inbound context. Do not rebuild or repeat the greeting later in the call.
 
 ---
@@ -202,6 +203,30 @@ SMS fallback same as Send Booking Link (`sendBySms` + `smsText`).
 ```
 
 Use for tool failures, out-of-hours, unclear journeys, callbacks and urgent escalation.
+Always fill `name`, `mobile` (confirmed number or caller ID) and `message` (journey, date, time,
+passengers). Without a mobile the Worker answers `ok: false` and nothing is saved — the
+receptionist must never say the message was passed on in that case (15 Nov 2026 call).
+
+---
+
+## 8b. Send Quote Form — during call (added 15 Nov 2026)
+
+- URL: `…/voice/quote-form`
+- Method: POST (same auth header as the other voice tools)
+- When: Olivia can't pin down an address after asking once for the street or postcode.
+- Sends the caller our WhatsApp quote form (the same Flow the WhatsApp assistant uses); they
+  tap their addresses, date, time and bags, and the fixed price comes back in WhatsApp.
+
+```json
+{
+  "mobile": "{{mobile}}",
+  "pickup": "{{pickup}}",
+  "dropoff": "{{dropoff}}"
+}
+```
+
+Reply: `{ ok, sent, say }`. `sent: false` happens when WhatsApp refuses a form to a number that
+hasn't messaged us in the last 24 hours; `say` then asks for the postcode instead.
 
 ---
 
@@ -238,3 +263,16 @@ Owner review: `GET …/owner/voice-calls` with `X-Owner-Key`.
 4. Paste prompt from `docs/fonio-receptionist-prompt.md`.  
 5. Create/update HTTP tools as above.  
 6. Real test call to a non-customer mobile before public routing.
+
+---
+
+## After-call text (fonio Send SMS, added 15 Nov 2026)
+
+Second fonio **SMS** integration (Abilities → Send SMS): Run **After the conversation**, Send **Only if…**
+"the caller's number is a UK mobile, the call was about a new price or booking, and they did not get a
+booking link on the call". To: **The caller**. From: `MyAirportNI`. Fixed message:
+
+> My Airport Taxi NI: thanks for calling. Get your fixed price and book here: https://www.myairporttaxini.co.uk/?src=call#quote
+
+Runs alongside the Worker's WhatsApp follow-up (`mat_call_followup`, `/voice/call-ended`), owner chose "both".
+fonio plan: 50 SMS/month included; extra 50 for £9.

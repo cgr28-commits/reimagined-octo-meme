@@ -20,6 +20,7 @@ import { reconcilePaidBookingSumUpTransaction } from "./reconcile-sumup-transact
 import { isStripeCheckoutId, stripeConfigured } from "../shared/stripe-payments";
 import { createTrackingJobForPaidBooking } from "./tracking-handlers";
 import { savePaidBookingRecordFromConfirm } from "./refund-handlers";
+import { finalizeBespokeCheckout } from "./bespoke-payment";
 import {
   getPaidBookingRecord,
   getPaidBookingRecordByCheckoutId,
@@ -50,6 +51,7 @@ import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-off
 import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
+import { notifyOwnerPush } from "./owner-push";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
 import {
   PAYMENT_METHOD_DEPOSIT_CASH,
@@ -263,6 +265,16 @@ async function finalizePaidCheckoutOnce(input: {
       trackingCreated: false,
       error: "SumUp payment is not configured",
     };
+  }
+
+  // Bespoke Event / Business Class quotations are finalised entirely by their own
+  // module (records the payment first, owner review for anything unexpected).
+  // Airport bookings never have checkoutKind "bespoke" and continue below unchanged.
+  if (pendingCheckoutStoreConfigured(env.TRACKING_STORE)) {
+    const pendingBespoke = await getPendingCheckout(env.TRACKING_STORE, checkoutId);
+    if (pendingBespoke?.checkoutKind === "bespoke" && pendingBespoke.bespokeQuoteReference) {
+      return finalizeBespokeCheckout({ env, checkoutId, pending: pendingBespoke, checkout: input.checkout, logPaidBookingCalendar });
+    }
   }
 
   if (paidBookingStoreConfigured(env.TRACKING_STORE)) {
@@ -719,6 +731,13 @@ async function finalizePaidCheckoutOnce(input: {
     body: ownerEmail.body,
   });
   const ownerNotifySent = ownerEmailResult.sent;
+  // Direct phone alert (doesn't wait for the email to be forwarded into the inbox). Never throws.
+  await notifyOwnerPush(env as never, {
+    category: "bookings",
+    title: "New confirmed booking",
+    body: `${booking.customerName || "Customer"} — ${booking.tripDate} ${booking.tripTime}`.slice(0, 140),
+    url: "/owner/?ui=mobile#bookings",
+  }).catch(() => undefined);
 
   // Keep the real email outcome with the booking, so a later refresh of the confirmation
   // page reports what actually happened instead of assuming the emails went out.

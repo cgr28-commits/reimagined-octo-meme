@@ -1,3 +1,5 @@
+import { removeFlightyFlightEvents, resyncFlightyFlightEvents } from "./flighty-calendar";
+import { calendarEventIdsForEdit } from "../shared/refund-leg-cancel";
 /**
  * Customer self-service booking amendments for paid bookings.
  * Server-side 24h gate (Europe/London). Fare-sensitive changes always reprice
@@ -1064,7 +1066,7 @@ export async function handleCustomerAmendSchedule(
       const result = await rescheduleCalendarEvents(
         accessToken,
         env.GOOGLE_CALENDAR_ID!.trim(),
-        updated.calendarEventIds,
+        calendarEventIdsForEdit(updated).outbound,
         {
           startDateTime,
           endDateTime: transferEventEndDateTime(startDateTime),
@@ -1083,6 +1085,9 @@ export async function handleCustomerAmendSchedule(
       warnings.push(error instanceof Error ? error.message : "Calendar update failed");
     }
   }
+
+  const flighty = await resyncFlightyFlightEvents(env, updated);
+  if (flighty.error) warnings.push(`Flight entry: ${flighty.error}`);
 
   const emailResult = await sendUpdatedConfirmationForPaymentReference({
     env: env as Env & { TRACKING_STORE: KVNamespace },

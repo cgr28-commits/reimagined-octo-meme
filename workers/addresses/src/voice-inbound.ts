@@ -74,14 +74,18 @@ export async function handleVoiceInbound(request: Request, env: Env, now = new D
     }
   }
 
+  // Owner decision (15 Nov 2026): the phone always asks the date and pickup time.
+  const askDateTime = "yes";
+
   const { dayPart, greeting } = voiceOpeningGreeting({ firstName: name || undefined, now });
   return reply({
     dayPart,
     greeting,
     knownCaller,
     hasUpcomingBooking,
+    askDateTime,
     ...(name ? { name } : {}),
     sayHint:
-      "Speak the greeting field once only — it is already Europe/London local time (including daylight saving) and includes My Airport Taxi NI once. Do not rebuild or repeat the greeting. After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",
+      "Speak the greeting field once only — it is already Europe/London local time (including daylight saving) and includes My Airport Taxi once. Do not rebuild or repeat the greeting. After that use only we/us/our. Do not read booking details until M-A-T reference + mobile are verified with Booking Lookup.",
   });
 }

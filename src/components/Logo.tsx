@@ -12,22 +12,31 @@ interface LogoProps {
   size?: "header" | "original";
   /** Eager-load only the visible header mark; footer and portals stay lazy. */
   priority?: boolean;
+  /** Side-by-side lockup (car + plane beside the wordmark) — the current brand logo (Nov 2026). */
+  wide?: boolean;
 }
 
 const HEADER_LOGO_WIDTH = 124;
 const HEADER_LOGO_HEIGHT = 96;
 const ORIGINAL_LOGO_WIDTH = 697;
 const ORIGINAL_LOGO_HEIGHT = 541;
+const WIDE_LOGO_WIDTH = 1011;
+const WIDE_LOGO_HEIGHT = 177;
 
 export default function Logo({
   className = "h-11",
   theme = "dark",
   size = "header",
   priority = false,
+  wide = false,
 }: LogoProps) {
   const [failed, setFailed] = useState(false);
   const compact = size === "header";
-  const src = compact
+  const src = wide
+    ? theme === "light"
+      ? withBasePath("/logo-wide-light.svg")
+      : withBasePath("/logo-wide.svg")
+    : compact
     ? theme === "light"
       ? withBasePath("/logo-light-header.webp")
       : withBasePath("/logo-header.webp")
@@ -46,8 +55,8 @@ export default function Logo({
       src={src}
       onError={() => setFailed(true)}
       alt="My Airport Taxi NI"
-      width={compact ? HEADER_LOGO_WIDTH : ORIGINAL_LOGO_WIDTH}
-      height={compact ? HEADER_LOGO_HEIGHT : ORIGINAL_LOGO_HEIGHT}
+      width={wide ? WIDE_LOGO_WIDTH : compact ? HEADER_LOGO_WIDTH : ORIGINAL_LOGO_WIDTH}
+      height={wide ? WIDE_LOGO_HEIGHT : compact ? HEADER_LOGO_HEIGHT : ORIGINAL_LOGO_HEIGHT}
       className={`${className} w-auto shrink-0 object-contain`}
       priority={priority}
     />

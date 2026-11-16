@@ -455,6 +455,7 @@ export async function handlePaidBookingsListRequest(
 
       return {
         ...googleAdsOwnerStatusFields(booking),
+        ...(booking.heardAbout ? { heardAbout: booking.heardAbout } : {}),
         paymentReference: booking.paymentReference,
         customerReference: booking.customerReference,
         checkoutId: booking.checkoutId,

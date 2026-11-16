@@ -38,6 +38,8 @@ export type BookingJobRecord = {
   returnTime?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Leg the current driver assignment is for (set by per-leg assignment). */
+  assignedLeg?: "outbound" | "return";
   passengers: number;
   suitcases: number;
   vehicle: string;
@@ -131,6 +133,36 @@ export function driverDisplayFirstName(fullName: string | undefined | null): str
   const trimmed = fullName?.trim() ?? "";
   if (!trimmed) return "";
   return trimmed.split(/\s+/)[0] ?? "";
+}
+
+/**
+ * The driver email must describe the leg being assigned. A return booking has
+ * one booking job (outbound details) but a tracking job per leg, so take the
+ * pickup, drop-off, date, time and flight from the assigned leg.
+ */
+export function driverEmailJobForLeg(
+  job: BookingJobRecord,
+  leg: {
+    journeyLeg?: "outbound" | "return";
+    pickupLabel?: string;
+    dropoffLabel?: string;
+    tripDate?: string;
+    tripTime?: string;
+  },
+): BookingJobRecord {
+  const isReturn = leg.journeyLeg === "return";
+  return {
+    ...job,
+    pickupLabel: leg.pickupLabel?.trim() || (isReturn ? job.dropoffLabel : job.pickupLabel),
+    dropoffLabel: leg.dropoffLabel?.trim() || (isReturn ? job.pickupLabel : job.dropoffLabel),
+    tripDate: leg.tripDate?.trim() || (isReturn ? job.returnDate || job.tripDate : job.tripDate),
+    tripTime: leg.tripTime?.trim() || (isReturn ? job.returnTime || job.tripTime : job.tripTime),
+    flightNumber: isReturn ? job.returnFlightNumber || undefined : job.flightNumber,
+    // One leg per email: never append the other leg's return line.
+    returnJourney: false,
+    returnDate: undefined,
+    returnTime: undefined,
+  };
 }
 
 export function buildDriverAssignmentEmail(options: {
@@ -301,24 +333,25 @@ export function buildCustomerDriverDetailsEmail(options: {
   ${businessEmailClientMeta()}
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:#071c38;font-family:Arial,sans-serif;color:#e8edf5;">
-  <div style="max-width:560px;margin:0 auto;padding:24px;">
-    <div class="matni-header" style="text-align:center;padding:8px 0 20px;">
+<body style="margin:0;padding:0;background:#071c38;font-family:Arial,Helvetica,sans-serif;color:#071c38;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;"><tr><td align="center">
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+<tr><td class="matni-header" style="text-align:center;padding:28px 32px;background:#071c38;">
       ${businessEmailLogoHtml()}
-      <div style="margin-top:12px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#2fbf4a;font-weight:bold;">${escapeHtml(businessName)}</div>
-    </div>
-    <h1 style="color:#2fbf4a;font-size:22px;">Your driver details</h1>
-    <p>Hi ${escapeHtml(customerName)},</p>
-    <p>${
+      <div style="margin-top:16px;font-size:16px;line-height:1.35;color:#ffffff;font-weight:bold;">Your driver details</div>
+</td></tr>
+<tr><td style="padding:28px 32px;font-size:15px;line-height:1.6;color:#071c38;">
+    <p style="margin:0 0 14px;">Hi ${escapeHtml(customerName)},</p>
+    <p style="margin:0 0 14px;">${
       when
         ? `Here are your driver details for <strong>${escapeHtml(when)}</strong>:`
         : "Here are your driver details for your airport transfer:"
     }</p>
-    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:16px;margin:20px 0;">
+    <div style="background:#f7f9fc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;margin:20px 0;">
       <p style="margin:0 0 8px;"><strong>Driver:</strong> ${escapeHtml(driverFirst)}</p>
       ${
         driverMobile
-          ? `<p style="margin:0 0 8px;"><strong>Driver mobile:</strong> <a href="tel:${escapeHtml(driverMobile.replace(/[^\d+]/g, ""))}" style="color:#2fbf4a;">${escapeHtml(driverMobile)}</a></p>`
+          ? `<p style="margin:0 0 8px;"><strong>Driver mobile:</strong> <a href="tel:${escapeHtml(driverMobile.replace(/[^\d+]/g, ""))}" style="color:#13892a;">${escapeHtml(driverMobile)}</a></p>`
           : ""
       }
       ${vehicle ? `<p style="margin:0 0 8px;"><strong>Vehicle:</strong> ${escapeHtml(vehicle)}</p>` : ""}
@@ -328,12 +361,13 @@ export function buildCustomerDriverDetailsEmail(options: {
     </div>
     ${
       options.meetGreet
-        ? `<p style="margin:0 0 16px;"><strong style="color:#2fbf4a;">Meet &amp; Greet:</strong> ${escapeHtml(MEET_GREET_DESCRIPTION)}</p>`
+        ? `<p style="margin:0 0 16px;"><strong style="color:#13892a;">Meet &amp; Greet:</strong> ${escapeHtml(MEET_GREET_DESCRIPTION)}</p>`
         : ""
     }
-    <p style="color:#c5d0e0;font-size:14px;">If you need to change anything, reply to this email or WhatsApp us.</p>
-    <p style="font-size:12px;color:#8a97ab;">${escapeHtml(businessName)}</p>
-  </div>
+    <p style="margin:0;">If you need to change anything, reply to this email or WhatsApp us.</p>
+</td></tr>
+<tr><td style="padding:18px 32px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.6;color:#33445a;"><strong>${escapeHtml(businessName)}</strong></td></tr>
+</table></td></tr></table>
 </body>
 </html>`);
 

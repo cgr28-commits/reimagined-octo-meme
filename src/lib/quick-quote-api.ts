@@ -67,8 +67,48 @@ export type QuickQuoteCalculateResult =
       minimumBookingNoticeHours?: number;
       ownerAvailability?: PublicOwnerAvailability;
       depositCash?: PublicDepositCashOffer;
+      /** Empty Run: this fare already includes the discount. */
+      emptyRunSavingGbp?: number;
+      emptyRunNormalAmountGbp?: number;
+      /** Empty Run: a cheaper pickup time the same day (estimate; re-quote at that time). */
+      emptyRunOffer?: EmptyRunTimeOfferPublic;
     }
-  | { ok: false; reason?: string; message: string; error?: string };
+  | {
+      ok: false;
+      reason?: string;
+      message: string;
+      error?: string;
+      /** Measured route (km), sent with a personal-quote answer so the distance rule can apply. */
+      distanceKm?: number;
+      /** "business_class_distance" when Business Class is request-only because of the journey distance. */
+      requestReason?: string;
+    };
+
+export type EmptyRunTimeOfferPublic = {
+  tripDate: string;
+  tripTime: string;
+  direction: "earlier" | "later";
+  estimatedAmountGbp: number;
+  estimatedSavingGbp: number;
+};
+
+function parseEmptyRunOffer(value: unknown): EmptyRunTimeOfferPublic | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const tripDate = String(v.tripDate ?? "");
+  const tripTime = String(v.tripTime ?? "");
+  const amount = Number(v.estimatedAmountGbp);
+  const saving = Number(v.estimatedSavingGbp);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tripDate) || !/^\d{2}:\d{2}$/.test(tripTime)) return undefined;
+  if (!Number.isFinite(amount) || !Number.isFinite(saving) || saving <= 0) return undefined;
+  return {
+    tripDate,
+    tripTime,
+    direction: v.direction === "later" ? "later" : "earlier",
+    estimatedAmountGbp: amount,
+    estimatedSavingGbp: saving,
+  };
+}
 
 export type QuickQuoteCreateResult = {
   ok: true;
@@ -142,11 +182,14 @@ async function calculateServerQuoteOnce(
   );
   const payload = await parseJson(response);
   if (!response.ok) {
+    const failedDistanceKm = Number(payload.distanceKm);
     return {
       ok: false,
       reason: String(payload.reason ?? (response.status >= 500 ? "server_unavailable" : "")),
       message: String(payload.message || payload.error || "Could not calculate fare"),
       error: String(payload.error ?? ""),
+      ...(Number.isFinite(failedDistanceKm) && failedDistanceKm > 0 ? { distanceKm: failedDistanceKm } : {}),
+      ...(typeof payload.requestReason === "string" ? { requestReason: payload.requestReason } : {}),
     };
   }
   if (payload.ok !== true) {
@@ -194,6 +237,15 @@ async function calculateServerQuoteOnce(
       : {}),
     ...(typeof payload.airportFixedCostsGbp === "number"
       ? { airportFixedCostsGbp: Number(payload.airportFixedCostsGbp) }
+      : {}),
+    ...(typeof payload.emptyRunSavingGbp === "number" && payload.emptyRunSavingGbp > 0
+      ? {
+          emptyRunSavingGbp: Number(payload.emptyRunSavingGbp),
+          emptyRunNormalAmountGbp: Number(payload.emptyRunNormalAmountGbp),
+        }
+      : {}),
+    ...(parseEmptyRunOffer(payload.emptyRunOffer)
+      ? { emptyRunOffer: parseEmptyRunOffer(payload.emptyRunOffer) }
       : {}),
     ...(typeof payload.outboundOneWayBeforeAccessGbp === "number"
       ? { outboundOneWayBeforeAccessGbp: Number(payload.outboundOneWayBeforeAccessGbp) }

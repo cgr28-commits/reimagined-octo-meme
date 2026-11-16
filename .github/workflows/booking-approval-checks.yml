@@ -1,0 +1,60 @@
+name: Booking approval checks
+
+on:
+  pull_request:
+    paths:
+      - "workers/addresses/**"
+      - "shared/**"
+      - "src/**"
+      - "scripts/check-approval-policy.ts"
+      - "scripts/check-booking-approval-flow.ts"
+      - ".github/workflows/booking-approval-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            workers/addresses/package-lock.json
+      - name: Sync shared modules into worker
+        run: node scripts/sync-worker-shared.mjs
+      - name: Install worker dependencies
+        working-directory: workers/addresses
+        run: npm ci
+      - name: Worker typecheck + dry-run deploy
+        working-directory: workers/addresses
+        run: npm run build
+      - name: Install root dependencies
+        run: npm ci
+      - name: Approval policy (tiers, overnight, GMT/BST)
+        run: npx tsx scripts/check-approval-policy.ts
+      - name: Approval flow (lock, expiry, capture, links, races)
+        run: npx tsx scripts/check-booking-approval-flow.ts
+      - name: Existing short-notice checks touched by this change
+        run: |
+          npx tsx scripts/check-owner-quiet-hours.ts
+          npx tsx scripts/check-short-notice-hold-before-request.ts
+
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Static export build
+        run: GITHUB_PAGES=true npm run build

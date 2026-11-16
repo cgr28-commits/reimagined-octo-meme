@@ -107,3 +107,26 @@ export async function fetchEmptyLegsPreviewCsv(
     ownerKey,
   ) as Promise<EmptyLegsPreviewCsvResponse>;
 }
+
+export type EmptyRunSettingsPublic = {
+  enabled: boolean;
+  maxDiscountPercent: number;
+  minFareGbp: number;
+  updatedAt: string;
+};
+
+export async function fetchEmptyRunSettings(ownerKey: string): Promise<EmptyRunSettingsPublic> {
+  const body = (await ownerFetch("/owner/smart-ops/empty-run", ownerKey)) as { settings: EmptyRunSettingsPublic };
+  return body.settings;
+}
+
+export async function saveEmptyRunSettings(
+  ownerKey: string,
+  patch: Partial<Pick<EmptyRunSettingsPublic, "enabled" | "maxDiscountPercent" | "minFareGbp">>,
+): Promise<EmptyRunSettingsPublic> {
+  const body = (await ownerFetch("/owner/smart-ops/empty-run", ownerKey, {
+    method: "POST",
+    body: JSON.stringify(patch),
+  })) as { settings: EmptyRunSettingsPublic };
+  return body.settings;
+}

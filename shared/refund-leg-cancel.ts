@@ -235,3 +235,25 @@ export function calendarEventMatchesTrackingJob(
   const jobKey = londonMinuteKey(job.pickupAt) || londonMinuteKey(`${job.tripDate || ""}T${job.tripTime || ""}`);
   return Boolean(eventKey && jobKey && eventKey === jobKey);
 }
+
+/**
+ * Split a booking's Google Calendar event ids by leg so an edit to one leg
+ * never moves the other. Older bookings have no per-leg map: their events
+ * were created outbound first, then return, so index 0/1 is used.
+ */
+export function calendarEventIdsForEdit(input: {
+  returnJourney?: boolean;
+  calendarEventIds?: string[];
+  calendarEventIdsByLeg?: CalendarEventIdsByLeg;
+}): { outbound: string[]; return: string | null } {
+  const ids = (input.calendarEventIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const byOutbound = input.calendarEventIdsByLeg?.outbound?.trim();
+  const byReturn = input.calendarEventIdsByLeg?.return?.trim();
+  if (byOutbound || byReturn) {
+    return { outbound: byOutbound ? [byOutbound] : [], return: byReturn || null };
+  }
+  if (input.returnJourney && ids.length >= 2) {
+    return { outbound: [ids[0]!], return: ids[1]! };
+  }
+  return { outbound: ids, return: null };
+}

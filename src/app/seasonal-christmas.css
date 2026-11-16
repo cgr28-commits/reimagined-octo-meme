@@ -1,0 +1,75 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Christmas decorations (owner, 15–16 Nov 2026) — every page with a quote tool
+   (homepage, hub/landing pages, book pages).
+   On/off switch: CHRISTMAS_DECORATIONS in src/lib/seasonal.ts (renders the
+   [data-seasonal-christmas] marker in the root layout). Nothing here touches the
+   logo artwork, the quote form's fields or any booking behaviour: everything is a
+   pseudo-element with pointer-events: none.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* 1. Santa hat perched on the taxi's roof sign, top-left of the logo
+      (pages that have a quote tool) */
+body:has([data-seasonal-christmas]):has(.quote-flow) header[data-site-header] .quote-header-logo-wide {
+  position: relative;
+}
+body:has([data-seasonal-christmas]):has(.quote-flow) header[data-site-header] .quote-header-logo-wide::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  left: 3.6%;
+  top: -21%;
+  width: 11.5%;
+  aspect-ratio: 100 / 80;
+  background: url("/seasonal/santa-hat.svg") center / contain no-repeat;
+  transform: rotate(-14deg);
+  transform-origin: 50% 85%;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+/* 2. Snow settled along the top edge of the white quote card, fairy lights draped
+      over it, and a few flakes drifting down onto it (kept above the title row and buttons).
+      One pseudo-element, three background layers (lights on top).
+      Journey step only — hidden once prices, vehicles or checkout show. */
+body:has([data-seasonal-christmas]) .quote-flow:not([data-quote-results], [data-d2="vehicle"], [data-d2="details"], :has(#step3-payment-actions, [data-checkout-aside], [data-quote-result-card]))::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  z-index: 3;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: -1.5rem;
+  height: 3rem;
+  background-image:
+    url("/seasonal/fairy-lights.svg"),
+    url("/seasonal/snow-cap.svg"),
+    url("/seasonal/snowflakes.svg");
+  background-position: 0 17px, 0 12px, 0 0;
+  background-size: auto 30px, auto 16px, auto 42px;
+  background-repeat: round no-repeat, repeat-x, repeat-x;
+  /* soften the ends so the snow and lights taper into the rounded corners */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 0.75rem, #000 calc(100% - 0.75rem), transparent);
+  pointer-events: none;
+  opacity: 1;
+  transform: none;
+}
+@media (max-width: 1199.98px) {
+  body:has([data-seasonal-christmas]) .quote-flow:not([data-quote-results], [data-d2="vehicle"], [data-d2="details"], :has(#step3-payment-actions, [data-checkout-aside], [data-quote-result-card]))::after {
+    left: 1rem;
+    right: 1rem;
+    top: -1.25rem;
+    height: 2.25rem;
+    background-position: 0 14px, 0 10px, 0 0;
+    background-size: auto 22px, auto 12px, auto 30px;
+    background-repeat: repeat-x, repeat-x, repeat-x;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has([data-seasonal-christmas]) .quote-flow:not([data-quote-results], [data-d2="vehicle"], [data-d2="details"], :has(#step3-payment-actions, [data-checkout-aside], [data-quote-result-card]))::after {
+    background-image:
+      url("/seasonal/fairy-lights-still.svg"),
+      url("/seasonal/snow-cap.svg"),
+      url("/seasonal/snowflakes-still.svg");
+  }
+}

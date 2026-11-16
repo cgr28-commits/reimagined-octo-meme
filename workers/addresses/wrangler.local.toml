@@ -11,9 +11,17 @@ id = "local-tracking-demo-store"
 name = "REFUND_COORDINATOR"
 class_name = "RefundCoordinator"
 
+[[durable_objects.bindings]]
+name = "BESPOKE_QUOTE_COORDINATOR"
+class_name = "BespokeQuoteCoordinator"
+
 [[migrations]]
 tag = "v1-refund-coordinator"
 new_sqlite_classes = ["RefundCoordinator"]
+
+[[migrations]]
+tag = "v2-bespoke-quote-coordinator"
+new_sqlite_classes = ["BespokeQuoteCoordinator"]
 
 [vars]
 DRIVER_ACCESS_KEY = "demo-driver-key"

@@ -65,7 +65,7 @@ export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; 
     "",
     `Book online: ${SITE.url}`,
     `WhatsApp: @${SITE.whatsappUsername}`,
-    `Call: ${SITE.officeLandlineDisplay} · WhatsApp: ${SITE.landlineDisplay}`,
+    `Call: ${SITE.officeLandlineDisplay}`,
     `Email: ${SITE.email}`,
   ];
 
@@ -104,8 +104,7 @@ export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; 
           <p style="margin:0 0 8px"><strong>Passengers:</strong> ${draft.passengers ?? "—"}</p>
           <p style="margin:0 0 16px"><strong>Suitcases:</strong> ${draft.suitcases ?? "—"}</p>
           ${includeHtml}
-          <p style="margin:0 0 8px"><a href="${SITE.url}">Book online</a></p>
-          <p style="margin:0">Call ${SITE.officeLandlineDisplay} · WhatsApp ${SITE.landlineDisplay} · ${SITE.email}</p>
+          <p style="margin:8px 0 0;text-align:center;"><a href="${SITE.url}" style="display:inline-block;background:#2fbf4a;color:#071c38;text-decoration:none;font-weight:bold;font-size:15px;padding:13px 26px;border-radius:10px;">Book online</a></p>
         </td></tr>
       </table>
     </td></tr>

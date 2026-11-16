@@ -54,6 +54,8 @@ import {
 } from "./owner-mobile-data";
 import { fetchOwnerPaidBookings, type OwnerPaidBookingSummary } from "@/lib/paid-bookings-api";
 import { fetchShortNoticeBookings, type ShortNoticeBookingSummary } from "@/lib/short-notice-api";
+import { fetchOwnerBookingJobs } from "@/lib/booking-jobs-api";
+import type { BookingJobRecord } from "../../../shared/booking-job";
 import {
   ownerInboxFetch,
   type InboxListResponse,
@@ -224,6 +226,7 @@ export default function OwnerMobileApp({
   const [now, setNow] = useState(() => new Date());
   const [bookings, setBookings] = useState<OwnerPaidBookingSummary[]>([]);
   const [shortNotice, setShortNotice] = useState<ShortNoticeBookingSummary[]>([]);
+  const [requests, setRequests] = useState<BookingJobRecord[]>([]);
   const [inbox, setInbox] = useState<InboxListResponse | null>(null);
   const [chats, setChats] = useState<MobileWhatsAppChat[]>([]);
   const [loadErrors, setLoadErrors] = useState<string[]>([]);
@@ -259,6 +262,7 @@ export default function OwnerMobileApp({
       const data = sampleOwnerData(new Date());
       setBookings(data.bookings);
       setShortNotice(data.shortNotice);
+      setRequests([]);
       setInbox(data.inbox);
       setChats(data.chats);
       setLoadErrors([]);
@@ -291,6 +295,7 @@ export default function OwnerMobileApp({
     await Promise.all([
       bookingsPart,
       part(fetchShortNoticeBookings(ownerKey), setShortNotice, "short-notice requests"),
+      part(fetchOwnerBookingJobs(ownerKey), setRequests, "website requests"),
       part(ownerInboxFetch<InboxListResponse>(ownerKey, "/owner/inbox"), setInbox, "emails"),
       part(fetchWhatsAppChats(ownerKey), setChats, "WhatsApp chats"),
     ]);
@@ -340,11 +345,12 @@ export default function OwnerMobileApp({
 
   const threads = useMemo(() => inbox?.threads ?? [], [inbox]);
   const summary = useMemo(
-    () => buildHomeSummary({ bookings, shortNotice, threads, chats, now }),
-    [bookings, shortNotice, threads, chats, now],
+    () => buildHomeSummary({ bookings, shortNotice, threads, chats, requests, now }),
+    [bookings, shortNotice, threads, chats, requests, now],
   );
   const messages = useMemo(() => buildMessageItems(threads, chats, now), [threads, chats, now]);
   const awaitingRequests = summary.urgent.filter((item) => item.kind === "short_notice").length;
+  const newRequests = summary.urgent.filter((item) => item.kind === "request").length;
 
   const openTab = (next: OwnerMobileTab) => {
     setTab(next);
@@ -362,16 +368,28 @@ export default function OwnerMobileApp({
       openMessage(channel === "email" ? { channel: "email", threadKey: id } : { channel: "whatsapp", phone: id });
       return;
     }
+    if (item.target.tab === "enquiries") {
+      onOpenTool("enquiries", { returnTab: tab });
+      // Jump straight to that request once the Enquiries list has loaded.
+      if (item.target.ref) {
+        const hash = `#owner-booking-job-${item.target.ref}`;
+        window.setTimeout(() => {
+          if (window.location.hash !== hash) window.location.hash = hash;
+          else window.dispatchEvent(new HashChangeEvent("hashchange"));
+        }, 50);
+      }
+      return;
+    }
     if (item.target.tab === "requests") onOpenTool("requests", { returnTab: tab });
     else if (item.target.tab === "admin") onOpenTool("admin", { returnTab: tab });
   };
 
   const openLeg = (leg: OwnerOpsLeg) => setView({ kind: "booking", ref: leg.bookingId, leg: leg.leg });
 
-  const copy = async (text: string) => {
+  const copy = async (text: string, copiedMessage = "Copied") => {
     try {
       await navigator.clipboard.writeText(text);
-      setToast("Copied");
+      setToast(copiedMessage);
     } catch {
       setToast("Couldn't copy on this device");
     }
@@ -514,6 +532,7 @@ export default function OwnerMobileApp({
     screen = (
       <MoreScreen
         awaitingRequests={awaitingRequests}
+        newRequests={newRequests}
         onOpenDrivers={driversSummary ? () => setView({ kind: "drivers" }) : undefined}
         onOpenNotifications={sample ? undefined : () => setView({ kind: "notifications" })}
         driversSummary={driversSummary}
@@ -747,7 +766,7 @@ function HomeScreen({
               urgentShown.map((item) => (
                 <button key={item.id} type="button" className={styles.row} onClick={() => onOpenUrgent(item)}>
                   <span className={`${styles.rowIcon} ${toneClass(item.tone)}`}>
-                    {item.kind === "short_notice" ? (
+                    {item.kind === "short_notice" || item.kind === "request" ? (
                       <ClockIcon size={19} />
                     ) : item.kind === "email" ? (
                       <MailIcon size={19} />
@@ -1034,7 +1053,7 @@ function BookingDetail({
   threads: InboxListResponse["threads"];
   chats: MobileWhatsAppChat[];
   onBack: () => void;
-  onCopy: (text: string) => void;
+  onCopy: (text: string, copiedMessage?: string) => void;
   onOpenMessage: (item: Pick<MobileMessageItem, "channel" | "threadKey" | "phone">) => void;
   onFullControls: (date: string) => void;
 }) {
@@ -1164,6 +1183,21 @@ function BookingDetail({
           <Fact label="Vehicle" value={booking.vehicle || "—"} />
           <Fact label="Driver" value={driver || "Not assigned"} />
         </section>
+
+        {flight ? (
+          <button
+            type="button"
+            data-track-flight
+            className={styles.secondaryButton}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minHeight: 48, fontSize: 15 }}
+            onClick={() =>
+              onCopy(flight.replace(/\s+/g, ""), `${flight.replace(/\s+/g, "")} copied – paste it into Flighty's search`)
+            }
+          >
+            <PlaneIcon size={16} />
+            Track flight in Flighty – copy {flight.replace(/\s+/g, "")}
+          </button>
+        ) : null}
 
         {booking.notes?.trim() ? (
           <section aria-label="Notes" className={`${styles.card} ${styles.cardPad}`}>
@@ -2085,7 +2119,7 @@ const MORE_GROUPS: Array<{ title: string; items: Array<{ tool: OwnerDashboardToo
     title: "Bookings & requests",
     items: [
       { tool: "requests", label: "Short-notice requests", hint: "Approve or decline, deposit cash" },
-      { tool: "enquiries", label: "Enquiries & quotes", hint: "Quote and enquiry jobs" },
+      { tool: "enquiries", label: "Website requests & quotes", hint: "New requests — send a price" },
       { tool: "past", label: "Past jobs", hint: "Completed journeys and quote again" },
       { tool: "availability", label: "Availability", hint: "When customers can book online" },
     ],
@@ -2119,11 +2153,12 @@ const ADVANCED_TOOLS: Array<{ tool: OwnerDashboardToolTab; label: string }> = [
   { tool: "a2a-quotes", label: "A2A Quotes" },
   { tool: "personal-quotes", label: "Personal Quotes" },
   { tool: "same-fare", label: "Same Fare Test" },
-  { tool: "empty-legs", label: "Empty Legs (preview)" },
+  { tool: "empty-legs", label: "Empty Legs & discount" },
 ];
 
 function MoreScreen({
   awaitingRequests,
+  newRequests = 0,
   onOpenDrivers,
   onOpenNotifications,
   driversSummary,
@@ -2132,6 +2167,7 @@ function MoreScreen({
   onSignOut,
 }: {
   awaitingRequests: number;
+  newRequests?: number;
   onOpenDrivers?: () => void;
   onOpenNotifications?: () => void;
   driversSummary?: DriversSummary | null;
@@ -2200,6 +2236,9 @@ function MoreScreen({
                 </span>
                 {item.tool === "requests" && awaitingRequests ? (
                   <span className={`${styles.chip} ${styles.red}`}>{awaitingRequests} to decide</span>
+                ) : null}
+                {item.tool === "enquiries" && newRequests ? (
+                  <span className={`${styles.chip} ${styles.red}`}>{newRequests} new</span>
                 ) : null}
                 <ChevronIcon size={18} />
               </button>

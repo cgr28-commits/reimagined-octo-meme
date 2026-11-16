@@ -363,9 +363,19 @@ export function buildTransferCalendarEvents(
     isValidTime(booking.returnTime)
   ) {
     const returnStart = `${booking.returnDate}T${booking.returnTime}`;
+    // Return leg runs the other way: collect from the outbound drop-off.
+    const returnDescription = buildTransferDescription(
+      {
+        ...booking,
+        tripLabel: `${booking.tripLabel} — RETURN`,
+        pickupLabel: booking.dropoffLabel,
+        dropoffLabel: booking.pickupLabel,
+      },
+      message,
+    );
     events.push({
       summary: buildTransferSummary(booking, " (Return)"),
-      description,
+      description: returnDescription,
       location: booking.dropoffLabel,
       startDateTime: returnStart,
       endDateTime: addMinutes(returnStart, DEFAULT_TRANSFER_DURATION_MINUTES),
@@ -527,6 +537,40 @@ async function createCalendarEvent(
   }
 
   return payload.id;
+}
+
+/**
+ * Flight-shaped diary entry (e.g. "IB1885 MAD to DUB") so flight apps such as
+ * Flighty that scan the calendar pick the customer's flight up. Shown as free
+ * time so it never blocks availability checks.
+ */
+export async function createFlightCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  event: { summary: string; description: string; location?: string; startUtc: string; endUtc: string },
+): Promise<string> {
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        summary: event.summary,
+        description: event.description,
+        location: event.location,
+        start: { dateTime: event.startUtc, timeZone: "UTC" },
+        end: { dateTime: event.endUtc, timeZone: "UTC" },
+        transparency: "transparent",
+        reminders: { useDefault: false, overrides: [] },
+      }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Flight calendar event failed (${response.status}) ${detail.slice(0, 200)}`);
+  }
+  const payload = (await response.json()) as { id?: string };
+  return payload.id ?? "";
 }
 
 const CANCELLED_SUMMARY_PREFIX = "CANCELLED — ";

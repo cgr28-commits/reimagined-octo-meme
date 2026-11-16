@@ -23,6 +23,7 @@ import {
   BUSINESS_PHONE_TEL,
   BUSINESS_WEBSITE,
   businessEmailLogoHtml,
+  brandFrameEmailHtml,
   businessWhatsAppChatUrl, BUSINESS_LANDLINE_DISPLAY, BUSINESS_LANDLINE_TEL
 } from "./business-email";
 import { normalizeCustomerBookingReference } from "./customer-booking-reference";
@@ -110,6 +111,8 @@ export type AirportPickupReminderInput = {
   returnCancelledAt?: string | null;
   journeyStatus?: string | null;
   isRefundTest?: boolean | null;
+  /** "bespoke" = manually priced quotation — standard airport instructions are not sent. */
+  bookingType?: "bespoke" | null;
   /** Ignored. Tests pass a driver mobile to prove it is never copied into the message. */
   assignedDriverMobile?: string | null;
   /** Short customer reference (MAT-####). Payment and checkout ids are not used. */
@@ -120,6 +123,7 @@ export type AirportPickupReminderSkipReason =
   | "already_sent"
   | "cancelled"
   | "not_customer_booking"
+  | "bespoke_quotation"
   | "journey_finished"
   | "not_from_airport"
   | "not_today"
@@ -491,6 +495,7 @@ export function evaluateAirportPickupReminder(
 
   if (input.reminderSentAt?.trim()) return skip("already_sent");
   if (input.isRefundTest) return skip("not_customer_booking");
+  if (input.bookingType === "bespoke") return skip("bespoke_quotation");
   if (isCancelledBooking(input)) return skip("cancelled");
   if (input.journeyStatus === "completed") return skip("journey_finished");
   if (!isAirportCollection(input)) return skip("not_from_airport");
@@ -584,7 +589,7 @@ function buildAirportPickupReminderHtml(message: string, whatsAppHref: string, m
 
   // Match the original booking confirmation header and palette. Do not run this
   // template through lightCustomerEmailHtml, which replaces the navy header.
-  return `<!DOCTYPE html>
+  return brandFrameEmailHtml(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Important information about your airport collection</title>
 <style type="text/css">
@@ -601,7 +606,7 @@ ${reference ? `<div style="margin-top:14px;display:inline-block;background:rgba(
 </td></tr>
 <tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#334155;">${paragraphs}${mapPlaced ? "" : mapHtml}</td></tr>
 <tr><td style="background:${navy};padding:16px 32px;text-align:center;font-size:12px;line-height:1.6;color:#94a3b8;">Premium airport transfers across Northern Ireland · Belfast · Dublin · Derry</td></tr>
-</table></td></tr></table></body></html>`;
+</table></td></tr></table></body></html>`);
 }
 
 export function airportPickupReminderUsesCompanyVoice(message: string): boolean {

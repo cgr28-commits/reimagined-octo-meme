@@ -19,7 +19,7 @@ import { resolveGooglePlaceDetails } from "../shared/google-places";
 import { servedAirportFromPlaceId } from "../shared/served-airports";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { consumeQuickQuoteCreateQuota } from "./quick-quote-store";
-import { checkWhatsAppAvailability } from "./whatsapp-handlers";
+import { checkWhatsAppAvailability, sendWhatsAppQuoteFormTo, type WhatsAppEnv } from "./whatsapp-handlers";
 import { sendQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { markVoiceLinkSent } from "./voice-followup";
 import { voiceBookingToolsEnabled, VOICE_BOOKING_TOOLS_DISABLED_SAY } from "../shared/voice-live-gates";
@@ -37,6 +37,10 @@ type VoiceQuoteMemo = { amountLabel: string; journeyLabel: string; whenLabel: st
 
 /** Ready-to-send text message with the booking link (fonio "Send SMS" backup to WhatsApp). */
 function smsText(memo: VoiceQuoteMemo, bookingUrl: string): string {
+  if (!memo.whenLabel) {
+    // No date or time given on the call (not asked while no time-based surcharge is on).
+    return `My Airport Taxi NI: your fixed price for ${memo.journeyLabel} is ${memo.amountLabel}, held for ${memo.heldFor}. Choose your date and time and book here: ${bookingUrl}`;
+  }
   return `My Airport Taxi NI: your fixed price for ${memo.journeyLabel} on ${memo.whenLabel} is ${memo.amountLabel}, held for ${memo.heldFor}. Check your details and book here: ${bookingUrl}`;
 }
 const MEMO_TTL_SECONDS = 3 * 60 * 60;
@@ -135,7 +139,12 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     }
   }
 
-  const checked = voiceQuoteDraft({ ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff });
+  // Owner decision (15 Nov 2026): the phone always asks the date and pickup time.
+  const checked = voiceQuoteDraft(
+    { ...input, pickup: pickupText || input.pickup, dropoff: dropoffText || input.dropoff },
+    new Date(),
+    { scheduleUpFront: true },
+  );
   if (!checked.ok) {
     return reply({
       ok: false,
@@ -153,16 +162,11 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     });
   }
 
+  // Owner decision (15 Nov 2026): never turn a caller away ("too soon", "closed", "fully booked").
+  // Always price and send the booking link; the website applies the dashboard availability
+  // settings (request + payment held for the owner to accept, released if not accepted).
   const availability = await checkWhatsAppAvailability(draft, store);
-  if (!availability.ok) {
-    const say =
-      availability.reason === "notice" || availability.reason === "overnight"
-        ? "That's a bit soon for us to guarantee a car. Can I take your name and mobile so the team can see if they can fit you in?"
-        : availability.reason === "closed"
-          ? "We're not taking bookings for that time. Can I take a message and have the team call you back?"
-          : "We're fully booked at that time. Would a slightly earlier or later pickup work for you?";
-    return reply({ ok: false, unavailable: availability.reason, say });
-  }
+  const requestOnly = !availability.ok || availability.requestOnly;
 
   const quoteBody = {
     ...whatsAppDraftToQuoteBody(draft),
@@ -199,12 +203,12 @@ export async function handleVoiceQuote(request: Request, env: Env): Promise<Resp
     price: priced.record.quotedAmountLabel,
     priceGbp: amount,
     returnJourney: Boolean(draft.returnJourney),
-    requestOnly: availability.requestOnly,
+    requestOnly,
     priceHeldHours: linkHours,
     bookingLink: priced.bookingUrl,
     smsText: smsText(memo, priced.bookingUrl),
     vehicle: priced.record.journey.vehicleType ?? null,
-    say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly: availability.requestOnly, shortNotice }),
+    say: voiceQuoteSay({ amount, draft, vehicle: priced.record.journey.vehicleType, requestOnly, shortNotice }),
   });
 }
 
@@ -236,17 +240,19 @@ async function emailBookingLink(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const first = input.name.trim().split(/\s+/)[0] || "there";
   const subject = `Your transfer booking link — My Airport Taxi NI`;
+  // No date or time given on the call (not asked while no time-based surcharge is on).
+  const whenPart = input.memo.whenLabel ? ` on ${input.memo.whenLabel}` : "";
   const body = [
     `Hi ${first},`,
     "",
-    `Your fixed price for ${input.memo.journeyLabel} on ${input.memo.whenLabel} is ${input.memo.amountLabel} (held for ${input.memo.heldFor}).`,
+    `Your fixed price for ${input.memo.journeyLabel}${whenPart} is ${input.memo.amountLabel} (held for ${input.memo.heldFor}).`,
     "",
-    `Check your details and complete booking here:`,
+    input.memo.whenLabel ? `Check your details and complete booking here:` : `Choose your date and time and complete booking here:`,
     input.bookingUrl,
     "",
     `My Airport Taxi NI`,
   ].join("\n");
-  const htmlBody = `<p>Hi ${first},</p><p>Your fixed price for <strong>${input.memo.journeyLabel}</strong> on ${input.memo.whenLabel} is <strong>${input.memo.amountLabel}</strong> (held for ${input.memo.heldFor}).</p><p><a href="${input.bookingUrl}">Check your details and complete booking</a></p><p>My Airport Taxi NI</p>`;
+  const htmlBody = `<p>Hi ${first},</p><p>Your fixed price for <strong>${input.memo.journeyLabel}</strong>${whenPart} is <strong>${input.memo.amountLabel}</strong> (held for ${input.memo.heldFor}).</p><p><a href="${input.bookingUrl}">${input.memo.whenLabel ? "Check your details and complete booking" : "Choose your date and time and complete booking"}</a></p><p>My Airport Taxi NI</p>`;
   try {
     await sendEmail(env, {
       to: input.email,
@@ -368,7 +374,8 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
       customerName: name,
       mobile: waTo,
       journeyLabel: memo.journeyLabel,
-      whenLabel: memo.whenLabel,
+      // The approved WhatsApp template needs a value here; with no date given yet it says so.
+      whenLabel: memo.whenLabel || "a date you choose",
       amountLabel: memo.amountLabel,
       heldFor: memo.heldFor,
     });
@@ -437,4 +444,43 @@ export async function handleVoiceSendLink(request: Request, env: Env & WhatsAppT
   }
 
   return reply({ ok: false, messageStatus: "generated", delivered: false, say: fallback });
+}
+
+/**
+ * POST /voice/quote-form — when the phone receptionist can't pin down an address, send the
+ * caller our WhatsApp quote form (the same Flow the WhatsApp assistant uses): they tap their
+ * own addresses, date, time and bags, and the fixed price comes back in WhatsApp
+ * (owner decision 15 Nov 2026). Body: { mobile, pickup?, dropoff? }.
+ * WhatsApp only lets us send the form to someone who has messaged us in the last 24 hours,
+ * so this can fail; the reply then says what to do next instead.
+ */
+export async function handleVoiceQuoteForm(request: Request, env: Env & WhatsAppEnv): Promise<Response> {
+  const store = env.TRACKING_STORE;
+  const notSent = {
+    ok: false,
+    sent: false,
+    say: "I couldn't send that to WhatsApp just now. Could you give me the postcode instead?",
+  };
+  if (!store) return reply(notSent);
+  const input = readInput(await request.json().catch(() => null)) as Record<string, unknown>;
+  const mobile = String(input.mobile ?? input.phone ?? input.fromNumber ?? "").trim();
+  const to = whatsAppRecipient(mobile);
+  if (!to) {
+    return reply({
+      ok: false,
+      sent: false,
+      missing: ["mobile"],
+      say: "What's the mobile number you use for WhatsApp?",
+    });
+  }
+  const sent = await sendWhatsAppQuoteFormTo(env, store, to, {
+    pickup: String(input.pickup ?? "").trim().slice(0, 120),
+    dropoff: String(input.dropoff ?? "").trim().slice(0, 120),
+  }).catch(() => false);
+  if (!sent) return reply(notSent);
+  return reply({
+    ok: true,
+    sent: true,
+    say: "I've sent you a short form on WhatsApp — tap Get my price, pick your addresses from the list, and your fixed price comes straight back to you there.",
+  });
 }

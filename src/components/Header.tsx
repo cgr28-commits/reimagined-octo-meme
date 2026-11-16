@@ -7,13 +7,15 @@ import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
 import CallUsButton from "./CallUsButton";
 import SiteNavLink from "./SiteNavLink";
-import { NAV_LINKS, SITE } from "@/lib/data";
+import { SITE } from "@/lib/data";
+import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
 
 /** Desktop bar keeps the main pages; homepage shortcuts go under "More" so the bar fits laptops. */
 // Laptop/desktop bar: these sit under "More" so the links never run into the logo or
 // the phone number (the bar is capped at 1400px wide, so this holds on big screens too).
 const DESKTOP_MORE_HREFS = new Set([
   "/belfast-grand-central-station-taxi/",
+  "/events/",
   "/belfast-cruise-terminal-transfers/",
   "/#vehicles",
   "/#flight-status",
@@ -32,6 +34,7 @@ const WIDE_BAR_HREFS = new Set(["/tours/"]);
 const DESKTOP_WIDE_DIRECT_HREFS = new Set([
   "/tours/",
   "/belfast-grand-central-station-taxi/",
+  "/events/",
   "/belfast-cruise-terminal-transfers/",
   "/#faq",
 ]);
@@ -121,8 +124,8 @@ export default function Header() {
                 <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0" onClick={closeMenu}>
                   {/* The menu panel turns light under html[data-mobile-light]; swap to the
                       navy-text logo there so the wordmark stays visible. */}
-                  <Logo className="menu-logo-dark h-14" />
-                  <Logo className="menu-logo-light hidden h-14" theme="light" />
+                  <Logo wide className="menu-logo-dark h-10 max-w-[70vw]" />
+                  <Logo wide className="menu-logo-light hidden h-10 max-w-[70vw]" theme="light" />
                 </Link>
                 <button
                   type="button"
@@ -229,9 +232,28 @@ export default function Header() {
         </div>
 
         <div className="desktop-shell mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5 sm:px-6 md:py-3 lg:grid lg:max-w-[1400px] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-x-6 lg:px-10 xl:gap-x-8 xl:px-12">
-          <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
+          <Link
+            href="/"
+            aria-label={`${SITE.name} home`}
+            className="shrink-0"
+            onClick={(event) => {
+              // Already on the homepage (e.g. mid-quote): return to the first screen in place,
+              // keeping the address bar (ad click IDs etc.) and the journey details.
+              // Nothing is cleared, quoted or charged. Other pages follow the link as normal.
+              try {
+                if (window.location.pathname === "/" && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                  event.preventDefault();
+                  window.dispatchEvent(new Event("matni-logo-home"));
+                }
+              } catch {
+                // ignore
+              }
+            }}
+          >
             {/* Mobile: slightly larger mark without growing the bar; md+ unchanged */}
             <Logo className="quote-header-logo h-[3.25rem] sm:h-16 md:h-20" priority />
+            {/* Phones (mobile design): wider, larger logo lockup. A CSS background, so other screens never download it. */}
+            <span className="quote-header-logo-wide hidden" aria-hidden="true" />
           </Link>
 
           <nav

@@ -51,6 +51,15 @@ export async function saveShortNoticeBooking(
     });
   }
 
+  // Durable deadline timer for requests waiting on the owner (idempotent).
+  if (
+    record.status === "SHORT_NOTICE_AWAITING_APPROVAL" &&
+    record.underMinimumNotice &&
+    record.shortNoticeExpiresAt
+  ) {
+    await scheduleShortNoticeDeadline(record.reference, record.shortNoticeExpiresAt);
+  }
+
   const open = await readRefIndex(store, shortNoticeOpenIndexKey());
   const keepOpen = isShortNoticeActiveOnDashboard(record);
   const nextOpen = keepOpen
@@ -170,11 +179,78 @@ function decisionConflictMessage(action: ShortNoticeDecisionAction): string {
  * Durable Objects. A residual last-writer race remains theoretically
  * possible if two puts land before either verify-read.
  */
+let decisionCoordinator: DurableObjectNamespace | undefined;
+
+/** Bind the Durable Object lock (index.ts sets this per request / cron / alarm). */
+export function configureShortNoticeDecisionCoordinator(ns: DurableObjectNamespace | undefined): void {
+  if (ns) decisionCoordinator = ns;
+}
+
+async function callDecisionCoordinator<T>(reference: string, body: unknown): Promise<T> {
+  const ns = decisionCoordinator!;
+  const stub = ns.get(ns.idFromName(reference.trim()));
+  const res = await stub.fetch("https://short-notice-decision/", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return (await res.json()) as T;
+}
+
+/** Start (or restart) the durable deadline timer for a request. Never throws. */
+export async function scheduleShortNoticeDeadline(reference: string, deadlineAt: string | undefined): Promise<boolean> {
+  if (!decisionCoordinator || !deadlineAt) return false;
+  try {
+    const result = await callDecisionCoordinator<{ ok: boolean }>(reference, {
+      op: "schedule",
+      reference,
+      deadlineAt,
+    });
+    return result.ok;
+  } catch (error) {
+    console.error("Short-notice deadline schedule failed", reference, error instanceof Error ? error.message : "");
+    return false;
+  }
+}
+
+/** Free an approve claim when the card could not be charged, so the owner can retry. */
+export async function releaseShortNoticeDecision(
+  reference: string,
+  action: ShortNoticeDecisionAction,
+): Promise<void> {
+  if (!decisionCoordinator) return;
+  try {
+    await callDecisionCoordinator(reference, { op: "release", action });
+  } catch (error) {
+    console.error("Short-notice decision release failed", reference, error instanceof Error ? error.message : "");
+  }
+}
+
+/**
+ * Exclusive decision claim. Uses the Durable Object lock (atomic, deadline
+ * enforced) when bound; falls back to the older KV write-then-read lock.
+ */
 export async function claimShortNoticeDecision(
   store: KVNamespace,
   reference: string,
   action: ShortNoticeDecisionAction,
+  options: { deadlineAt?: string } = {},
 ): Promise<ShortNoticeDecisionClaim> {
+  if (decisionCoordinator) {
+    try {
+      return await callDecisionCoordinator<ShortNoticeDecisionClaim>(reference, {
+        op: "claim",
+        action,
+        ...(options.deadlineAt ? { deadlineAt: options.deadlineAt } : {}),
+      });
+    } catch (error) {
+      console.error("Short-notice decision lock unavailable", reference, error instanceof Error ? error.message : "");
+      return { ok: false, error: "Could not confirm the decision lock. Please try again." };
+    }
+  }
+  if (action !== "expire" && options.deadlineAt && Date.now() >= new Date(options.deadlineAt).getTime()) {
+    return { ok: false, error: decisionConflictMessage("expire"), existingAction: "expire" };
+  }
   const key = shortNoticeDecisionKey(reference);
   const existingRaw = await store.get(key);
   if (existingRaw) {

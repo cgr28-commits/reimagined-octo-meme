@@ -3,10 +3,10 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import VitoVehiclePlaceholder from "@/components/VitoVehiclePlaceholder";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import type { VitoPageContent } from "@/lib/vito-group-content";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
@@ -46,7 +46,13 @@ export default function VitoGroupLanding({ page }: { page: VitoPageContent }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading={page.h1}
+          intro={firstSentence(page.intro)}
+          journey={{ airportCode: page.airportCode, direction: page.direction, preferMinibus: true }}
+        />
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
             items={[
@@ -60,7 +66,6 @@ export default function VitoGroupLanding({ page }: { page: VitoPageContent }) {
 
           <header className="mt-5">
             <p className="text-sm font-semibold text-emerald">{page.eyebrow}</p>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-white sm:text-4xl">{page.h1}</h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">{page.intro}</p>
             <div className="mt-4 sm:mt-6">
               <LandingPageQuoteCta />
@@ -115,12 +120,6 @@ export default function VitoGroupLanding({ page }: { page: VitoPageContent }) {
           </div>
         </div>
 
-        <LocationQuoteSection
-          airportCode={page.airportCode}
-          direction={page.direction}
-          heading={page.quoteHeading}
-          preferMinibus
-        />
       </main>
       <Footer />
     </>

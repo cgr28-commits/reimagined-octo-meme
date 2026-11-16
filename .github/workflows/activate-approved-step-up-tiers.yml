@@ -1,0 +1,110 @@
+name: Activate approved step-up tier fares
+
+# Saves the 13 Saloon tier fares (15 to 125 miles) the owner approved on 14 Nov 2026.
+# Changes nothing else: tiers up to 12 miles and from 150 miles, minimum fares, drive charges,
+# Estate, Business Class, 7 Seater, Christmas, night, evening, weekend, return discount and
+# postcode rules all stay exactly as saved.
+# Refuses to write unless the live tier table is the one the owner approved against.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/activate-approved-step-up-tiers.yml"
+
+concurrency:
+  group: owner-pricing-write
+  cancel-in-progress: false
+
+jobs:
+  save-tiers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save the 13 approved Saloon tier fares only
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const fail = (message) => { console.error(message); process.exit(1); };
+            // Passenger miles -> Saloon fare. Only these 13 rows change.
+            const APPROVED = { 15: 60, 20: 68, 25: 78, 30: 89, 35: 99, 40: 110, 50: 132, 60: 162, 70: 188, 80: 208, 90: 240, 100: 249, 125: 290 };
+            // The live table the owner approved against (pricing version 284, 14 Nov 2026).
+            const BEFORE = [[4, 30], [6, 30], [8, 30], [10, 35], [12, 38], [15, 42], [20, 50], [25, 60], [30, 70], [35, 80], [40, 90], [50, 115],
+              [60, 150], [70, 170], [80, 190], [90, 220], [100, 230], [125, 275], [150, 320], [200, 410], [250, 500], [300, 590]];
+            const AFTER = BEFORE.map(([miles, fare]) => [miles, APPROVED[miles] ?? fare]);
+            if (AFTER.filter(([, fare], i) => fare !== BEFORE[i][1]).length !== 13) fail("Approved table is not 13 changed rows");
+
+            const key = (process.env.OWNER_ACCESS_KEY || "").trim() || (process.env.DRIVER_ACCESS_KEY || "").trim();
+            if (!key) fail("Owner key is not available");
+            const worker = "https://reimagined-octo-meme.cgr28.workers.dev";
+            const origin = "https://www.myairporttaxini.co.uk";
+            const headers = { Accept: "application/json", "Content-Type": "application/json", Origin: origin, "X-Owner-Key": key };
+
+            const pairs = (knots) => (Array.isArray(knots) ? knots : []).map((knot) => [Number(knot.miles), Number(knot.fareGbp)]);
+            const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+            const sorted = (value) => {
+              if (Array.isArray(value)) return value.map(sorted);
+              if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((k) => [k, sorted(value[k])]));
+              return value;
+            };
+            // Every setting except the tier fares, the version number and the save time.
+            const rest = (settings) => {
+              const copy = structuredClone(settings);
+              delete copy.version;
+              delete copy.updatedAt;
+              copy.saloon = { ...copy.saloon, knots: null };
+              return sorted(copy);
+            };
+            const differingKeys = (a, b) => [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+            const table = (knots) => knots.map(([miles, fare]) => miles + "mi £" + fare).join(", ");
+
+            const currentRes = await fetch(worker + "/owner/pricing", { headers });
+            const current = await currentRes.json().catch(() => ({}));
+            if (!currentRes.ok || !current.settings || !current.settings.saloon) fail("Could not read owner pricing " + currentRes.status);
+            const before = current.settings;
+            const live = pairs(before.saloon.knots);
+
+            if (same(live, AFTER)) {
+              console.log("Approved tier fares already saved. No write.");
+              console.log(JSON.stringify({ status: "STEP-UP TIER FARES ALREADY LIVE", version: before.version }));
+              return;
+            }
+            if (!same(live, BEFORE)) {
+              console.error("Live tier table: " + table(live));
+              fail("Refusing to save: the live tier table is not the one the owner approved against.");
+            }
+
+            const next = structuredClone(before);
+            next.saloon.knots = before.saloon.knots.map((knot) => ({ ...knot, fareGbp: APPROVED[Number(knot.miles)] ?? knot.fareGbp }));
+            if (!same(pairs(next.saloon.knots), AFTER)) fail("Refusing to save: built table does not match the approved table");
+            if (JSON.stringify(rest(before)) !== JSON.stringify(rest(next))) fail("Refusing to save: a setting other than the tier fares would change");
+
+            const saveRes = await fetch(worker + "/owner/pricing", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ expectedVersion: before.version, settings: next }),
+            });
+            const saved = await saveRes.json().catch(() => ({}));
+            if (!saveRes.ok || !saved.settings) fail("Save failed " + saveRes.status + " " + (saved.error || saved.code || ""));
+            const after = saved.settings;
+            console.log("Saved pricing version " + after.version + " (was " + before.version + ")");
+            console.log("Before: " + table(BEFORE));
+            console.log("After:  " + table(pairs(after.saloon.knots)));
+            if (!same(pairs(after.saloon.knots), AFTER)) fail("Saved tier fares do not match the approved table");
+            const drift = differingKeys(rest(before), rest(after));
+            if (drift.length) fail("Settings other than the tier fares changed during save: " + drift.join(", "));
+
+            // The public pricing feed is what quotes read. Give storage a moment to catch up.
+            let shown = false;
+            for (let attempt = 0; attempt < 12 && !shown; attempt++) {
+              if (attempt) await new Promise((resolve) => setTimeout(resolve, 5000));
+              const publicRes = await fetch(worker + "/pricing/public", { headers: { Accept: "application/json", Origin: origin } });
+              const feed = await publicRes.json().catch(() => ({}));
+              shown = publicRes.ok && !!feed.config && !!feed.config.saloon && same(pairs(feed.config.saloon.knots), AFTER);
+            }
+            if (!shown) fail("Saved, but the public pricing feed does not show the approved tier fares yet");
+            console.log(JSON.stringify({ status: "STEP-UP TIER FARES LIVE", version: after.version, previousVersion: before.version, changedRows: 13 }));
+          })().catch((error) => { console.error(error && error.message ? error.message : String(error)); process.exit(1); });
+          NODE

@@ -1,5 +1,6 @@
 import {
   buildDriverAssignmentEmail,
+  driverEmailJobForLeg,
   type BookingJobRecord,
 } from "../shared/booking-job";
 import { authorizeDriverJobAction, driverPortalMagicLink } from "../shared/driver-portal-access";
@@ -51,7 +52,7 @@ import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { getPaidBookingRecord, paidBookingStoreConfigured } from "./paid-booking-store";
 import { remainingCashDueGbp } from "../shared/deposit-cash";
-import { sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
+import { driverDetailsJobKey, sendCustomerDriverDetailsOnAccept } from "./customer-driver-details";
 
 type Env = DriverAuthEnv &
   WorkerEmailEnv & {
@@ -420,6 +421,7 @@ export async function handleDriverAssignRequest(
       driverProfileKey: assignedProfile?.profileKey,
       driverAssignmentStatus: "pending",
       driverAcceptToken: acceptToken,
+      assignedLeg: record.journeyLeg === "return" ? "return" : "outbound",
       assignedAt: now,
       driverAcceptedAt: undefined,
       driverDeclinedAt: undefined,
@@ -442,7 +444,7 @@ export async function handleDriverAssignRequest(
         : null;
     const cashDue = paidRecord ? remainingCashDueGbp(paidRecord) : 0;
     const email = buildDriverAssignmentEmail({
-      job: updatedBooking,
+      job: driverEmailJobForLeg(updatedBooking, record),
       meetGreetSelected: typeof paidRecord?.meetGreetFeeGbp === "number" && record.journeyLeg !== "return",
       acceptUrl,
       businessName: BUSINESS_NAME,
@@ -489,7 +491,7 @@ export async function handleDriverAssignRequest(
         ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference).catch(() => null)
         : null;
     const sent = await sendCustomerDriverDetailsOnAccept(env, {
-      jobKey: record.paymentReference || record.token,
+      jobKey: driverDetailsJobKey(record.paymentReference || record.token, record.journeyLeg),
       customerName: record.customerName,
       customerEmail: record.customerEmail?.trim() || paid?.customerEmail,
       customerMobile: record.customerMobile?.trim() || paid?.mobileNumber,
@@ -686,7 +688,7 @@ export async function handleDriverAssignmentResponseRequest(
         ? await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference).catch(() => null)
         : null;
     const sent = await sendCustomerDriverDetailsOnAccept(env, {
-      jobKey: record.paymentReference || record.token,
+      jobKey: driverDetailsJobKey(record.paymentReference || record.token, record.journeyLeg),
       customerName: record.customerName,
       customerEmail: record.customerEmail?.trim() || paid?.customerEmail,
       customerMobile: record.customerMobile?.trim() || paid?.mobileNumber,

@@ -90,7 +90,7 @@ async function main() {
   });
   assert.equal(subject, "MAT-1563 · Fri 20 Nov 2026, 05:30 · 12 Main Street → Belfast International Airport (BFS)");
   const sig = signatureHtml();
-  assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo\.png/, "signature has the real logo");
+  assert.match(sig, /https:\/\/www\.myairporttaxini\.co\.uk\/logo-email-wide\.png/, "signature has the real logo");
   assert.doesNotMatch(sig, /Brian/, "no personal name in the signature");
   assert.match(sig, /My Airport Taxi NI/);
   // The number may sit inside the link's href, but never in the visible text.
@@ -239,7 +239,7 @@ async function main() {
   assert.equal(reply.subject, "Re: Question about MAT-1563");
   assert.deepEqual(reply.bcc, ["bookings@myairporttaxini.co.uk"]);
   assert.equal((reply.headers as Record<string, string>)["In-Reply-To"], "<abc@mail.example.com>");
-  assert.match(String(reply.html), /logo\.png/);
+  assert.match(String(reply.html), /logo-email-wide\.png/);
   assert.match(String(reply.html), /Your booking/);
   assert.match(String(reply.html), /manage-booking\/\?token=/);
   assert.match(String(reply.text), /> Hi, can you pick us up at 5am instead\?/);

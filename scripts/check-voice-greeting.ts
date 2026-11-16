@@ -19,9 +19,9 @@ assert.ok(londonHourNow(new Date("2026-07-01T12:00:00Z")) === 13); // BST = UTC+
 
 const morning = voiceOpeningGreeting({ now: new Date("2026-07-01T08:30:00Z") });
 assert.equal(morning.dayPart, "morning");
-assert.match(morning.greeting, /^Good morning, My Airport Taxi NI\. How can we help\?$/);
+assert.match(morning.greeting, /^Good morning, My Airport Taxi\. How can we help\?$/);
 const named = voiceOpeningGreeting({ firstName: "Aoife Byrne", now: new Date("2026-07-01T15:00:00Z") });
-assert.match(named.greeting, /^Good afternoon, My Airport Taxi NI — hello Aoife\. How can we help\?$/);
+assert.match(named.greeting, /^Good afternoon, My Airport Taxi — hello Aoife\. How can we help\?$/);
 assert.match(VOICE_LINK_SENT_SAY, /secure link/i);
 assert.doesNotMatch(VOICE_LINK_SENT_SAY, /WhatsApp|That's grand|anything else/i);
 assert.match(VOICE_BOOKING_AFTER_PAYMENT_SAY, /paid on that link|booking is confirmed/i);
@@ -41,11 +41,12 @@ async function inbound() {
     new Date("2026-11-04T09:15:00Z"),
   );
   const body = await res.json();
-  assert.match(body.greeting, /My Airport Taxi NI/);
+  assert.match(body.greeting, /My Airport Taxi\./);
+  assert.doesNotMatch(body.greeting, /\bNI\b/, "Spoken greeting never says NI (heard as AI)");
   assert.equal(body.dayPart, "morning");
   assert.equal(body.knownCaller, false);
   // Only one occurrence of the full name in the greeting string.
-  assert.equal((body.greeting.match(/My Airport Taxi NI/g) || []).length, 1);
+  assert.equal((body.greeting.match(/My Airport Taxi/g) || []).length, 1);
   assert.match(body.sayHint, /once only|Speak the greeting field once/i);
   assert.match(body.sayHint, /Europe\/London/);
 }

@@ -1,3 +1,4 @@
+import { removeFlightyFlightEvents } from "./flighty-calendar";
 /**
  * Paid booking refund / cancellation — extends the existing SumUp refund pipeline.
  * Supports full/partial refunds, cancel-without-refund, and refund-without-cancel.
@@ -528,6 +529,7 @@ async function processMarkExternalRefund(
   } else if (calendarConfigured(env)) {
     warnings.push("No stored calendar event ids — calendar entry may remain");
   }
+  await removeFlightyFlightEvents(env, paymentReference);
 
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const paymentRef = paymentReference.trim();
@@ -1654,6 +1656,7 @@ async function applyOneLegCancelSideEffects(
       `Could not uniquely identify the ${input.cancelLeg} calendar event — no calendar event was cancelled.`,
     );
   }
+  await removeFlightyFlightEvents(env, input.paymentReference, input.cancelLeg);
 
   const now = new Date().toISOString();
   const cancelledLegs = nextCancelledLegs(record.cancelledLegs, input.cancelLeg);
@@ -1784,6 +1787,7 @@ async function completeRefundSideEffects(
     } else if (calendarConfigured(env)) {
       warnings.push("No stored calendar event ids — calendar entry may remain");
     }
+    await removeFlightyFlightEvents(env, input.paymentReference);
   }
 
   // Tracking jobs: mark on operational cancel, AND on owner isRefundTest keep-active
@@ -2122,6 +2126,9 @@ export async function savePaidBookingRecordFromConfirm(input: {
     amountPaidLabel: input.amountPaidLabel,
     originalAmount: input.onlineAmountPaid ?? input.amount,
     amountRefunded: 0,
+    ...(input.booking.bookingType === "bespoke"
+      ? { bookingType: "bespoke" as const, bespokeQuoteReference: input.booking.bespokeQuoteReference }
+      : {}),
     customerName: input.booking.customerName,
     customerEmail: input.booking.customerEmail,
     mobileNumber: input.booking.mobileNumber,
@@ -2241,6 +2248,7 @@ export async function savePaidBookingRecordFromConfirm(input: {
     termsVersion: input.booking.termsVersion,
     cancellationPolicyVersion: input.booking.cancellationPolicyVersion,
     attribution: input.booking.attribution,
+    ...(input.booking.heardAbout ? { heardAbout: input.booking.heardAbout } : {}),
     trackingToken: input.trackingToken,
     calendarEventIds: input.calendarEventIds,
     ...(input.calendarEventIdsByLeg ? { calendarEventIdsByLeg: input.calendarEventIdsByLeg } : {}),

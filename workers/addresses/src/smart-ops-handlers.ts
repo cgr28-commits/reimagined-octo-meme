@@ -81,7 +81,7 @@ export function paidBookingToParent(booking: PaidBookingRecord): SmartReturnPare
   };
 }
 
-async function loadOccupied(
+export async function loadOccupied(
   store: KVNamespace,
   range?: { fromYmd: string; toYmd: string },
 ): Promise<{

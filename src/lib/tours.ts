@@ -12,6 +12,10 @@ export type Tour = {
   priceFrom: number;
   priceNote: string;
   seoTitle: string;
+  /** Keyword-led page heading (H1). */
+  h1: string;
+  /** JPG share image for WhatsApp / Facebook / X previews. */
+  socialImage: string;
   metaDescription: string;
   faqs: readonly { question: string; answer: string }[];
   highlights: readonly string[];
@@ -28,8 +32,9 @@ export const TOURS: readonly Tour[] = [
     slug: "giants-causeway",
     title: "Giant's Causeway & Causeway Coast",
     seoTitle: "Private Giant's Causeway Tour from Belfast – From £395",
+    h1: "Private Giant's Causeway Tour from Belfast",
     metaDescription:
-      "Private Giant's Causeway day tour from Belfast with your own driver. Carrick-a-Rede, Dunluce Castle and the Causeway Coast at your pace. From £395 per car, up to 4 people.",
+      "Private Giant's Causeway tour from Belfast with your own driver: Carrick-a-Rede, Dunluce Castle and the coast. From £395 per car, up to 4 people.",
     eyebrow: "Causeway Coast",
     shortDescription:
       "Explore Northern Ireland's most iconic coastline — hexagonal basalt columns, dramatic cliffs, and Atlantic views.",
@@ -49,6 +54,7 @@ export const TOURS: readonly Tour[] = [
     whatsappMessage:
       "Hi, I'd like to enquire about a private day trip to the Giant's Causeway and Causeway Coast.",
     image: withBasePath("/images/tours/giants-causeway.webp"),
+    socialImage: "/images/tours/giants-causeway.jpg",
     imageAlt: "Hexagonal basalt columns at Giant's Causeway on the Causeway Coast at sunset",
     gallery: [
       {
@@ -84,8 +90,9 @@ export const TOURS: readonly Tour[] = [
     slug: "belfast-city",
     title: "Belfast City Highlights",
     seoTitle: "Private Belfast City Tour by Car – From £195",
+    h1: "Private Belfast City Tour by Car",
     metaDescription:
-      "Private half-day Belfast city tour with your own driver: Titanic Quarter, City Hall, murals and peace walls. Ideal for cruise passengers. From £195 per car, up to 4 people.",
+      "Private half-day Belfast city tour by car: Titanic Quarter, City Hall, murals and peace walls. Great for cruise passengers. From £195 per car.",
     eyebrow: "Belfast City",
     shortDescription:
       "Door-to-door transport to Belfast's landmarks, murals, Titanic Quarter, and the best of the city centre.",
@@ -105,6 +112,7 @@ export const TOURS: readonly Tour[] = [
     whatsappMessage:
       "Hi, I'd like to enquire about a private Belfast city highlights day trip.",
     image: withBasePath("/images/tours/belfast-city.webp"),
+    socialImage: "/images/tours/belfast-city.jpg",
     imageAlt: "Belfast City Hall and city centre skyline",
     gallery: [
       {
@@ -140,8 +148,9 @@ export const TOURS: readonly Tour[] = [
     slug: "game-of-thrones",
     title: "Game of Thrones Filming Locations",
     seoTitle: "Private Game of Thrones Tour from Belfast – From £395",
+    h1: "Private Game of Thrones Locations Tour from Belfast",
     metaDescription:
-      "Private Game of Thrones filming locations tour from Belfast: Dark Hedges, Ballintoy Harbour, Cushendun Caves and more with your own driver. From £395 per car, up to 4 people.",
+      "Private Game of Thrones locations tour from Belfast: Dark Hedges, Ballintoy Harbour, Cushendun Caves and more. From £395 per car, up to 4 people.",
     eyebrow: "Film Locations",
     shortDescription:
       "Visit iconic Westeros filming sites across County Antrim and beyond — Dark Hedges, coastal castles, and more.",
@@ -161,6 +170,7 @@ export const TOURS: readonly Tour[] = [
     whatsappMessage:
       "Hi, I'd like to enquire about a private Game of Thrones filming locations day trip.",
     image: withBasePath("/images/tours/game-of-thrones.webp"),
+    socialImage: "/images/tours/game-of-thrones.jpg",
     imageAlt: "Dark Hedges tree-lined avenue in County Antrim",
     faqs: [
       {
@@ -184,14 +194,15 @@ export const TOURS: readonly Tour[] = [
     slug: "antrim-coast",
     title: "Antrim Coast Scenic Drive",
     seoTitle: "Private Antrim Coast Tour from Belfast – From £195",
+    h1: "Private Antrim Coast Tour from Belfast",
     metaDescription:
-      "Private Causeway Coastal Route drive from Belfast through the Glens of Antrim: Carnlough, Cushendall, Glenariff and Ballycastle. Half day from £195, full day from £395 per car.",
+      "Private Antrim Coast tour from Belfast through the Glens: Carnlough, Cushendall, Glenariff, Ballycastle. Half day from £195, full day from £395.",
     eyebrow: "Scenic Coast",
     shortDescription:
       "A relaxed coastal journey from Belfast to the Glens of Antrim — beaches, harbours, and sweeping sea views.",
     description:
       "The Antrim Coast Road is one of the finest scenic drives in the UK. Sit back on a private tour from Belfast through seaside villages, the Glens of Antrim and clifftop viewpoints — without the stress of narrow roads or finding parking. Choose a half day along the coast to Carnlough and Glenarm, or a full day taking in Cushendall, Glenariff Forest Park and Ballycastle.",
-    duration: "Half to full day (~5–8 hours)",
+    duration: "Half or full day (~4–8 hours)",
     price: "From £195",
     priceFrom: 195,
     priceNote: "Half day (around 4 hours) from £195, full day (around 8 hours) from £395. Price per car, not per person: up to 4 passengers in a Saloon or Estate, collected from your Belfast hotel, home or Belfast Cruise Terminal. Attraction entry tickets are not included. Picking up outside Belfast? We'll confirm the price when you enquire.",
@@ -205,6 +216,7 @@ export const TOURS: readonly Tour[] = [
     whatsappMessage:
       "Hi, I'd like to enquire about a private Antrim Coast scenic drive day trip.",
     image: withBasePath("/images/tours/antrim-coast.webp"),
+    socialImage: "/images/tours/antrim-coast.jpg",
     imageAlt: "Dramatic Antrim Coast cliffs beside Dunluce Castle",
     faqs: [
       {

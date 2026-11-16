@@ -1,3 +1,4 @@
+import { removeFlightyFlightEvents, resyncFlightyFlightEvents } from "./flighty-calendar";
 import { buildPickupDateTimeLocal } from "../shared/tracking";
 import type { TrackingJobRecord } from "../shared/tracking";
 import { isAirportPickupJob } from "../shared/tracking";
@@ -450,6 +451,14 @@ export async function handleDriverUpdateBookingRequest(
           error instanceof Error ? error.message : "Calendar update failed",
         );
       }
+    }
+  }
+
+  if (record.paymentReference && paidBookingStoreConfigured(env.TRACKING_STORE)) {
+    const fresh = await getPaidBookingRecord(env.TRACKING_STORE, record.paymentReference);
+    if (fresh) {
+      const flighty = await resyncFlightyFlightEvents(env, fresh);
+      if (flighty.error) warnings.push(`Flight entry: ${flighty.error}`);
     }
   }
 

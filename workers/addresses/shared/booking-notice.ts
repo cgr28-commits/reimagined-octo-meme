@@ -7,6 +7,7 @@
 
 import { hoursUntilPickup } from "./refund-ops";
 import { isPickupTooSoonForOwnerOvernight } from "./owner-quiet-hours";
+import { isOvernight } from "./approval-policy";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 /**
@@ -291,11 +292,13 @@ export type ShortNoticeTriggerReason = "unavailable_period" | "under_minimum_not
 export function isWithinMinimumBookingNotice(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
   noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
+  // 24/7 approval policy: every request sent overnight (23:00–07:00 UK) needs owner approval.
+  if (hours > 0 && isOvernight(now)) return true;
   return hours < configuredNoticeHours(noticeHours);
 }
 
@@ -310,7 +313,7 @@ export type PickupLeadWindow = "too_soon" | "short_notice" | "normal" | "unknown
 export function classifyPickupLeadWindow(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
   noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
   leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS,
 ): PickupLeadWindow {
@@ -319,8 +322,8 @@ export function classifyPickupLeadWindow(
   const notice = configuredNoticeHours(noticeHours);
   const lead = clampShortNoticeLeadHours(leadHours, notice);
   if (hours < lead) return "too_soon";
-  if (hours < notice) {
-    // Owner asleep 22:00–07:00: too early to confirm before pickup.
+  if (hours < notice || isOvernight(now)) {
+    // Approval can't finish before pickup (e.g. overnight, clock starts 07:00).
     return isPickupTooSoonForOwnerOvernight(tripDate, tripTime, now) ? "too_soon" : "short_notice";
   }
   return "normal";
@@ -330,7 +333,7 @@ export function classifyPickupLeadWindow(
 export function isBelowMinimumShortNoticeLead(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
   leadHours = MINIMUM_SHORT_NOTICE_LEAD_HOURS,
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
@@ -341,7 +344,7 @@ export function isBelowMinimumShortNoticeLead(
 export function formatHoursUntilPickupLabel(
   tripDate: string,
   tripTime: string,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): string | null {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return null;
@@ -355,16 +358,17 @@ export function formatHoursUntilPickupLabel(
 }
 
 export function minimumNoticeRequestHeading(): string {
-  return "Short-notice booking";
+  return "Thank You for Your Booking";
 }
 
+/** Customer acknowledgement — never reveals internal approval rules or thresholds. */
 export function minimumNoticeRequestBody(
-  noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
+  _noticeHours = MINIMUM_BOOKING_NOTICE_HOURS,
 ): string {
-  const hours = normalizeMinimumBookingNoticeHours(noticeHours);
   return (
-    `This journey is within our ${hours}-hour advance booking period. You can still request the transfer, but we need to confirm availability before your booking is confirmed.\n\n` +
-    `If we can accommodate your journey, we’ll email you with a secure payment link to confirm your booking.`
+    `Your booking request has been received successfully.\n\n` +
+    `Your transfer is confirmed once you receive your booking confirmation email.\n\n` +
+    `Please check your inbox, including your spam or junk folder.`
   );
 }
 
@@ -507,14 +511,14 @@ export function parseLondonLocalStored(value: string | null | undefined): Date |
   return parseLondonLocalIso(`${normalized}:00`);
 }
 
-export function generateUnavailablePeriodId(now = new Date()): string {
+export function generateUnavailablePeriodId(now = new Date(Date.now())): string {
   const rand = Math.random().toString(36).slice(2, 8);
   return `unavail-${now.getTime().toString(36)}-${rand}`;
 }
 
 export function normalizeUnavailablePeriod(
   raw: UnavailablePeriodInput | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod | null {
   if (!raw) return null;
   const startLocal = normalizeLondonLocalDateTime(raw.startLocal);
@@ -543,7 +547,7 @@ export function normalizeUnavailablePeriod(
 
 export function normalizeUnavailablePeriods(
   raw: unknown,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod[] {
   if (!Array.isArray(raw)) return [];
   const byId = new Map<string, UnavailablePeriod>();
@@ -558,7 +562,7 @@ export function normalizeUnavailablePeriods(
 /** Period is expired when current time is at/after exclusive end — ignore for eligibility. */
 export function isUnavailablePeriodExpired(
   period: Pick<UnavailablePeriod, "endLocal">,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   const end = parseLondonLocalStored(period.endLocal);
   if (!end) return true;
@@ -590,7 +594,7 @@ export function isPickupBlockedByUnavailablePeriods(
   tripDate: string,
   tripTime: string,
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   return Boolean(findBlockingUnavailablePeriod(tripDate, tripTime, periods, now));
 }
@@ -599,7 +603,7 @@ export function findBlockingUnavailablePeriod(
   tripDate: string,
   tripTime: string,
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod | null {
   if (!periods?.length) return null;
   for (const period of periods) {
@@ -631,7 +635,7 @@ export function findRequestOnlyBlockingPeriod(
   tripDate: string,
   tripTime: string,
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod | null {
   if (!periods?.length) return null;
   return findBlockingUnavailablePeriod(
@@ -755,7 +759,7 @@ export function legConflictsWithNoAvailability(
 export function findConflictingNoAvailabilityPeriod(
   booking: OwnerAvailabilityBooking,
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod | null {
   if (!periods?.length) return null;
   const legs = ownerAvailabilityLegsFromBooking(booking);
@@ -773,7 +777,7 @@ export function findConflictingNoAvailabilityPeriod(
 export function evaluateOwnerNoAvailability(
   booking: OwnerAvailabilityBooking,
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): PublicOwnerAvailability {
   return findConflictingNoAvailabilityPeriod(booking, periods, now)
     ? blockedPublicOwnerAvailability()
@@ -791,7 +795,7 @@ export class OwnerNoAvailabilityError extends Error {
 /** Active = not yet expired (end still in the future). May start in the future. */
 export function listActiveUnavailablePeriods(
   periods: UnavailablePeriod[] | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): UnavailablePeriod[] {
   if (!periods?.length) return [];
   return periods.filter((period) => !isUnavailablePeriodExpired(period, now));
@@ -826,7 +830,7 @@ export function formatUnavailablePeriodRangeLabel(
 /** @deprecated Legacy single-gate helpers — kept as thin wrappers during migration tests. */
 export function isAutomaticAvailabilityGateActive(
   availableFrom: string | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   const from = parseLondonLocalStored(availableFrom);
   if (!from) return false;
@@ -838,7 +842,7 @@ export function isPickupBeforeAutomaticAvailability(
   tripDate: string,
   tripTime: string,
   availableFrom: string | null | undefined,
-  now = new Date(),
+  now = new Date(Date.now()),
 ): boolean {
   const normalized = normalizeLondonLocalDateTime(availableFrom);
   if (!normalized || !isAutomaticAvailabilityGateActive(normalized, now)) return false;

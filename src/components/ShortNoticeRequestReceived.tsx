@@ -6,7 +6,6 @@ import {
 } from "../../shared/availability-resource";
 import {
   minimumNoticeRequestBody,
-  minimumNoticeRequestHeading,
 } from "../../shared/booking-notice";
 import {
   LUGGAGE_CAPACITY_CONFIRMATION_HEADING,
@@ -40,7 +39,7 @@ export default function ShortNoticeRequestReceived({
     : minibusNotice
       ? MINIBUS_NOTICE_HEADING
       : underMinimumNotice
-        ? minimumNoticeRequestHeading()
+        ? "Booking request received"
         : "Booking request received";
   const body = luggageCapacity
     ? LUGGAGE_CAPACITY_RECEIVED_BODY
@@ -59,7 +58,9 @@ export default function ShortNoticeRequestReceived({
         {heading}
       </p>
       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-        Thanks — we&apos;ve received your booking request.
+        {underMinimumNotice && !luggageCapacity && !minibusNotice
+          ? "Thank You for Your Booking"
+          : "Thanks — we’ve received your booking request."}
       </h2>
       {amountLabel ? <p className="quote-price-figure mt-4">{amountLabel}</p> : null}
       <p className="mx-auto mt-4 max-w-md whitespace-pre-line text-sm leading-relaxed text-white/80 sm:text-base">

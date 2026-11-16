@@ -62,6 +62,7 @@ import {
 } from "@/lib/short-notice-api";
 import OwnerSaveQuoteSettings from "@/components/OwnerSaveQuoteSettings";
 import OwnerDepositCashSettings from "@/components/OwnerDepositCashSettings";
+import OwnerCardBalanceDepositSettings from "@/components/OwnerCardBalanceDepositSettings";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
   formatOwnerLargeBagsLabel,
@@ -1213,6 +1214,7 @@ export default function OwnerShortNoticePanel({
         </button>
       </div>
       <OwnerSaveQuoteSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} fieldClass={fieldClass} />
+      <OwnerCardBalanceDepositSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} />
       <OwnerDepositCashSettings
         ownerKey={ownerKey}
         settings={bookingSettings}

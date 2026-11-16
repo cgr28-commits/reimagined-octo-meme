@@ -22,6 +22,11 @@ export type VerifiedFlight = {
   delayMinutes?: number | null;
   /** True once the provider reports a runway (actual) time for this leg. */
   actualReported?: boolean;
+  /** Bare IATA codes and scheduled UTC times for both ends (diary / Flighty entries). */
+  departureIata?: string | null;
+  arrivalIata?: string | null;
+  departureScheduledUtc?: string | null;
+  arrivalScheduledUtc?: string | null;
 };
 
 export type FlightLookupResult =
@@ -312,7 +317,16 @@ function mapAeroFlight(
     status: flight.status,
     arrivalTerminal: flight.arrival?.terminal?.trim() || null,
     ...flightTiming(params.direction === "from-airport" ? flight.arrival : flight.departure),
+    departureIata: depAirport?.iata?.trim().toUpperCase() || null,
+    arrivalIata: arrAirport?.iata?.trim().toUpperCase() || null,
+    departureScheduledUtc: aeroUtcToIso(flight.departure?.scheduledTime?.utc),
+    arrivalScheduledUtc: aeroUtcToIso(flight.arrival?.scheduledTime?.utc),
   };
+}
+
+function aeroUtcToIso(value: string | undefined | null): string | null {
+  const ms = parseAeroUtc(value);
+  return ms === null ? null : new Date(ms).toISOString();
 }
 
 /** AeroDataBox UTC strings look like "2026-10-31 14:30Z"; make them Date-parseable. */

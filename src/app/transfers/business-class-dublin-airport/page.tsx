@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+import { BUSINESS_CLASS_PAGE_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   BUSINESS_CLASS_DUBLIN_DROPOFF_INCLUSIONS,
   BUSINESS_CLASS_DUBLIN_FAQS,
@@ -58,7 +59,7 @@ export const metadata: Metadata = {
     title: BUSINESS_CLASS_DUBLIN_SEO_TITLE,
     description: BUSINESS_CLASS_DUBLIN_SEO_DESCRIPTION,
     url: BUSINESS_CLASS_DUBLIN_PATH,
-    images: [{ url: "/og-image-square.png", alt: SITE.name }],
+    images: [{ url: "/og-image-square.png?v=20261113b", alt: SITE.name }],
   },
 };
 
@@ -99,7 +100,13 @@ export default function BusinessClassDublinAirportPage() {
           .business-class-dublin [data-landing-hero] img { object-position: 68% 66%; }
         }
       `}</style>
-      <main className={`${LANDING_PAGE_MAIN_CLASS} business-class-dublin`}>
+      <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} business-class-dublin`}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow
+          heading={BUSINESS_CLASS_DUBLIN_H1}
+          intro="Travel in a premium executive car with luggage assistance, complimentary bottled water and a fixed fare confirmed before booking."
+          journey={{ airportCode: "DUB", direction: "to-airport" }}
+        />
         <LandingHeroMedia
           baseName="business-class-executive-dublin"
           alt="Representative image: black executive saloon with driver collecting passengers at Dublin Airport Terminal 2"
@@ -116,9 +123,6 @@ export default function BusinessClassDublinAirportPage() {
 
           <header className="mt-5">
             <p className="text-sm font-semibold text-emerald">Extra comfort for your journey.</p>
-            <h1 className="mt-2 text-3xl font-bold leading-tight text-white sm:text-4xl">
-              {BUSINESS_CLASS_DUBLIN_H1}
-            </h1>
             <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
               Travel in a premium executive car (a Mercedes, BMW, Lexus or similar) with luggage
               assistance, complimentary bottled water and a fixed fare confirmed before booking. Dublin
@@ -188,6 +192,19 @@ export default function BusinessClassDublinAirportPage() {
               </ol>
             </section>
 
+            {BUSINESS_CLASS_PAGE_PUBLIC_ENABLED ? (
+              <section className={lightCardClass}>
+                <h2 className="text-lg font-bold text-navy">Corporate and private executive travel</h2>
+                <p className="mt-2 text-sm leading-relaxed text-[#1a2a3d]">
+                  Planning meetings, visiting guests or a special occasion?{" "}
+                  <Link href="/business-class/" className="font-semibold text-emerald-dark underline underline-offset-4">
+                    Explore Business Class &amp; executive transfers
+                  </Link>{" "}
+                  and request a personal quotation.
+                </p>
+              </section>
+            ) : null}
+
             <section className={lightCardClass}>
               <h2 className="text-lg font-bold text-navy">Belfast, Northern Ireland and Dublin Airport</h2>
               <p className="mt-2 text-sm leading-relaxed text-[#1a2a3d]">
@@ -233,12 +250,6 @@ export default function BusinessClassDublinAirportPage() {
           </div>
         </div>
 
-        <LocationQuoteSection
-          airportCode="DUB"
-          direction="to-airport"
-          heading="Quote a Dublin Airport transfer"
-          showStickyQuote={false}
-        />
       </main>
       <Footer />
     </>

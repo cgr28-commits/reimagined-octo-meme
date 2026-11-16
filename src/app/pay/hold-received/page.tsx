@@ -5,8 +5,8 @@ import { SITE } from "@/lib/data";
 import HoldReceivedClient from "./HoldReceivedClient";
 
 export const metadata: Metadata = {
-  title: `Booking request received | ${SITE.name}`,
-  description: "Your card is held while we confirm your booking.",
+  title: `Thank you for your booking | ${SITE.name}`,
+  description: "Your booking request has been received.",
   alternates: { canonical: "/pay/hold-received/" },
   robots: { index: false, follow: false },
 };

@@ -1,4 +1,11 @@
+import { logFlightyFlightEvents } from "./flighty-calendar";
 // Must stay first: disables all outbound requests on the dashboard staging build only.
+import {
+  handleQuoteFormRequest,
+  handleQuoteFormSetup,
+  isQuoteFormPath,
+  isQuoteFormSetupPath,
+} from "./whatsapp-quote-form-endpoint";
 import { overnightTooSoonBody } from "../shared/owner-quiet-hours";
 import { STAGING_SANDBOX, recentBlockedOutbound } from "./staging-sandbox";
 import { handleDriverAccountsRequest, type D1Like } from "./driver-accounts";
@@ -9,6 +16,11 @@ import { handleStagingTestBooking } from "./staging-test-booking";
 import { handleOwnerPushRequest } from "./owner-push";
 import { checkBookingAssignment, londonTodayYmd, upcomingBookingsForDriver } from "./driver-upcoming-bookings";
 import { handleBookingJobSendQuote } from "./booking-job-quote-handlers";
+import {
+  loadJobForOwnerRequestToken,
+  ownerRequestPreview,
+  ownerRequestPriceUrl,
+} from "./owner-request-link";
 import { supersedeEarlierCheckouts } from "./supersede-checkout";
 import { processFlightWatch } from "./flight-watch-handlers";
 import {
@@ -28,7 +40,7 @@ import {
   sweepShortNoticeCardHolds,
   SHORT_NOTICE_HOLD_KIND,
 } from "./short-notice-card-hold";
-import { captureCheckoutHold } from "./stripe-holds";
+import { captureCheckoutHold, getCheckoutHoldState } from "./stripe-holds";
 import { paymentProviderStatus, stripeActiveFor } from "./payment-provider";
 import {
   firstPickupAtForBooking,
@@ -42,13 +54,14 @@ import { isBookingFunnelEvent } from "../shared/booking-funnel";
 import { recordBookingFunnelEvent, sendBookingStartedAlert } from "./booking-funnel";
 import { allowSavedQuoteRequest } from "./saved-quote-handlers";
 import { quoteOptionalMeetGreet } from "../shared/meet-greet";
+import { parseHeardAbout } from "../shared/heard-about";
 import { handlePrivateGpsTest } from "./private-gps-test";
 import { handlePaidBookingAdsDiagnostic } from "./paid-booking-ads-diagnostic";
 import { handleAdsOfflineFeed, handleOwnerAdsFeed } from "./google-ads-offline-feed";
 import { handleAdsSpendReport, handleOwnerAdsSpend } from "./google-ads-spend";
 import { processUnfinishedPayments } from "./unfinished-payment";
 import { handleVoiceBooking, handleVoiceBookingLink } from "./voice-booking";
-import { handleVoiceQuote, handleVoiceSendLink } from "./voice-quote";
+import { handleVoiceQuote, handleVoiceQuoteForm, handleVoiceSendLink } from "./voice-quote";
 import { handleVoiceCallEnded, processVoiceFollowUps } from "./voice-followup";
 import { handleVoiceInbound } from "./voice-inbound";
 import { handleVoiceProvisionalBooking } from "./voice-provisional";
@@ -232,6 +245,7 @@ import {
   publicAlternativeOfferSummary,
   publicShortNoticeSummary,
   processExpiredShortNoticeResponseWindows,
+  runShortNoticeDeadline,
   resolveShortNoticeForPayment,
   resolveShortNoticeSiteOrigin,
   evaluateOwnerNoAvailabilityFromStore,
@@ -240,6 +254,7 @@ import {
 import {
   shouldRunHourlyScheduledJobs,
   shouldRunShortNoticeExpiryCron,
+  SHORT_NOTICE_EXPIRY_CRON,
 } from "./scheduled-cron";
 import {
   OWNER_NO_AVAILABILITY_CODE,
@@ -260,9 +275,11 @@ import {
   isOwnerSmartOpsPath,
 } from "./smart-ops-handlers";
 import {
+  configureShortNoticeDecisionCoordinator,
   getShortNoticeByAcceptToken,
   getShortNoticeByReference,
   getShortNoticeByToken,
+  listOpenShortNoticeBookings,
   saveShortNoticeBooking,
 } from "./short-notice-store";
 import {
@@ -388,7 +405,25 @@ import {
   runAdFraudRetentionCleanup,
 } from "./ad-fraud-handlers";
 export { RefundCoordinator } from "./refund-coordinator";
+export { ShortNoticeDecisionCoordinator } from "./short-notice-decision-coordinator";
+import { setShortNoticeDeadlineRunner } from "./short-notice-decision-coordinator";
+import {
+  alertOwnerApprovalRequest,
+  verifyOwnerApprovalToken,
+} from "./owner-approval-alert";
+import { notifyOwnerPush } from "./owner-push";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
+// Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
+export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
+import { handleOrphanBespokePayment } from "./bespoke-payment";
+import {
+  handleBespokeDeliveryWebhook,
+  handleBespokeQuoteRoute,
+  isBespokeDeliveryWebhookPath,
+  isBespokeQuotePath,
+  runBespokeExpirySweep,
+} from "./bespoke-quote-handlers";
+import { handleBelfastEventsRoute, isBelfastEventsPath } from "./belfast-events-handlers";
 export { WhatsAppReplyRunner } from "./whatsapp-reply-runner";
 import {
   coordinatorClaim,
@@ -525,6 +560,7 @@ import {
 } from "./quick-quote-store";
 import {
   formatQuickQuoteAmount,
+  quickQuoteTripLabel,
   normalizeQuickQuoteId,
   parseQuickQuoteVehicleChoice,
   quickQuoteAmountsEqual,
@@ -599,6 +635,7 @@ import {
 } from "./profitability-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { emptyRunPreviewForced, evaluateEmptyRunSafely, handleOwnerEmptyRun, isOwnerEmptyRunPath } from "./empty-run-handlers";
 import {
   QUOTE_RECEIPT_REFRESH_MESSAGE,
   decideQuoteReceiptPayment,
@@ -665,6 +702,8 @@ type Env = {
   BOOKING_COUNTER?: KVNamespace;
   EMAIL?: EmailBinding;
   AERODATABOX_RAPIDAPI_KEY?: string;
+  /** Set to "false" to stop adding flight-shaped diary entries for Flighty. */
+  FLIGHTY_CALENDAR_EVENTS?: string;
   /** "false" stops automatic flight delay checks for airport collections. */
   FLIGHT_WATCH_ENABLED?: string;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
@@ -682,8 +721,26 @@ type Env = {
   /** Per-booking refund serialization (Durable Object). */
   MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   REFUND_COORDINATOR?: DurableObjectNamespace;
+  /** Per-request approve/decline/expire lock + deadline alarm (Durable Object). */
+  SHORT_NOTICE_DECISION_COORDINATOR?: DurableObjectNamespace;
+  /** Owner's mobile for approval WhatsApp alerts (secret). */
+  OWNER_APPROVAL_WHATSAPP?: string;
+  /** Optional dedicated HMAC secret for one-tap approval links (falls back to OWNER_ACCESS_KEY). */
+  OWNER_APPROVAL_LINK_SECRET?: string;
   /** Per-fingerprint quote / contact email claim (Durable Object). */
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
+  /** Bespoke Event / Business Class quote records (Durable Object, migration v7). */
+  BESPOKE_QUOTE_COORDINATOR?: DurableObjectNamespace;
+  /** "1" turns on PUBLIC bespoke quote routes. Unset/anything else = off (default). */
+  BESPOKE_QUOTES_ENABLED?: string;
+  EVENTS_HUB_PUBLIC?: string;
+  /** Cloudflare Turnstile secret (Worker secret). Public bespoke requests fail closed without it. */
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_ALLOWED_HOSTNAMES?: string;
+  /** Signing secret for the separate bespoke delivery-events Resend webhook. Unset = route disabled. */
+  RESEND_DELIVERY_WEBHOOK_SECRET?: string;
+  /** Preview only: bespoke emails go only to these addresses. Never set in production. */
+  BESPOKE_EMAIL_ALLOWLIST?: string;
   /** Google Ads API — Paid Booking click conversion upload after SumUp PAID. */
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   GOOGLE_ADS_CLIENT_ID?: string;
@@ -1114,11 +1171,15 @@ async function sendBookingEmail(
   message: string,
   bookingReference: string | null,
   attribution?: unknown,
+  priceUrl?: string | null,
 ): Promise<void> {
   const toEmail = ownerInbox(env);
+  const priceBlock = priceUrl
+    ? `SEND A PRICE\nTap to see this request, type your fare and send it to the customer with a card payment link:\n${priceUrl}\n\n`
+    : "";
   const referencedBody = bookingReference
-    ? `Request reference: ${bookingReference}\n\n${message}`
-    : message;
+    ? `${priceBlock}Request reference: ${bookingReference}\n\n${message}`
+    : `${priceBlock}${message}`;
   const attributionLines = formatAdsAttributionForOwner(attribution);
   const body = attributionLines.length > 0
     ? `${referencedBody}\n\nATTRIBUTION\n${"=".repeat(40)}\n${attributionLines.join("\n")}`
@@ -1233,6 +1294,29 @@ async function logPaidBookingCalendar(
         paid: true,
       },
     });
+    if (env.FLIGHTY_CALENDAR_EVENTS?.trim().toLowerCase() !== "false") {
+      try {
+        const accessToken = await getGoogleAccessToken(
+          parseServiceAccountJson(env.GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!),
+        );
+        const flighty = await logFlightyFlightEvents({
+          accessToken,
+          calendarId: env.GOOGLE_CALENDAR_ID!.trim(),
+          apiKey: env.AERODATABOX_RAPIDAPI_KEY,
+          booking,
+          paymentReference,
+        });
+        if (flighty.skipped.length) {
+          console.log("Flighty flight entry skipped", paymentReference, flighty.skipped.join(","));
+        }
+      } catch (error) {
+        console.error(
+          "Flighty flight entry failed",
+          paymentReference,
+          error instanceof Error ? error.message : "",
+        );
+      }
+    }
     return {
       logged: true,
       events: eventIds.length,
@@ -1410,6 +1494,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     marketingOptIn: details.marketingOptIn === true ? true : undefined,
     marketingOptInAt: String(details.marketingOptInAt ?? "").trim() || undefined,
     marketingConsentVersion: String(details.marketingConsentVersion ?? "").trim() || undefined,
+    ...(parseHeardAbout(details.heardAbout) ? { heardAbout: parseHeardAbout(details.heardAbout) } : {}),
     attribution: sanitizeAdsAttribution(details.attribution),
   };
 
@@ -1721,7 +1806,14 @@ async function handleBookingRequest(
     tour: (body.tour as unknown as Record<string, unknown> | undefined) ?? null,
     publicMinibusEnabled: bookingPricing?.minibus.publicEnabled === true,
     deferFlightNumbers: Boolean(bookingPricing && body.booking &&
-      publicVehicleRequiresPersonalQuote(body.booking.vehicle, bookingPricing)),
+      publicVehicleRequiresPersonalQuote(
+        body.booking.vehicle,
+        bookingPricing,
+        false,
+        Number.isFinite(Number((body.booking as { routeDistanceKm?: unknown }).routeDistanceKm))
+          ? Number((body.booking as { routeDistanceKm?: unknown }).routeDistanceKm) * 0.621371
+          : null,
+      )),
   });
   if (!requestValidation.ok) {
     return json({ error: requestValidation.error }, 400, origin);
@@ -1768,6 +1860,7 @@ async function handleBookingRequest(
 
   // Calendar is created only after the owner marks the booking as paid.
   let bookingJobId: string | undefined;
+  let bookingJobTripDate = "";
   let bookingSaved = false;
   if (
     bookingReference &&
@@ -1791,6 +1884,7 @@ async function handleBookingRequest(
         message,
       });
       bookingJobId = job?.id;
+      bookingJobTripDate = job?.tripDate ?? "";
       bookingSaved = Boolean(job?.id);
     } catch (error) {
       console.error("Failed to create booking job", error);
@@ -1825,12 +1919,16 @@ async function handleBookingRequest(
   let emailSent = false;
   if (shouldSendEmail) {
     try {
+      const priceUrl = bookingJobId
+        ? await ownerRequestPriceUrl(env, { id: bookingJobId, tripDate: bookingJobTripDate }).catch(() => null)
+        : null;
       await sendBookingEmail(
         env,
         customerName,
         message,
         bookingReference,
         body.booking?.attribution,
+        priceUrl,
       );
       emailSent = true;
     } catch (error) {
@@ -2563,9 +2661,8 @@ async function handlePaymentRequest(
       expressDropOffSelected: checkoutPricing.persisted.expressDropOffSelected,
       expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
       expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
-      tripLabel: j.childSeatRequired
-        ? `${booking.tripLabel || "Airport transfer"} · Child seat required`
-        : booking.tripLabel || "Airport transfer",
+      // From the stored quote (event name + child seat), not the browser's label.
+      tripLabel: quickQuoteTripLabel({ eventName: j.eventName, childSeatRequired: j.childSeatRequired }),
     };
 
     const quickQuoteClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);
@@ -2875,8 +2972,9 @@ async function handlePaymentRequest(
       pickup: routeOutcome.pickup ?? null,
       dropoff: routeOutcome.dropoff ?? null,
     });
-    if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing)) {
-      return json({ error: vehiclePersonalQuoteMessage(booking.vehicle), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+    const paymentRouteMiles = routeMetrics.distanceKm * 0.621371;
+    if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing, false, paymentRouteMiles)) {
+      return json({ error: vehiclePersonalQuoteMessage(booking.vehicle, pricing, paymentRouteMiles), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
     }
     const requoteMinibusOn = pricing.minibus.publicEnabled === true;
     if (!isValidPublicPassengerCount(Number(booking.passengers), requoteMinibusOn)) {
@@ -3079,6 +3177,47 @@ async function handlePaymentRequest(
         outboundFixedGbp: authoritativeQuote.outboundFixedGbp,
         returnFixedGbp: authoritativeQuote.returnFixedGbp,
       };
+    }
+
+    // Empty Run discount when payment re-quotes without a signed receipt, so the
+    // customer pays the same cheaper fare they were quoted. Fail-open.
+    if (!receiptClaims) {
+      const emptyRun = await evaluateEmptyRunSafely({
+        store: env.TRACKING_STORE,
+        forceEnabled: emptyRunPreviewForced(env),
+        request: {
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          pickup: routeOutcome.pickup ?? null,
+          dropoff: routeOutcome.dropoff ?? null,
+          airportCode: airportContext.airportCode ?? null,
+          fromAirport: Boolean(airportContext.fromAirport) || Boolean(airportContext.pickupAirportCode),
+          tripDate: String(booking.tripDate ?? ""),
+          tripTime: String(booking.tripTime ?? ""),
+          durationMinutes: routeMetrics.durationMinutes,
+          returnJourney: Boolean(booking.returnJourney),
+          vehicle: vehicleType,
+        },
+        fare: {
+          amountGbp: authoritativeQuote.amountGbp,
+          journeyFareGbp: authoritativeQuote.journeyFareGbp,
+          airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
+          nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+        },
+      });
+      if (emptyRun?.applied && emptyRun.fare) {
+        authoritativeQuote = {
+          ...authoritativeQuote,
+          amountGbp: emptyRun.fare.amountGbp,
+          journeyFareGbp: emptyRun.fare.journeyFareGbp,
+          airportFixedCostsGbp: emptyRun.fare.airportFixedCostsGbp,
+          nightWeekendSurchargeGbp: emptyRun.fare.nightWeekendSurchargeGbp,
+          outboundOneWayBeforeAccessGbp:
+            typeof authoritativeQuote.outboundOneWayBeforeAccessGbp === "number"
+              ? Math.round((authoritativeQuote.outboundOneWayBeforeAccessGbp - (emptyRun.savingGbp ?? 0)) * 100) / 100
+              : undefined,
+        };
+      }
     }
 
     const transferResolution = resolveOpenWebsitePaymentTransferFares({
@@ -3404,7 +3543,16 @@ async function handlePaymentRequest(
         );
       }
       const quote = calculateCardBalanceQuote(amount);
-      if (!booking || !quote.eligible || !isCardBalanceDateEligible(booking.tripDate, booking.tripTime)) {
+      // Owner can switch the 20% deposit off in the dashboard (15 Nov 2026).
+      const cardBalanceSwitchedOn = env.TRACKING_STORE
+        ? (await getBookingSettings(env.TRACKING_STORE)).cardBalanceDeposit.enabled === true
+        : true;
+      if (
+        !cardBalanceSwitchedOn ||
+        !booking ||
+        !quote.eligible ||
+        !isCardBalanceDateEligible(booking.tripDate, booking.tripTime)
+      ) {
         return json(
           {
             error:
@@ -3471,9 +3619,11 @@ async function handlePaymentRequest(
   }
 
   const paymentPricing = await loadOwnerPricingOrDefault(env);
+  const bookingRouteKm = Number((booking as { routeDistanceKm?: unknown }).routeDistanceKm);
+  const bookingRouteMiles = Number.isFinite(bookingRouteKm) && bookingRouteKm > 0 ? bookingRouteKm * 0.621371 : null;
   if (!quickQuoteId && !a2aQuoteToken && !shortNoticeToken && !personalQuoteCode &&
-      publicVehicleRequiresPersonalQuote(booking.vehicle, paymentPricing)) {
-    return json({ error: vehiclePersonalQuoteMessage(booking.vehicle), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
+      publicVehicleRequiresPersonalQuote(booking.vehicle, paymentPricing, false, bookingRouteMiles)) {
+    return json({ error: vehiclePersonalQuoteMessage(booking.vehicle, paymentPricing, bookingRouteMiles), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
   }
   const paymentMinibusOn = paymentPricing.minibus.publicEnabled === true;
   if (!quickQuoteId && !isValidPublicPassengerCount(booking.passengers, paymentMinibusOn)) {
@@ -3701,6 +3851,7 @@ async function handlePaymentRequest(
             subject: ownerEmail.subject,
             body: ownerEmail.body,
           });
+          await alertOwnerApprovalRequest(env, created.record).catch(() => undefined);
           if (created.record.underMinimumNotice || luggageCapacity) {
             await sendShortNoticeRequestReceivedEmail(env, created.record);
           }
@@ -4196,6 +4347,7 @@ async function handlePaymentWebhookRequest(
               await sendShortNoticeRequestReceivedEmail(env, record);
             }
           },
+          alertOwner: (record) => alertOwnerApprovalRequest(env, record),
         });
       } catch (error) {
         console.error("Short-notice hold webhook failed", error instanceof Error ? error.message : "");
@@ -4282,6 +4434,11 @@ async function handlePaymentWebhookRequest(
         } else if (result.error) {
           console.error("SumUp webhook finalize failed", result.error);
         }
+      } else if (isStripeCheckoutId(checkoutId)) {
+        // No pending record: may be a bespoke quotation whose session was created
+        // just before a crash. Identified by its client reference; recorded and
+        // sent to owner review. Returns false (no-op) for anything else.
+        await handleOrphanBespokePayment(env, { logPaidBookingCalendar }, checkoutId);
       }
     } catch (error) {
       console.error("SumUp webhook finalize threw", error);
@@ -4711,6 +4868,203 @@ async function captureShortNoticeHoldAndConfirm(
   }
 }
 
+setShortNoticeDeadlineRunner(async (rawEnv, reference) => {
+  const env = rawEnv as Env;
+  configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
+  await runShortNoticeDeadline(env, reference);
+});
+
+/**
+ * Owner approval → charge the held card → confirm. Shared by the dashboard
+ * button and the one-tap link. Capture failures never confirm the booking:
+ * - card hold gone (released/expired) → declined, hold released, customer told;
+ * - temporary Stripe error → stays approved-but-unpaid, owner alerted, retried
+ *   by the 5-minute cron and given up (declined) if it can't be charged.
+ */
+async function approveShortNoticeAndCapture(
+  env: Env,
+  request: Request,
+  body: Record<string, unknown>,
+  siteOrigin: string,
+): Promise<{ status: number; payload: Record<string, unknown> }> {
+  const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE! };
+  const result = await handleOwnerApproveShortNotice(request, snEnv, body, siteOrigin);
+  if ("error" in result) return { status: result.status, payload: { error: result.error } };
+  const holdOutcome = await captureShortNoticeHoldAndConfirm(env, result.record);
+  if (holdOutcome.cardHold === "capture_failed") {
+    await handleShortNoticeCaptureFailure(env, result.record.reference, String(holdOutcome.cardHoldError ?? ""));
+  }
+  await appendApprovalAudit(env, result.record.reference, "approve", holdOutcome);
+  return { status: 200, payload: { ...result, ...holdOutcome } };
+}
+
+async function declineShortNoticeAndRelease(
+  env: Env,
+  request: Request,
+  body: Record<string, unknown>,
+): Promise<{ status: number; payload: Record<string, unknown> }> {
+  const snEnv = { ...env, TRACKING_STORE: env.TRACKING_STORE! };
+  const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
+  if ("error" in result) return { status: result.status, payload: { error: result.error } };
+  await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "declined");
+  await appendApprovalAudit(env, String(body.reference ?? ""), "decline", {});
+  return { status: 200, payload: { ...result } };
+}
+
+/** Append-only approval audit (KV list per reference, 90 days). Never throws. */
+async function appendApprovalAudit(
+  env: Env,
+  reference: string,
+  action: string,
+  detail: Record<string, unknown>,
+): Promise<void> {
+  if (!env.TRACKING_STORE || !reference) return;
+  try {
+    const key = `approval-audit:${reference}`;
+    const existing = (await env.TRACKING_STORE.get<unknown[]>(key, "json")) ?? [];
+    const entry = {
+      at: new Date().toISOString(),
+      action,
+      ...(typeof detail.cardHold === "string" ? { cardHold: detail.cardHold } : {}),
+      ...(typeof detail.bookingConfirmed === "boolean" ? { bookingConfirmed: detail.bookingConfirmed } : {}),
+      ...(typeof detail.cardHoldError === "string" ? { error: detail.cardHoldError.slice(0, 200) } : {}),
+    };
+    await env.TRACKING_STORE.put(key, JSON.stringify([...existing, entry]), {
+      expirationTtl: 90 * 24 * 3600,
+    });
+    console.log("Approval audit", JSON.stringify({ reference, ...entry }));
+  } catch (error) {
+    console.error("Approval audit write failed", reference, error instanceof Error ? error.message : "");
+  }
+}
+
+function internalOwnerRequest(env: Env): Request {
+  const key = (env.OWNER_ACCESS_KEY || env.DRIVER_ACCESS_KEY || "").trim();
+  return new Request("https://internal.invalid/owner", { headers: { "X-Owner-Key": key } });
+}
+
+async function handleShortNoticeCaptureFailure(env: Env, reference: string, error: string): Promise<void> {
+  const store = env.TRACKING_STORE;
+  if (!store) return;
+  const record = await getShortNoticeByReference(store, reference);
+  const hold = record?.cardHold;
+  if (!record || !hold || hold.capturedAt) return;
+  let unrecoverable = false;
+  try {
+    const state = await getCheckoutHoldState(hold.checkoutId);
+    // Only a released/expired authorisation is final. "succeeded" means the money
+    // was taken and confirmation must be retried, never declined.
+    unrecoverable = state.paymentIntentStatus === "canceled";
+  } catch {
+    unrecoverable = false;
+  }
+  await notifyOwnerPush(env, {
+    category: "payments",
+    title: "Card could not be charged",
+    body: `${record.booking.customerName || "Customer"} — ${record.reference}. ${
+      unrecoverable ? "The hold was no longer available; the request has been declined." : "Retrying automatically."
+    }`.slice(0, 160),
+    url: "/owner/?ui=mobile#home",
+  }).catch(() => undefined);
+  if (unrecoverable) {
+    console.error("Short-notice capture failed — hold gone, declining", reference, error.slice(0, 200));
+    await declineShortNoticeAndRelease(env, internalOwnerRequest(env), {
+      reference,
+      reason: "card_hold_unavailable",
+    });
+  }
+}
+
+/** Cron: retry approved-but-uncharged holds; decline if still failing 30 min after approval. */
+async function retryApprovedShortNoticeCaptures(env: Env, now: Date): Promise<void> {
+  const store = env.TRACKING_STORE;
+  if (!store) return;
+  const open = await listOpenShortNoticeBookings(store);
+  for (const record of open) {
+    const hold = record.cardHold;
+    if (record.status !== "SHORT_NOTICE_APPROVED" || !hold?.authorisedAt || hold.capturedAt || hold.releasedAt) {
+      continue;
+    }
+    try {
+      const outcome = await captureShortNoticeHoldAndConfirm(env, record);
+      await appendApprovalAudit(env, record.reference, "capture_retry", outcome);
+      if (outcome.cardHold === "capture_failed") {
+        const approvedMs = new Date(record.approvedAt ?? record.updatedAt).getTime();
+        if (now.getTime() - approvedMs > 30 * 60 * 1000) {
+          await declineShortNoticeAndRelease(env, internalOwnerRequest(env), {
+            reference: record.reference,
+            reason: "card_capture_failed",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Approved capture retry failed", record.reference, error instanceof Error ? error.message : "");
+    }
+  }
+}
+
+/**
+ * One-tap owner links (WhatsApp / push / email): POST { token } to preview,
+ * POST { token, action } to decide. The token is verified (HMAC, booking,
+ * expiry); the decision then uses the same lock as the dashboard.
+ */
+async function handleOwnerApprovalLink(
+  request: Request,
+  env: Env,
+  origin: string | null,
+  mode: "preview" | "decide",
+): Promise<Response> {
+  if (!env.TRACKING_STORE) return json({ error: "Storage is not configured" }, 503, origin);
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Invalid JSON" }, 400, origin);
+  }
+  const verified = await verifyOwnerApprovalToken(env, String(body.token ?? ""));
+  if (!verified.ok) return json({ error: verified.error }, 403, origin);
+  const record = await getShortNoticeByReference(env.TRACKING_STORE, verified.reference);
+  if (!record) return json({ error: "Booking request not found." }, 404, origin);
+  if (mode === "preview") {
+    const b = record.booking;
+    return json(
+      {
+        ok: true,
+        reference: record.reference,
+        status: record.status,
+        customerName: b.customerName,
+        tripDate: b.tripDate,
+        tripTime: b.tripTime,
+        pickupLabel: b.pickupLabel,
+        dropoffLabel: b.dropoffLabel,
+        flightNumber: b.flightNumber || "",
+        passengers: b.passengers,
+        amountLabel: record.amountLabel,
+        expiresAt: verified.expiresAt,
+        cardHeld: Boolean(record.cardHold?.authorisedAt && !record.cardHold.releasedAt && !record.cardHold.capturedAt),
+      },
+      200,
+      origin,
+    );
+  }
+  const action = String(body.action ?? "");
+  const internal = internalOwnerRequest(env);
+  if (action === "approve") {
+    const out = await approveShortNoticeAndCapture(
+      env,
+      internal,
+      { reference: record.reference },
+      BUSINESS_WEBSITE,
+    );
+    return json(out.payload, out.status, origin);
+  }
+  if (action === "decline") {
+    const out = await declineShortNoticeAndRelease(env, internal, { reference: record.reference });
+    return json(out.payload, out.status, origin);
+  }
+  return json({ error: "Unknown action" }, 400, origin);
+}
+
 /** Cron: capture due card holds; email the owner the first time one fails. */
 async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
   try {
@@ -4749,6 +5103,7 @@ async function runStripeHoldCaptures(env: Env, now: Date): Promise<void> {
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     configureStripe(env);
+    configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
     const origin = request.headers.get("Origin");
     const url = new URL(request.url);
     const route = routePath(url.pathname);
@@ -4851,6 +5206,10 @@ export default {
     if (voicePath === "/voice/send-link" && request.method === "POST") {
       return handleVoiceSendLink(request, env);
     }
+    // Caller's addresses unclear: send them the WhatsApp quote form (Flow) to tap their own.
+    if (voicePath === "/voice/quote-form" && request.method === "POST") {
+      return handleVoiceQuoteForm(request, env);
+    }
     // Unpaid provisional hold from a phone-priced quote (never marks paid).
     if (voicePath === "/voice/provisional-booking" && request.method === "POST") {
       return handleVoiceProvisionalBooking(request, env);
@@ -4878,6 +5237,13 @@ export default {
     if (url.pathname.replace(/^\/api(?=\/owner\/)/, "") === "/owner/voice-calls" && request.method === "GET") {
       return handleOwnerVoiceCalls(request, env, request.headers.get("Origin"));
     }
+    // The in-WhatsApp quote form: WhatsApp's encrypted data endpoint, and its key setup.
+    if (isQuoteFormPath(url.pathname)) {
+      return handleQuoteFormRequest(request, env);
+    }
+    if (isQuoteFormSetupPath(url.pathname) && request.method === "GET") {
+      return handleQuoteFormSetup(request, env);
+    }
     if (isWhatsAppWebhookPath(url.pathname)) {
       return handleWhatsAppWebhook(request, env, ctx);
     }
@@ -4896,6 +5262,16 @@ export default {
         status: 204,
         headers: corsHeaders(origin),
       });
+    }
+
+    if (isBespokeQuotePath(url.pathname)) {
+      return handleBespokeQuoteRoute(request, env, origin, { logPaidBookingCalendar });
+    }
+    if (isBespokeDeliveryWebhookPath(url.pathname)) {
+      return handleBespokeDeliveryWebhook(request, env);
+    }
+    if (isBelfastEventsPath(url.pathname)) {
+      return handleBelfastEventsRoute(request, env, origin);
     }
 
     if (/^\/(api\/)?owner\/private-gps-test$/.test(url.pathname)) {
@@ -5265,6 +5641,15 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
+    if (isOwnerEmptyRunPath(url.pathname)) {
+      if (!env.TRACKING_STORE) {
+        return json({ error: "Storage is not configured" }, 503, origin);
+      }
+      const result = await handleOwnerEmptyRun(request, { ...env, TRACKING_STORE: env.TRACKING_STORE });
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(result, 200, origin);
+    }
+
     if (isOwnerSmartOpsPath(url.pathname)) {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
@@ -5597,6 +5982,59 @@ export default {
       return json(result, 200, origin);
     }
 
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/owner/request-link/preview" ||
+        url.pathname === "/api/owner/request-link/preview" ||
+        url.pathname === "/owner/request-link/send-quote" ||
+        url.pathname === "/api/owner/request-link/send-quote")
+    ) {
+      // "Send a price" link from the owner's New request email (signed, one booking only).
+      let body: Record<string, unknown>;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400, origin);
+      }
+      const loaded = await loadJobForOwnerRequestToken(env, String(body.token ?? ""));
+      if (!loaded.ok) return json({ error: loaded.error }, loaded.status, origin);
+      if (url.pathname.endsWith("/preview")) {
+        return json(ownerRequestPreview(loaded.job), 200, origin);
+      }
+      const result = await handleBookingJobSendQuote(
+        internalOwnerRequest(env),
+        { ...env, TRACKING_STORE: env.TRACKING_STORE! },
+        { id: loaded.job.id, quotedPrice: body.quotedPrice, validityMinutes: body.validityMinutes },
+      );
+      if ("error" in result) return json({ error: result.error }, result.status, origin);
+      return json(
+        {
+          ok: true,
+          job: ownerRequestPreview(result.job),
+          payUrl: result.payUrl,
+          paymentEmailSent: result.paymentEmailSent,
+          ...(result.paymentEmailError ? { paymentEmailError: result.paymentEmailError } : {}),
+        },
+        200,
+        origin,
+      );
+    }
+
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/owner/approval-link/preview" ||
+        url.pathname === "/api/owner/approval-link/preview" ||
+        url.pathname === "/owner/approval-link/decide" ||
+        url.pathname === "/api/owner/approval-link/decide")
+    ) {
+      return handleOwnerApprovalLink(
+        request,
+        env,
+        origin,
+        url.pathname.endsWith("/decide") ? "decide" : "preview",
+      );
+    }
+
     if (isOwnerShortNoticePath(url.pathname)) {
       if (!env.TRACKING_STORE) {
         return json({ error: "Storage is not configured" }, 503, origin);
@@ -5660,15 +6098,13 @@ export default {
         } catch {
           return json({ error: "Invalid JSON" }, 400, origin);
         }
-        const result = await handleOwnerApproveShortNotice(
+        const out = await approveShortNoticeAndCapture(
+          env,
           request,
-          snEnv,
           body,
           resolveShortNoticeSiteOrigin(request, body, BUSINESS_WEBSITE),
         );
-        if ("error" in result) return json({ error: result.error }, result.status, origin);
-        const holdOutcome = await captureShortNoticeHoldAndConfirm(env, result.record);
-        return json({ ...result, ...holdOutcome }, 200, origin);
+        return json(out.payload, out.status, origin);
       }
       if (
         (url.pathname.endsWith("/decline") || url.pathname.includes("/decline")) &&
@@ -5680,10 +6116,8 @@ export default {
         } catch {
           return json({ error: "Invalid JSON" }, 400, origin);
         }
-        const result = await handleOwnerDeclineShortNotice(request, snEnv, body);
-        if ("error" in result) return json({ error: result.error }, result.status, origin);
-        await releaseShortNoticeHoldForReference(env, String(body.reference ?? ""), "declined");
-        return json(result, 200, origin);
+        const out = await declineShortNoticeAndRelease(env, request, body);
+        return json(out.payload, out.status, origin);
       }
       if (
         (url.pathname.endsWith("/resend-payment-email") ||
@@ -6603,6 +7037,7 @@ export default {
     // Dashboard staging has no crons; refuse to run scheduled jobs there even if one is added.
     if (STAGING_SANDBOX) return;
     configureStripe(env);
+    configureShortNoticeDecisionCoordinator(env.SHORT_NOTICE_DECISION_COORDINATOR);
     const cron = event.cron;
     // Driver portal housekeeping (expired offers, repeat alerts). Inert without a DRIVER_DB binding.
     if (env.DRIVER_DB) {
@@ -6610,6 +7045,19 @@ export default {
         runDriverJobsMaintenance(env, buildDriverJobsDeps(env, { ownerAuthorized: () => false, corsHeaders })).catch((error) =>
           console.error("driver jobs maintenance failed", error instanceof Error ? error.message : error),
         ),
+      );
+    }
+    // Bespoke quote expiry sweep — no-op unless BESPOKE_QUOTES_ENABLED = "1".
+    // Isolated: its own promise and catch, so it cannot affect the jobs below.
+    if (env.BESPOKE_QUOTES_ENABLED === "1" && cron === SHORT_NOTICE_EXPIRY_CRON) {
+      ctx.waitUntil(
+        runBespokeExpirySweep(env, { logPaidBookingCalendar })
+          .then((result) => {
+            if (result.expired > 0 || result.awaitingPaymentCheck > 0 || result.errors > 0) {
+              console.log("Bespoke quote expiry sweep", JSON.stringify(result));
+            }
+          })
+          .catch((error) => console.error("Bespoke quote expiry sweep failed", error)),
       );
     }
     if (env.TRACKING_STORE && shouldRunShortNoticeExpiryCron(cron)) {
@@ -6631,6 +7079,11 @@ export default {
     if (!cron || cron === "*/5 * * * *") {
       ctx.waitUntil(runStripeHoldCaptures(env, new Date(event.scheduledTime)));
       ctx.waitUntil(
+        retryApprovedShortNoticeCaptures(env, new Date(event.scheduledTime)).catch((error) =>
+          console.error("Approved capture retry cron failed", error),
+        ),
+      );
+      ctx.waitUntil(
         sweepShortNoticeCardHolds(env.TRACKING_STORE, {
           emailOwner: async (subject, body) => {
             await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
@@ -6640,6 +7093,7 @@ export default {
               await sendShortNoticeRequestReceivedEmail(env, record);
             }
           },
+          alertOwner: (record) => alertOwnerApprovalRequest(env, record),
         })
           .then((r) => {
             if (r.released || r.authorised) console.log("Short-notice hold sweep", JSON.stringify(r));

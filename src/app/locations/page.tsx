@@ -5,10 +5,9 @@ import Header from "@/components/Header";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import QuoteNavLink from "@/components/QuoteNavLink";
-import LocationQuoteSection from "@/components/LocationQuoteSection";
-import SectionHeading from "@/components/SectionHeading";
+import HeroSlideshow from "@/components/HeroSlideshow";
 import { AREAS, SERVICE_FLAGS, SITE } from "@/lib/data";
-import { LANDING_PAGE_MAIN_CLASS } from "@/lib/landing-page-layout";
+import { firstSentence, LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
   LOCATIONS_AIRPORT_LINKS,
   LOCATIONS_BELFAST_ROUTE_LINKS,
@@ -51,7 +50,9 @@ export default function LocationsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <Header />
-      <main className={LANDING_PAGE_MAIN_CLASS}>
+      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
+        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        <HeroSlideshow heading={LOCATIONS_HUB_H1} navId="locations" intro={firstSentence(LOCATIONS_HUB_INTRO)} />
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <LandingBreadcrumbs
@@ -62,21 +63,11 @@ export default function LocationsPage() {
             />
 
             <div className="mt-8 max-w-3xl">
-              <SectionHeading
-                as="h1"
-                align="left"
-                eyebrow="Locations"
-                title={LOCATIONS_HUB_H1}
-                navId="locations"
-                description={LOCATIONS_HUB_INTRO}
-              />
+              <p className="text-lg leading-relaxed text-white/70">{LOCATIONS_HUB_INTRO}</p>
             </div>
           </div>
         </div>
 
-        {/* Quote form straight under the heading so hub visitors can price a
-            journey without scrolling past the town lists. */}
-        <LocationQuoteSection showStickyQuote={false} />
 
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">

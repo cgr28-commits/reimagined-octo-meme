@@ -57,7 +57,7 @@ export type QuickQuotePriceSource = "website-pricing-engine" | "owner-manual";
  * `none` = no expiry (default in the current owner UI).
  * When `validityMode` is omitted by an older client, the Worker keeps the legacy 24h TTL.
  */
-export type QuickQuoteValidityMode = "none" | "24h" | "7d" | "30d" | "custom";
+export type QuickQuoteValidityMode = "none" | "2h" | "24h" | "7d" | "30d" | "custom";
 
 export type QuickQuoteAirportCode = "BFS" | "BHD" | "DUB";
 
@@ -83,6 +83,8 @@ export type QuickQuoteJourney = {
   childSeatRequired?: boolean;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Owner-entered event this journey is for (e.g. "Garth Brooks – Boucher Road"); shown to the customer. */
+  eventName?: string;
   /** Resolved vehicle label from the pricing engine (Saloon / Estate / Minibus). */
   vehicleType?: string;
   /** Owner/Driver manual choice when set (Saloon | Minibus). */
@@ -191,13 +193,41 @@ export function buildQuickQuoteCustomerUrl(id: string, siteOrigin = "https://www
   return `${origin}${buildQuickQuoteCustomerPath(id)}`;
 }
 
+export const QUICK_QUOTE_EVENT_NAME_MAX = 80;
+
+/** Owner-typed event name, tidied (one line, max 80 characters), or undefined. */
+export function cleanQuickQuoteEventName(value: unknown): string | undefined {
+  const t = String(value ?? "").replace(/\s+/g, " ").trim().slice(0, QUICK_QUOTE_EVENT_NAME_MAX);
+  return t || undefined;
+}
+
+/** The booking's "Trip" line (emails, dashboard): the event when there is one. */
+export function quickQuoteTripLabel(journey: { eventName?: string; childSeatRequired?: boolean }): string {
+  const base = journey.eventName ? `${journey.eventName} transfer` : "Airport transfer";
+  return journey.childSeatRequired ? `${base} · Child seat required` : base;
+}
+
+/** "19:45 on Thu 12 Nov" in UK time. */
+export function formatQuickQuoteHeldUntil(expiresAt: string): string {
+  const d = new Date(expiresAt);
+  const time = d.toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" });
+  const day = d.toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
+  return `${time} on ${day}`;
+}
+
 export function buildQuickQuoteWhatsAppReply(input: {
   amountLabel: string;
   bookingUrl: string;
+  eventName?: string;
+  /** Set for short holds (a few hours): the customer is told when the price goes. */
+  heldUntil?: string | null;
 }): string {
+  const forEvent = input.eventName ? ` to ${input.eventName}` : "";
+  const held = input.heldUntil ? `This price is held until ${formatQuickQuoteHeldUntil(input.heldUntil)}.\n\n` : "";
   return (
     `Hi, thanks for contacting My Airport Taxi NI.\n\n` +
-    `Your fixed fare for this journey is ${input.amountLabel}.\n\n` +
+    `Your fixed fare for this journey${forEvent} is ${input.amountLabel}.\n\n` +
+    held +
     `You can review the journey details, confirm your booking and pay securely here:\n\n` +
     `${input.bookingUrl}`
   );
@@ -325,6 +355,7 @@ export function parseQuickQuoteValidityMode(value: unknown): QuickQuoteValidityM
   if (raw === "none" || raw === "no_limit" || raw === "no-limit" || raw === "unlimited") {
     return "none";
   }
+  if (raw === "2h" || raw === "2 hours") return "2h";
   if (raw === "24h" || raw === "24" || raw === "day") return "24h";
   if (raw === "7d" || raw === "7" || raw === "week") return "7d";
   if (raw === "30d" || raw === "30" || raw === "month") return "30d";
@@ -354,6 +385,9 @@ export function resolveQuickQuoteTtlSeconds(input: {
 
   if (mode === "none") {
     return null;
+  }
+  if (mode === "2h") {
+    return 60 * 60 * 2;
   }
   if (mode === "24h") {
     return 60 * 60 * 24;

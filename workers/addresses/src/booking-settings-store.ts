@@ -54,8 +54,20 @@ export type BookingSettings = {
   customerPaymentWindowMinutes: number;
   /** Deposit + Cash — disabled by default; never trust the browser for these values. */
   depositCash: DepositCashSettings;
+  /**
+   * 20% deposit now, balance by card link 7 days before (pickups 30+ days away).
+   * On unless the owner switches it off (dashboard switch, 15 Nov 2026).
+   */
+  cardBalanceDeposit: CardBalanceDepositSettings;
   updatedAt: string;
 };
+
+export type CardBalanceDepositSettings = { enabled: boolean };
+
+export function normalizeCardBalanceDepositSettings(raw: unknown): CardBalanceDepositSettings {
+  const enabled = (raw as { enabled?: unknown } | null | undefined)?.enabled;
+  return { enabled: enabled === false ? false : true };
+}
 
 const BOOKING_SETTINGS_KEY = "booking:settings";
 const TTL = 60 * 60 * 24 * 365 * 5;
@@ -71,6 +83,7 @@ export function defaultBookingSettings(): BookingSettings {
     shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
     customerPaymentWindowMinutes: CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
     depositCash: defaultDepositCashSettings(),
+    cardBalanceDeposit: { enabled: true },
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -111,6 +124,9 @@ export function normalizeBookingSettings(
     ),
     depositCash: normalizeDepositCashSettings(
       (raw as { depositCash?: unknown } | null | undefined)?.depositCash ?? raw,
+    ),
+    cardBalanceDeposit: normalizeCardBalanceDepositSettings(
+      (raw as { cardBalanceDeposit?: unknown } | null | undefined)?.cardBalanceDeposit,
     ),
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
   };
@@ -160,6 +176,7 @@ export async function saveBookingSettings(
       settings.customerPaymentWindowMinutes ?? current.customerPaymentWindowMinutes,
     ),
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -187,6 +204,7 @@ export async function updateMinimumBookingNoticeHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -211,6 +229,7 @@ export async function updateMinibusMinimumBookingNoticeHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -240,6 +259,7 @@ export async function updateMinimumShortNoticeLeadHours(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -259,6 +279,7 @@ export async function updateDepositCashSettings(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: parsed,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -283,6 +304,7 @@ export async function updateShortNoticeConfirmationWindowHours(
     shortNoticeConfirmationWindowHours: parsed,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -307,6 +329,7 @@ export async function updateCustomerPaymentWindowMinutes(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: parsed,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -336,6 +359,7 @@ export async function addUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: now.toISOString(),
   });
@@ -375,6 +399,7 @@ export async function updateUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: now.toISOString(),
   });
@@ -400,6 +425,7 @@ export async function deleteUnavailablePeriod(
     shortNoticeConfirmationWindowHours: current.shortNoticeConfirmationWindowHours,
     customerPaymentWindowMinutes: current.customerPaymentWindowMinutes,
     depositCash: current.depositCash,
+    cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
     updatedAt: new Date().toISOString(),
   });
@@ -418,4 +444,20 @@ export function bookingSettingsPublicView(settings: BookingSettings, now = new D
 export async function updateSaveQuoteSettings(store: KVNamespace, raw: unknown): Promise<BookingSettings> {
   const saveQuote = parseSaveQuoteSettings(raw);
   return putBookingSettings(store, { ...await getBookingSettings(store), saveQuote });
+}
+
+export async function updateCardBalanceDepositSettings(
+  store: KVNamespace,
+  raw: unknown,
+): Promise<BookingSettings> {
+  const enabled = (raw as { enabled?: unknown } | null | undefined)?.enabled;
+  if (typeof enabled !== "boolean") {
+    throw new Error("Choose on or off for the 20% deposit.");
+  }
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    ...current,
+    cardBalanceDeposit: { enabled },
+    updatedAt: new Date().toISOString(),
+  });
 }

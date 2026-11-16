@@ -14,6 +14,8 @@ import {
   savePersonalQuotePrefill,
 } from "@/lib/personal-quote-prefill";
 import OwnerA2aQuotesPanel from "@/components/OwnerA2aQuotesPanel";
+import OwnerBespokeRequestsPanel from "@/components/OwnerBespokeRequestsPanel";
+import OwnerBelfastEventsPanel from "@/components/OwnerBelfastEventsPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
 import OwnerInboxPanel from "@/components/OwnerInboxPanel";
@@ -3377,7 +3379,7 @@ export default function DriverPageClient({
             </h1>
             {isOwnerPortal && isOwnerPreviewHost ? (
               <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50">
-                {resolveWorkerBaseUrl().includes("://matni-dashboard-staging.")
+                {/:\/\/(matni-dashboard-staging|reimagined-octo-meme-bespoke-preview)\./.test(resolveWorkerBaseUrl())
                   ? "Isolated staging copy with its own test data. Nothing here reaches real customers or the live site."
                   : "Preview connected to the live booking data. Saving availability or jobs updates the live system."}
               </p>
@@ -3551,7 +3553,9 @@ export default function DriverPageClient({
               {isOwnerPortal && !isDemoOwnerSession && (
                 <div className="mb-6 rounded-xl border border-emerald/30 bg-emerald/10 px-4 py-3 text-sm text-emerald-light">
                   <p>
-                    Live owner dashboard — real customer bookings from the website.
+                    {/:\/\/(matni-dashboard-staging|reimagined-octo-meme-bespoke-preview)\./.test(resolveWorkerBaseUrl())
+                      ? "Test dashboard — test data only, not your live bookings."
+                      : "Live owner dashboard — real customer bookings from the website."}
                   </p>
                 </div>
               )}
@@ -3625,7 +3629,7 @@ export default function DriverPageClient({
                   role="tabpanel"
                   aria-labelledby="owner-tool-tab-pricing"
                 >
-                  <OwnerPricingPanel ownerKey={savedKey} />
+                  <OwnerPricingPanel ownerKey={savedKey} aboveMobileNav={mobileLayout} />
                 </div>
               ) : null}
 
@@ -3663,6 +3667,20 @@ export default function DriverPageClient({
               {isOwnerView && savedKey && ownerToolTab === "whatsapp" ? (
                 <div id="owner-tool-panel-whatsapp" role="tabpanel" aria-label="WhatsApp chats">
                   <OwnerWhatsAppChatsPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "bespoke-requests" ? (
+                <div role="tabpanel" aria-label="Event and Business Class requests" data-bespoke-owner-panel>
+                  <OwnerToolBackBar title="Event & Business Class" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerBespokeRequestsPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "belfast-events" ? (
+                <div role="tabpanel" aria-label="Belfast events" data-bespoke-owner-panel>
+                  <OwnerToolBackBar title="Belfast events" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerBelfastEventsPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 

@@ -76,7 +76,7 @@ export default function OwnerPortalHeader({
             >
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <Link href={homeHref} aria-label={`${SITE.name} ${resolvedTitle}`} onClick={closeMenu}>
-                  <Logo className="h-12" />
+                  <Logo wide className="h-9 max-w-[60vw]" />
                 </Link>
                 <button
                   type="button"
@@ -146,7 +146,7 @@ export default function OwnerPortalHeader({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 min-[64rem]:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <Link href={homeHref} aria-label={`${SITE.name} ${resolvedTitle}`} className="shrink-0">
-              <Logo className="h-11 sm:h-12" />
+              <Logo wide className="h-8 max-w-[55vw] sm:h-9" />
             </Link>
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-white sm:text-base">{resolvedTitle}</p>

@@ -47,6 +47,17 @@ const CREDITS: Credit[] = [
     changes: "Cropped, resized and re-encoded. The adapted image is shared under the same licence.",
   },
   {
+    subject: "Titanic Belfast",
+    usedOn: "Belfast landing pages and the Business Class page",
+    title: "Building of Titanic Belfast - Belfast - Northern Ireland - UK (43588878982)",
+    author: "Juan Antonio Segal",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Building_of_Titanic_Belfast_-_Belfast_-_Northern_Ireland_-_UK_(43588878982).jpg",
+    licence: "CC BY 2.0",
+    licenceUrl: "https://creativecommons.org/licenses/by/2.0/",
+    changes: "Cropped, resized, colour-graded and re-encoded.",
+  },
+  {
     subject: "Belfast Grand Central Station",
     usedOn: "Belfast Grand Central Station taxi page",
     title: "Grand Central Station, Belfast (Feb 25)",

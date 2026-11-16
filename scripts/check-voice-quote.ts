@@ -97,3 +97,27 @@ assert.ok(handler.includes("(\\+?44|0)7\\d{9}"), "UK mobiles only");
 assert.match(handler, /sendBySms: true/, "Falls back to a text when WhatsApp can't send");
 assert.match(handler, /smsText: smsText\(memo, priced\.bookingUrl\)/);
 console.log("OK  WhatsApp booking link: phone-made quotes only, once each, UK mobiles; SMS backup");
+
+// Owner 15 Nov 2026: a request-only / short-notice / unavailable time still gets the link, never "too soon".
+if (ok.ok) {
+  const req = voiceQuoteSay({ amount: 60, draft: ok.draft, requestOnly: true, shortNotice: true });
+  assert.match(req, /confirmation email/);
+  assert.match(req, /text, WhatsApp, or email/);
+  assert.doesNotMatch(req, /too soon|bit soon|guarantee|team will confirm/i);
+  const soon = voiceQuoteSay({ amount: 60, draft: ok.draft, requestOnly: false, shortNotice: true });
+  assert.match(soon, /text, WhatsApp, or email/);
+  console.log("OK  never turned away: request-only and short-notice quotes still offer the booking link");
+}
+
+// Owner 15 Nov 2026: from an airport ask the flight arrival time; otherwise the pickup time.
+{
+  const fromAirport = voiceQuoteDraft({ pickup: "Belfast International Airport", dropoff: "Antrim", date: "2026-11-14", passengers: 1, suitcases: 1 }, now);
+  assert.ok(!fromAirport.ok && fromAirport.askNext === "time" && /flight land/.test(fromAirport.say));
+  const toAirport = voiceQuoteDraft({ pickup: "Antrim", dropoff: "Belfast International Airport", date: "2026-11-14", passengers: 1, suitcases: 1 }, now);
+  assert.ok(!toAirport.ok && toAirport.askNext === "time" && /pickup/.test(toAirport.say));
+  const ret = voiceQuoteDraft({ pickup: "Antrim", dropoff: "Dublin Airport", date: "2026-11-14", time: "09:00", returnJourney: "yes", returnDate: "2026-11-20", passengers: 1, suitcases: 1 }, now);
+  assert.ok(!ret.ok && ret.askNext === "returnTime" && /return flight land/.test(ret.say));
+  const noDate = voiceQuoteDraft({ pickup: "Dublin Airport", dropoff: "Antrim", passengers: 1, suitcases: 1 }, now);
+  assert.ok(!noDate.ok && noDate.askNext === "date");
+  console.log("OK  airport pickups ask the flight arrival time; other pickups ask the pickup time");
+}

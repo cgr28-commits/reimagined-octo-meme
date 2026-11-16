@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     // Page-level openGraph replaces the layout's, so the share image must be repeated here.
     images: [
       {
-        url: absoluteSiteUrl("/og-image-square.png"),
+        url: absoluteSiteUrl("/og-image-square.png?v=20261113b"),
         width: 1200,
         height: 1200,
         alt: `${SITE.name} — Premium Airport Transfers`,
@@ -52,7 +52,7 @@ export default function Home() {
       />
       <Header />
       <main className="overflow-x-clip">
-        <HeroSlideshow />
+        <HeroSlideshow homepageQuickPicks showRotatingCards />
         <Design3QuickLinks />
         <AirportsSection />
         <PopularBelfastTransfers />

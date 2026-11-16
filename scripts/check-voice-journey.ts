@@ -35,7 +35,8 @@ async function main() {
   // 1) Telephone enquiry opening — Europe/London greeting once.
   const opening = voiceOpeningGreeting({ now: new Date("2026-11-04T09:15:00Z") });
   assert.equal(opening.dayPart, "morning");
-  assert.equal((opening.greeting.match(/My Airport Taxi NI/g) || []).length, 1);
+  assert.equal((opening.greeting.match(/My Airport Taxi/g) || []).length, 1);
+  assert.doesNotMatch(opening.greeting, /\bNI\b/);
   const inboundSrc = readFileSync("workers/addresses/src/voice-inbound.ts", "utf8");
   assert.match(inboundSrc, /Europe\/London/);
   assert.match(inboundSrc, /once only/);

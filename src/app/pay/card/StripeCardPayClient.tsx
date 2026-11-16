@@ -305,11 +305,11 @@ export default function StripeCardPayClient() {
       {/* Compact by design: the whole payment fits on one screen (phone and laptop). */}
       <div className="flex items-center justify-between gap-3">
         <span data-pay-logo-dark className="contents">
-          <Logo className="h-9 sm:h-10" />
+          <Logo wide className="h-8 max-w-[60vw] sm:h-9" />
         </span>
         {/* Desktop (1200px+) white card: the light logo variant (hidden below 1200px). */}
         <span data-pay-logo-light className="hidden">
-          <Logo theme="light" className="h-10" />
+          <Logo wide theme="light" className="h-9" />
         </span>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald">
           Secure card payment

@@ -41,7 +41,7 @@ for (const page of VITO_GROUP_PAGES) {
 }
 
 assert.match(landing, /preferMinibus/);
-assert.match(landing, /LocationQuoteSection/);
+assert.match(landing, /<HeroSlideshow/);
 assert.match(landing, /getServiceAreaJsonLd/);
 assert.match(landing, /getFaqPageJsonLd/);
 assert.match(landing, /getBreadcrumbJsonLd/);

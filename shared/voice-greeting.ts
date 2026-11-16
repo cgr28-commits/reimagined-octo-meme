@@ -5,7 +5,11 @@
 
 export type VoiceDayPart = "morning" | "afternoon" | "evening";
 
-export const VOICE_BUSINESS_NAME = "My Airport Taxi NI";
+/**
+ * Spoken name: "My Airport Taxi" without "NI" — callers heard "NI" as "AI" (owner, 15 Nov 2026).
+ * Written messages (SMS/WhatsApp/email) still use "My Airport Taxi NI".
+ */
+export const VOICE_BUSINESS_NAME = "My Airport Taxi";
 
 /** London local hour 0–23 (handles BST/GMT automatically via Europe/London). */
 export function londonHourNow(now = new Date()): number {

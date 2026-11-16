@@ -114,7 +114,8 @@ async function main() {
     );
     const body = await res.json();
     assert.equal(body.dayPart, "morning");
-    assert.equal((body.greeting.match(/My Airport Taxi NI/g) || []).length, 1);
+    assert.equal((body.greeting.match(/My Airport Taxi/g) || []).length, 1);
+    assert.doesNotMatch(body.greeting, /\bNI\b/);
     assert.match(body.sayHint, /once only|Speak the greeting field once/i);
     assert.match(body.sayHint, /Europe\/London/);
     const g = voiceOpeningGreeting({ now: new Date("2026-01-15T18:30:00Z") });
@@ -591,7 +592,8 @@ async function main() {
       )
     ).json();
     assert.equal(noConsent.ok, true);
-    assert.equal(noConsent.queued, false);
+    // Owner 15 Nov 2026: a caller who hangs up without a link gets one anyway (no consent question).
+    assert.equal(noConsent.queued, true);
 
     const consent = await (
       await handleVoiceCallEnded(
@@ -599,7 +601,7 @@ async function main() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fromNumber: "07700900123",
+            fromNumber: "07700900124",
             summary: "E2E test — consent yes, no link",
             followUpConsent: "yes",
             name: "Sam",

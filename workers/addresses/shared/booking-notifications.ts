@@ -5,6 +5,7 @@ import {
 } from "./deposit-card-balance";
 import { airportDisplayLabel } from "./airport-display-label";
 import { formatMarketingOptInLine } from "./marketing";
+import { formatHeardAboutLine } from "./heard-about";
 import {
   BRAND_EMERALD,
   BRAND_NAVY,
@@ -67,6 +68,14 @@ import {
 import { formatGbpAmountExact } from "./gbp";
 
 export type PaidBookingDetails = {
+  /**
+   * Explicit booking type. "bespoke" = manually priced Event / Business Class
+   * quotation (not an instant airport booking). Airport automations (return-offer
+   * emails, airport pickup reminders) skip these. Missing = ordinary booking.
+   */
+  bookingType?: "bespoke";
+  /** Bespoke quotation reference (MATNI-BQ-…) when bookingType is "bespoke". */
+  bespokeQuoteReference?: string;
   /** Selected IDs bound to the validated quote; no new address-precision requirement. */
   pickupPlaceId?: string;
   dropoffPlaceId?: string;
@@ -146,6 +155,8 @@ export type PaidBookingDetails = {
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
+  /** Optional "How did you hear about us?" answer from the booking form. */
+  heardAbout?: string;
   /** Consented, non-PII campaign attribution; owner/server use only. */
   attribution?: AdsAttribution;
   /** Quote session id for the daily owner quote report. */
@@ -1006,6 +1017,10 @@ export function buildOwnerPaidBookingEmail(
     (() => {
       const marketingLine = formatMarketingOptInLine(details);
       return marketingLine ? `\n${marketingLine}` : "";
+    })() +
+    (() => {
+      const heardLine = formatHeardAboutLine(details);
+      return heardLine ? `\n${heardLine}` : "";
     })() +
     formatOwnerAttributionBlock(details);
 
@@ -2068,7 +2083,7 @@ ${businessEmailClientMeta()}
         <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
           <tr>
             <td style="background:#ffffff;padding:24px 24px 20px;text-align:left;border-top:4px solid ${ACCENT};border-bottom:1px solid #e2e8f0;">
-              ${businessEmailLogoHtml(110, `${BUSINESS_WEBSITE}/logo.png`)}
+              ${businessEmailLogoHtml(200)}
               <h1 style="margin:20px 0 0;font-size:26px;line-height:1.25;letter-spacing:-0.5px;color:${NAVY};font-weight:bold;">How was your journey?</h1>
             </td>
           </tr>

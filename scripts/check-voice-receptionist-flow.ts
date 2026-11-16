@@ -73,9 +73,13 @@ async function main() {
   }
   console.log("OK  airport quotation say: we / not paid / no card details");
 
-  // 3) Unavailable-style and unclear-address copy live in the Worker handler.
+  // 3) Never turned away on the phone (owner 15 Nov 2026): price + link even when unavailable.
   const quoteHandler = readFileSync("workers/addresses/src/voice-quote.ts", "utf8");
-  assert.match(quoteHandler, /unavailable: availability\.reason/);
+  assert.doesNotMatch(quoteHandler, /unavailable: availability\.reason/);
+  assert.doesNotMatch(quoteHandler, /bit soon|fully booked at that time|not taking bookings for that time/i);
+  assert.match(quoteHandler, /const requestOnly = !availability\.ok \|\| availability\.requestOnly/);
+  assert.match(quoteHandler, /scheduleUpFront: true/);
+  assert.match(quoteHandler, /export async function handleVoiceQuoteForm/);
   assert.match(quoteHandler, /needsClearerAddress: true/);
   assert.match(quoteHandler, /toolFailed: true/);
   assert.match(quoteHandler, /sendBySms: true/);
@@ -199,7 +203,7 @@ async function main() {
 
   // 8) Correction / interruption / AI-honesty are prompt behaviours (documented).
   assert.match(prompt, /interruptions and corrections/i);
-  assert.match(prompt, /automated phone receptionist/);
+  assert.match(prompt, /automated receptionist/);
   console.log("check-voice-receptionist-flow: OK");
 }
 
