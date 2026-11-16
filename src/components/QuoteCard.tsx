@@ -2083,8 +2083,11 @@ function QuoteCard({
   useEffect(() => {
     function handlePlacePrefill(event: Event) {
       if (returnOfferToken) return;
-      const place = (event as CustomEvent<{ dropoff?: SelectedPlace }>).detail?.dropoff;
+      const detail = (event as CustomEvent<{ dropoff?: SelectedPlace; tripDate?: string }>).detail;
+      const place = detail?.dropoff;
       if (!place || !isQuoteReadyPlace(place)) return;
+      // The event's date (YYYY-MM-DD) as the pickup date; the customer still picks the time.
+      if (detail.tripDate && /^\d{4}-\d{2}-\d{2}$/.test(detail.tripDate)) setTripDate(detail.tripDate);
       setHomepagePriceRequested(false);
       setBookingSent(false);
       setQuoteStep(1);

@@ -224,7 +224,7 @@ function EventQuoteButton({ event }: { event: BelfastEventPublic }) {
     const place = await resolveEventVenuePlace(event.venueName, event.venueArea);
     setBusy(false);
     if (place) {
-      window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place } }));
+      window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place, tripDate: event.date } }));
       // Next step for the customer: their pickup address.
       window.setTimeout(() => {
         const pickup = quote?.querySelector<HTMLInputElement>("input[placeholder^='Pickup address']");
