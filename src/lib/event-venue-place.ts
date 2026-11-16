@@ -16,22 +16,35 @@ function words(value: string): string[] {
     .filter((w) => w.length > 2 && !["the", "and", "belfast", "dublin"].includes(w));
 }
 
+/**
+ * Better search wording for venues whose plain name finds a nearby business or just the road
+ * (checked against the live suggestions, 16 Nov 2026). Keyed by lower-case venue name.
+ */
+const VENUE_SEARCH_OVERRIDES: Record<string, string> = {
+  "belfast waterfront": "Waterfront Hall, Lanyon Place, Belfast",
+  "boucher road playing fields": "Boucher Road Playing Fields, Belfast BT12",
+  "stormont estate": "Parliament Buildings, Stormont, Belfast",
+  "belfast city hall grounds": "Belfast City Hall, Donegall Square North, Belfast",
+  "titanic belfast": "Titanic Belfast, Olympic Way",
+  "national football stadium at windsor park": "Windsor Park, Donegall Avenue, Belfast",
+  "dublin city centre": "Spire of Dublin, O'Connell Street",
+  "merrion square": "Merrion Square Park, Dublin 2",
+};
+
 async function lookup(venueName: string, venueArea: string): Promise<SelectedPlace | null> {
-  const query = `${venueName}, ${venueArea}`;
+  const query = VENUE_SEARCH_OVERRIDES[venueName.trim().toLowerCase()] ?? `${venueName}, ${venueArea}`;
+  const key = query.split(",")[0].trim().toLowerCase();
   const result = await fetchAddressPredictionsDetailed(query, "BFS");
   const predictions = result.predictions;
   if (!predictions.length) return null;
-  // Prefer the suggestion that names the venue; otherwise the top suggestion.
-  const nameWords = words(venueName);
+  // The suggestion named exactly as the venue, then one starting with it, then one naming all
+  // of its words (so "The O2 Belfast" beats "Titanic Desserts | The O2 Belfast"); else the top one.
+  const keyWords = words(key);
+  const name = (p: (typeof predictions)[number]) => p.mainText.trim().toLowerCase();
   const match =
-    predictions.find((p) => {
-      const text = `${p.mainText} ${p.description}`.toLowerCase();
-      return nameWords.length > 0 && nameWords.every((w) => text.includes(w));
-    }) ??
-    predictions.find((p) => {
-      const text = `${p.mainText} ${p.description}`.toLowerCase();
-      return nameWords.some((w) => text.includes(w));
-    }) ??
+    predictions.find((p) => name(p) === key) ??
+    predictions.find((p) => name(p).startsWith(key)) ??
+    predictions.find((p) => keyWords.length > 0 && keyWords.every((w) => name(p).includes(w))) ??
     predictions[0];
   const place = await fetchSelectedPlaceDetails(match.placeId, "BFS", query, match.mainText);
   return place && isQuoteReadyPlace(place) ? place : null;
