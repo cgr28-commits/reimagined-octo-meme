@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { resolveEventVenuePlace } from "@/lib/event-venue-place";
 import {
   BELFAST_EVENT_CATEGORIES,
   BELFAST_EVENT_CATEGORY_LABELS,
@@ -22,8 +23,11 @@ import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENT_TRANSFER_REQUEST_PATH } from "@/lib
 import { bookingHelpWhatsAppUrl } from "@/lib/booking-help-whatsapp";
 import { eventCityForArea, type EventCity } from "../../shared/belfast-events";
 
-/** Request forms off → each event goes to the instant quote tool and WhatsApp. */
-const FORMS = BESPOKE_PUBLIC_PAGES_ENABLED;
+/**
+ * Each event goes to the Events page's own instant quote tool (venue pre-filled as a picked
+ * address) and WhatsApp — owner, 16 Nov 2026. The request form stays off here, even on previews.
+ */
+const FORMS = false && BESPOKE_PUBLIC_PAGES_ENABLED;
 const CITY_LABELS: Record<EventCity, string> = { belfast: "Belfast", dublin: "Dublin" };
 
 type Filter = "all" | BelfastEventCategory;
@@ -124,9 +128,9 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
             ) : (
               <>
                 You can still get a fixed price for any venue.{" "}
-                <Link href="/#quote" className="font-semibold text-emerald underline">
+                <a href="#quote" className="font-semibold text-emerald underline">
                   Get a fixed price
-                </Link>
+                </a>
               </>
             )}
           </p>
@@ -168,13 +172,7 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
                   {open && !FORMS ? (
                     <>
-                      <Link
-                        href="/#quote"
-                        className="btn-primary inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold"
-                        aria-label={`Get a fixed price for ${e.title}`}
-                      >
-                        Get a fixed price
-                      </Link>
+                      <EventQuoteButton event={e} />
                       <a
                         href={bookingHelpWhatsAppUrl(`Hi, I'd like a price for ${e.title} on ${d.full}.`)}
                         target="_blank"
@@ -212,5 +210,41 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
         </ul>
       )}
     </div>
+  );
+}
+
+/** Scrolls to the page's quote tool and fills the drop-off with the event's venue (picked place). */
+function EventQuoteButton({ event }: { event: BelfastEventPublic }) {
+  const [busy, setBusy] = useState(false);
+  async function onClick() {
+    if (busy) return;
+    setBusy(true);
+    const quote = document.getElementById("quote");
+    quote?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const place = await resolveEventVenuePlace(event.venueName, event.venueArea);
+    setBusy(false);
+    if (place) {
+      window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place } }));
+      // Next step for the customer: their pickup address.
+      window.setTimeout(() => {
+        const pickup = quote?.querySelector<HTMLInputElement>("input[placeholder^='Pickup address']");
+        if (pickup && !pickup.value.trim()) pickup.focus({ preventScroll: true });
+      }, 400);
+    } else {
+      // Lookup unavailable: let the customer type the venue themselves.
+      const dropoff = quote?.querySelector<HTMLInputElement>("input[placeholder^='Destination address']");
+      dropoff?.focus({ preventScroll: true });
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-busy={busy}
+      className="btn-primary inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold"
+      aria-label={`Get a fixed price for ${event.title} at ${event.venueName}`}
+    >
+      {busy ? "Finding venue…" : "Get a fixed price"}
+    </button>
   );
 }

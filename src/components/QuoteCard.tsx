@@ -738,6 +738,8 @@ type QuoteCardProps = {
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
+  /** Page-specific card title shown above the fields (e.g. "Events & Concerts" on /events/). */
+  quoteCardTitle?: string;
   bookingIntroduction?: string;
   /** Preselect airport on dedicated landing pages. */
   initialAirportCode?: string;
@@ -849,6 +851,7 @@ function QuoteCard({
   restoredQuote,
   homepagePolish = false,
   homepageQuickPicks = false,
+  quoteCardTitle,
   initialAirportCode = "",
   initialDirection = "to-airport",
   initialAddressHint = "",
@@ -2067,6 +2070,28 @@ function QuoteCard({
       window.removeEventListener("quote-prefill-airport", handlePrefill);
       window.removeEventListener("quote-prefill-draft", handleDraftPrefill);
     };
+  }, [returnOfferToken]);
+
+  /**
+   * Events page: "Get a fixed price" on an event fills the drop-off with the venue as an
+   * already-picked Google place (exactly as if the customer chose it from the suggestions).
+   * A ref keeps the listener on the latest handler, so the pickup the customer may already
+   * have chosen is taken into account.
+   */
+  const prefillDropoffPlaceRef = useRef(handleDropoffPlacesSuggestionSelect);
+  prefillDropoffPlaceRef.current = handleDropoffPlacesSuggestionSelect;
+  useEffect(() => {
+    function handlePlacePrefill(event: Event) {
+      if (returnOfferToken) return;
+      const place = (event as CustomEvent<{ dropoff?: SelectedPlace }>).detail?.dropoff;
+      if (!place || !isQuoteReadyPlace(place)) return;
+      setHomepagePriceRequested(false);
+      setBookingSent(false);
+      setQuoteStep(1);
+      prefillDropoffPlaceRef.current(place);
+    }
+    window.addEventListener("quote-prefill-place", handlePlacePrefill);
+    return () => window.removeEventListener("quote-prefill-place", handlePlacePrefill);
   }, [returnOfferToken]);
 
   /**
@@ -10026,6 +10051,7 @@ function QuoteCard({
                 design3={mobileDesign3}
                 homepagePolish={homepagePolish}
                 quickPicks={homepageQuickPicks}
+                cardTitle={quoteCardTitle}
                 onQuickPickAirport={applyHomepageQuickPick}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
