@@ -5,7 +5,8 @@ export type MarketingOptInSource =
   | "paid-booking"
   | "booking-request"
   | "tour-enquiry"
-  | "vehicle-enquiry";
+  | "vehicle-enquiry"
+  | "promo-signup";
 
 export type MarketingSubscriber = {
   email: string;
@@ -13,6 +14,8 @@ export type MarketingSubscriber = {
   optedInAt: string;
   source: MarketingOptInSource;
   consentVersion: string;
+  /** Exact wording the customer agreed to, when recorded (promo sign-up form, Nov 2026 on). */
+  consentWording?: string;
   unsubscribedAt?: string;
   /** Random token for one-click unsubscribe links in marketing emails. */
   unsubscribeToken?: string;
@@ -40,12 +43,14 @@ export function formatMarketingOptInLine(fields: MarketingOptInFields): string |
 export type MarketingSubscriberRow = Omit<MarketingSubscriber, "unsubscribeToken">;
 
 function csvCell(value: string | undefined): string {
-  const v = String(value ?? "");
+  const raw = String(value ?? "");
+  // A leading = + - @ would run as a formula when the file is opened in Excel.
+  const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
 export function marketingSubscribersCsv(rows: MarketingSubscriberRow[]): string {
-  const header = ["Email", "Name", "Opted in", "Source", "Consent version", "Status", "Unsubscribed"];
+  const header = ["Email", "Name", "Opted in", "Source", "Consent version", "Consent wording", "Status", "Unsubscribed"];
   const lines = rows.map((r) =>
     [
       r.email,
@@ -53,6 +58,7 @@ export function marketingSubscribersCsv(rows: MarketingSubscriberRow[]): string 
       r.optedInAt,
       r.source,
       r.consentVersion,
+      r.consentWording,
       r.unsubscribedAt ? "Unsubscribed" : "Subscribed",
       r.unsubscribedAt,
     ]

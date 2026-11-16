@@ -52,7 +52,7 @@ export const DUBLIN_CITY_TRANSFER_PAGE = {
     {
       question: "Can I book a return journey?",
       answer:
-        "Yes. Choose Return and enter the details for both journeys, for example to Dublin for a concert and back to Belfast the same night. Where an eligible online return fare is shown, the return discount is applied automatically.",
+        "Yes. Choose Return and enter the details for both journeys, for example to Dublin for a concert and back to Belfast the same night.",
     },
     {
       question: "What if my plans change?",

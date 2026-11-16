@@ -18,6 +18,7 @@ import OwnerBespokeRequestsPanel from "@/components/OwnerBespokeRequestsPanel";
 import OwnerBelfastEventsPanel from "@/components/OwnerBelfastEventsPanel";
 import OwnerWhatsAppChatsPanel from "@/components/OwnerWhatsAppChatsPanel";
 import OwnerMarketingPanel from "@/components/OwnerMarketingPanel";
+import OwnerPromoCodesPanel from "@/components/OwnerPromoCodesPanel";
 import OwnerInboxPanel from "@/components/OwnerInboxPanel";
 import OwnerGoogleAdsFeedPanel from "@/components/OwnerGoogleAdsFeedPanel";
 import OwnerEmailCustomerModal from "@/components/OwnerEmailCustomerModal";
@@ -3659,7 +3660,8 @@ export default function DriverPageClient({
               ) : null}
 
               {isOwnerView && savedKey && ownerToolTab === "marketing" ? (
-                <div id="owner-tool-panel-marketing" role="tabpanel" aria-label="Marketing">
+                <div id="owner-tool-panel-marketing" role="tabpanel" aria-label="Promo Codes & Email Marketing" className="space-y-6">
+                  <OwnerPromoCodesPanel ownerKey={savedKey} />
                   <OwnerMarketingPanel ownerKey={savedKey} />
                 </div>
               ) : null}

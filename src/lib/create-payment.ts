@@ -112,6 +112,11 @@ export type PaymentCheckoutRequest = {
   /** Secure return-offer token from /book?returnOffer= — server validates and applies 5%. */
   returnOfferToken?: string;
   /**
+   * Email promo code the customer applied (open website bookings only). The Worker checks it
+   * against the booking email, expiry and minimum fare, and recalculates the discount itself.
+   */
+  promoCode?: string;
+  /**
    * Homepage / normal website instant quote only. Worker ignores this on
    * Personal Quotes, Quick Quotes, saved quotes, short-notice, A2A tokens.
    * Do not send client percent/minimum/deposit — Worker recalculates.
@@ -156,6 +161,19 @@ export type PaymentCheckoutResult = {
   status?: string;
   shortNoticeReference?: string;
 };
+
+/** The Worker refused the promo code (expired, used, below minimum, other offer applied, ...). */
+export type PaymentPromoRejectedError = Error & {
+  code: "promo_rejected";
+  promoReason: string;
+};
+
+export function isPaymentPromoRejectedError(error: unknown): error is PaymentPromoRejectedError {
+  return (
+    error instanceof Error &&
+    (error as PaymentPromoRejectedError).code === "promo_rejected"
+  );
+}
 
 export type PaymentFareMismatchError = Error & {
   code: "fare_mismatch";
@@ -434,6 +452,7 @@ export async function createPaymentCheckout(
       ...(request.returnOfferToken?.trim()
         ? { returnOfferToken: request.returnOfferToken.trim() }
         : {}),
+      ...(request.promoCode?.trim() ? { promoCode: request.promoCode.trim() } : {}),
       ...(request.paymentMethod === "DEPOSIT_CASH" ||
       request.paymentMethod === "FULL_ONLINE" ||
       request.paymentMethod === "DEPOSIT_CARD_BALANCE"
@@ -467,6 +486,21 @@ export async function createPaymentCheckout(
       const unavailable = new Error(message) as PaymentVehicleUnavailableError;
       unavailable.code = "vehicle_unavailable";
       throw unavailable;
+    }
+    if (
+      response.status === 409 &&
+      payload &&
+      typeof payload === "object" &&
+      (payload as { code?: unknown }).code === "promo_rejected"
+    ) {
+      const message =
+        typeof (payload as { error?: unknown }).error === "string"
+          ? String((payload as { error: string }).error)
+          : "Your promo code couldn't be applied.";
+      const rejected = new Error(message) as PaymentPromoRejectedError;
+      rejected.code = "promo_rejected";
+      rejected.promoReason = String((payload as { promoReason?: unknown }).promoReason ?? "");
+      throw rejected;
     }
     if (
       response.status === 409 &&

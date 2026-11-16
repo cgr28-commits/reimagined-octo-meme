@@ -440,8 +440,9 @@ async function main() {
         "As we weren’t able to confirm availability within 2 hours, your booking request has now expired.",
       );
 
-      assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
-      assert.equal(getWebsiteReturnJourneyFare(40), 76);
+      // Automatic 5% return discount retired (Nov 2026): two full journeys.
+      assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0);
+      assert.equal(getWebsiteReturnJourneyFare(40), 80);
     });
 
     check("Server paths enforce the lead time, expiry cron, and stale payment guard", () => {

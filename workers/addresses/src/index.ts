@@ -603,6 +603,18 @@ import {
   resolveReturnOfferForPayment,
 } from "./return-offer-handlers";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
+import { handlePromoRequest, isPromoPath } from "./promo-handlers";
+import { savedQuotePricingFor } from "./owner-pricing-store";
+import { promoDb, runPromoRetention } from "./promo-store";
+import { normalizePromoCode, promoRejectMessage, type PromoTerms } from "../shared/promo-code";
+import {
+  PROMO_RESERVATION_MS,
+  checkPromoForWebsiteBooking,
+  movePromoReservation,
+  promoHoldUntilPickup,
+  releasePromoForCheckout,
+  reservePromoForCheckout,
+} from "./promo-checkout";
 import { calculateAuthoritativeWebsiteQuote } from "../../../src/lib/quote-service";
 import {
   calculateAirportToAirportQuote,
@@ -716,8 +728,10 @@ type Env = {
   /** Minutes after journey completion before automated Google review email (default 120). */
   REVIEW_REQUEST_DELAY_MINUTES?: string;
   OWNER_ACCESS_KEY?: string;
-  /** Stage 1 driver accounts (D1). Bound on dashboard staging only. */
+  /** Stage 1 driver accounts (D1). Also holds email promo codes (migration 0005). */
   DRIVER_DB?: D1Like;
+  /** Optional pepper for hashed emails / IPs in the promo-code tables. Set once; never change. */
+  PROMO_HASH_SECRET?: string;
   /** Optional GPS audit retention override (seconds, min 30 days). */
   TRACKING_GPS_HISTORY_TTL_SECONDS?: string;
   /** Per-booking refund serialization (Durable Object). */
@@ -2305,6 +2319,32 @@ async function handlePaymentRequest(
   let personalQuotedAmount: number | undefined;
   const returnOfferToken = String(body.returnOfferToken ?? "").trim() || undefined;
   let returnOfferOriginalPaymentReference: string | undefined;
+  // Email promo code (open website bookings only). Terms, eligibility and the discount are
+  // all decided here on the server; the browser only names the code it wants to use.
+  const promoCodeRaw = String(body.promoCode ?? "").trim();
+  const promoCodeRequested = promoCodeRaw ? normalizePromoCode(promoCodeRaw) : "";
+  if (promoCodeRaw && !promoCodeRequested) {
+    return json({ error: promoRejectMessage("not_found"), code: "promo_rejected", promoReason: "not_found" }, 409, origin);
+  }
+  if (
+    promoCodeRequested &&
+    (shortNoticeToken || a2aQuoteToken || personalQuoteCodeRaw || quickQuoteIdRaw || savedQuoteTokenRaw || returnOfferToken)
+  ) {
+    return json(
+      {
+        error: promoRejectMessage(returnOfferToken ? "not_combinable" : "not_eligible_booking"),
+        code: "promo_rejected",
+        promoReason: returnOfferToken ? "not_combinable" : "not_eligible_booking",
+      },
+      409,
+      origin,
+    );
+  }
+  /** Set once the code is checked and held for this checkout (see reservePromoForCheckout). */
+  let promoReservation: { code: string; key: string } | null = null;
+  let promoTerms: PromoTerms | null = null;
+  let promoEmailHashForBooking = "";
+  let emptyRunAppliedToFare = false;
   let depositSnapshot: DepositCashSnapshot | undefined;
   let cardBalanceSnapshot:
     | { totalFare: number; depositGbp: number; balanceGbp: number; percentUsed: number }
@@ -2738,7 +2778,8 @@ async function handlePaymentRequest(
           returnTime: booking.returnTime || sj.returnTime,
         },
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-        pricing: await loadOwnerPricingOrDefault(env),
+        // Saved before the 5% return discount was retired? Re-price with the rate it was quoted at.
+        pricing: savedQuotePricingFor(await loadOwnerPricingOrDefault(env), sq),
       });
       if (!priced.ok) {
         return json({ error: priced.message }, 422, origin);
@@ -3228,6 +3269,7 @@ async function handlePaymentRequest(
         },
       });
       if (emptyRun?.applied && emptyRun.fare) {
+        emptyRunAppliedToFare = true;
         authoritativeQuote = {
           ...authoritativeQuote,
           amountGbp: emptyRun.fare.amountGbp,
@@ -3406,6 +3448,55 @@ async function handlePaymentRequest(
       }
     }
 
+    if (promoCodeRequested) {
+      // A signed quote receipt already carries any Empty Run (special price) saving; check
+      // whether this journey gets one so a promo code is never stacked on top of it.
+      if (receiptClaims && !emptyRunAppliedToFare) {
+        const special = await evaluateEmptyRunSafely({
+          store: env.TRACKING_STORE,
+          forceEnabled: emptyRunPreviewForced(env),
+          request: {
+            pickupLabel: booking.pickupLabel,
+            dropoffLabel: booking.dropoffLabel,
+            pickup: routeOutcome.pickup ?? null,
+            dropoff: routeOutcome.dropoff ?? null,
+            airportCode: airportContext.airportCode ?? null,
+            fromAirport: Boolean(airportContext.fromAirport) || Boolean(airportContext.pickupAirportCode),
+            tripDate: String(booking.tripDate ?? ""),
+            tripTime: String(booking.tripTime ?? ""),
+            durationMinutes: routeMetrics.durationMinutes,
+            returnJourney: Boolean(booking.returnJourney),
+            vehicle: vehicleType,
+          },
+          fare: {
+            amountGbp: authoritativeQuote.amountGbp,
+            journeyFareGbp: authoritativeQuote.journeyFareGbp,
+            airportFixedCostsGbp: authoritativeQuote.airportFixedCostsGbp,
+            nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
+          },
+        });
+        if (special?.applied) emptyRunAppliedToFare = true;
+      }
+      const promoCheck = await checkPromoForWebsiteBooking(env, {
+        code: promoCodeRequested,
+        bookingEmail: booking.customerEmail,
+        otherOfferApplied: returnOfferDiscountRate > 0 || emptyRunAppliedToFare,
+      });
+      if (!promoCheck.ok) {
+        return json(
+          {
+            error: promoRejectMessage(promoCheck.reason, { minimumVehicleFareGbp: promoCheck.minimumVehicleFareGbp }),
+            code: "promo_rejected",
+            promoReason: promoCheck.reason,
+          },
+          409,
+          origin,
+        );
+      }
+      promoTerms = promoCheck.terms;
+      promoEmailHashForBooking = promoCheck.emailHash;
+    }
+
     const pricingOptions = ownerPricingEngineOptions(pricing);
     const preserveFixedFarePence = Boolean(authoritativeQuote.preserveBfsMinimumPence) || postcodeFareHasPence({ enabled: pricing.saloonFormula?.enabled === true ? false : pricing.postcodePricingEnabled, rules: pricing.postcodeRules, context: { address: airportContext.fromAirport ? booking.dropoffLabel : booking.pickupLabel, airportCode: airportContext.airportCode ?? "", fromAirport: airportContext.fromAirport }, vehicle: vehicleType, estateSupplement: pricing.estate.upliftGbp, returnJourney: Boolean(booking.returnJourney) });
     const breakdown = composeWebsiteFareBreakdown({
@@ -3418,6 +3509,7 @@ async function handlePaymentRequest(
       returnAirportAccessChargeGbp: persisted.returnAirportAccessChargeGbp,
       returnJourney: Boolean(booking.returnJourney),
       ...(returnOfferDiscountRate > 0 ? { returnOfferDiscountRate } : {}),
+      ...(promoTerms ? { promoCode: promoTerms } : {}),
       ...(isExecutiveVehicle(vehicleType)
         ? {
             businessClassMinimumFareGbp: pricingOptions.executiveMinimumFareGbp,
@@ -3427,6 +3519,19 @@ async function handlePaymentRequest(
           }
         : {}),
     });
+
+    if (promoTerms && breakdown.promoCodeStatus !== "applied") {
+      return json(
+        {
+          error: promoRejectMessage("minimum_fare", promoTerms),
+          code: "promo_rejected",
+          promoReason: "minimum_fare",
+          promoEligibleVehicleFareGbp: breakdown.promoEligibleVehicleFareGbp,
+        },
+        409,
+        origin,
+      );
+    }
 
     const optionalMeetGreet = quoteOptionalMeetGreet({
       selected: optionalMeetGreetSelected,
@@ -3695,6 +3800,27 @@ async function handlePaymentRequest(
     );
   }
 
+  // Hold the promo code for this checkout before any payment page or request exists, so the
+  // same code can never be spent by two bookings at once. A short temporary hold is moved to
+  // the real checkout / request below; if anything fails in between it simply lapses.
+  if (promoTerms && booking.promoCode === promoTerms.code) {
+    const tempKey = `pending:${crypto.randomUUID()}`;
+    const held = await reservePromoForCheckout(env, {
+      code: promoTerms.code,
+      emailHash: promoEmailHashForBooking,
+      key: tempKey,
+      holdMs: 30 * 60_000,
+    });
+    if (!held) {
+      return json(
+        { error: promoRejectMessage("redeemed"), code: "promo_rejected", promoReason: "redeemed" },
+        409,
+        origin,
+      );
+    }
+    promoReservation = { code: promoTerms.code, key: tempKey };
+  }
+
   // Short-notice window: save request — do NOT open SumUp. Luggage quantity does not hold payment.
   if (!shortNoticeToken && !a2aQuoteToken) {
     const notice = await shouldForceShortNotice(env.TRACKING_STORE, booking);
@@ -3741,6 +3867,10 @@ async function handlePaymentRequest(
               ? { standardWebsiteAmount: Math.round(clientStandardWebsiteAmount * 100) / 100 }
               : {}),
         });
+        if (promoReservation) {
+          // Held until the owner decides (or the pickup passes); same customer may move it.
+          await movePromoReservation(env, promoReservation, `sn:${created.record.reference}`, promoHoldUntilPickup(booking));
+        }
         const amountLabel = formatPaidAmount(created.record.amount);
         // Stripe: hold the customer's card now; Approve charges it and confirms.
         let cardHoldUrl: string | undefined;
@@ -4129,6 +4259,15 @@ async function handlePaymentRequest(
     timing.sumup = performance.now() - sumupStarted;
     const persistenceStarted = performance.now();
 
+    if (promoReservation) {
+      await movePromoReservation(
+        env,
+        promoReservation,
+        checkout.checkoutId,
+        stripeHold ? promoHoldUntilPickup(booking) : new Date(Date.now() + PROMO_RESERVATION_MS),
+      );
+    }
+
     if (personalQuoteCode && personalQuoteReservationAttemptId) {
       await bindPersonalQuoteReservationCheckout(
         env.TRACKING_STORE,
@@ -4431,6 +4570,7 @@ async function handlePaymentWebhookRequest(
                     { checkoutId },
                   );
                 }
+                await releasePromoForCheckout(env, checkoutId);
                 if (!pending?.unsuccessfulEmailSentAt) {
                   const amountLabel = formatPaidAmount(pending?.amount ?? checkout.amount ?? 0);
                   const unsuccessful = buildOwnerPaymentUnsuccessfulEmail(booking, {
@@ -4779,6 +4919,11 @@ async function handleStripeWebhookRequest(request: Request, env: Env): Promise<R
   const sessionId = event.data?.object?.object === "checkout.session" ? event.data.object.id : "";
   if (!handled.has(event.type) || !isStripeCheckoutId(sessionId)) {
     return new Response(JSON.stringify({ ok: true, ignored: event.type }), { status: 200 });
+  }
+
+  if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+    // The payment page closed without payment: the customer's promo code is free to use again.
+    await releasePromoForCheckout(env, sessionId);
   }
 
   const forward = new Request(
@@ -5169,6 +5314,11 @@ export default {
     });
     if (driverAccountsResponse) return driverAccountsResponse;
 
+    // Email promo codes (public request / validate / config + Owner Dashboard section).
+    if (isPromoPath(url.pathname)) {
+      return handlePromoRequest(request, env, origin);
+    }
+
     // Stripe webhook (server-to-server, signature-verified inside).
     if (
       (url.pathname === "/payments/stripe-webhook" || url.pathname === "/api/payments/stripe-webhook") &&
@@ -5448,7 +5598,7 @@ export default {
         },
         clientSubmittedAmount: Number(body.clientAmount) || undefined,
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
-        pricing: await loadOwnerPricingOrDefault(env),
+        pricing: savedQuotePricingFor(await loadOwnerPricingOrDefault(env), latest),
       });
       if (!priced.ok) {
         return json({ error: priced.message, reason: priced.reason }, 422, origin);
@@ -7070,6 +7220,19 @@ export default {
           console.error("driver jobs maintenance failed", error instanceof Error ? error.message : error),
         ),
       );
+    }
+    // Promo codes: mark expired codes and apply the retention periods (hourly job; cheap
+    // indexed deletes). Inert until migration 0005 exists.
+    if (env.DRIVER_DB && cron !== SHORT_NOTICE_EXPIRY_CRON) {
+      const promo = promoDb(env);
+      if (promo) {
+        ctx.waitUntil(
+          runPromoRetention(promo, new Date()).catch((error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/no such table/i.test(message)) console.error("promo retention failed", message);
+          }),
+        );
+      }
     }
     // Bespoke quote expiry sweep — no-op unless BESPOKE_QUOTES_ENABLED = "1".
     // Isolated: its own promise and catch, so it cannot affect the jobs below.

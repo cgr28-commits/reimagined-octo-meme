@@ -296,7 +296,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       "Applicable tolls included on Dublin Airport fares",
       "Up to 60 minutes complimentary waiting time on airport pickups",
       "Applicable airport access charges included in your fixed fare",
-      "5% return-booking discount on the combined journey fare, excluding fixed charges and surcharges",
+      "Outward and return journeys booked together on one fixed-price booking",
     ],
     localTips: [
       "Allow around two hours for the road journey from Belfast in normal traffic, plus the time your airline recommends for check-in and security. Allow extra travel time during busy periods.",
@@ -360,7 +360,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
       {
         question: "Is there a discount for a return trip?",
         answer:
-          "Yes. Book your outward and return journeys together and get 5% off the combined journey fare (fixed charges excluded).",
+          "Yes. Book your outward and return journeys together on one booking.",
       },
     ],
   },
@@ -439,7 +439,7 @@ function buildRouteNotes(town: TownArea, airport: AirportPage): string[] {
     return [
       `${town.name} to Dublin Airport is a cross-border journey — expect around two hours depending on traffic.`,
       "Early-morning Dublin departures from North Down and Greater Belfast are a core part of our diary.",
-      "Return transfers can be booked together online with a 5% return discount.",
+      "Return transfers can be booked together online on one booking.",
     ];
   }
   return [
@@ -515,7 +515,7 @@ function cityOfDerryRouteFaqs(town: TownArea): Array<{ question: string; answer:
       {
         question: "Can I book a return from City of Derry Airport to Newtownabbey?",
         answer:
-          "Yes. Choose Return on the quote form, or book the inbound collection on its own. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form, or book the inbound collection on its own. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting.",
       },
       {
         question: "Is a Newtownabbey to City of Derry Airport taxi a local Derry hop?",
@@ -539,7 +539,7 @@ function cityOfDerryRouteFaqs(town: TownArea): Array<{ question: string; answer:
       {
         question: "Can I book a return from City of Derry Airport to Lisburn?",
         answer:
-          "Yes. Choose Return on the quote form, or book the inbound on its own back to Lisburn, Sprucefield or Hillsborough. Share the flight number so we can monitor the Eglinton arrival where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form, or book the inbound on its own back to Lisburn, Sprucefield or Hillsborough. Share the flight number so we can monitor the Eglinton arrival where possible. Airport pickups include up to 60 minutes complimentary waiting.",
       },
       {
         question: "Do you collect in Derry city for this Lisburn page?",
@@ -563,7 +563,7 @@ function cityOfDerryRouteFaqs(town: TownArea): Array<{ question: string; answer:
       {
         question: "Can I book a return from City of Derry Airport to Bangor?",
         answer:
-          "Yes. Choose Return on the quote form, or book the inbound collection on its own to Bangor or the North Down address. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form, or book the inbound collection on its own to Bangor or the North Down address. Share the flight number so we can monitor the arrival at Eglinton where possible. Airport pickups include up to 60 minutes complimentary waiting.",
       },
       {
         question: "Is Bangor to City of Derry Airport the same as the City Airport run?",

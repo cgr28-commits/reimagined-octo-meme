@@ -1,6 +1,6 @@
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "1 November 2026";
+export const PRIVACY_LAST_UPDATED = "16 November 2026";
 
 export const PRIVACY_SECTIONS = [
   {
@@ -63,11 +63,21 @@ export const PRIVACY_SECTIONS = [
     ],
   },
   {
+    title: "Discount codes",
+    content: [
+      "If you ask for a discount code, we use your email address to create a unique code, email it to you and check it when you book. The code is linked to that email address so it can only be used once, by you. Our legal basis is to provide the code you asked for (contract), and our legitimate interest in preventing misuse of the offer.",
+      "We record the code, when it was issued, when it expires, whether and on which booking it was used, and the saving given. To limit abuse we also keep a log of code requests with a one-way scrambled (hashed) form of your email address and network address — never your raw IP address.",
+      "Asking for a code does not sign you up to marketing emails. You only receive marketing if you also tick the separate, optional marketing box, and you receive your code whether or not you tick it.",
+      "Retention: the request log is deleted after 90 days; codes that are never used are deleted 12 months after they expire; for codes that are used, your email address is erased 24 months after use, keeping only the hashed form so the one-code-per-customer rule still works, and the code and amounts for our accounts.",
+    ],
+  },
+  {
     title: "Marketing emails",
     content: [
-      "We only send marketing emails if you tick the optional marketing checkbox when booking or enquiring. This is separate from the terms you must accept to complete a booking.",
+      "We only send marketing emails if you tick the optional marketing checkbox when booking, enquiring or asking for a discount code. The box is never ticked for you. This is separate from the terms you must accept to complete a booking, and from receiving a discount code.",
+      "When you opt in we record your email address, the date and time, where you opted in and the exact wording you agreed to, so we can show that you gave consent. We keep this consent record for up to 3 years.",
       "Marketing emails may include special offers, travel tips and news about our airport transfer and day trip services.",
-      "You can withdraw consent at any time using our unsubscribe page or by emailing bookings@myairporttaxini.co.uk with the address you wish to remove.",
+      "You can withdraw consent at any time with the unsubscribe link in every marketing email, on our unsubscribe page, or by emailing bookings@myairporttaxini.co.uk with the address you wish to remove. Unsubscribing never affects a booking or a discount code you already have.",
       "We do not sell your email address to third parties for their marketing.",
     ],
   },
@@ -119,6 +129,7 @@ export const PRIVACY_SECTIONS = [
       "Journey records and any operational GPS evidence are retained only as needed for disputes, safety, and legal requirements. Optional WhatsApp live location is controlled by the sender inside WhatsApp.",
       "Refund and cancellation audit records are kept with the related booking for the same accounting/dispute retention period.",
       "Advertising abuse / security monitoring event records are retained for about 90 days, then removed or anonymised. Aggregated non-identifying statistics may be kept longer.",
+      "Discount codes and requests for them are kept as set out under “Discount codes” above. Marketing consent records are kept for up to 3 years; once you unsubscribe we keep your address on a suppression record only so we never email you marketing again.",
     ],
   },
   {
@@ -131,7 +142,7 @@ export const PRIVACY_SECTIONS = [
   {
     title: "Cookies",
     content: [
-      "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference.",
+      "This website uses essential browser storage to remember payment return state during checkout and to store your cookie preference. If you close our discount offer or ask for a code, we store a small note in your browser so the offer is not shown again (for 30 days after closing it, or at all after you have asked for a code).",
       "We may also use a short-lived essential session identifier for security, fraud prevention and advertising abuse monitoring. This is separate from optional marketing measurement and is not used to identify individual competitors.",
       "Optional Google Ads cookies are used only if you choose “Accept measurement cookies” on our consent banner. When accepted, we load the Google tag sitewide with Google Consent Mode so Google may measure fixed-price quotes, saved booking requests and completed paid bookings, subject to that consent choice.",
       "The Google tag may set Google cookies used for conversion measurement. It is not used for general site analytics browsing tracking.",

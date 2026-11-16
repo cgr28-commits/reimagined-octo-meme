@@ -1,3 +1,4 @@
+import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
 /**
  * KV persistence for Saved Quotes (TRACKING_STORE).
  */
@@ -91,6 +92,7 @@ export async function createSavedQuote(
   }
 
   const record: SavedQuoteRecord = {
+    returnDiscountRate: RETURN_JOURNEY_DISCOUNT_RATE,
     id: generateSavedQuoteId(),
     reference: generateSavedQuoteReference(now),
     token: generateSavedQuoteToken(),

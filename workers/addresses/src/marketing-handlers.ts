@@ -17,6 +17,7 @@ import {
   unsubscribeMarketingEmail,
   unsubscribeMarketingToken,
 } from "./marketing-store";
+import { promoDb, promoEmailHash, recordMarketingConsent } from "./promo-store";
 
 function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
@@ -37,7 +38,28 @@ const VALID_SOURCES = new Set<MarketingOptInSource>([
 
 type MarketingEnv = {
   TRACKING_STORE?: KVNamespace;
+  /** Optional: consent evidence log for promo-code sign-ups (migration 0005). */
+  DRIVER_DB?: unknown;
+  PROMO_HASH_SECRET?: string;
 };
+
+/** Best effort: note the withdrawal in the consent evidence log (never blocks the unsubscribe). */
+async function logMarketingWithdrawal(env: MarketingEnv, email: string): Promise<void> {
+  const db = promoDb(env);
+  if (!db || !email) return;
+  try {
+    await recordMarketingConsent(db, {
+      at: new Date(),
+      email,
+      emailHash: await promoEmailHash(email, env.PROMO_HASH_SECRET?.trim() ?? ""),
+      consented: false,
+      source: "unsubscribe",
+      wording: "Unsubscribed",
+    });
+  } catch {
+    // Table not created yet, or D1 unavailable: the unsubscribe itself has already happened.
+  }
+}
 
 export async function handleMarketingOptInRequest(
   request: Request,
@@ -99,7 +121,8 @@ export async function handleMarketingUnsubscribeRequest(
   // One-click link from a marketing email.
   const token = String(body.token ?? "").trim();
   if (token) {
-    await unsubscribeMarketingToken(env.TRACKING_STORE, token);
+    const unsubscribed = await unsubscribeMarketingToken(env.TRACKING_STORE, token);
+    if (unsubscribed) await logMarketingWithdrawal(env, unsubscribed);
     return json({ ok: true }, 200, origin);
   }
 
@@ -112,6 +135,7 @@ export async function handleMarketingUnsubscribeRequest(
   if (!result.ok && result.reason === "invalid_email") {
     return json({ error: "Invalid email address" }, 400, origin);
   }
+  if (result.ok) await logMarketingWithdrawal(env, email);
 
   // Always return ok for privacy — do not reveal whether an address was subscribed.
   return json({ ok: true }, 200, origin);

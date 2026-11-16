@@ -52,7 +52,7 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "requests", label: "Requests", hint: "Approvals that need a decision, and deposit cash" },
   { id: "enquiries", label: "Enquiries", hint: "Quotes and enquiry jobs" },
   { id: "whatsapp", label: "WhatsApp chats", hint: "What customers asked the WhatsApp assistant and its replies" },
-  { id: "marketing", label: "Marketing", hint: "Customers who opted in to marketing — download the list or email them" },
+  { id: "marketing", label: "Promo Codes & Email Marketing", hint: "10% email codes, redemptions and customers who opted in to marketing" },
   { id: "google-ads", label: "Google Ads", hint: "Ad spend on Money, and the daily booking file Google Ads collects" },
   { id: "tracking", label: "Tracking", hint: "Driver tracking jobs and acceptance" },
   { id: "pricing", label: "Pricing", hint: "Fares and vehicle pricing" },

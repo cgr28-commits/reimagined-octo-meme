@@ -38,7 +38,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from Belfast International to Newtownards?",
         answer:
-          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form.",
       },
       {
         question: "What if my flight into Belfast International is delayed?",
@@ -90,7 +90,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from City Airport to Newtownards?",
         answer:
-          "Yes. Use Return on the quote form. Instant online return prices include a 5% discount on the combined fare where that price is shown.",
+          "Yes. Use Return on the quote form.",
       },
       {
         question: "What if my City Airport flight is late?",
@@ -142,7 +142,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from Dublin Airport to Newtownards?",
         answer:
-          "Yes. Select Return on the quote form. Instant online returns include a 5% combined-fare discount where that price is shown.",
+          "Yes. Select Return on the quote form.",
       },
       {
         question: "What if my Dublin flight is delayed?",
@@ -194,7 +194,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book Dundonald as a return from Aldergrove?",
         answer:
-          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form.",
       },
       {
         question: "What happens if my Aldergrove flight is late?",
@@ -246,7 +246,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from City Airport to Dundonald?",
         answer:
-          "Yes. Use Return on the quote form. Instant online return prices include a 5% discount on the combined fare where that price is shown.",
+          "Yes. Use Return on the quote form.",
       },
       {
         question: "What if my City Airport flight into Belfast is late?",
@@ -298,7 +298,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book Dublin Airport back to Dundonald?",
         answer:
-          "Yes. Select Return on the quote form. Instant online returns include a 5% combined-fare discount where that price is shown.",
+          "Yes. Select Return on the quote form.",
       },
       {
         question: "What if my Dublin flight is delayed?",
@@ -350,7 +350,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from Aldergrove to Comber?",
         answer:
-          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare.",
+          "Yes. Choose Return on the quote form.",
       },
       {
         question: "What if my Belfast International flight is delayed?",
@@ -402,7 +402,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from City Airport to Comber?",
         answer:
-          "Yes. Use Return on the quote form. Instant online return prices include a 5% discount on the combined fare where that price is shown.",
+          "Yes. Use Return on the quote form.",
       },
       {
         question: "What if my City Airport flight is late?",
@@ -454,7 +454,7 @@ const TRANSFER_ROUTE_BATCH_3A: TransferRouteContent[] = [
       {
         question: "Can I book a return from Dublin Airport to Comber?",
         answer:
-          "Yes. Select Return on the quote form. Instant online returns include a 5% combined-fare discount where that price is shown.",
+          "Yes. Select Return on the quote form.",
       },
       {
         question: "What if my Dublin flight is delayed?",

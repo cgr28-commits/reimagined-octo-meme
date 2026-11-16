@@ -102,6 +102,12 @@ export type WebsiteFareBreakdownInput = {
   returnDiscountRate?: number;
   /** Trusted matched postcode fare explicitly contains pence. Never taken from a payment client. */
   preserveFixedFarePence?: boolean;
+  /**
+   * Email promo code (see shared/promo-code.ts). Applied last, to the vehicle fare only
+   * (journey fare incl. any time-of-day / Christmas pricing; never airport fixed costs,
+   * airport access or Meet & Greet). Ignored below the code's minimum vehicle fare.
+   */
+  promoCode?: { code: string; discountRate: number; minimumVehicleFareGbp: number } | null;
 };
 
 export type WebsiteFareBreakdown = {
@@ -132,6 +138,18 @@ export type WebsiteFareBreakdown = {
   /** Strikethrough / original eligible price (journey before promos only). */
   originalEligibleJourneyPriceGbp: number;
   finalAmountPayableGbp: number;
+  /** Code applied to this breakdown (only when it qualified). */
+  promoCode?: string;
+  promoCodeDiscountRate?: number;
+  /**
+   * Exact reduction in the amount payable from the promo code (after the usual whole-pound
+   * rounding), so the saving line and the total always agree.
+   */
+  promoCodeSavingGbp: number;
+  /** Vehicle fare the promo was assessed on (journey fare, both legs, excl. airport charges). */
+  promoEligibleVehicleFareGbp: number;
+  /** "applied" | "below_minimum" when a code was supplied; "none" otherwise. */
+  promoCodeStatus: "applied" | "below_minimum" | "none";
 };
 
 /**
@@ -251,7 +269,41 @@ export function composeWebsiteFareBreakdown(
     }
   }
 
+  // Email promo code: last, on the vehicle fare only. The saving is the exact drop in the
+  // amount payable after the usual whole-pound rounding, so the rows always add up.
+  const promoEligibleVehicleFareGbp = roundGbp(Math.max(0, journeyFareAfterPromotionsAdjusted));
+  let promoCodeSavingGbp = 0;
+  let promoCodeStatus: WebsiteFareBreakdown["promoCodeStatus"] = "none";
+  const promo = input.promoCode;
+  const promoRate = Number(promo?.discountRate);
+  if (promo && promo.code && Number.isFinite(promoRate) && promoRate > 0 && promoRate < 1) {
+    const minimumPence = Math.round(roundGbp(Number(promo.minimumVehicleFareGbp) || 0) * 100);
+    if (Math.round(promoEligibleVehicleFareGbp * 100) < minimumPence) {
+      promoCodeStatus = "below_minimum";
+    } else {
+      const rawDiscount = roundGbp(promoEligibleVehicleFareGbp * promoRate);
+      const transferAfterPromo = roundGbp(Math.max(0, transferFareAfterPromotionsAdjusted - rawDiscount));
+      const payableAfterPromo = roundGbp(
+        (input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(transferAfterPromo) + airportAccessChargeGbp,
+      );
+      promoCodeSavingGbp = roundGbp(Math.max(0, finalAmountPayableGbp - payableAfterPromo));
+      if (promoCodeSavingGbp > 0) {
+        promoCodeStatus = "applied";
+        finalAmountPayableGbp = payableAfterPromo;
+        journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsAdjusted - promoCodeSavingGbp);
+        transferFareAfterPromotionsAdjusted = roundGbp(transferFareAfterPromotionsAdjusted - promoCodeSavingGbp);
+        journeyFareDisplayAdjusted = roundGbp(journeyFareDisplayAdjusted - promoCodeSavingGbp);
+      }
+    }
+  }
+
   return {
+    promoCodeSavingGbp,
+    promoEligibleVehicleFareGbp,
+    promoCodeStatus,
+    ...(promoCodeStatus === "applied" && promo
+      ? { promoCode: promo.code, promoCodeDiscountRate: promoRate }
+      : {}),
     journeyFareBeforeReturnDiscountGbp: journeyFareBeforeReturnDiscountAdjusted,
     journeyFareBeforePromotionsGbp: journeyFareBeforePromotionsAdjusted,
     nightWeekendSurchargeGbp,
@@ -272,7 +324,7 @@ export function composeWebsiteFareBreakdown(
     returnAirportAccessChargeGbp,
     bookingValueBeforePromotionsGbp,
     journeyFareDisplayGbp: journeyFareDisplayAdjusted,
-    totalPromotionalSavingGbp,
+    totalPromotionalSavingGbp: roundGbp(totalPromotionalSavingGbp + promoCodeSavingGbp),
     originalEligibleJourneyPriceGbp: journeyFareBeforeReturnDiscountAdjusted,
     finalAmountPayableGbp,
   };

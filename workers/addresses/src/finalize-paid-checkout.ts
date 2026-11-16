@@ -51,6 +51,7 @@ import { getReturnOfferByTokenHash, markReturnOfferRedeemed } from "./return-off
 import { hashReturnOfferToken } from "../shared/return-offer";
 import { maybeRecordMarketingFromPayload } from "./marketing-handlers";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail } from "./worker-email";
+import { redeemPromoForPaidBooking } from "./promo-checkout";
 import { notifyOwnerPush } from "./owner-push";
 import { maybeUploadPaidBookingAdsConversion } from "./paid-booking-ads-conversion";
 import {
@@ -64,6 +65,9 @@ import { parseGbpAmount } from "../shared/quote-session";
 const BUSINESS_NAME = "My Airport Taxi NI";
 
 type FinalizeEnv = {
+  /** Email promo codes (migration 0005). */
+  DRIVER_DB?: unknown;
+  PROMO_HASH_SECRET?: string;
   QUOTE_LEAD_COORDINATOR?: DurableObjectNamespace;
   MEET_GREET_COORDINATOR?: DurableObjectNamespace;
   SUMUP_API_KEY?: string;
@@ -636,6 +640,20 @@ async function finalizePaidCheckoutOnce(input: {
     } catch (error) {
       console.error("Card balance enqueue failed", error instanceof Error ? error.message : error);
     }
+  }
+
+  // Email promo code: consumed only now that the booking is paid (or its card hold is
+  // authorised and the booking confirmed). Never blocks the confirmation.
+  if (bookingForSave.promoCode && paymentReference) {
+    await redeemPromoForPaidBooking(env, {
+      booking: bookingForSave,
+      checkoutId,
+      bookingReference: customerReference || paymentReference,
+      amountGbp: confirmedFareGbp,
+      alertOwner: async (subject, body) => {
+        await trySendOwnerOperationalEmail(env, { to: ownerInbox(env), subject, body });
+      },
+    });
   }
 
   if (

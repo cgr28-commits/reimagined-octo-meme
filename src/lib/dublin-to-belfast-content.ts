@@ -72,7 +72,7 @@ export const DUBLIN_TO_BELFAST_PAGE: BelfastDublinLandingContent = {
     {
       question: "Can I book a return journey?",
       answer:
-        "Yes. Choose Return and enter the details for both journeys. Where an eligible online return fare is shown, the return discount is applied automatically.",
+        "Yes. Choose Return and enter the details for both journeys.",
     },
     {
       question: "What if my plans change?",

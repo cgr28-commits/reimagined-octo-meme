@@ -39,7 +39,7 @@ export function buildAssistantQuoteEmail(draft: QuoteDraft): { subject: string; 
     draft.direction === "from-airport" ? `from ${airportName}` : `to ${airportName}`;
   const vehicle = (draft.vehicle ?? "Estate Car (1–4 passengers)").split(" (")[0];
   const price = draft.quotedAmountLabel ?? "See website quote";
-  const returnLine = draft.returnJourney ? "Return journey (5% off)" : "One way";
+  const returnLine = draft.returnJourney ? "Return journey" : "One way";
   const inclusions = resolveJourneyInclusions({
     isAirportTrip: true,
     isFromAirport: draft.direction === "from-airport",

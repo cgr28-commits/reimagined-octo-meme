@@ -139,6 +139,11 @@ export type PaidBookingDetails = {
   finalAmountPayableGbp?: number;
   returnOfferSavingGbp?: number;
   returnOfferOriginalPaymentReference?: string;
+  /** Email promo code applied by the server at checkout (see shared/promo-code.ts). */
+  promoCode?: string;
+  promoCodeDiscountRate?: number;
+  promoCodeSavingGbp?: number;
+  promoEligibleVehicleFareGbp?: number;
   /** Optional per-leg fares — persisted on the paid record when both are known. */
   outboundFare?: number;
   returnFare?: number;
