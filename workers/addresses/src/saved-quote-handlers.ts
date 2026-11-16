@@ -1,3 +1,4 @@
+import { normalizeDerryCorridor } from "../shared/corridor-fares";
 import { getBookingSettings } from "./booking-settings-store";
 import { sendWebQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
 import { VEHICLE_TYPES, type VehicleType } from "../../../src/lib/data";
@@ -232,7 +233,9 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       : null;
   // The drive-to-pickup charge needs server-resolved coordinates, so use the
   // payment resolver (the same one checkout re-quotes with) while it is ON.
-  const paymentRoute = isPositioningChargeActive(ownerProfitability)
+  // The Derry corridor fare is matched on the same server-resolved coordinates.
+  const paymentRoute = isPositioningChargeActive(ownerProfitability) ||
+    normalizeDerryCorridor(input.pricing?.derryCorridor).enabled
     ? await resolveWorkerTripRouteMetricsForPayment({
         pickupAddress: journey.pickupLabel,
         dropoffAddress: journey.dropoffLabel,
@@ -285,6 +288,10 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
 
   const quote = calculateAuthoritativeWebsiteQuote({
     positioningChargeGbp: positioning.chargeGbp,
+    corridorEndpoints: {
+      pickup: paymentRoute?.ok ? paymentRoute.pickup ?? null : null,
+      dropoff: paymentRoute?.ok ? paymentRoute.dropoff ?? null : null,
+    },
     tollAllowance: dublinTolls,
     airportCode: isAirportTrip ? airportCode : null,
     fromAirport: Boolean(journey.isFromAirport),

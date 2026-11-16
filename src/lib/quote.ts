@@ -93,6 +93,8 @@ const OTS_UNDERCUT_MID = (OTS_UNDERCUT_MIN + OTS_UNDERCUT_MAX) / 2;
 const A2A_DISTANCE_BANDS = PRICING_CONFIG.addressToAddressDistanceBands;
 
 export type QuoteResult = {
+  /** Derry corridor Saloon fare used for this journey (Worker-resolved), if any. */
+  corridorSaloonFareGbp?: number;
   /** Only a binding fractional BFS vehicle floor preserves final pence. */
   preserveBfsMinimumPence?: boolean;
   amount: number;
@@ -624,6 +626,32 @@ export function matchAreaFromAddress(address: string): Area | null {
   return null;
 }
 
+/**
+ * Derry corridor journey fare, or null when it does not apply. The corridor
+ * Saloon fare is used only when it is LOWER than the normal Saloon fare plus
+ * the drive-to-pickup charge, so it can never raise a price. Estate / Business
+ * Class / 7-seater derive from the corridor Saloon fare exactly as they do
+ * from a mileage fare.
+ */
+function corridorJourneyFare(
+  corridorSaloonFareGbp: number | null | undefined,
+  universal: ReturnType<typeof calculateUniversalJourneyFareGbp>,
+  positioningChargeGbp: number,
+  roadMiles: number,
+  vehicleType: (typeof VEHICLE_TYPES)[number],
+  engine: ReturnType<typeof quoteEngineOptions>,
+): ReturnType<typeof calculateUniversalJourneyFareGbp> | null {
+  const corridorSaloon = Number(corridorSaloonFareGbp);
+  if (!Number.isFinite(corridorSaloon) || corridorSaloon <= 0) return null;
+  if (!(corridorSaloon < universal.saloonGbp + positioningChargeGbp)) return null;
+  return calculateUniversalJourneyFareGbp(roadMiles, vehicleType, {
+    minibusMultiplier: engine.minibusMultiplier,
+    executiveMultiplier: engine.executiveMultiplier,
+    estatePremiumGbp: engine.estatePremiumGbp,
+    saloonFareGbp: corridorSaloon,
+  });
+}
+
 export function calculatePointToPointQuote(
   pickupAddress: string,
   dropoffAddress: string,
@@ -650,6 +678,11 @@ export function calculatePointToPointQuote(
      * reduced by the return discount. Customers see it inside the fare.
      */
     tollAllowance?: { outboundGbp: number; returnGbp: number };
+    /**
+     * Worker-resolved Derry corridor Saloon fare (shared/corridor-fares.ts).
+     * Replaces the mileage fare + drive-to-pickup charge only when lower.
+     */
+    corridorSaloonFareGbp?: number | null;
   } = {},
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
@@ -678,14 +711,23 @@ export function calculatePointToPointQuote(
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
   });
-  const positioningCharge =
+  const normalPositioningCharge =
     Number.isFinite(options.positioningChargeGbp) && (options.positioningChargeGbp ?? 0) > 0
       ? Math.round(options.positioningChargeGbp as number)
       : 0;
+  const corridor = corridorJourneyFare(
+    options.corridorSaloonFareGbp,
+    universal,
+    normalPositioningCharge,
+    roadMiles,
+    vehicleType,
+    engine,
+  );
+  const positioningCharge = corridor ? 0 : normalPositioningCharge;
   // Whole-pound addition only: with the charge OFF (0) fares are byte-identical.
-  const oneWay = universal.journeyFareGbp + positioningCharge;
+  const oneWay = (corridor ?? universal).journeyFareGbp + positioningCharge;
   const vehicleMultiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? 1;
-  const vehicleAdjustment = universal.vehicleAdjustmentGbp;
+  const vehicleAdjustment = (corridor ?? universal).vehicleAdjustmentGbp;
 
   const premium = applyTripPremium(
     oneWay,
@@ -711,6 +753,7 @@ export function calculatePointToPointQuote(
   return withOneWayBeforeAccess(
     {
       amount: journeyFareGbp,
+      ...(corridor ? { corridorSaloonFareGbp: corridor.saloonGbp } : {}),
       ...(tollOut + tollBack > 0 ? { dublinTollsGbp: roundGbp(tollOut + tollBack) } : {}),
       area: dropoffArea ?? pickupArea,
       areaSurcharge: Math.round(roadMiles * 10) / 10,
@@ -765,6 +808,11 @@ export function calculateQuote(
      * postcode fares. Browser callers never pass this.
      */
     positioningChargeGbp?: number;
+    /**
+     * Worker-resolved Derry corridor Saloon fare (BFS / BHD ↔ Derry city).
+     * Replaces the mileage fare + drive-to-pickup charge only when lower.
+     */
+    corridorSaloonFareGbp?: number | null;
   } = {},
 ): QuoteResult | null {
   const trimmedAddress = address.trim();
@@ -797,15 +845,33 @@ export function calculateQuote(
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
   });
-  const oneWayFare = dublinAirportJourneyFareGbp(
-    universal.journeyFareGbp,
-    isDublinAirportCode(airportCode),
-    engine.dublinAirportFareAdjustmentRate,
-  );
+  const requestedPositioningCharge =
+    Number.isFinite(options.positioningChargeGbp) && (options.positioningChargeGbp ?? 0) > 0
+      ? Math.round(options.positioningChargeGbp as number)
+      : 0;
+  // Never Dublin or LDY: the Worker only resolves a corridor fare for BFS / BHD.
+  const corridor =
+    airportCode === "BFS" || airportCode === "BHD"
+      ? corridorJourneyFare(
+          options.corridorSaloonFareGbp,
+          universal,
+          requestedPositioningCharge,
+          roadMiles,
+          vehicleType,
+          engine,
+        )
+      : null;
+  const oneWayFare = corridor
+    ? corridor.journeyFareGbp
+    : dublinAirportJourneyFareGbp(
+        universal.journeyFareGbp,
+        isDublinAirportCode(airportCode),
+        engine.dublinAirportFareAdjustmentRate,
+      );
   const matchedArea = matchAreaFromAddress(trimmedAddress);
   const { vehicleMultiplier, vehicleAdjustment } = getAirportVehiclePricingMeta(
     vehicleType,
-    universal.saloonGbp,
+    (corridor ?? universal).saloonGbp,
     airportCode,
   );
 
@@ -828,10 +894,8 @@ export function calculateQuote(
     vehicle: vehicleType, estateSupplement: engine.estatePremiumGbp,
     returnJourney, outboundFixed, returnFixed,
   });
-  const positioningCharge =
-    Number.isFinite(options.positioningChargeGbp) && (options.positioningChargeGbp ?? 0) > 0
-      ? Math.round(options.positioningChargeGbp as number)
-      : 0;
+  // The corridor fare already covers the drive to and from Derry.
+  const positioningCharge = corridor ? 0 : requestedPositioningCharge;
   // Whole-pound addition only: with the charge OFF (0) fares are byte-identical.
   const outboundFare =
     applyBfsMinimumFare(postcode.outbound ?? oneWayFare, vehicleType, minimumAirportCodes, pricing) +
@@ -866,6 +930,7 @@ export function calculateQuote(
   return withOneWayBeforeAccess(
     {
       amount,
+      ...(corridor ? { corridorSaloonFareGbp: corridor.saloonGbp } : {}),
       preserveBfsMinimumPence: bfsMinimumHasPence(vehicleType, minimumAirportCodes, pricing, [postcode.outbound ?? oneWayFare, ...(returnJourney ? [postcode.inbound ?? oneWayFare] : [])]),
       area: matchedArea,
       areaSurcharge: Math.round(roadMiles * 10) / 10,

@@ -31,6 +31,7 @@ import {
   type PublicOwnerPricingConfig,
 } from "../../shared/owner-pricing-config";
 import { destinationEligibleForStandardAirportPickup } from "../../shared/airport-pickup-service-area";
+import { resolveDerryCorridorSaloonFareGbp, type CorridorPoint } from "../../shared/corridor-fares";
 
 export const QUOTE_SERVICE_MAX_PASSENGERS = INSTANT_QUOTE_MAX_PASSENGERS; // 4
 
@@ -86,6 +87,11 @@ export type QuoteServiceInput = {
    * `shared/dublin-tolls.ts`). Omitted everywhere else.
    */
   tollAllowance?: { outboundGbp: number; returnGbp: number };
+  /**
+   * Server-resolved pickup / drop-off coordinates for the Derry corridor fare.
+   * Only the Worker sets these (never browser lat/lng). Omitted = no corridor.
+   */
+  corridorEndpoints?: { pickup?: CorridorPoint | null; dropoff?: CorridorPoint | null } | null;
 };
 
 export type QuoteServiceSuccess = {
@@ -111,6 +117,8 @@ export type QuoteServiceSuccess = {
   returnFixedGbp?: number;
   /** Dublin toll allowance included in `amount` (address-to-address only). */
   dublinTollsGbp?: number;
+  /** Derry corridor Saloon fare used (owner breakdown only; never shown to customers). */
+  corridorSaloonFareGbp?: number;
   source: "website-pricing-engine";
   /** High combined passenger + luggage load — quote shown, payment held. */
   needsLuggageCapacityConfirmation: boolean;
@@ -298,6 +306,15 @@ export function calculateAuthoritativeWebsiteQuote(
     returnJourney,
   };
   const airportCode = input.airportCode ?? null;
+  const corridorSaloonFareGbp = input.corridorEndpoints
+    ? resolveDerryCorridorSaloonFareGbp({
+        settings: input.pricing,
+        airportCode,
+        fromAirport: Boolean(input.fromAirport),
+        pickup: input.corridorEndpoints.pickup ?? null,
+        dropoff: input.corridorEndpoints.dropoff ?? null,
+      })
+    : null;
 
   let quote = null as ReturnType<typeof calculateQuote>;
 
@@ -358,7 +375,7 @@ export function calculateAuthoritativeWebsiteQuote(
       Boolean(input.fromAirport),
       input.pricing,
       undefined,
-      { positioningChargeGbp: input.positioningChargeGbp },
+      { positioningChargeGbp: input.positioningChargeGbp, corridorSaloonFareGbp },
     );
   } else {
     const dropoff = (input.dropoffAddress ?? "").trim();
@@ -387,7 +404,11 @@ export function calculateAuthoritativeWebsiteQuote(
       null,
       undefined,
       input.pricing,
-      { positioningChargeGbp: input.positioningChargeGbp, tollAllowance: input.tollAllowance },
+      {
+        positioningChargeGbp: input.positioningChargeGbp,
+        tollAllowance: input.tollAllowance,
+        corridorSaloonFareGbp,
+      },
     );
   }
 
@@ -443,6 +464,7 @@ export function calculateAuthoritativeWebsiteQuote(
     ...(typeof quote.outboundFixedGbp === "number" ? { outboundFixedGbp: quote.outboundFixedGbp } : {}),
     ...(typeof quote.returnFixedGbp === "number" ? { returnFixedGbp: quote.returnFixedGbp } : {}),
     ...(typeof quote.dublinTollsGbp === "number" && quote.dublinTollsGbp > 0 ? { dublinTollsGbp: quote.dublinTollsGbp } : {}),
+    ...(typeof quote.corridorSaloonFareGbp === "number" ? { corridorSaloonFareGbp: quote.corridorSaloonFareGbp } : {}),
     source: "website-pricing-engine",
     needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
       passengers,

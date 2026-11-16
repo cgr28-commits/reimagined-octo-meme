@@ -169,11 +169,17 @@ export function buildOwnerFareBreakdown(input: {
   /** Engine-reported airport fixed costs (authoritative). */
   airportFixedCostsGbp?: number;
   profitabilityProtectionApplied?: boolean;
+  /** Derry corridor Saloon fare the engine used instead of mileage + drive charge. */
+  corridorSaloonFareGbp?: number | null;
 }): OwnerFareBreakdown {
   const engine = ownerPricingEngineOptions(input.pricing ?? undefined);
   const miles = universalDrivingMilesFromKm(input.distanceKm);
   const mileage = describeMileage(miles, input.pricing);
   const notes: string[] = [];
+  const corridorSaloon =
+    Number.isFinite(Number(input.corridorSaloonFareGbp)) && Number(input.corridorSaloonFareGbp) > 0
+      ? Number(input.corridorSaloonFareGbp)
+      : null;
 
   const universal = calculateUniversalJourneyFareGbp(miles, input.vehicleType, {
     minibusMultiplier: engine.minibusMultiplier,
@@ -183,12 +189,14 @@ export function buildOwnerFareBreakdown(input: {
     saloonMinimumGbp: engine.saloonMinimumGbp,
     saloonFloorMiles: engine.saloonFloorMiles,
     saloonKnots: engine.saloonKnots,
+    ...(corridorSaloon != null ? { saloonFareGbp: corridorSaloon } : {}),
   });
 
   const airport = input.airportCode ? input.airportCode.trim().toUpperCase() : null;
   const isDub = isDublinAirportCode(airport);
   const dublinRate = isDub ? engine.dublinAirportFareAdjustmentRate ?? 0 : 0;
-  const positioning = Math.max(0, Math.round(Number(input.positioningChargeGbp) || 0));
+  const positioning =
+    corridorSaloon != null ? 0 : Math.max(0, Math.round(Number(input.positioningChargeGbp) || 0));
   const journeyType = input.airportToAirport
     ? "airport-to-airport"
     : airport
@@ -279,6 +287,9 @@ export function buildOwnerFareBreakdown(input: {
     });
   }
 
+  if (corridorSaloon != null) {
+    notes.push(`Derry corridor fare £${corridorSaloon} used instead of the mileage fare and drive-to-pickup charge.`);
+  }
   if (journeyType === "address-to-address" && positioning > 0) {
     notes.push("Address-to-address drive charge is measured from home to the further end of the journey.");
   }

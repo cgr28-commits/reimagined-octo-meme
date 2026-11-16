@@ -1,5 +1,6 @@
 import { logFlightyFlightEvents } from "./flighty-calendar";
 // Must stay first: disables all outbound requests on the dashboard staging build only.
+import { normalizeDerryCorridor } from "../shared/corridor-fares";
 import {
   handleQuoteFormRequest,
   handleQuoteFormSetup,
@@ -2829,6 +2830,7 @@ async function handlePaymentRequest(
     if (
       isProfitabilityProtectionActive(receiptPricing.profitability) ||
       isPositioningChargeActive(receiptPricing.profitability) ||
+      normalizeDerryCorridor(receiptPricing.derryCorridor).enabled ||
       body.quoteReceipt != null
     ) {
       const receiptSecret = env.QUOTE_RECEIPT_SECRET?.trim() ?? "";
@@ -2897,7 +2899,9 @@ async function handlePaymentRequest(
     // address coordinates. The drive-to-pickup charge needs them for the
     // per-leg split, so resolve them (same resolver as the quote) when ON.
     const receiptCoordinates =
-      receiptClaims && isPositioningChargeActive(receiptPricing.profitability)
+      receiptClaims &&
+      (isPositioningChargeActive(receiptPricing.profitability) ||
+        normalizeDerryCorridor(receiptPricing.derryCorridor).enabled)
         ? await resolvePaymentRoute()
         : null;
     const routeOutcome = receiptClaims
@@ -3091,6 +3095,7 @@ async function handlePaymentRequest(
     } else {
       const requote = calculateAuthoritativeWebsiteQuote({
         positioningChargeGbp: positioning.chargeGbp,
+        corridorEndpoints: { pickup: routeOutcome.pickup ?? null, dropoff: routeOutcome.dropoff ?? null },
         tollAllowance: dublinTolls,
         airportCode: airportContext.airportCode,
         fromAirport: airportContext.fromAirport,
@@ -3343,6 +3348,7 @@ async function handlePaymentRequest(
       } else {
         const legQuote = calculateAuthoritativeWebsiteQuote({
           positioningChargeGbp: positioning.chargeGbp,
+          corridorEndpoints: { pickup: routeOutcome.pickup ?? null, dropoff: routeOutcome.dropoff ?? null },
           tollAllowance: dublinTolls,
           airportCode: airportContext.airportCode,
           fromAirport: airportContext.fromAirport,
