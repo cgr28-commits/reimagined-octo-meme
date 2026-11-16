@@ -299,16 +299,16 @@ async function main() {
       dropoffAddress: "Belfast International Airport",
       outboundDate: "2026-10-30",
       outboundTime: "05:00",
-      passengers: 6,
+      passengers: 9,
     });
-    assert.match(reply, /larger vehicle/);
+    assert.match(reply, /right vehicles/);
     const link = reply.match(/https:\/\/wa\.me\/(\d+)\?text=(\S+)/);
     assert.ok(link);
     assert.equal(link[1], "447549815538");
     const prefill = decodeURIComponent(link[2]);
     assert.match(prefill, /From: BT9 6AA/);
     assert.match(prefill, /Date: Fri 30 Oct 2026 at 05:00/);
-    assert.match(prefill, /Passengers: 6/);
+    assert.match(prefill, /Passengers: 9/);
     assert.doesNotMatch(prefill, /undefined|Suitcases/);
     assert.match(buildWhatsAppTeamHandoffReply("447549815538", {}), /No problem/);
   }
@@ -441,7 +441,10 @@ async function main() {
   d = decideWhatsAppReply(null, "From BT1 1AA to Dublin Airport on 01/10/2026 at 9am, 2 people 1 bag one way", { now });
   assert.match(d.reply, /in the past/);
   assert.equal(d.conversation.draft.outboundDate, undefined);
+  // 5–7 people get an instant 7 Seater price (16 Nov 2026); more than 7 go to the team.
   d = decideWhatsAppReply(null, "From BT1 1AA to Dublin Airport tomorrow at 9am, 6 people 6 bags one way", { now });
+  assert.notEqual(d.action, "handoff");
+  d = decideWhatsAppReply(null, "From BT1 1AA to Dublin Airport tomorrow at 9am, 9 people 6 bags one way", { now });
   assert.equal(d.action, "handoff");
 
   console.log("=== Agent and reset ===");

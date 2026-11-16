@@ -18,7 +18,7 @@ import {
   stripWhatsAppMarkdown,
   type QuickQuoteAirportCode,
 } from "./quick-quote-parse";
-import { QUICK_QUOTE_SALOON_MAX_PASSENGERS } from "./quick-quote";
+import { QUICK_QUOTE_MINIBUS_MAX_PASSENGERS, QUICK_QUOTE_SALOON_MAX_PASSENGERS } from "./quick-quote";
 import { findKnownPlaces, normaliseForKnownPlaces } from "./belfast-landmarks";
 import { parseLondonLocalDateTime, todayLondonDate } from "./uk-time";
 
@@ -34,6 +34,9 @@ export type WhatsAppQuoteDraft = {
   returnTime?: string;
   passengers?: number;
   suitcases?: number;
+  /** Only when the return group differs from the outward one (e.g. 6 out, 4 back). */
+  returnPassengers?: number;
+  returnSuitcases?: number;
   flightNumber?: string;
   /** Google place of a customer-confirmed address (cleared if that address changes). */
   pickupPlaceId?: string;
@@ -75,6 +78,8 @@ export type WhatsAppConversation = {
   lastQuoteAmountLabel?: string;
   /** The one-time 5% "book now" offer was made for this journey (only after "too expensive"). */
   discountOffered?: boolean;
+  /** The last price was two one-way quotes (the return group needs a different vehicle). */
+  splitQuote?: boolean;
   /** Google matches shown for an address the customer typed, awaiting their tap. */
   addressCheck?: WhatsAppAddressCheck;
   /** Typed addresses already looked up (no match, declined or moved on) — never asked twice. */
@@ -970,6 +975,11 @@ export function buildWhatsAppSummary(draft: WhatsAppQuoteDraft): string {
     lines.push("➡️ *One way*");
   }
   lines.push(`👥 *Passengers:* ${draft.passengers}   🧳 *Suitcases:* ${draft.suitcases}`);
+  if (whatsAppReturnGroupDiffers(draft)) {
+    lines.push(
+      `👥 *Return:* ${whatsAppReturnPassengers(draft)} passengers   🧳 *Suitcases:* ${whatsAppReturnSuitcases(draft)}`,
+    );
+  }
   if (draft.flightNumber) lines.push(`✈️ *Flight:* ${draft.flightNumber}`);
   return lines.join("\n");
 }
@@ -1022,10 +1032,12 @@ export function validateWhatsAppDraft(
       clear: ["returnDate"],
     };
   }
-  if (draft.passengers != null && draft.passengers > QUICK_QUOTE_SALOON_MAX_PASSENGERS) {
+  // Up to 7 passengers get an instant 7 Seater price (as on the website); bigger groups go to the team.
+  const largest = Math.max(draft.passengers ?? 0, draft.returnJourney ? (draft.returnPassengers ?? 0) : 0);
+  if (largest > WHATSAPP_MAX_PASSENGERS) {
     return {
       message:
-        `For groups of more than ${QUICK_QUOTE_SALOON_MAX_PASSENGERS} we'll arrange a larger vehicle for you. ` +
+        `For groups of more than ${WHATSAPP_MAX_PASSENGERS} we'll arrange the right vehicles for you. ` +
         `A member of our team will reply here with a price shortly.`,
       handoff: true,
     };
@@ -1089,9 +1101,92 @@ export function buildWhatsAppBookingBenefits(
   ].join("\n");
 }
 
+/** Largest group the chat prices itself: a 7 Seater carries up to 7. */
+export const WHATSAPP_MAX_PASSENGERS = QUICK_QUOTE_MINIBUS_MAX_PASSENGERS;
+/** The public quote tool's top suitcase choice for the 7 Seater ("5 or more"). */
+const SEVEN_SEATER_SUITCASE_CAP = 5;
+
+/** 5–7 passengers, or more than 4 suitcases, need the 7 Seater (cars take up to 4 and 4). */
+export function whatsAppNeedsSevenSeater(passengers?: number, suitcases?: number): boolean {
+  return (passengers ?? 0) > QUICK_QUOTE_SALOON_MAX_PASSENGERS || (suitcases ?? 0) > QUICK_QUOTE_SALOON_MAX_PASSENGERS;
+}
+
+export function whatsAppReturnPassengers(draft: WhatsAppQuoteDraft): number | undefined {
+  return draft.returnPassengers ?? draft.passengers;
+}
+
+export function whatsAppReturnSuitcases(draft: WhatsAppQuoteDraft): number | undefined {
+  return draft.returnSuitcases ?? draft.suitcases;
+}
+
+/** A return where the group coming back is a different size from the group going out. */
+export function whatsAppReturnGroupDiffers(draft: WhatsAppQuoteDraft): boolean {
+  if (!draft.returnJourney) return false;
+  return (
+    whatsAppReturnPassengers(draft) !== draft.passengers || whatsAppReturnSuitcases(draft) !== draft.suitcases
+  );
+}
+
+/**
+ * The quotes one WhatsApp price needs. Normally one. When the return group needs a different
+ * vehicle from the outward group (e.g. 6 out in the 7 Seater, 4 back in a car), the two legs
+ * are priced as separate one-way journeys, as the team does by hand.
+ */
+export function whatsAppQuoteLegs(draft: WhatsAppQuoteDraft): Array<{ leg: "both" | WhatsAppJourneyLeg; draft: WhatsAppQuoteDraft }> {
+  if (!whatsAppReturnGroupDiffers(draft)) return [{ leg: "both", draft }];
+  const backPassengers = whatsAppReturnPassengers(draft);
+  const backSuitcases = whatsAppReturnSuitcases(draft);
+  if (
+    whatsAppNeedsSevenSeater(draft.passengers, draft.suitcases) ===
+    whatsAppNeedsSevenSeater(backPassengers, backSuitcases)
+  ) {
+    // Same vehicle both ways: one return quote sized for the bigger group.
+    return [
+      {
+        leg: "both",
+        draft: {
+          ...draft,
+          passengers: Math.max(draft.passengers ?? 0, backPassengers ?? 0),
+          suitcases: Math.max(draft.suitcases ?? 0, backSuitcases ?? 0),
+        },
+      },
+    ];
+  }
+  const base: WhatsAppQuoteDraft = { ...draft, returnJourney: false };
+  delete base.returnDate;
+  delete base.returnTime;
+  delete base.returnPassengers;
+  delete base.returnSuitcases;
+  // The flight number belongs to whichever leg collects at the airport.
+  const outbound: WhatsAppQuoteDraft = { ...base };
+  if (draft.fromAirport !== true) delete outbound.flightNumber;
+  const back: WhatsAppQuoteDraft = {
+    ...base,
+    pickupAddress: draft.dropoffAddress,
+    dropoffAddress: draft.pickupAddress,
+    pickupPlaceId: draft.dropoffPlaceId,
+    dropoffPlaceId: draft.pickupPlaceId,
+    fromAirport: draft.airportCode ? draft.fromAirport !== true : draft.fromAirport,
+    outboundDate: draft.returnDate,
+    outboundTime: draft.returnTime,
+    passengers: backPassengers,
+    suitcases: backSuitcases,
+  };
+  if (!back.pickupPlaceId) delete back.pickupPlaceId;
+  if (!back.dropoffPlaceId) delete back.dropoffPlaceId;
+  if (!back.outboundDate) delete back.outboundDate;
+  if (!back.outboundTime) delete back.outboundTime;
+  if (draft.fromAirport === true) delete back.flightNumber;
+  return [
+    { leg: "outbound", draft: outbound },
+    { leg: "return", draft: back },
+  ];
+}
+
 /** Body for createPricedQuickQuote — website pricing engine, no discount. */
 export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft, now = new Date()): Record<string, unknown> {
   const linkHours = whatsAppQuoteLinkHours(draft, now);
+  const sevenSeater = whatsAppNeedsSevenSeater(draft.passengers, draft.suitcases);
   return {
     pickupAddress: draft.pickupAddress,
     dropoffAddress: draft.dropoffAddress,
@@ -1106,9 +1201,11 @@ export function whatsAppDraftToQuoteBody(draft: WhatsAppQuoteDraft, now = new Da
     returnDate: draft.returnJourney ? draft.returnDate : "",
     returnTime: draft.returnJourney ? draft.returnTime : "",
     passengers: draft.passengers,
-    suitcases: draft.suitcases,
+    // The 7 Seater's largest luggage choice is "5 or more", as on the website.
+    suitcases: sevenSeater ? Math.min(draft.suitcases ?? 0, SEVEN_SEATER_SUITCASE_CAP) : draft.suitcases,
     flightNumber: draft.flightNumber ?? "",
-    vehicleChoice: "Saloon",
+    // Groups of 5–7 (or more than 4 cases) price the 7 Seater, as on the website.
+    vehicleChoice: sevenSeater ? "Minibus" : "Saloon",
     // Quote the fare without the optional Express terminal (barrier) fee; the
     // customer can add it on the booking page.
     expressDropOffSelected: false,
@@ -1144,14 +1241,19 @@ export function buildWhatsAppQuoteReply(input: {
   requestOnly?: boolean;
   /** False when the customer has not given a date and time: they choose them on the booking link. */
   scheduleChosen?: boolean;
+  /** Set for a group in the 7 Seater, so the customer knows which vehicle the price is for. */
+  sevenSeater?: boolean;
 }): string {
+  const priceLine = input.sevenSeater
+    ? `Your fixed price in a *7 Seater* is *${input.amountLabel}* ✅`
+    : `Your fixed price is *${input.amountLabel}* ✅`;
   const toBook =
     input.scheduleChosen === false
       ? "To book, choose your pickup date and time and pay securely here"
       : "To book, check your details and pay securely here";
   if (input.requestOnly) {
     return (
-      `Your fixed price is *${input.amountLabel}* ✅\n\n` +
+      `${priceLine}\n\n` +
       `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
       `⏳ Book now and we'll confirm your booking shortly. Your card is held for the fare and only charged once we confirm. If we can't do it, the funds are released right away.\n\n` +
       `${toBook} (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
@@ -1159,11 +1261,58 @@ export function buildWhatsAppQuoteReply(input: {
     );
   }
   return (
-    `Your fixed price is *${input.amountLabel}* ✅\n\n` +
+    `${priceLine}\n\n` +
     `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
     shortNoticeNote(input.linkHours) +
     `${toBook} (link valid for ${linkValidityLabel(input.linkHours ?? WHATSAPP_QUOTE_LINK_HOURS)}):\n${input.bookingUrl}\n\n` +
     `Need to change something? Just tell me (e.g. "3 passengers" or "make it a return"). Reply *NEW* for a new quote.`
+  );
+}
+
+/** A 7 Seater price the booking system couldn't give online: the team prices it. */
+export const WHATSAPP_SEVEN_SEATER_HANDOFF_REPLY =
+  "Thanks! For your group we'll arrange our 7 Seater. A member of our team will reply here with a price shortly.";
+
+/** Two one-way prices: the return group needs a different vehicle from the outward group. */
+export function buildWhatsAppSplitQuoteReply(input: {
+  legs: Array<{
+    leg: WhatsAppJourneyLeg;
+    amountLabel: string;
+    bookingUrl: string;
+    passengers?: number;
+    sevenSeater: boolean;
+    linkHours: number;
+  }>;
+  journey?: Pick<WhatsAppQuoteDraft, "airportCode" | "fromAirport" | "returnJourney">;
+  requestOnly?: boolean;
+  scheduleChosen?: boolean;
+}): string {
+  const vehicle = (sevenSeater: boolean) => (sevenSeater ? "7 Seater" : "car");
+  const blocks = input.legs.map((leg) => {
+    const title = leg.leg === "return" ? "Return journey" : "Outward journey";
+    const who = leg.passengers != null ? `${leg.passengers} ${leg.passengers === 1 ? "passenger" : "passengers"}, ` : "";
+    return (
+      `*${title}* (${who}${vehicle(leg.sevenSeater)}): *${leg.amountLabel}* ✅\n` +
+      `Book here (link valid for ${linkValidityLabel(leg.linkHours)}):\n${leg.bookingUrl}`
+    );
+  });
+  const hold = input.legs.some((leg) => leg.linkHours === WHATSAPP_SHORT_NOTICE_LINK_HOURS)
+    ? shortNoticeNote(WHATSAPP_SHORT_NOTICE_LINK_HOURS)
+    : "";
+  const request = input.requestOnly
+    ? `⏳ Book now and we'll confirm your booking shortly. Your card is held for the fare and only charged once we confirm. If we can't do it, the funds are released right away.\n\n`
+    : "";
+  const howTo =
+    input.scheduleChosen === false
+      ? "As your group is a different size each way, each journey has its own fixed price. Choose your pickup date and time and pay for each one securely below."
+      : "As your group is a different size each way, each journey has its own fixed price and booking link.";
+  return (
+    `${howTo}\n\n` +
+    `${blocks.join("\n\n")}\n\n` +
+    `${buildWhatsAppBookingBenefits(input.journey ?? {})}\n\n` +
+    request +
+    hold +
+    `Need to change something? Just tell me. Reply *NEW* for a new quote.`
   );
 }
 
@@ -1243,7 +1392,7 @@ export const WHATSAPP_HANDOFF_REPLY = `No problem, a member of our team will rep
  */
 export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAppQuoteDraft): string {
   const digits = String(teamNumber).replace(/\D/g, "");
-  const largeGroup = draft.passengers != null && draft.passengers > QUICK_QUOTE_SALOON_MAX_PASSENGERS;
+  const largeGroup = draft.passengers != null && draft.passengers > WHATSAPP_MAX_PASSENGERS;
   const details = [
     draft.pickupAddress && `From: ${draft.pickupAddress}`,
     draft.dropoffAddress && `To: ${draft.dropoffAddress}`,
@@ -1260,7 +1409,7 @@ export function buildWhatsAppTeamHandoffReply(teamNumber: string, draft: WhatsAp
     : "Hi, I'd like some help with a booking please.";
   const link = `https://wa.me/${digits}?text=${encodeURIComponent(prefill)}`;
   const intro = largeGroup
-    ? `For groups of more than ${QUICK_QUOTE_SALOON_MAX_PASSENGERS} we'll arrange a larger vehicle for you.`
+    ? `For groups of more than ${WHATSAPP_MAX_PASSENGERS} we'll arrange the right vehicles for you.`
     : "No problem! 👍";
   return `${intro}\n\nTap here to chat with our team directly:\n${link}`;
 }

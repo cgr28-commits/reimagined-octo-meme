@@ -64,7 +64,11 @@ import {
   parseWhatsAppMenuChoice,
   WHATSAPP_QUOTED_BUTTONS,
   whatsAppDraftToQuoteBody,
+  whatsAppNeedsSevenSeater,
+  whatsAppQuoteLegs,
   whatsAppQuoteLinkHours,
+  buildWhatsAppSplitQuoteReply,
+  WHATSAPP_SEVEN_SEATER_HANDOFF_REPLY,
   type WhatsAppAiTask,
   type WhatsAppAddressCheck,
   type WhatsAppAddressField,
@@ -825,6 +829,7 @@ async function applySubmittedQuoteForm(store: KVNamespace, phone: string, token?
   delete conversation.addressCheck;
   delete conversation.lastQuoteUrl;
   delete conversation.lastQuoteAmountLabel;
+  delete conversation.splitQuote;
   conversation.updatedAt = nowIso();
   await store.put(conversationKey(phone), JSON.stringify(conversation), { expirationTtl: CONVERSATION_TTL_SECONDS });
   await store.delete(quoteFormSessionKey(token));
@@ -1213,14 +1218,73 @@ async function handleInboundMessage(
     if (quota === "limited") {
       text = "You've requested a lot of quotes in the last hour. Please try again a little later.";
       buttons = undefined;
+    } else if (whatsAppQuoteLegs(conversation.draft).length === 2) {
+      // Different group size each way, needing a different vehicle: two one-way prices.
+      const legs = whatsAppQuoteLegs(conversation.draft);
+      const priced: Array<Awaited<ReturnType<typeof createPricedQuickQuote>>> = [];
+      for (const leg of legs) {
+        priced.push(
+          await createPricedQuickQuote(whatsAppDraftToQuoteBody(leg.draft), { ...env, TRACKING_STORE: store }, {
+            createdByOwner: false,
+          }),
+        );
+      }
+      const failed = priced.find((p) => !p.ok);
+      if (!failed) {
+        const ok = priced.filter((p): p is Extract<(typeof priced)[number], { ok: true }> => p.ok);
+        conversation.stage = "quoted";
+        conversation.splitQuote = true;
+        conversation.lastQuoteUrl = ok[0]!.bookingUrl;
+        conversation.lastQuoteAmountLabel = ok.map((p) => p.record.quotedAmountLabel).join(" + ");
+        text = buildWhatsAppSplitQuoteReply({
+          legs: legs.map((leg, i) => ({
+            leg: leg.leg === "return" ? "return" : "outbound",
+            amountLabel: ok[i]!.record.quotedAmountLabel,
+            bookingUrl: ok[i]!.bookingUrl,
+            passengers: leg.draft.passengers,
+            sevenSeater: whatsAppNeedsSevenSeater(leg.draft.passengers, leg.draft.suitcases),
+            linkHours: whatsAppQuoteLinkHours(leg.draft),
+          })),
+          journey: {
+            airportCode: conversation.draft.airportCode ?? null,
+            fromAirport: conversation.draft.fromAirport,
+            returnJourney: true,
+          },
+          requestOnly: availability.requestOnly,
+          scheduleChosen: Boolean(conversation.draft.outboundDate && conversation.draft.outboundTime),
+        });
+        buttons = WHATSAPP_QUOTED_BUTTONS;
+        quoteBanner = true;
+        logEvent("whatsapp_quote_sent", phone, {
+          idSuffix: ok.map((p) => p.record.id.slice(-6)).join("+"),
+          quotedAmount: ok.reduce((sum, p) => sum + p.record.quotedAmount, 0),
+          returnJourney: true,
+          split: true,
+          airportCode: conversation.draft.airportCode ?? null,
+          requestOnly: availability.requestOnly,
+        });
+      } else if (!failed.ok && legs.some((leg) => whatsAppNeedsSevenSeater(leg.draft.passengers, leg.draft.suitcases))) {
+        // The 7 Seater couldn't be priced online (e.g. switched to request only): the team quotes it.
+        text = WHATSAPP_SEVEN_SEATER_HANDOFF_REPLY;
+        buttons = undefined;
+        logEvent("whatsapp_quote_failed", phone, { status: failed.status, reason: failed.reason, split: true, handoff: true });
+        if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
+      } else if (!failed.ok) {
+        conversation.stage = "collecting";
+        text = buildWhatsAppQuoteFailedReply(failed.status === 422 ? undefined : failed.error);
+        buttons = undefined;
+        logEvent("whatsapp_quote_failed", phone, { status: failed.status, reason: failed.reason, split: true });
+      }
     } else {
+      const quoteDraft = whatsAppQuoteLegs(conversation.draft)[0]!.draft;
       const priced = await createPricedQuickQuote(
-        whatsAppDraftToQuoteBody(conversation.draft),
+        whatsAppDraftToQuoteBody(quoteDraft),
         { ...env, TRACKING_STORE: store },
         { createdByOwner: false },
       );
       if (priced.ok) {
         conversation.stage = "quoted";
+        delete conversation.splitQuote;
         conversation.lastQuoteUrl = priced.bookingUrl;
         conversation.lastQuoteAmountLabel = priced.record.quotedAmountLabel;
         const pricedJourney = priced.record.journey;
@@ -1243,6 +1307,7 @@ async function handleInboundMessage(
           },
           linkHours: whatsAppQuoteLinkHours(conversation.draft),
           scheduleChosen: Boolean(conversation.draft.outboundDate && conversation.draft.outboundTime),
+          sevenSeater: whatsAppNeedsSevenSeater(quoteDraft.passengers, quoteDraft.suitcases),
           optionalExpressFeeLabel:
             optionalExpressFeeGbp > 0 ? formatExpressDropOffGbp(optionalExpressFeeGbp) : null,
           requestOnly: availability.requestOnly,
@@ -1274,6 +1339,12 @@ async function handleInboundMessage(
             followUpDelay,
           );
         }
+      } else if (whatsAppNeedsSevenSeater(quoteDraft.passengers, quoteDraft.suitcases)) {
+        // The 7 Seater couldn't be priced online (e.g. switched to request only): the team quotes it.
+        text = WHATSAPP_SEVEN_SEATER_HANDOFF_REPLY;
+        buttons = undefined;
+        logEvent("whatsapp_quote_failed", phone, { status: priced.status, reason: priced.reason, handoff: true });
+        if (!isTeamPhone) await notifyOwnerOfHandoff(env, phone, message.profileName, conversation, false);
       } else {
         conversation.stage = "collecting";
         text = buildWhatsAppQuoteFailedReply(priced.status === 422 ? undefined : priced.error);
@@ -1305,12 +1376,14 @@ async function createWhatsAppDiscountOffer(
   optionalExpressFeeLabel: string | null;
   linkHours: number;
 } | null> {
+  // Two one-way prices: no single link to discount, so the value reply is sent instead.
+  if (conversation.splitQuote) return null;
   try {
     const quota = await consumeQuickQuoteCreateQuota(store, `whatsapp:${phone}`, QUOTES_PER_CUSTOMER_PER_HOUR);
     if (quota === "limited") return null;
     const priced = await createPricedQuickQuote(
       {
-        ...whatsAppDraftToQuoteBody(conversation.draft),
+        ...whatsAppDraftToQuoteBody(whatsAppQuoteLegs(conversation.draft)[0]!.draft),
         discountType: "percent",
         discountValue: WHATSAPP_BOOK_NOW_DISCOUNT_PERCENT,
       },
