@@ -114,6 +114,7 @@ export const ALL_NAV_LINKS = [
   { label: "Long-Distance Transfers", href: "/long-distance-transfers/", service: "addressToAddress" as const },
   { label: "Locations", href: "/locations/", service: "addressToAddress" as const },
   { label: "Train Station", href: "/belfast-grand-central-station-taxi/", service: null },
+  { label: "Events", href: "/events/", service: null },
   { label: "Cruise Transfers", href: "/belfast-cruise-terminal-transfers/", service: null },
   { label: "Day Trips", href: "/tours/", service: "dayTrips" as const },
   { label: "Vehicles", href: "/#vehicles", service: null },
