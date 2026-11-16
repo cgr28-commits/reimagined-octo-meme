@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "./Logo";
+import CookieSettingsLink from "./CookieSettingsLink";
 import FooterContact from "./FooterContact";
 import { SERVICE_FLAGS, SITE, SITE_PUBLIC_SEO_BLURB } from "@/lib/data";
 import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
@@ -223,6 +224,8 @@ export default function Footer() {
             <Link href="/privacy/" className="transition-colors hover:text-emerald">
               Privacy Policy
             </Link>
+            <span className="text-white/20">|</span>
+            <CookieSettingsLink className="transition-colors hover:text-emerald" />
             <span className="text-white/20">|</span>
             <Link href="/photo-credits/" className="transition-colors hover:text-emerald">
               Photo credits
