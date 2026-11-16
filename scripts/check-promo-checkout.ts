@@ -142,7 +142,7 @@ async function main() {
     if (fixedDay == null) dayOffset += 7;
     const offset = fixedDay ?? dayOffset;
     const outbound = new Date(Date.UTC(2027, 0, 5 + offset)).toISOString().slice(0, 10);
-    const back = new Date(Date.UTC(2027, 0, 5 + offset + 70)).toISOString().slice(0, 10);
+    const back = new Date(Date.UTC(2027, 0, 5 + offset + 35)).toISOString().slice(0, 10);
     const journey = {
       pickupAddress: home.address,
       dropoffAddress: airport.formattedAddress,

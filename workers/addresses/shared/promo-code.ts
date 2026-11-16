@@ -65,7 +65,12 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
   // Garth Brooks nights at Boucher Road (Fri 21 – Sun 23 May 2027).
   blackoutDates: [
     { from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" },
+    // Owner, 16 Nov 2026: also Easter (NI school holidays), the Twelfth fortnight and the
+    // Harry Styles Croke Park nights (18 & 20 Aug 2027).
+    { from: "2027-03-24", to: "2027-04-05", label: "Easter" },
     { from: "2027-05-21", to: "2027-05-23", label: "Garth Brooks" },
+    { from: "2027-07-09", to: "2027-07-18", label: "Twelfth fortnight" },
+    { from: "2027-08-17", to: "2027-08-21", label: "Harry Styles in Dublin" },
   ],
   // Owner, 16 Nov 2026: 15% for Black Friday (Fri 27 Nov – Mon 30 Nov 2026, UK time = UTC in November).
   campaign: {
