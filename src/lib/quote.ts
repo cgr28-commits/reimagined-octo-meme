@@ -124,6 +124,8 @@ export type QuoteResult = {
   returnOneWayBeforeAccessGbp?: number;
   outboundFixedGbp?: number;
   returnFixedGbp?: number;
+  /** Dublin toll allowance (M1 / Port Tunnel / M50) before any return discount, included in `amount` (A2A only). */
+  dublinTollsGbp?: number;
   /** True when public display must wait for owner-approved pricing rules. */
   confirmationRequired?: boolean;
 };
@@ -642,6 +644,12 @@ export function calculatePointToPointQuote(
      * Browser callers never pass this.
      */
     positioningChargeGbp?: number;
+    /**
+     * Worker-only Dublin toll allowance (M1 / Port Tunnel / M50) per leg, from
+     * `shared/dublin-tolls.ts`. A fixed cost: never surcharged and never
+     * reduced by the return discount. Customers see it inside the fare.
+     */
+    tollAllowance?: { outboundGbp: number; returnGbp: number };
   } = {},
 ): QuoteResult | null {
   const pickup = pickupAddress.trim();
@@ -689,12 +697,21 @@ export function calculatePointToPointQuote(
     { pricing },
   );
 
-  const journeyFareGbp = roundGbp(premium.total);
+  const tollOut = Math.max(0, roundGbp(Number(options.tollAllowance?.outboundGbp) || 0));
+  const tollBack = returnJourney ? Math.max(0, roundGbp(Number(options.tollAllowance?.returnGbp) || 0)) : 0;
+  // Tolls are never surcharged. On a return they sit inside the base the 5%
+  // applies to, so the customer's "return discount" line stays exact.
+  // With no tolls fares are byte-identical.
+  const tollsInFare = returnJourney
+    ? (tollOut + tollBack) * (1 - (engine.returnDiscountRate ?? 0))
+    : tollOut;
+  const journeyFareGbp = roundGbp(premium.total + tollsInFare);
   const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
 
   return withOneWayBeforeAccess(
     {
       amount: journeyFareGbp,
+      ...(tollOut + tollBack > 0 ? { dublinTollsGbp: roundGbp(tollOut + tollBack) } : {}),
       area: dropoffArea ?? pickupArea,
       areaSurcharge: Math.round(roadMiles * 10) / 10,
       airportBase: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -715,8 +732,8 @@ export function calculatePointToPointQuote(
     schedule,
     returnJourney,
     pricing,
-    0,
-    0,
+    tollOut,
+    tollBack,
   );
 }
 

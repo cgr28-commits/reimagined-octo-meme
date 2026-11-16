@@ -635,6 +635,7 @@ import {
 } from "./profitability-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { resolveDublinTollAllowance } from "../shared/dublin-tolls";
 import { emptyRunPreviewForced, evaluateEmptyRunSafely, handleOwnerEmptyRun, isOwnerEmptyRunPath } from "./empty-run-handlers";
 import {
   QUOTE_RECEIPT_REFRESH_MESSAGE,
@@ -2972,6 +2973,21 @@ async function handlePaymentRequest(
       pickup: routeOutcome.pickup ?? null,
       dropoff: routeOutcome.dropoff ?? null,
     });
+    // Dublin tolls on address-to-address jobs — same resolver as the quote.
+    const dublinTolls = airportContext.isAirportTrip
+      ? undefined
+      : resolveDublinTollAllowance({
+          pickup: routeOutcome.pickup ?? null,
+          dropoff: routeOutcome.dropoff ?? null,
+          pickupLabel: booking.pickupLabel,
+          dropoffLabel: booking.dropoffLabel,
+          durationMinutes: routeMetrics?.durationMinutes ?? null,
+          outboundDate: booking.tripDate,
+          outboundTime: booking.tripTime,
+          returnJourney: Boolean(booking.returnJourney),
+          returnDate: booking.returnDate,
+          returnTime: booking.returnTime,
+        });
     const paymentRouteMiles = routeMetrics.distanceKm * 0.621371;
     if (publicVehicleRequiresPersonalQuote(booking.vehicle, pricing, false, paymentRouteMiles)) {
       return json({ error: vehiclePersonalQuoteMessage(booking.vehicle, pricing, paymentRouteMiles), code: MINIBUS_PERSONAL_QUOTE_CODE }, 409, origin);
@@ -3075,6 +3091,7 @@ async function handlePaymentRequest(
     } else {
       const requote = calculateAuthoritativeWebsiteQuote({
         positioningChargeGbp: positioning.chargeGbp,
+        tollAllowance: dublinTolls,
         airportCode: airportContext.airportCode,
         fromAirport: airportContext.fromAirport,
         pickupAddress: booking.pickupLabel,
@@ -3326,6 +3343,7 @@ async function handlePaymentRequest(
       } else {
         const legQuote = calculateAuthoritativeWebsiteQuote({
           positioningChargeGbp: positioning.chargeGbp,
+          tollAllowance: dublinTolls,
           airportCode: airportContext.airportCode,
           fromAirport: airportContext.fromAirport,
           pickupAddress: booking.pickupLabel,

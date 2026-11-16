@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AddressInput from "@/components/AddressInput";
+import { ownerFareBreakdownLines, type OwnerFareBreakdown } from "@/lib/owner-fare-breakdown";
 import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
 import {
   airportLabel,
@@ -165,6 +166,7 @@ export default function QuickQuoteOwnerClient() {
   const [fareLabel, setFareLabel] = useState("");
   const [fareAmount, setFareAmount] = useState<number | null>(null);
   const [calculatedFareAmount, setCalculatedFareAmount] = useState<number | null>(null);
+  const [ownerFareBreakdown, setOwnerFareBreakdown] = useState<OwnerFareBreakdown | null>(null);
   const [lastRouteMetrics, setLastRouteMetrics] = useState<TripRouteMetrics | null>(null);
   const [vehicleType, setVehicleType] = useState("");
   const [discountType, setDiscountType] = useState<QuickQuoteDiscountType>("none");
@@ -260,6 +262,7 @@ export default function QuickQuoteOwnerClient() {
     setFareAmount(null);
     setFareLabel("");
     setCalculatedFareAmount(null);
+    setOwnerFareBreakdown(null);
     setLastRouteMetrics(null);
     setVehicleType("");
     setBookingUrl("");
@@ -685,10 +688,12 @@ export default function QuickQuoteOwnerClient() {
         setFareAmount(null);
         setFareLabel("");
         setCalculatedFareAmount(null);
+        setOwnerFareBreakdown(null);
         setError(result.message);
         return;
       }
       setCalculatedFareAmount(result.amount);
+      setOwnerFareBreakdown(result.ownerFareBreakdown ?? null);
       setPriceSource("website-pricing-engine");
       const discounted = applyQuickQuoteManualDiscount(
         result.amount,
@@ -1407,6 +1412,29 @@ export default function QuickQuoteOwnerClient() {
               </p>
             ) : null}
           </div>
+
+          {ownerFareBreakdown ? (
+            <details className="rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-left">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-white/70">
+                How this price is made (owner only)
+              </summary>
+              <dl className="mt-2 space-y-1 text-xs text-white/80">
+                {ownerFareBreakdownLines(ownerFareBreakdown).map((line, index) => (
+                  <div key={`${line.label}-${index}`} className="flex justify-between gap-3">
+                    <dt className="min-w-0 break-words text-white/60">{line.label}</dt>
+                    <dd className="max-w-[60%] break-words text-right">{line.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {ownerFareBreakdown.notes.length ? (
+                <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-white/50">
+                  {ownerFareBreakdown.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </details>
+          ) : null}
 
           {expressSelection.eligible && expressSelection.airportCode ? (
             <ExpressDropOffSelector

@@ -24,6 +24,8 @@ import { ownerAuthorized } from "./driver-auth";
 import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { applyProfitabilityProtection } from "./profitability";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { resolveDublinTollAllowance, type DublinTollAllowance } from "../shared/dublin-tolls";
+import { buildOwnerFareBreakdown } from "../../../src/lib/owner-fare-breakdown";
 import { emptyRunPreviewForced, evaluateEmptyRunSafely } from "./empty-run-handlers";
 import { resolveJourneyAirportFees } from "../shared/airport-fixed-costs";
 import { signQuoteReceipt, LEGACY_QUOTE_RECEIPT_FORMAT, QUOTE_RECEIPT_FORMAT } from "./quote-receipt";
@@ -574,6 +576,9 @@ export async function handleQuoteCalculateRequest(
   };
 
   let result: ReturnType<typeof calculateAuthoritativeWebsiteQuote>;
+  let appliedPositioningChargeGbp = 0;
+  let appliedTollAllowance: DublinTollAllowance | undefined;
+  let profitabilityApplied = false;
 
   if (
     isAirportToAirport &&
@@ -642,8 +647,25 @@ export async function handleQuoteCalculateRequest(
       pickup: serverPickup,
       dropoff: serverDropoff,
     });
+    appliedPositioningChargeGbp = positioning.chargeGbp;
+    // Dublin tolls (M1 / Port Tunnel / M50) on address-to-address jobs only.
+    appliedTollAllowance = airportCode
+      ? undefined
+      : resolveDublinTollAllowance({
+          pickup: serverPickup ?? (Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null),
+          dropoff: serverDropoff ?? (Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null),
+          pickupLabel: pickupAddress,
+          dropoffLabel: dropoffAddress,
+          durationMinutes: routeMetrics.durationMinutes,
+          outboundDate: schedule.outboundDate,
+          outboundTime: schedule.outboundTime,
+          returnJourney,
+          returnDate: schedule.returnDate,
+          returnTime: schedule.returnTime,
+        });
     result = calculateAuthoritativeWebsiteQuote({
       positioningChargeGbp: positioning.chargeGbp,
+      tollAllowance: appliedTollAllowance,
       airportCode,
       fromAirport,
       pickupAddress,
@@ -703,6 +725,7 @@ export async function handleQuoteCalculateRequest(
       },
     });
     if (protectedFare.applied) {
+      profitabilityApplied = true;
       result = {
         ...result,
         amount: protectedFare.amountGbp,
@@ -834,6 +857,29 @@ export async function handleQuoteCalculateRequest(
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
+  // Toll allowance is folded into the customer's single fare; only the owner sees it itemised.
+  delete quoteBody.dublinTollsGbp;
+  if (ownerMode && body.includeOwnerFareBreakdown === true && result.ok) {
+    try {
+      quoteBody.ownerFareBreakdown = buildOwnerFareBreakdown({
+        pricing,
+        vehicleType: result.vehicleType,
+        distanceKm: routeMetrics.distanceKm,
+        airportCode: airportCode ?? null,
+        fromAirport: Boolean(fromAirport),
+        airportToAirport: Boolean(isAirportToAirport),
+        returnJourney,
+        schedule,
+        positioningChargeGbp: appliedPositioningChargeGbp,
+        tollAllowance: appliedTollAllowance,
+        finalAmountGbp: result.amount,
+        airportFixedCostsGbp: result.airportFixedCostsGbp,
+        profitabilityProtectionApplied: profitabilityApplied,
+      });
+    } catch (error) {
+      console.warn(`[owner-fare-breakdown] ${error instanceof Error ? error.message : "failed"}`);
+    }
+  }
 
   if (serverRouting && result.ok) {
     const secret = env?.QUOTE_RECEIPT_SECRET?.trim() ?? "";
