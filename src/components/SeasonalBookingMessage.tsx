@@ -51,13 +51,15 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
       {showBar ? (
         <>
           <p className="mt-1.5 flex items-center justify-between gap-2 text-[0.8rem]">
-            <span className={veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}>Expected demand for your date</span>
+            <span className={veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}>
+              {demand.bookedPercent !== null ? "Bookings for your date" : "Expected demand for your date"}
+            </span>
             <span className={`font-extrabold ${veryHigh ? "text-[#633806]" : "text-[#0F6E56]"}`}>{demand.label}</span>
           </p>
           <div
             className="mt-1.5 grid grid-cols-5 gap-1"
             role="img"
-            aria-label={`Expected demand: ${demand.label}`}
+            aria-label={demand.bookedPercent !== null ? `${demand.label}` : `Expected demand: ${demand.label}`}
             data-demand-bar
           >
             {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (

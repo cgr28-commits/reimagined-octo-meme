@@ -174,13 +174,22 @@ check("expected demand levels", () => {
   assert.equal(level("2027-10-24", { pickup: "Newry", dropoff: "Dublin, Ireland" }), "very-high");
   assert.equal(level("2027-05-02", { pickup: "Lisburn", dropoff: "Ormeau Rd, Belfast BT7" }), "very-high");
   assert.equal(level("2027-04-23", { pickup: "Lisburn", dropoff: "Malone Rd, Belfast BT9" }), "very-high");
-  // Bar sizes, labels, and never "booked" wording.
+  // Bar sizes, labels, and no "booked" wording outside December.
   const xmas = demandIndicatorFor({ tripDate: "2026-12-20" }, now)!;
   assert.equal(xmas.filledSegments, 4);
-  assert.equal(xmas.label, "Very high");
+  assert.equal(xmas.label, "80% booked");
+  // December booked levels (owner, 16 Nov 2026): 60% on 1–13 Dec, 80% from 14 Dec.
+  for (const [d, pct, segs] of [["2026-12-01", 60, 3], ["2026-12-13", 60, 3], ["2026-12-14", 80, 4], ["2026-12-31", 80, 4], ["2027-12-05", 60, 3]] as const) {
+    const ind = demandIndicatorFor({ tripDate: d }, now)!;
+    assert.equal(ind.bookedPercent, pct, d);
+    assert.equal(ind.label, `${pct}% booked`, d);
+    assert.equal(ind.filledSegments, segs, d);
+  }
+  assert.equal(demandIndicatorFor({ tripDate: "2026-11-30" }, now)!.bookedPercent, null);
+  assert.equal(demandIndicatorFor({ tripDate: "2027-01-01" }, now)!.bookedPercent, null);
   assert.equal(demandIndicatorFor({ tripDate: "2027-05-03" }, now)!.filledSegments, 3);
   assert.equal(demandIndicatorFor({ tripDate: "2027-02-10" }, now)!.filledSegments, 0);
-  for (const d of ["2026-12-20", "2027-05-03", "2026-11-17", "2027-02-10", "2027-05-22"]) {
+  for (const d of ["2027-01-02", "2027-05-03", "2026-11-17", "2027-02-10", "2027-05-22"]) {
     const ind = demandIndicatorFor({ tripDate: d, dropoff: "Belfast BT1" }, now)!;
     assert.doesNotMatch(`${ind.label ?? ""} ${ind.body}`, /\bbooked\b|%|only \d|last (few|seats|cars)/i, d);
   }
