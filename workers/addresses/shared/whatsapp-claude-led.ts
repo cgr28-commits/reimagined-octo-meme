@@ -59,6 +59,8 @@ export type ClaudeLedUpdates = {
   time?: string;
   passengers?: number;
   suitcases?: number;
+  returnPassengers?: number;
+  returnSuitcases?: number;
   returnJourney?: boolean;
   returnDate?: string;
   returnTime?: string;
@@ -100,8 +102,20 @@ export const CLAUDE_LED_TOOL = {
           dropoff: { type: "string", description: "Destination address, or the airport name." },
           date: { type: "string", description: "Outward pickup date, YYYY-MM-DD." },
           time: { type: "string", description: "Outward pickup time, 24-hour HH:MM." },
-          passengers: { type: "integer", minimum: 1, maximum: 99 },
-          suitcases: { type: "integer", minimum: 0, maximum: 99 },
+          passengers: { type: "integer", minimum: 1, maximum: 99, description: "Outward journey passengers (or both ways)." },
+          suitcases: { type: "integer", minimum: 0, maximum: 99, description: "Outward journey suitcases (or both ways)." },
+          returnPassengers: {
+            type: "integer",
+            minimum: 1,
+            maximum: 99,
+            description: "Only when the customer says a different number travel on the return (e.g. 6 out, 4 back). Omit if the same.",
+          },
+          returnSuitcases: {
+            type: "integer",
+            minimum: 0,
+            maximum: 99,
+            description: "Only when the return has a different number of suitcases from the outward journey. Omit if the same.",
+          },
           returnJourney: { type: "boolean", description: "true for a return journey, false for one way." },
           returnDate: { type: "string", description: "Return pickup date, YYYY-MM-DD." },
           returnTime: { type: "string", description: "Return pickup time, 24-hour HH:MM." },
@@ -170,6 +184,10 @@ export function parseClaudeLedTurn(raw: unknown): ClaudeLedTurn | null {
   if (passengers != null) updates.passengers = passengers;
   const suitcases = cleanCount(u.suitcases, 0, 99);
   if (suitcases != null) updates.suitcases = suitcases;
+  const returnPassengers = cleanCount(u.returnPassengers, 1, 99);
+  if (returnPassengers != null) updates.returnPassengers = returnPassengers;
+  const returnSuitcases = cleanCount(u.returnSuitcases, 0, 99);
+  if (returnSuitcases != null) updates.returnSuitcases = returnSuitcases;
   if (typeof u.returnJourney === "boolean") updates.returnJourney = u.returnJourney;
   const returnDate = cleanDate(u.returnDate);
   if (returnDate) updates.returnDate = returnDate;
@@ -207,8 +225,21 @@ export function applyClaudeLedUpdates(draft: WhatsAppQuoteDraft, updates: Claude
     if (!updates.returnJourney) {
       delete draft.returnDate;
       delete draft.returnTime;
+      delete draft.returnPassengers;
+      delete draft.returnSuitcases;
     }
   }
+  // A different group size coming back (kept only while it differs from the outward group).
+  if (updates.returnPassengers != null) {
+    draft.returnPassengers = updates.returnPassengers;
+    draft.returnJourney = true;
+  }
+  if (updates.returnSuitcases != null) {
+    draft.returnSuitcases = updates.returnSuitcases;
+    draft.returnJourney = true;
+  }
+  if (draft.returnPassengers === draft.passengers) delete draft.returnPassengers;
+  if (draft.returnSuitcases === draft.suitcases) delete draft.returnSuitcases;
   if (updates.returnDate) {
     draft.returnDate = updates.returnDate;
     draft.returnJourney = true;
@@ -277,6 +308,7 @@ export function applyClaudeLedTurn(
     delete conversation.lastQuoteUrl;
     delete conversation.lastQuoteAmountLabel;
     delete conversation.discountOffered;
+    delete conversation.splitQuote;
   }
 
   const problem = validateWhatsAppDraft(conversation.draft, now);
