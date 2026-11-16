@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EVENTS_HUB_PATH, EVENTS_HUB_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
+import PromoHeroOffer from "./PromoHeroOffer";
 import FromAirportText from "./FromAirportText";
 import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
 import HeroBenefitsRow from "./HeroBenefitsRow";
@@ -148,6 +149,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
           className="homepage-hero-quote order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
+          <PromoHeroOffer />
           <HeroBenefitsRow />
           <QuoteCard
             presentation="homepage"

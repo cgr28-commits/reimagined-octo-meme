@@ -114,8 +114,9 @@ export default function PromoPopup() {
   const offerId = config?.campaign?.id;
   const eligible = Boolean(config?.enabled) && consentDone && !excluded && promoPopupAllowedSafe(offerId);
 
-  const open = useCallback((next: Mode) => {
-    if (shownRef.current && next === "dialog") return;
+  // explicit: the customer tapped an offer button, so open even if the timed pop-up already showed.
+  const open = useCallback((next: Mode, explicit = false) => {
+    if (shownRef.current && next === "dialog" && !explicit) return;
     if (next === "dialog") shownRef.current = true;
     restoreFocus.current = (document.activeElement as HTMLElement | null) ?? null;
     setMode(next);
@@ -163,7 +164,7 @@ export default function PromoPopup() {
   useEffect(() => {
     const onOpen = () => {
       if (!config?.enabled) return;
-      open(desktop ? "dialog" : "sheet");
+      open(desktop ? "dialog" : "sheet", true);
     };
     window.addEventListener(PROMO_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(PROMO_OPEN_EVENT, onOpen);

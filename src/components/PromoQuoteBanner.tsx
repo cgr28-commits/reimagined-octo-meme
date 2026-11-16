@@ -28,7 +28,7 @@ export default function PromoQuoteBanner({ config, className = "" }: { config: P
     <aside
       data-promo-quote-banner
       aria-label={`${pct} discount code`}
-      className={`rounded-2xl border border-emerald/40 bg-white px-4 py-3 text-[#071c38] shadow-sm ${className}`}
+      className={`rounded-2xl border-2 border-emerald bg-[#effaf1] px-4 py-3.5 text-[#071c38] shadow-[0_6px_20px_rgba(47,191,74,0.18)] ${className}`}
     >
       {signedUp && !open ? (
         <p className="text-sm leading-snug">
@@ -41,14 +41,14 @@ export default function PromoQuoteBanner({ config, className = "" }: { config: P
             <span className="mr-1.5 inline-block rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-[#071c38]">
               {offer ? `${offer.toUpperCase()} ${pct} OFF` : `${pct} OFF`}
             </span>
-            <span className="font-semibold">{offer ? `${offer}: ` : ""}Get {pct} off your vehicle fare</span>
+            <span className="text-base font-extrabold">{offer ? `${offer}: ` : ""}Get {pct} off your vehicle fare</span>
             <span className="text-[#071c38]/70"> with an email code (fares of {minimum}+).</span>
           </p>
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-expanded="false"
-            className="min-h-11 shrink-0 rounded-xl border border-emerald px-3.5 text-sm font-bold text-[#071c38] hover:bg-emerald/10"
+            className="min-h-11 shrink-0 rounded-xl bg-emerald px-4 text-sm font-extrabold text-[#071c38] shadow-sm hover:brightness-105"
           >
             Email me my code
           </button>
