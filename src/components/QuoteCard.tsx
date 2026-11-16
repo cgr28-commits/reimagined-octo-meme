@@ -422,7 +422,12 @@ import {
   validatePromoCode,
   type PublicPromoConfig,
 } from "@/lib/promo-api";
-import { normalizePromoCode, promoRejectMessage } from "../../shared/promo-code";
+import {
+  normalizePromoCode,
+  promoBlackoutFor,
+  promoBlackoutMessage,
+  promoRejectMessage,
+} from "../../shared/promo-code";
 import PromoCodeField from "@/components/PromoCodeField";
 import PromoQuoteBanner from "@/components/PromoQuoteBanner";
 
@@ -3462,7 +3467,10 @@ function QuoteCard({
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
       // Promo codes never stack with a return offer or a special (Empty Run) price.
-      ...(appliedPromo && !applyReturnOffer && !(Number(currentServerFareParts?.emptyRunSavingGbp) > 0)
+      ...(appliedPromo &&
+      !applyReturnOffer &&
+      !(Number(currentServerFareParts?.emptyRunSavingGbp) > 0) &&
+      !promoBlackoutFor([tripDate, returnJourney ? returnDate : null], promoConfig?.blackoutDates)
         ? { promoCode: appliedPromo }
         : {}),
       ...(businessClass
@@ -3482,6 +3490,9 @@ function QuoteCard({
     });
   }, [
     appliedPromo,
+    promoConfig?.blackoutDates,
+    tripDate,
+    returnDate,
     currentServerFareParts?.emptyRunSavingGbp,
     useOpenWebsitePromoPricing,
     configuredSurchargeLabel,
@@ -4973,6 +4984,12 @@ function QuoteCard({
     return null;
   }
 
+  /** Owner-excluded travel date on this booking (outward or return), as a customer message. */
+  function promoBlackoutNotice(): string | null {
+    const hit = promoBlackoutFor([tripDate, returnJourney ? returnDate : null], promoConfig?.blackoutDates);
+    return hit ? promoBlackoutMessage(hit) : null;
+  }
+
   async function applyPromoCode() {
     const code = normalizePromoCode(promoInput);
     setPromoMessage("");
@@ -4989,7 +5006,7 @@ function QuoteCard({
       setPromoMessage(promoRejectMessage("not_eligible_booking"));
       return;
     }
-    const blocked = promoUnavailableReason();
+    const blocked = promoUnavailableReason() ?? promoBlackoutNotice();
     if (blocked) {
       setPromoMessage(blocked);
       return;
@@ -4999,6 +5016,8 @@ function QuoteCard({
       code,
       email,
       vehicleFareGbp: openWebsiteFareBreakdown.promoEligibleVehicleFareGbp,
+      tripDate,
+      ...(returnJourney ? { returnDate } : {}),
     });
     setPromoChecking(false);
     if (!result.ok) {
@@ -5049,6 +5068,8 @@ function QuoteCard({
           })()
         : null;
     const belowMinimum = appliedPromo && breakdown.promoCodeStatus === "below_minimum";
+    // A date changed after the code was applied: keep the code, explain why it isn't counted.
+    const blackoutNotice = appliedPromo ? promoBlackoutNotice() : null;
     return (
       <PromoCodeField
         value={promoInput}
@@ -5060,9 +5081,11 @@ function QuoteCard({
         onRemove={removePromoCode}
         checking={promoChecking}
         message={
-          belowMinimum
-            ? promoRejectMessage("minimum_fare", appliedPromo ?? undefined)
-            : promoMessage
+          blackoutNotice
+            ? blackoutNotice
+            : belowMinimum
+              ? promoRejectMessage("minimum_fare", appliedPromo ?? undefined)
+              : promoMessage
         }
         applied={applied}
         unavailableReason={promoUnavailableReason() ?? undefined}

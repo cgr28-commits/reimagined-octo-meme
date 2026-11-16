@@ -3481,11 +3481,14 @@ async function handlePaymentRequest(
         code: promoCodeRequested,
         bookingEmail: booking.customerEmail,
         otherOfferApplied: returnOfferDiscountRate > 0 || emptyRunAppliedToFare,
+        journeyDates: [booking.tripDate, booking.returnJourney ? booking.returnDate : null],
       });
       if (!promoCheck.ok) {
         return json(
           {
-            error: promoRejectMessage(promoCheck.reason, { minimumVehicleFareGbp: promoCheck.minimumVehicleFareGbp }),
+            error:
+              promoCheck.message ??
+              promoRejectMessage(promoCheck.reason, { minimumVehicleFareGbp: promoCheck.minimumVehicleFareGbp }),
             code: "promo_rejected",
             promoReason: promoCheck.reason,
           },

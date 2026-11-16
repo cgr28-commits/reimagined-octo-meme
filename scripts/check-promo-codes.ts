@@ -16,6 +16,8 @@ import {
   normalizePromoEmail,
   promoCodesCsv,
   promoDisplayStatus,
+  promoBlackoutFor,
+  promoBlackoutMessage,
   promoMeetsMinimum,
   validatePromoSettingsInput,
 } from "../shared/promo-code";
@@ -120,6 +122,24 @@ async function main() {
     const ok = validatePromoSettingsInput({ discountPercent: 12.5, minimumVehicleFareGbp: 80, validityDays: 14, enabled: false });
     assert.ok(ok.ok);
     assert.deepEqual(ok.ok && ok.settings, { discountRate: 0.125, minimumVehicleFareGbp: 80, validityDays: 14, enabled: false });
+  });
+
+  await check("excluded dates: 14 Dec – 5 Jan by default, inclusive, either leg of a return", () => {
+    const ranges = DEFAULT_PROMO_SETTINGS.blackoutDates;
+    assert.deepEqual(ranges, [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }]);
+    assert.equal(promoBlackoutFor(["2026-12-13"], ranges), null);
+    assert.equal(promoBlackoutFor(["2026-12-14"], ranges)?.date, "2026-12-14");
+    assert.equal(promoBlackoutFor(["2027-01-05"], ranges)?.date, "2027-01-05");
+    assert.equal(promoBlackoutFor(["2027-01-06"], ranges), null);
+    assert.equal(promoBlackoutFor(["2026-12-10", "2027-01-02"], ranges)?.date, "2027-01-02", "return leg counts");
+    assert.equal(promoBlackoutFor(["2026-12-10", null], ranges), null);
+    assert.match(promoBlackoutMessage(promoBlackoutFor(["2026-12-25"], ranges)!), /25 Dec 2026 \(Christmas & New Year\)/);
+    const bad = validatePromoSettingsInput({ blackoutDates: [{ from: "2026-12-20", to: "2026-12-10" }] });
+    assert.equal(bad.ok, false);
+    const one = validatePromoSettingsInput({ blackoutDates: [{ from: "2027-07-12", label: "Twelfth" }] });
+    assert.ok(one.ok);
+    assert.deepEqual(one.ok && one.settings.blackoutDates, [{ from: "2027-07-12", to: "2027-07-12", label: "Twelfth" }]);
+    assert.deepEqual(validatePromoSettingsInput({ blackoutDates: [] }).ok && true, true, "owner can remove all dates");
   });
 
   await check("£100 minimum is compared in pence", () => {
@@ -468,7 +488,7 @@ async function main() {
     await check("public config hides nothing personal and reflects the owner switch", async () => {
       const res = await call("/promo/config");
       const json = (await res.json()) as { config: Record<string, unknown> };
-      assert.deepEqual(Object.keys(json.config).sort(), ["discountPercentLabel", "discountRate", "enabled", "minimumVehicleFareGbp", "popupDelaySeconds", "popupEnabled", "validityDays"]);
+      assert.deepEqual(Object.keys(json.config).sort(), ["blackoutDates", "discountPercentLabel", "discountRate", "enabled", "minimumVehicleFareGbp", "popupDelaySeconds", "popupEnabled", "validityDays"]);
       assert.equal(json.config.enabled, true);
     });
 
@@ -558,6 +578,9 @@ async function main() {
       const low = (await (await call("/promo/validate", { code: fanCode, email: "fan@example.com", vehicleFareGbp: 80 })).json()) as Record<string, unknown>;
       assert.equal(low.meetsMinimum, false);
       assert.match(String(low.warning), /£100 or more/);
+      const xmas = (await (await call("/promo/validate", { code: fanCode, email: "fan@example.com", vehicleFareGbp: 150, tripDate: "2026-12-10", returnDate: "2026-12-24" })).json()) as Record<string, unknown>;
+      assert.equal(xmas.reason, "blackout_date");
+      assert.match(String(xmas.error), /24 Dec 2026/);
       const wrong = (await (await call("/promo/validate", { code: fanCode, email: "thief@example.com" })).json()) as Record<string, unknown>;
       assert.equal(wrong.reason, "email_mismatch");
       const used = (await (await call("/promo/validate", { code: issuedCode, email: "customer@example.com" })).json()) as Record<string, unknown>;
@@ -571,6 +594,11 @@ async function main() {
       assert.ok(overview.stats.issued >= 3);
       const bad = await call("/owner/promo/settings", { discountPercent: 90 }, auth);
       assert.equal(bad.status, 400);
+      const dates = await call("/owner/promo/settings", { blackoutDates: [{ from: "2027-07-11", to: "2027-07-13", label: "Twelfth" }] }, auth);
+      assert.equal(dates.status, 200);
+      const cfgDates = (await (await call("/promo/config")).json()) as { config: { blackoutDates: unknown } };
+      assert.deepEqual(cfgDates.config.blackoutDates, [{ from: "2027-07-11", to: "2027-07-13", label: "Twelfth" }]);
+      await call("/owner/promo/settings", { blackoutDates: [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }] }, auth);
       const off = await call("/owner/promo/settings", { enabled: false }, auth);
       assert.equal(off.status, 200);
       const cfg = (await (await call("/promo/config")).json()) as { config: { enabled: boolean } };

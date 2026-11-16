@@ -10,7 +10,13 @@
  * Every function fails safe: a missing table or D1 outage never breaks a payment that has
  * already been taken; the owner is told instead.
  */
-import { promoRejectMessage, type PromoRejectReason, type PromoTerms } from "../shared/promo-code";
+import {
+  promoBlackoutFor,
+  promoBlackoutMessage,
+  promoRejectMessage,
+  type PromoRejectReason,
+  type PromoTerms,
+} from "../shared/promo-code";
 import {
   PROMO_RESERVATION_MS,
   checkPromoCodeForBooking,
@@ -28,11 +34,18 @@ export { PROMO_RESERVATION_MS };
 
 export type PromoCheckoutCheck =
   | { ok: true; terms: PromoTerms; emailHash: string }
-  | { ok: false; reason: PromoRejectReason; minimumVehicleFareGbp?: number };
+  | { ok: false; reason: PromoRejectReason; minimumVehicleFareGbp?: number; message?: string };
 
 export async function checkPromoForWebsiteBooking(
   env: PromoEnv,
-  input: { code: string; bookingEmail: string; otherOfferApplied: boolean; now?: Date },
+  input: {
+    code: string;
+    bookingEmail: string;
+    otherOfferApplied: boolean;
+    /** Every journey date on the booking (outward, and return when booked). */
+    journeyDates?: Array<string | null | undefined>;
+    now?: Date;
+  },
 ): Promise<PromoCheckoutCheck> {
   const db = promoDb(env);
   if (!db) return { ok: false, reason: "unavailable" };
@@ -47,6 +60,8 @@ export async function checkPromoForWebsiteBooking(
     });
     if (!check.ok) return check;
     if (input.otherOfferApplied) return { ok: false, reason: "not_combinable" };
+    const blackout = promoBlackoutFor(input.journeyDates ?? [], settings.blackoutDates);
+    if (blackout) return { ok: false, reason: "blackout_date", message: promoBlackoutMessage(blackout) };
     return { ok: true, terms: check.terms, emailHash: check.emailHash };
   } catch (error) {
     console.error("Promo check failed", error instanceof Error ? error.message : "");

@@ -21,6 +21,8 @@ import {
   PROMO_REQUEST_SEND_FAILED_MESSAGE,
   normalizePromoCode,
   normalizePromoEmail,
+  promoBlackoutFor,
+  promoBlackoutMessage,
   promoCodesCsv,
   promoMeetsMinimum,
   promoRejectMessage,
@@ -193,7 +195,12 @@ async function handleCodeRequest(request: Request, env: PromoHandlerEnv, origin:
     const site = siteUrl(env);
     if (result.kind === "issued" || result.kind === "resend") {
       const validityDays = Math.round((Date.parse(result.expiresAt) - Date.parse(result.issuedAt)) / 86_400_000);
-      const message = buildPromoCodeEmail({ ...result, validityDays, siteUrl: site });
+      const message = buildPromoCodeEmail({
+        ...result,
+        validityDays,
+        siteUrl: site,
+        hasExcludedDates: settings.blackoutDates.length > 0,
+      });
       const sent = await trySendBrandedCustomerEmail(env, {
         to: email,
         subject: message.subject,
@@ -256,6 +263,10 @@ async function handleValidate(request: Request, env: PromoHandlerEnv, origin: st
     }
     const check = await checkPromoCodeForBooking(db, { code, bookingEmail: email, now, secret });
     if (!check.ok) return json({ ok: false, reason: check.reason, error: promoRejectMessage(check.reason) }, 200, origin);
+    const blackout = promoBlackoutFor([body.tripDate as string, body.returnDate as string], settings.blackoutDates);
+    if (blackout) {
+      return json({ ok: false, reason: "blackout_date", error: promoBlackoutMessage(blackout) }, 200, origin);
+    }
     const vehicleFare = Number(body.vehicleFareGbp);
     const meets = Number.isFinite(vehicleFare) ? promoMeetsMinimum(vehicleFare, check.terms.minimumVehicleFareGbp) : true;
     return json(

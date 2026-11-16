@@ -18,6 +18,11 @@ export const PROMO_CODE_PREFIX = "MATNI";
 export const PROMO_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 export const PROMO_CODE_RANDOM_LENGTH = 8;
 
+/** Travel dates (inclusive, UK dates YYYY-MM-DD) on which promo codes cannot be used. */
+export type PromoBlackoutRange = { from: string; to: string; label?: string };
+
+export const PROMO_MAX_BLACKOUT_RANGES = 60;
+
 export type PromoSettings = {
   /** Master switch: off = no new codes, the code field is hidden and existing codes are refused. */
   enabled: boolean;
@@ -28,6 +33,8 @@ export type PromoSettings = {
   /** Desktop pop-up (20 s / exit intent). The mobile banner and quote banner follow `enabled`. */
   popupEnabled: boolean;
   popupDelaySeconds: number;
+  /** Journey dates excluded from promo codes (owner dashboard). Applies to every leg. */
+  blackoutDates: PromoBlackoutRange[];
   updatedAt?: string;
 };
 
@@ -38,6 +45,8 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
   validityDays: 30,
   popupEnabled: true,
   popupDelaySeconds: 20,
+  // Owner, 16 Nov 2026: no promo codes for journeys 14 December – 5 January.
+  blackoutDates: [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }],
 };
 
 export const PROMO_LIMITS = {
@@ -79,7 +88,8 @@ export type PromoRejectReason =
   | "not_combinable"
   | "not_eligible_booking"
   | "in_use"
-  | "unavailable";
+  | "unavailable"
+  | "blackout_date";
 
 /** Customer wording for each refusal. Never says whether another email holds the code. */
 export function promoRejectMessage(
@@ -105,6 +115,8 @@ export function promoRejectMessage(
       return "Promo codes can only be used on standard online bookings.";
     case "in_use":
       return "This promo code is being used on another booking right now. Please finish or close that payment first.";
+    case "blackout_date":
+      return "Promo codes can't be used for journeys on this date. Please choose another date or continue without the code.";
     case "unavailable":
       return "We couldn't check your promo code just now. Please try again, or continue without it.";
     case "deactivated":
@@ -204,6 +216,9 @@ export function normalizePromoSettings(input: unknown, fallback: PromoSettings =
     popupDelaySeconds: Math.round(
       num(raw.popupDelaySeconds, PROMO_LIMITS.minPopupDelaySeconds, PROMO_LIMITS.maxPopupDelaySeconds, fallback.popupDelaySeconds),
     ),
+    blackoutDates: Array.isArray(raw.blackoutDates)
+      ? normalizeBlackoutRanges(raw.blackoutDates)
+      : [...(fallback.blackoutDates ?? [])],
     ...(typeof raw.updatedAt === "string" ? { updatedAt: raw.updatedAt } : {}),
   };
 }
@@ -239,6 +254,21 @@ export function validatePromoSettingsInput(input: Record<string, unknown>): { ok
       return { ok: false, error: `Validity must be a whole number of days between ${PROMO_LIMITS.minValidityDays} and ${PROMO_LIMITS.maxValidityDays}.` };
     }
     out.validityDays = days;
+  }
+  if ("blackoutDates" in input) {
+    const list = input.blackoutDates;
+    if (!Array.isArray(list)) return { ok: false, error: "Excluded dates must be a list." };
+    if (list.length > PROMO_MAX_BLACKOUT_RANGES) {
+      return { ok: false, error: `Up to ${PROMO_MAX_BLACKOUT_RANGES} excluded date ranges.` };
+    }
+    for (const item of list) {
+      const range = item as Record<string, unknown>;
+      const from = String(range?.from ?? "");
+      const to = String(range?.to ?? "") || from;
+      if (!isIsoDate(from) || !isIsoDate(to)) return { ok: false, error: "Each excluded date needs a valid date (and end date)." };
+      if (to < from) return { ok: false, error: `The end date ${to} is before the start date ${from}.` };
+    }
+    out.blackoutDates = normalizeBlackoutRanges(list);
   }
   if ("popupDelaySeconds" in input) {
     const s = Number(input.popupDelaySeconds);
@@ -296,6 +326,8 @@ export type PublicPromoConfig = {
   validityDays: number;
   popupEnabled: boolean;
   popupDelaySeconds: number;
+  /** Excluded journey dates (shown to customers when they apply a code). */
+  blackoutDates: PromoBlackoutRange[];
 };
 
 export function publicPromoConfig(settings: PromoSettings): PublicPromoConfig {
@@ -307,6 +339,7 @@ export function publicPromoConfig(settings: PromoSettings): PublicPromoConfig {
     validityDays: settings.validityDays,
     popupEnabled: settings.enabled && settings.popupEnabled,
     popupDelaySeconds: settings.popupDelaySeconds,
+    blackoutDates: settings.blackoutDates ?? [],
   };
 }
 
@@ -389,3 +422,56 @@ export function promoCodesCsv(rows: PromoCodeRow[]): string {
 }
 
 export { csvCell as promoCsvCell };
+
+
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/** Valid, de-duplicated, sorted ranges (single days have from === to). */
+export function normalizeBlackoutRanges(input: unknown[]): PromoBlackoutRange[] {
+  const out: PromoBlackoutRange[] = [];
+  for (const item of input.slice(0, PROMO_MAX_BLACKOUT_RANGES)) {
+    const range = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+    const from = String(range.from ?? "").trim();
+    const to = String(range.to ?? "").trim() || from;
+    if (!isIsoDate(from) || !isIsoDate(to) || to < from) continue;
+    const label = String(range.label ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+    out.push(label ? { from, to, label } : { from, to });
+  }
+  out.sort((a, b) => (a.from === b.from ? a.to.localeCompare(b.to) : a.from.localeCompare(b.from)));
+  return out.filter((r, i) => i === 0 || r.from !== out[i - 1].from || r.to !== out[i - 1].to);
+}
+
+/** The first excluded range covering any of these journey dates (YYYY-MM-DD), or null. */
+export function promoBlackoutFor(
+  journeyDates: Array<string | null | undefined>,
+  ranges: PromoBlackoutRange[] | null | undefined,
+): (PromoBlackoutRange & { date: string }) | null {
+  if (!ranges?.length) return null;
+  for (const raw of journeyDates) {
+    const date = String(raw ?? "").trim().slice(0, 10);
+    if (!isIsoDate(date)) continue;
+    const hit = ranges.find((r) => r.from <= date && date <= r.to);
+    if (hit) return { ...hit, date };
+  }
+  return null;
+}
+
+function shortUkDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${d.getUTCFullYear()}`;
+}
+
+/** "24–26 Dec 2026 (Christmas)" style wording for customers and the dashboard. */
+export function formatBlackoutRange(range: PromoBlackoutRange): string {
+  const span = range.from === range.to ? shortUkDate(range.from) : `${shortUkDate(range.from)} – ${shortUkDate(range.to)}`;
+  return range.label ? `${span} (${range.label})` : span;
+}
+
+/** Customer message when a journey date is excluded. */
+export function promoBlackoutMessage(hit: PromoBlackoutRange & { date: string }): string {
+  return `Promo codes can't be used for journeys on ${shortUkDate(hit.date)}${hit.label ? ` (${hit.label})` : ""}. Excluded dates: ${formatBlackoutRange(hit)}. Please choose another date or continue without the code.`;
+}

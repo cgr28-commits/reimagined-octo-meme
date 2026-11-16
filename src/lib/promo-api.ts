@@ -16,6 +16,7 @@ const DISABLED: PublicPromoConfig = {
   validityDays: 30,
   popupEnabled: false,
   popupDelaySeconds: 20,
+  blackoutDates: [],
 };
 
 let configPromise: Promise<PublicPromoConfig> | null = null;
@@ -29,7 +30,12 @@ export function fetchPromoConfig(): Promise<PublicPromoConfig> {
       .then((payload) => {
         const config = payload?.config as Partial<PublicPromoConfig> | undefined;
         if (!config || config.enabled !== true) return DISABLED;
-        return { ...DISABLED, ...config, enabled: true } as PublicPromoConfig;
+        return {
+          ...DISABLED,
+          ...config,
+          enabled: true,
+          blackoutDates: Array.isArray(config.blackoutDates) ? config.blackoutDates : [],
+        } as PublicPromoConfig;
       })
       .catch(() => DISABLED);
   }
@@ -71,7 +77,13 @@ export type PromoValidation =
     }
   | { ok: false; reason: string; error: string };
 
-export async function validatePromoCode(input: { code: string; email: string; vehicleFareGbp?: number }): Promise<PromoValidation> {
+export async function validatePromoCode(input: {
+  code: string;
+  email: string;
+  vehicleFareGbp?: number;
+  tripDate?: string;
+  returnDate?: string;
+}): Promise<PromoValidation> {
   try {
     const response = await fetch(`${WORKER_BASE}/promo/validate`, {
       method: "POST",

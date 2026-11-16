@@ -336,6 +336,33 @@ async function main() {
       assert.equal(row.status, "active");
     });
 
+    await check("excluded dates (14 Dec – 5 Jan): refused for either leg, fine outside them", async () => {
+      now += 60_000;
+      const code = await issue("christmas@example.com");
+      const q = await quoteFor(dub, false, undefined, { date: "2026-12-20", time: "12:00" });
+      const expected = composeWebsiteFareBreakdown({ ...q.base, promoCode: { code, discountRate: 0.1, minimumVehicleFareGbp: 100 } });
+      const before = checkouts;
+      await assert.rejects(
+        request(q, "christmas@example.com", expected.finalAmountPayableGbp, code),
+        (e) => isPaymentPromoRejectedError(e) && e.promoReason === "blackout_date" && /20 Dec 2026/.test(e.message),
+      );
+      // Return leg on 2 Jan with an outward date before Christmas.
+      const r = await quoteFor(dub, true, undefined, { date: "2026-12-10", time: "12:00" });
+      r.journey.returnDate = "2027-01-02";
+      const r2 = { ...r, quote: (await calculateServerQuote(r.journey)) as typeof r.quote };
+      const exp2 = composeWebsiteFareBreakdown({ ...r.base, journeyFareBeforeAirportAccessGbp: r2.quote.journeyFareGbp!, nightWeekendSurchargeGbp: r2.quote.nightWeekendSurchargeGbp ?? 0, promoCode: { code, discountRate: 0.1, minimumVehicleFareGbp: 100 } });
+      await assert.rejects(
+        request(r2, "christmas@example.com", exp2.finalAmountPayableGbp, code),
+        (e) => isPaymentPromoRejectedError(e) && e.promoReason === "blackout_date",
+      );
+      assert.equal(checkouts, before, "no payment page opened");
+      // 6 January is fine.
+      const ok = await quoteFor(dub, false, undefined, { date: "2027-01-06", time: "12:00" });
+      const exp3 = composeWebsiteFareBreakdown({ ...ok.base, promoCode: { code, discountRate: 0.1, minimumVehicleFareGbp: 100 } });
+      const res = await request(ok, "christmas@example.com", exp3.finalAmountPayableGbp, code);
+      assert.ok(res.checkoutId);
+    });
+
     await check("email mismatch: someone else's code is refused", async () => {
       now += 60_000;
       const q = await quoteFor(dub, false);

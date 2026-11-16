@@ -39,6 +39,8 @@ export function buildPromoCodeEmail(input: {
   minimumVehicleFareGbp: number;
   /** Days from issue (shown in the email); defaults to 30. */
   validityDays?: number;
+  /** Owner has excluded some travel dates (shown in the terms line). */
+  hasExcludedDates?: boolean;
   siteUrl?: string;
 }): { subject: string; text: string; html: string } {
   const days = Math.max(1, Math.round(Number(input.validityDays) || 30));
@@ -48,7 +50,7 @@ export function buildPromoCodeEmail(input: {
   const bookUrl = promoBookingUrl(site, input.code);
   const minimum = pounds(Math.round(input.minimumVehicleFareGbp * 100) / 100);
   const subject = `Your Exclusive ${pct} Airport Transfer Discount`;
-  const terms = `Airport charges are excluded. Minimum eligible vehicle fare ${minimum}. One redemption per customer. The code is linked to this email address, so please book using it.`;
+  const terms = `Airport charges are excluded. Minimum eligible vehicle fare ${minimum}. One redemption per customer.${input.hasExcludedDates ? " Some peak travel dates are excluded; you'll see this when you enter the code." : ""} The code is linked to this email address, so please book using it.`;
 
   const text =
     `Thank you for choosing ${BUSINESS_NAME}.\n\n` +

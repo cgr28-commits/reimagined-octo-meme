@@ -8,7 +8,13 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import { formatPromoPercent, type PromoCodeRow, type PromoSettings } from "../../shared/promo-code";
+import {
+  formatBlackoutRange,
+  formatPromoPercent,
+  type PromoBlackoutRange,
+  type PromoCodeRow,
+  type PromoSettings,
+} from "../../shared/promo-code";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -112,6 +118,8 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [busyCode, setBusyCode] = useState("");
+  const [blackouts, setBlackouts] = useState<PromoBlackoutRange[]>([]);
+  const [newRange, setNewRange] = useState({ from: "", to: "", label: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +138,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
         validityDays: String(result.settings.validityDays),
         popupDelaySeconds: String(result.settings.popupDelaySeconds),
       });
+      setBlackouts(result.settings.blackoutDates ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load promo codes");
     } finally {
@@ -155,6 +164,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
         minimumVehicleFareGbp: Number(form.minimumVehicleFareGbp),
         validityDays: Number(form.validityDays),
         popupDelaySeconds: Number(form.popupDelaySeconds),
+        blackoutDates: blackouts,
       });
       setNotice("Saved. New codes use these terms; codes already sent keep the terms they were sent with.");
       void load();
@@ -204,7 +214,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
             <h2 className="text-lg font-semibold text-white">Promo Codes &amp; Email Marketing</h2>
             <p className="text-sm text-white/60">
               {data
-                ? `${data.settings.enabled ? "Promotion ON" : "Promotion OFF"} · ${formatPromoPercent(data.settings.discountRate)} off vehicle fares of £${data.settings.minimumVehicleFareGbp}+ · codes valid ${data.settings.validityDays} days`
+                ? `${data.settings.enabled ? "Promotion ON" : "Promotion OFF"} · ${formatPromoPercent(data.settings.discountRate)} off vehicle fares of £${data.settings.minimumVehicleFareGbp}+ · codes valid ${data.settings.validityDays} days${data.settings.blackoutDates?.length ? ` · not valid ${data.settings.blackoutDates.map(formatBlackoutRange).join(", ")}` : ""}`
                 : loading
                   ? "Loading…"
                   : ""}
@@ -265,6 +275,63 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
             Desktop pop-up delay (seconds)
             <input inputMode="numeric" className={inputClass} value={form.popupDelaySeconds} onChange={(e) => setForm({ ...form, popupDelaySeconds: e.target.value })} />
           </label>
+        </div>
+        <div className="mt-5" data-promo-blackouts>
+          <h4 className="text-sm font-semibold text-white">Excluded travel dates</h4>
+          <p className="mt-0.5 text-xs text-white/55">
+            Codes can&apos;t be used if the outward or return journey falls on these dates. Customers see the dates when
+            they enter a code.
+          </p>
+          {blackouts.length ? (
+            <ul className="mt-2 space-y-1.5">
+              {blackouts.map((range, index) => (
+                <li key={`${range.from}-${range.to}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 text-sm text-white">
+                  <span>{formatBlackoutRange(range)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBlackouts(blackouts.filter((_, i) => i !== index))}
+                    className="min-h-11 rounded-lg px-3 text-xs font-semibold text-red-200"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-white/60">No excluded dates — codes work on any date.</p>
+          )}
+          <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
+            <label className="text-xs text-white/70">
+              From
+              <input type="date" className={inputClass} value={newRange.from} onChange={(e) => setNewRange({ ...newRange, from: e.target.value })} />
+            </label>
+            <label className="text-xs text-white/70">
+              To (same day for one date)
+              <input type="date" className={inputClass} value={newRange.to} onChange={(e) => setNewRange({ ...newRange, to: e.target.value })} />
+            </label>
+            <label className="text-xs text-white/70">
+              Name (optional)
+              <input className={inputClass} maxLength={60} placeholder="e.g. Christmas" value={newRange.label} onChange={(e) => setNewRange({ ...newRange, label: e.target.value })} />
+            </label>
+            <button
+              type="button"
+              disabled={!newRange.from}
+              onClick={() => {
+                const to = newRange.to || newRange.from;
+                if (to < newRange.from) {
+                  setError("The end date is before the start date.");
+                  return;
+                }
+                setError("");
+                setBlackouts([...blackouts, { from: newRange.from, to, ...(newRange.label.trim() ? { label: newRange.label.trim() } : {}) }]);
+                setNewRange({ from: "", to: "", label: "" });
+              }}
+              className="min-h-11 self-end rounded-xl border border-emerald/60 px-4 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              Add dates
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-white/50">Press “Save settings” to apply changes.</p>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={() => void saveSettings()} disabled={saving} className="btn-primary min-h-11 rounded-xl px-5 text-sm">
