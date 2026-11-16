@@ -401,7 +401,7 @@ export default function HomepageQuoteFields({
       {design3 ? (
         /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-d3-card-head aria-hidden="true">
-          {cardTitle ? <Ticket size={20} strokeWidth={2.2} data-d3-card-head-icon /> : <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />}
+          {cardTitle && /event|concert/i.test(cardTitle) ? <Ticket size={20} strokeWidth={2.2} data-d3-card-head-icon /> : <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />}
           <span data-d3-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
           <span data-d3-card-head-chip>
             <Zap size={13} strokeWidth={2.4} />
@@ -411,7 +411,7 @@ export default function HomepageQuoteFields({
       ) : (
         /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-desktop-card-head aria-hidden={quickPicks || cardTitle ? undefined : true}>
-          {cardTitle ? <Ticket size={22} strokeWidth={2.2} data-desktop-card-head-icon /> : <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />}
+          {cardTitle && /event|concert/i.test(cardTitle) ? <Ticket size={22} strokeWidth={2.2} data-desktop-card-head-icon /> : <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />}
           <span data-desktop-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
           <span data-desktop-card-head-chip>
             <Zap size={14} strokeWidth={2.4} />
