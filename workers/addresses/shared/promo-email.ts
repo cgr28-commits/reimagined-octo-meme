@@ -86,7 +86,7 @@ export function buildPromoCodeEmail(input: {
 </td></tr>
 <tr><td align="center" style="padding:4px 24px 6px;">
 <table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed ${BRAND_EMERALD};border-radius:12px;background:#f2fbf4;"><tr>
-<td style="padding:16px 26px;font-family:'Courier New',Courier,monospace;font-size:26px;letter-spacing:3px;font-weight:bold;color:${BRAND_NAVY};-webkit-user-select:all;user-select:all;">${esc(input.code)}</td>
+<td style="padding:14px 16px;font-family:'Courier New',Courier,monospace;font-size:21px;letter-spacing:1px;font-weight:bold;white-space:nowrap;color:${BRAND_NAVY};-webkit-user-select:all;user-select:all;">${esc(input.code)}</td>
 </tr></table>
 </td></tr>
 <tr><td align="center" style="padding:10px 24px 2px;">
