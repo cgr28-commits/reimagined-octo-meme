@@ -10,6 +10,8 @@
  *   POST /owner/promo/settings    — on/off, %, minimum fare, validity, pop-up
  *   POST /owner/promo/deactivate  — deactivate one code
  *   GET  /owner/promo/export.csv  — ?list=codes | ?list=marketing (valid permission only)
+ *   GET  /owner/promo/customers       — past customers who could get a thank-you code
+ *   POST /owner/promo/customers/send  — send each chosen customer their own code (or a test copy)
  */
 import { corsHeaders } from "../shared/google-places";
 import {
@@ -55,6 +57,14 @@ import {
   type PromoEnv,
 } from "./promo-store";
 import { trySendBrandedCustomerEmail, type WorkerEmailEnv } from "./worker-email";
+import {
+  CUSTOMER_OFFER_BATCH_MAX,
+  clampValidityDays,
+  customerOfferTestAddress,
+  listCustomerOfferRows,
+  sendCustomerOffers,
+  sendCustomerOfferTest,
+} from "./promo-customer-send";
 
 export type PromoHandlerEnv = PromoEnv &
   DriverAuthEnv &
@@ -142,6 +152,8 @@ export async function handlePromoRequest(request: Request, env: PromoHandlerEnv,
     if (path === "/owner/promo/settings" && request.method === "POST") return handleOwnerSettings(request, env, origin);
     if (path === "/owner/promo/deactivate" && request.method === "POST") return handleOwnerDeactivate(request, env, origin);
     if (path === "/owner/promo/export.csv" && request.method === "GET") return handleOwnerExport(request, env, origin);
+    if (path === "/owner/promo/customers" && request.method === "GET") return handleOwnerCustomers(env, origin);
+    if (path === "/owner/promo/customers/send" && request.method === "POST") return handleOwnerCustomersSend(request, env, origin);
   }
   return json({ error: "Not found" }, 404, origin);
 }
@@ -386,4 +398,63 @@ async function handleOwnerExport(request: Request, env: PromoHandlerEnv, origin:
     const codes = await listPromoCodes(db, { now: clock(), limit: 2000 });
     return new Response(promoCodesCsv(codes), { status: 200, headers: { ...corsHeaders(origin), ...csvHeaders("promo-codes") } });
   });
+}
+
+/* --------------------------------------------------------- customer list */
+
+const CUSTOMER_SEND_LOCK_KEY = "promo:customer-send:lock";
+
+async function handleOwnerCustomers(env: PromoHandlerEnv, origin: string | null): Promise<Response> {
+  if (!env.TRACKING_STORE) return json({ error: "Booking store is not configured." }, 503, origin);
+  return withDb(env, origin, async (db) => {
+    const now = clock();
+    const [settings, customers] = await Promise.all([getPromoSettings(db), listCustomerOfferRows(env, db, now)]);
+    return json(
+      { ok: true, customers, settings, batchMax: CUSTOMER_OFFER_BATCH_MAX, preview: previewMode(env) },
+      200,
+      origin,
+    );
+  });
+}
+
+async function handleOwnerCustomersSend(request: Request, env: PromoHandlerEnv, origin: string | null): Promise<Response> {
+  const body = await readJson(request);
+  if (!body) return json({ error: "Invalid JSON" }, 400, origin);
+  if (!env.TRACKING_STORE) return json({ error: "Booking store is not configured." }, 503, origin);
+  if (!previewMode(env) && !env.RESEND_API_KEY?.trim()) {
+    return json({ error: "Email sending is not configured (Resend)." }, 503, origin);
+  }
+  const validityDays = clampValidityDays(body.validityDays);
+  const site = siteUrl(env);
+
+  if (body.test === true) {
+    const to = customerOfferTestAddress(env, body.testEmail);
+    return withDb(env, origin, async (db) => {
+      const result = await sendCustomerOfferTest(env, db, { to, validityDays, now: clock(), siteUrl: site });
+      return result.sent
+        ? json({ ok: true, test: true, sentTo: to, preview: previewMode(env) }, 200, origin)
+        : json({ error: result.error || "The test email could not be sent." }, 502, origin);
+    });
+  }
+
+  if (body.confirm !== true) return json({ error: "Please confirm the send." }, 400, origin);
+  const emails = Array.isArray(body.emails) ? body.emails.map((e) => String(e ?? "")) : [];
+  if (!emails.length) return json({ error: "Choose at least one customer." }, 400, origin);
+  if (emails.length > CUSTOMER_OFFER_BATCH_MAX) {
+    return json({ error: `Send up to ${CUSTOMER_OFFER_BATCH_MAX} customers at a time.` }, 400, origin);
+  }
+
+  const store = env.TRACKING_STORE;
+  if (await store.get(CUSTOMER_SEND_LOCK_KEY)) {
+    return json({ error: "Codes are already being sent. Please wait a minute." }, 409, origin);
+  }
+  await store.put(CUSTOMER_SEND_LOCK_KEY, "1", { expirationTtl: 300 });
+  try {
+    return await withDb(env, origin, async (db) => {
+      const { results, expiresAt } = await sendCustomerOffers(env, db, { emails, validityDays, now: clock(), siteUrl: site });
+      return json({ ok: true, results, expiresAt, validityDays, preview: previewMode(env) }, 200, origin);
+    });
+  } finally {
+    await store.delete(CUSTOMER_SEND_LOCK_KEY);
+  }
 }
