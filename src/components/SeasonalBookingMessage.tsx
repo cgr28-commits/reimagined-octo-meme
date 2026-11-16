@@ -56,20 +56,32 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
             </span>
             <span className={`font-extrabold ${veryHigh ? "text-[#633806]" : "text-[#0F6E56]"}`}>{demand.label}</span>
           </p>
-          <div
-            className="mt-1.5 grid grid-cols-5 gap-1"
-            role="img"
-            aria-label={demand.bookedPercent !== null ? `${demand.label}` : `Expected demand: ${demand.label}`}
-            data-demand-bar
-          >
-            {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (
-              <span
-                key={index}
-                className="h-1.5 rounded-full"
-                style={{ background: index < demand.filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee" }}
-              />
-            ))}
-          </div>
+          {demand.bookedPercent !== null ? (
+            <div
+              className="mt-1.5 h-1.5 overflow-hidden rounded-full"
+              style={{ background: veryHigh ? "#e7dfcf" : "#e3e8ee" }}
+              role="img"
+              aria-label={demand.label ?? undefined}
+              data-demand-bar
+            >
+              <span className="block h-full rounded-full" style={{ width: `${demand.bookedPercent}%`, background: accent }} />
+            </div>
+          ) : (
+            <div
+              className="mt-1.5 grid grid-cols-5 gap-1"
+              role="img"
+              aria-label={`Expected demand: ${demand.label}`}
+              data-demand-bar
+            >
+              {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (
+                <span
+                  key={index}
+                  className="h-1.5 rounded-full"
+                  style={{ background: index < demand.filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee" }}
+                />
+              ))}
+            </div>
+          )}
         </>
       ) : null}
       <p className="mt-1.5 text-[0.8rem] font-medium leading-snug text-[#071C38]/80">{demand.body}</p>

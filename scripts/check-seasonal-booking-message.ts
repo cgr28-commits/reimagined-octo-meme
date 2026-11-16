@@ -154,7 +154,7 @@ check("expected demand levels", () => {
   assert.equal(level("2026-12-10"), "high");
   assert.equal(level("2026-12-13"), "high");
   assert.equal(level("2026-12-14"), "very-high"); // Christmas run-up
-  assert.equal(level("2026-11-30"), "normal");
+  assert.equal(level("2026-11-30"), "normal"); // Monday
   assert.equal(level("2027-03-26"), "high"); // Easter
   assert.equal(level("2027-05-03"), "high"); // bank holiday
   assert.equal(level("2027-07-20"), "high"); // summer
@@ -186,7 +186,14 @@ check("expected demand levels", () => {
     assert.equal(ind.filledSegments, segs, d);
   }
   assert.equal(demandIndicatorFor({ tripDate: "2026-11-30" }, now)!.bookedPercent, null);
-  assert.equal(demandIndicatorFor({ tripDate: "2027-01-01" }, now)!.bookedPercent, null);
+  // New Year's Day 70%; rest of November 2026 Fri/Sat/Sun 70%; weekdays unchanged.
+  for (const d of ["2027-01-01", "2026-11-20", "2026-11-21", "2026-11-22", "2026-11-27", "2026-11-29"]) {
+    assert.equal(demandIndicatorFor({ tripDate: d }, now)!.label, "70% booked", d);
+  }
+  assert.equal(demandIndicatorFor({ tripDate: "2026-12-31" }, now)!.label, "80% booked");
+  for (const d of ["2026-11-19", "2026-11-24", "2027-01-02", "2027-11-26"]) {
+    assert.equal(demandIndicatorFor({ tripDate: d }, now)!.bookedPercent, null, d);
+  }
   assert.equal(demandIndicatorFor({ tripDate: "2027-05-03" }, now)!.filledSegments, 3);
   assert.equal(demandIndicatorFor({ tripDate: "2027-02-10" }, now)!.filledSegments, 0);
   for (const d of ["2027-01-02", "2027-05-03", "2026-11-17", "2027-02-10", "2027-05-22"]) {

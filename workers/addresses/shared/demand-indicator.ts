@@ -5,9 +5,9 @@
  * summer — and how soon the journey is. It never says a date is booked up (that only shows
  * when the owner has blocked the time).
  *
- * December is the exception (owner, 16 Nov 2026): every December date shows how booked it
- * is — 60% booked on 1–13 Dec, 80% booked from 14 Dec — at the owner's instruction that this
- * reflects his diary. Outside December the bar stays labelled "Expected demand".
+ * Booked levels are the exception (owner, 16 Nov 2026), shown at the owner's instruction that
+ * they reflect his diary: Fri/Sat/Sun for the rest of November 2026 70% booked; 1–13 Dec 60%;
+ * 14–31 Dec 80% (New Year's Eve 80%); New Year's Day 70%. Other dates stay "Expected demand".
  */
 import { bookingSeasonFor, seasonalBookingMessage, type BookingSeason } from "./seasonal-booking-message";
 import { matchWebsiteEventNotice, type WebsiteEventNotice } from "./website-event-notices";
@@ -22,7 +22,7 @@ export type DemandIndicator = {
   filledSegments: number;
   /** "Very high" / "High" — null when no label is shown. */
   label: string | null;
-  /** December only: how booked the date is (60 or 80), shown as "60% booked". */
+  /** Owner-set booked level for the date (e.g. 60), shown as "60% booked"; null otherwise. */
   bookedPercent: number | null;
   body: string;
   event: WebsiteEventNotice | null;
@@ -36,10 +36,18 @@ const VERY_HIGH_SEASONS: BookingSeason[] = ["christmas", "christmas-run-up", "be
 // Early December (1–13 Dec) shows "High" (owner, 16 Nov 2026).
 const HIGH_SEASONS: BookingSeason[] = ["december", "easter", "bank-holiday", "summer"];
 
-/** December booking level (owner, 16 Nov 2026): 60% on 1–13 Dec, 80% from 14 Dec. */
-export function decemberBookedPercent(tripDate: string): number | null {
-  if (!/^\d{4}-12-\d{2}$/.test(tripDate)) return null;
-  return +tripDate.slice(8, 10) >= 14 ? 80 : 60;
+/** Owner-set booked levels (16 Nov 2026). */
+export function bookedPercentFor(tripDate: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(tripDate);
+  if (!m) return null;
+  const [year, month, day] = [+m[1], +m[2], +m[3]];
+  if (month === 12) return day >= 14 ? 80 : 60; // New Year's Eve included in the 80%
+  if (month === 1 && day === 1) return 70; // New Year's Day
+  if (year === 2026 && month === 11) {
+    const weekday = new Date(Date.UTC(year, 10, day)).getUTCDay();
+    if (weekday === 5 || weekday === 6 || weekday === 0) return 70; // Fri, Sat, Sun
+  }
+  return null;
 }
 
 function londonToday(now: Date): string {
@@ -71,7 +79,7 @@ export function demandIndicatorFor(
     now,
   );
 
-  const bookedPercent = decemberBookedPercent(input.tripDate);
+  const bookedPercent = bookedPercentFor(input.tripDate);
   if (bookedPercent !== null) {
     const veryHigh = Boolean(event) || bookedPercent >= 80;
     return {
