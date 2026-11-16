@@ -49,12 +49,13 @@ const STATUS_LABEL: Record<string, string> = {
   deactivated: "Deactivated",
 };
 
+// Solid chips: readable on the light and the navy dashboard themes alike.
 const STATUS_STYLE: Record<string, string> = {
-  active: "bg-emerald/20 text-emerald",
-  reserved: "bg-amber-400/20 text-amber-200",
-  redeemed: "bg-sky-400/20 text-sky-200",
-  expired: "bg-white/10 text-white/60",
-  deactivated: "bg-red-400/20 text-red-200",
+  active: "bg-[#2fbf4a] !text-[#071c38]",
+  reserved: "bg-[#fcd34d] !text-[#071c38]",
+  redeemed: "bg-[#7dd3fc] !text-[#071c38]",
+  expired: "bg-[#cbd5e1] !text-[#071c38]",
+  deactivated: "bg-[#fca5a5] !text-[#071c38]",
 };
 
 const money = (gbp: number | undefined) =>
@@ -312,7 +313,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
                     <span className={`ml-1 rounded-full px-2 py-0.5 font-sans text-xs font-semibold ${STATUS_STYLE[c.displayStatus] ?? ""}`}>
                       {STATUS_LABEL[c.displayStatus] ?? c.displayStatus}
                     </span>
-                    {c.conflict ? <span className="ml-1 rounded-full bg-red-500/30 px-2 py-0.5 font-sans text-xs text-red-100">Used twice — check</span> : null}
+                    {c.conflict ? <span className="ml-1 rounded-full bg-[#b42318] px-2 py-0.5 font-sans text-xs !text-white">Used twice — check</span> : null}
                   </p>
                   <p className="text-white/50">
                     {formatPromoPercent(c.discountRate)} off · expires {when(c.expiresAt)}
@@ -329,7 +330,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
                     type="button"
                     onClick={() => void deactivate(c.code)}
                     disabled={busyCode === c.code}
-                    className="min-h-11 rounded-xl border border-red-300/40 px-3 text-xs font-semibold text-red-100 disabled:opacity-50"
+                    className="min-h-11 rounded-xl bg-[#b42318] px-3 text-xs font-semibold !text-white disabled:opacity-50"
                   >
                     {busyCode === c.code ? "…" : "Deactivate"}
                   </button>
@@ -381,7 +382,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
                   <button
                     type="button"
                     onClick={() => setBlackouts(blackouts.filter((_, i) => i !== index))}
-                    className="min-h-11 rounded-lg px-3 text-xs font-semibold text-red-200"
+                    className="min-h-11 rounded-lg bg-[#b42318] px-3 text-xs font-semibold !text-white"
                   >
                     Remove
                   </button>
@@ -417,7 +418,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
                 setBlackouts([...blackouts, { from: newRange.from, to, ...(newRange.label.trim() ? { label: newRange.label.trim() } : {}) }]);
                 setNewRange({ from: "", to: "", label: "" });
               }}
-              className="min-h-11 self-end rounded-xl border border-emerald/60 px-4 text-sm font-semibold text-white disabled:opacity-40"
+              className="btn-primary min-h-11 self-end rounded-xl px-4 text-sm disabled:opacity-40"
             >
               Add dates
             </button>
