@@ -312,7 +312,6 @@ import {
   AIRPORT_ACCESS_INCLUDED_HEADING,
   isExecutiveVehicle,
 } from "../../shared/executive-vehicle";
-import { universalDrivingMilesFromKm } from "../../shared/universal-distance-pricing";
 import { DEFAULT_BUSINESS_CLASS_MINIMUM_FARE_GBP } from "../../shared/business-class-minimum";
 import {
   RETURN_OFFER_CONFIG,
@@ -902,6 +901,12 @@ function QuoteCard({
     toPublicOwnerPricingConfig(defaultOwnerPricingSettings()),
   );
   const [publicPricingLoaded, setPublicPricingLoaded] = useState(false);
+  /**
+   * Road distance the Worker measured for the current pickup → drop-off. Business Class has
+   * an instant price from the owner's distance up (default 50 miles); shorter journeys are
+   * request-only. Keyed by the two addresses so a new route never reuses an old distance.
+   */
+  const [measuredRoute, setMeasuredRoute] = useState<{ key: string; km: number } | null>(null);
   const [publicPricingFailed, setPublicPricingFailed] = useState(false);
   const [publicPricingAttempt, setPublicPricingAttempt] = useState(0);
   const publicMinibusEnabled = publicPricing.minibus.publicEnabled === true;
@@ -1153,16 +1158,15 @@ function QuoteCard({
     }
     return "";
   });
-  /** Business Class: Dublin Airport journeys, any journey over 40 miles, and golf transfers. */
-  const isDublinAirportJourney = IS_A2A_PRIMARY
-    ? detectAirportCodeFromPlace(pickupPlace) === "DUB" || detectAirportCodeFromPlace(dropoffPlace) === "DUB"
-    : airportCode === "DUB" || intentAirportCode === "DUB";
+  /**
+   * Business Class is offered on every journey (owner, 15 Nov 2026). Whether it shows an
+   * instant price or "request a quote" is decided by the distance rule (vehicleNeedsPersonalQuote):
+   * instant from 50 miles, request under 50. Previously it was hidden under 40 miles except
+   * Dublin Airport and golf routes; `businessClassAnyRoute` is kept for those pages' props.
+   */
   const [routeMetrics, setRouteMetrics] = useState<TripRouteMetrics | null>(null);
-  const isLongJourneyForBusinessClass =
-    routeMetrics != null && universalDrivingMilesFromKm(routeMetrics.distanceKm) > 40; // miles
-  const publicExecutiveEnabled =
-    publicExecutiveSettingEnabled &&
-    (businessClassAnyRoute || isDublinAirportJourney || isLongJourneyForBusinessClass);
+  void businessClassAnyRoute;
+  const publicExecutiveEnabled = publicExecutiveSettingEnabled;
   const [quoteActionOpen, setQuoteActionOpen] = useState<"route" | "restart" | "whatsapp" | "help" | null>(null);
   const routeMetricsRef = useRef(routeMetrics);
   routeMetricsRef.current = routeMetrics;
@@ -1460,8 +1464,13 @@ function QuoteCard({
     setChildSeatNotesError("");
     setChildSeatsPanelOpen(false);
   }, [childSeatsOffered]);
-  const isVehiclePersonalQuote =
-    publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) && !appliedPersonalQuote;
+  const currentRouteKey = `${pickupAddress.trim()}→${dropoffAddress.trim()}`;
+  const quoteRouteMiles =
+    measuredRoute && measuredRoute.key === currentRouteKey ? measuredRoute.km * 0.621371 : null;
+  /** Public personal-quote rule for a vehicle on this route (includes the Business Class distance rule). */
+  const vehicleNeedsPersonalQuote = (vehicleType: string) =>
+    publicVehicleRequiresPersonalQuote(vehicleType, publicPricing, false, quoteRouteMiles);
+  const isVehiclePersonalQuote = vehicleNeedsPersonalQuote(quoteVehicle) && !appliedPersonalQuote;
   /**
    * Drop-off picked as a whole street / area (no house number or building name).
    * Ask for the number instead of falling back to a personalised quote, so the
@@ -2594,7 +2603,7 @@ function QuoteCard({
           : suitableVehicleTypesForParty(paxNow, suitcases, {
               publicMinibusEnabled,
               publicExecutiveEnabled,
-            }).filter((candidate) => !publicVehicleRequiresPersonalQuote(candidate, publicPricing)),
+            }).filter((candidate) => !vehicleNeedsPersonalQuote(candidate)),
     });
     const rememberFare = (vehicle: string, parts: ServerFarePartyParts) => {
       authoritativeFareCacheRef.current.set(fareKeyFor(vehicle), parts);
@@ -2638,6 +2647,9 @@ function QuoteCard({
         const promise = calculateServerQuote(quoteBodyFor(vehicle)).then((alternate) => {
           if (quoteFareInflightRef.current.get(key)?.promise === promise) {
             quoteFareInflightRef.current.delete(key);
+          }
+          if (typeof alternate.distanceKm === "number" && alternate.distanceKm > 0) {
+            setMeasuredRoute({ key: `${pickup}→${dropoff}`, km: alternate.distanceKm });
           }
           if (
             alternate.ok &&
@@ -2790,6 +2802,9 @@ function QuoteCard({
           returnTime: returnJourney ? returnTime.trim() : "",
         };
         rememberFare(requestedVehicle, pricedParts);
+        if (typeof result.distanceKm === "number" && result.distanceKm > 0) {
+          setMeasuredRoute({ key: `${pickup}→${dropoff}`, km: result.distanceKm });
+        }
         if (
           signal?.aborted ||
           requestGen !== serverQuoteGenRef.current ||
@@ -2878,6 +2893,15 @@ function QuoteCard({
         return false;
       }
       if (!result.ok && result.reason === "personal_quote_required") {
+        // Business Class on a journey under the instant-price distance: remember this
+        // route's distance so only this route is request-only (other routes stay instant).
+        if (result.requestReason === "business_class_distance" && typeof result.distanceKm === "number") {
+          setMeasuredRoute({ key: `${pickup}→${dropoff}`, km: result.distanceKm });
+          setServerFareParts(null);
+          setVehicleFareUpdating(false);
+          setServerQuoteUnavailable(false);
+          return false;
+        }
         // The server may have a newer mode than this tab. Follow its explicit
         // response instead of treating an intentional manual quote as an outage.
         const category = isExecutiveVehicle(requestedVehicle) ? "executive" :
@@ -2971,6 +2995,7 @@ function QuoteCard({
     publicExecutiveEnabled,
     publicMinibusEnabled,
     publicPricing,
+    quoteRouteMiles,
     publicPricingLoaded,
   ]);
   const refreshAuthoritativeServerQuoteRef = useRef(refreshAuthoritativeServerQuote);
@@ -8610,7 +8635,7 @@ function QuoteCard({
     if (presentation !== "homepage" || quoteStep !== 1 || !quoteResultsReady) return [] as Upgrade[];
     if (testChargeAmount != null || appliedPersonalQuote) return [] as Upgrade[];
     if (
-      publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) ||
+      vehicleNeedsPersonalQuote(quoteVehicle) ||
       isEnquiryOnly ||
       isExecutiveVehicle(quoteVehicle) ||
       paymentAmount == null ||
@@ -8719,7 +8744,7 @@ function QuoteCard({
   /** Price breakdown lines for the vehicle step (desktop panel and the mobile Price details sheet). */
   function resultsBreakdownData(): { rows: Array<[string, string]>; total: number } | null {
     if (!openWebsiteFareBreakdown || testChargeAmount != null || appliedPersonalQuote) return null;
-    if (publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly) return null;
+    if (vehicleNeedsPersonalQuote(quoteVehicle) || isEnquiryOnly) return null;
     if (paymentAmount == null || !Number.isFinite(paymentAmount) || !mayPaintNumericFare || vehicleFareUpdating) return null;
     const fare = customerFacingFareBreakdown(openWebsiteFareBreakdown);
     if (Math.abs(fare.finalAmountPayableGbp - paymentAmount) >= 0.005) return null;
@@ -8953,7 +8978,7 @@ function QuoteCard({
   /** Desktop (1200px+) price panel: what the fare includes (published policy wording). */
   function renderDesktopResultsIncluded() {
     if (presentation !== "homepage") return null;
-    const requestOnly = publicVehicleRequiresPersonalQuote(quoteVehicle, publicPricing) || isEnquiryOnly;
+    const requestOnly = vehicleNeedsPersonalQuote(quoteVehicle) || isEnquiryOnly;
     const airportPickup = checkoutTimeLabel("outbound") !== "Pickup time";
     return (
       <ul className="hidden" data-results-included>
@@ -8984,7 +9009,7 @@ function QuoteCard({
       !((airportAccessQuote.returnAirportAccessChargeGbp ?? 0) > 0);
     if (presentation !== "homepage" || quoteStep !== 1 || passengers == null || suitcases == null) return {};
     const labels: Partial<Record<string, string>> = {};
-    const requestOnly = (vehicleType: string) => publicVehicleRequiresPersonalQuote(vehicleType, publicPricing);
+    const requestOnly = (vehicleType: string) => vehicleNeedsPersonalQuote(vehicleType);
     if (
       requestOnly(quoteVehicle) ||
       isEnquiryOnly ||
@@ -9121,7 +9146,7 @@ function QuoteCard({
         onSelectVehicle={handleQuoteVehicleChoice}
         publicMinibusEnabled={publicMinibusEnabled}
         publicExecutiveEnabled={publicExecutiveEnabled}
-        requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => publicVehicleRequiresPersonalQuote(v, publicPricing))}
+        requestQuoteVehicles={enabledVehicleTypesForQuote({ publicMinibusEnabled, publicExecutiveEnabled }).filter((v) => vehicleNeedsPersonalQuote(v))}
         hideUnsuitable={presentation === "homepage"}
         heading={design2Home ? "Choose your vehicle" : undefined}
         desktopPrices={desktopVehiclePriceLabels()}
@@ -9136,7 +9161,7 @@ function QuoteCard({
 
   function renderInstantQuoteResultCard() {
     const layoutBusinessClassInclusions = publicExecutiveEnabled &&
-      !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing)
+      !vehicleNeedsPersonalQuote(EXECUTIVE_VEHICLE)
       ? renderBusinessClassInclusions(true) : null;
     if (isVehiclePersonalQuote) {
       const businessClass = isExecutiveVehicle(quoteVehicle);
@@ -9200,7 +9225,7 @@ function QuoteCard({
     // One-tap Business Class upgrade under a Saloon/Estate price (instant-price mode only).
     const offerBusinessClassUpgrade =
       publicExecutiveEnabled &&
-      !publicVehicleRequiresPersonalQuote(EXECUTIVE_VEHICLE, publicPricing) &&
+      !vehicleNeedsPersonalQuote(EXECUTIVE_VEHICLE) &&
       !isExecutiveVehicle(quoteVehicle) &&
       !appliedPersonalQuote &&
       testChargeAmount == null &&

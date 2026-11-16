@@ -4,6 +4,9 @@ import {
   DEFAULT_CHRISTMAS_PRICING,
   DEFAULT_EVENING_PRICING,
   parseMonthDayInput,
+  businessClassInstantFromMiles,
+  DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES,
+  MAX_BUSINESS_CLASS_INSTANT_FROM_MILES,
 } from "../../shared/owner-pricing-config";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -73,6 +76,7 @@ function asDraft(
     },
     executive: {
       requestQuote: settings.executive?.requestQuote === true,
+      instantFromMiles: businessClassInstantFromMiles(settings),
       multiplier:
         settings.executive?.multiplier ?? defaultOwnerPricingSettings().executive.multiplier,
       publicEnabled: settings.executive?.publicEnabled !== false,
@@ -607,7 +611,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
     const restored = {
       ...defaults,
       minibus: { ...defaults.minibus, publicEnabled: draft.minibus.publicEnabled, requestQuote: draft.minibus.requestQuote === true },
-      executive: { ...defaults.executive, publicEnabled: draft.executive.publicEnabled, requestQuote: draft.executive.requestQuote === true },
+      executive: { ...defaults.executive, publicEnabled: draft.executive.publicEnabled, requestQuote: draft.executive.requestQuote === true, instantFromMiles: businessClassInstantFromMiles(draft) },
     };
     return [
       ...diffOwnerPricingSettings(draft, restored),
@@ -1406,6 +1410,31 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
             <option value="personal">Request a personal quote</option>
           </select>
         </label>
+        {draft.executive.requestQuote ? null : (
+          <label className={`${labelClass} mt-3`} htmlFor="business-class-instant-from-miles">
+            Instant price for journeys of (miles) or more
+            <input
+              id="business-class-instant-from-miles"
+              className={fieldClass}
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={MAX_BUSINESS_CLASS_INSTANT_FROM_MILES}
+              step={1}
+              value={businessClassInstantFromMiles(draft)}
+              onChange={(event) => {
+                const miles = Number(event.target.value);
+                update("executive", {
+                  ...draft.executive,
+                  instantFromMiles: Number.isFinite(miles) ? miles : DEFAULT_BUSINESS_CLASS_INSTANT_FROM_MILES,
+                });
+              }}
+            />
+            <span className="mt-1 block text-xs font-normal text-white/55">
+              Shorter journeys are request-only (personal quote). 0 = instant price at any distance.
+            </span>
+          </label>
+        )}
         <p className="mt-1 text-xs text-white/55">
           Business Class stays visible for 1–3 passengers with up to 2 large suitcases.
           Request mode sends the journey details to A2A Quotes for your price and payment link.

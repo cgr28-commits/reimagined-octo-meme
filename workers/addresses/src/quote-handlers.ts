@@ -37,6 +37,8 @@ import {
   publicMaxPassengers,
   publicMinibusAllowed,
   publicVehicleRequiresPersonalQuote,
+  businessClassInstantFromMiles,
+  businessClassShortJourneyNeedsQuote,
   MINIBUS_PERSONAL_QUOTE_CODE,
   vehiclePersonalQuoteMessage,
 } from "../shared/owner-pricing-config";
@@ -542,8 +544,25 @@ export async function handleQuoteCalculateRequest(
     );
   }
 
-  if (publicVehicleRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode)) {
-    return json({ ok: false, reason: MINIBUS_PERSONAL_QUOTE_CODE, code: MINIBUS_PERSONAL_QUOTE_CODE, message: vehiclePersonalQuoteMessage(resolved.vehicleType) }, 409, origin);
+  // One-way road miles: Business Class has an instant price from the owner's distance
+  // up (default 50 miles); shorter journeys are request-only.
+  const journeyMilesForRules = drivingMilesFromKm(routeMetrics.distanceKm);
+  if (publicVehicleRequiresPersonalQuote(resolved.vehicleType, pricing, ownerMode, journeyMilesForRules)) {
+    return json(
+      {
+        ok: false,
+        reason: MINIBUS_PERSONAL_QUOTE_CODE,
+        code: MINIBUS_PERSONAL_QUOTE_CODE,
+        message: vehiclePersonalQuoteMessage(resolved.vehicleType, pricing, journeyMilesForRules),
+        // Lets the quote tool apply the distance rule for this route without a page reload.
+        distanceKm: Math.round(routeMetrics.distanceKm * 100) / 100,
+        ...(businessClassShortJourneyNeedsQuote(pricing, journeyMilesForRules) && pricing.executive.requestQuote !== true
+          ? { requestReason: "business_class_distance", instantFromMiles: businessClassInstantFromMiles(pricing) }
+          : {}),
+      },
+      409,
+      origin,
+    );
   }
 
   const schedule = {

@@ -11,6 +11,7 @@ import {
   type OwnerPricingAuditEntry,
   type OwnerPricingSettings,
   type PublicOwnerPricingConfig,
+  businessClassInstantFromMiles,
 } from "../../shared/owner-pricing-config";
 import { hostnameIsPricingPreview } from "../../shared/pricing-preview-isolation";
 import { postcodePricingIsEnabled } from "../../shared/postcode-pricing";
@@ -228,6 +229,7 @@ export function restorePreviewPricingState(expectedVersion: number): {
       ...defaultOwnerPricingSettings().executive,
       publicEnabled: current.settings.executive.publicEnabled !== false,
       requestQuote: current.settings.executive.requestQuote === true,
+      instantFromMiles: businessClassInstantFromMiles(current.settings),
     },
     version: current.settings.version + 1,
     updatedAt: new Date().toISOString(),
