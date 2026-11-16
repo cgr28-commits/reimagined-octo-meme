@@ -12,6 +12,7 @@ import {
   formatBlackoutRange,
   formatPromoPercent,
   type PromoBlackoutRange,
+  type PromoCampaign,
   type PromoCodeRow,
   type PromoSettings,
 } from "../../shared/promo-code";
@@ -121,6 +122,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
   const [busyCode, setBusyCode] = useState("");
   const [blackouts, setBlackouts] = useState<PromoBlackoutRange[]>([]);
   const [newRange, setNewRange] = useState({ from: "", to: "", label: "" });
+  const [offer, setOffer] = useState({ enabled: false, name: "Black Friday", discountPercent: "15", startsAt: "", endsAt: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +142,12 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
         popupDelaySeconds: String(result.settings.popupDelaySeconds),
       });
       setBlackouts(result.settings.blackoutDates ?? []);
+      const c = result.settings.campaign;
+      setOffer(
+        c
+          ? { enabled: c.enabled, name: c.name, discountPercent: String(Math.round(c.discountRate * 1000) / 10), startsAt: toLocalInput(c.startsAt), endsAt: toLocalInput(c.endsAt) }
+          : { enabled: false, name: "Black Friday", discountPercent: "15", startsAt: "", endsAt: "" },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load promo codes");
     } finally {
@@ -166,6 +174,16 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
         validityDays: Number(form.validityDays),
         popupDelaySeconds: Number(form.popupDelaySeconds),
         blackoutDates: blackouts,
+        campaign:
+          offer.startsAt && offer.endsAt
+            ? {
+                enabled: offer.enabled,
+                name: offer.name,
+                discountPercent: Number(offer.discountPercent),
+                startsAt: new Date(offer.startsAt).toISOString(),
+                endsAt: new Date(offer.endsAt).toISOString(),
+              }
+            : null,
       });
       setNotice("Saved. New codes use these terms; codes already sent keep the terms they were sent with.");
       void load();
@@ -368,6 +386,39 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
             <input inputMode="numeric" className={inputClass} value={form.popupDelaySeconds} onChange={(e) => setForm({ ...form, popupDelaySeconds: e.target.value })} />
           </label>
         </div>
+        <div className="mt-5 rounded-xl border border-emerald/40 p-3" data-promo-offer>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-white">Scheduled offer (e.g. Black Friday)</h4>
+            <span className="text-xs font-semibold text-white/70" data-promo-offer-status>{offerStatus(data?.settings.campaign ?? null)}</span>
+          </div>
+          <p className="mt-0.5 text-xs text-white/55">
+            While it runs, the pop-up, banners and emails show the offer and new codes get this percentage (still valid
+            {" "}{form.validityDays} days). Unused codes are raised to it if the customer asks again. Afterwards it goes back
+            to the everyday percentage by itself.
+          </p>
+          <label className="mt-2 flex min-h-11 items-center gap-3 text-sm font-semibold text-white">
+            <input type="checkbox" className="h-5 w-5 accent-[#2fbf4a]" checked={offer.enabled} onChange={(e) => setOffer({ ...offer, enabled: e.target.checked })} />
+            Offer on
+          </label>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <label className="text-xs text-white/70">
+              Name
+              <input className={inputClass} maxLength={40} value={offer.name} onChange={(e) => setOffer({ ...offer, name: e.target.value })} />
+            </label>
+            <label className="text-xs text-white/70">
+              Discount (%)
+              <input inputMode="decimal" className={inputClass} value={offer.discountPercent} onChange={(e) => setOffer({ ...offer, discountPercent: e.target.value })} />
+            </label>
+            <label className="text-xs text-white/70">
+              Starts
+              <input type="datetime-local" className={inputClass} value={offer.startsAt} onChange={(e) => setOffer({ ...offer, startsAt: e.target.value })} />
+            </label>
+            <label className="text-xs text-white/70">
+              Ends
+              <input type="datetime-local" className={inputClass} value={offer.endsAt} onChange={(e) => setOffer({ ...offer, endsAt: e.target.value })} />
+            </label>
+          </div>
+        </div>
         <div className="mt-5" data-promo-blackouts>
           <h4 className="text-sm font-semibold text-white">Excluded travel dates</h4>
           <p className="mt-0.5 text-xs text-white/55">
@@ -435,4 +486,24 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
 
     </div>
   );
+}
+
+
+/** ISO instant → value for a datetime-local box in the owner's own (UK) time. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function offerStatus(c: PromoCampaign | null): string {
+  if (!c) return "No offer set";
+  if (!c.enabled) return "Off";
+  const now = Date.now();
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  if (now < Date.parse(c.startsAt)) return `Starts ${fmt(c.startsAt)} · ${formatPromoPercent(c.discountRate)}`;
+  if (now < Date.parse(c.endsAt)) return `● Running now · ${formatPromoPercent(c.discountRate)} until ${fmt(new Date(Date.parse(c.endsAt) - 60_000).toISOString())}`;
+  return "Finished";
 }

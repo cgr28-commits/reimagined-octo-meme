@@ -27,6 +27,11 @@ function pounds(amount: number): string {
   return Number.isInteger(amount) ? `£${amount}` : `£${amount.toFixed(2)}`;
 }
 
+/** Page with a working Copy button (emails can't copy text themselves). */
+export function promoCopyUrl(siteUrl: string, code: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/promo-code/?code=${encodeURIComponent(code)}`;
+}
+
 export function promoBookingUrl(siteUrl = BUSINESS_WEBSITE, code?: string): string {
   const base = siteUrl.replace(/\/$/, "");
   return code ? `${base}/?promo=${encodeURIComponent(code)}#quote` : `${base}/`;
@@ -41,6 +46,8 @@ export function buildPromoCodeEmail(input: {
   validityDays?: number;
   /** Owner has excluded some travel dates (shown in the terms line). */
   hasExcludedDates?: boolean;
+  /** Scheduled offer the code was issued under, e.g. "Black Friday". */
+  offerName?: string;
   siteUrl?: string;
 }): { subject: string; text: string; html: string } {
   const days = Math.max(1, Math.round(Number(input.validityDays) || 30));
@@ -48,14 +55,18 @@ export function buildPromoCodeEmail(input: {
   const pct = formatPromoPercent(input.discountRate);
   const expiry = formatPromoExpiryDate(input.expiresAt);
   const bookUrl = promoBookingUrl(site, input.code);
+  const copyUrl = promoCopyUrl(site, input.code);
   const minimum = pounds(Math.round(input.minimumVehicleFareGbp * 100) / 100);
-  const subject = `Your Exclusive ${pct} Airport Transfer Discount`;
+  const offer = input.offerName?.trim();
+  const subject = offer ? `Your ${offer} ${pct} Airport Transfer Discount` : `Your Exclusive ${pct} Airport Transfer Discount`;
+  const codeLine = offer ? `Your exclusive ${offer} ${pct} discount code is:` : `Your exclusive ${pct} discount code is:`;
   const terms = `Airport charges are excluded. Minimum eligible vehicle fare ${minimum}. One redemption per customer.${input.hasExcludedDates ? " Some peak travel dates are excluded; you'll see this when you enter the code." : ""} The code is linked to this email address, so please book using it.`;
 
   const text =
     `Thank you for choosing ${BUSINESS_NAME}.\n\n` +
-    `Your exclusive ${pct} discount code is:\n\n` +
+    `${codeLine}\n\n` +
     `${input.code}\n\n` +
+    `Copy your code: ${copyUrl}\n\n` +
     `Your code is valid for ${days} days from the date of issue, until ${expiry}.\n\n` +
     `Enter your code when booking your airport transfer online to receive ${pct} off your vehicle fare.\n\n` +
     `Book online: ${bookUrl}\n\n` +
@@ -71,17 +82,21 @@ export function buildPromoCodeEmail(input: {
 <tr><td bgcolor="${BRAND_NAVY}" style="background:${BRAND_NAVY};padding:22px 24px;text-align:center;">${businessEmailLogoHtml()}</td></tr>
 <tr><td style="padding:28px 24px 8px;font-size:15px;line-height:1.6;color:${BRAND_NAVY};">
 <p style="margin:0 0 14px;">Thank you for choosing ${esc(BUSINESS_NAME)}.</p>
-<p style="margin:0 0 10px;">Your exclusive ${esc(pct)} discount code is:</p>
+<p style="margin:0 0 10px;">${esc(codeLine)}</p>
 </td></tr>
 <tr><td align="center" style="padding:4px 24px 6px;">
 <table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed ${BRAND_EMERALD};border-radius:12px;background:#f2fbf4;"><tr>
-<td style="padding:16px 26px;font-family:'Courier New',Courier,monospace;font-size:26px;letter-spacing:3px;font-weight:bold;color:${BRAND_NAVY};">${esc(input.code)}</td>
+<td style="padding:14px 16px;font-family:'Courier New',Courier,monospace;font-size:21px;letter-spacing:1px;font-weight:bold;white-space:nowrap;color:${BRAND_NAVY};-webkit-user-select:all;user-select:all;">${esc(input.code)}</td>
 </tr></table>
+</td></tr>
+<tr><td align="center" style="padding:10px 24px 2px;">
+<a href="${esc(copyUrl)}" style="display:inline-block;background:#ffffff;color:${BRAND_NAVY};-webkit-text-fill-color:${BRAND_NAVY};text-decoration:none;font-weight:bold;font-size:15px;padding:11px 22px;border-radius:10px;border:2px solid ${BRAND_NAVY};">&#128203; Copy code</a>
 </td></tr>
 <tr><td style="padding:14px 24px 4px;font-size:15px;line-height:1.6;color:${BRAND_NAVY};">
 <p style="margin:0 0 12px;">Your code is valid for ${days} days from the date of issue, until <strong>${esc(expiry)}</strong>.</p>
 <p style="margin:0 0 18px;">Enter your code when booking your airport transfer online to receive ${esc(pct)} off your vehicle fare.</p>
-<p style="margin:0 0 22px;text-align:center;"><a href="${esc(bookUrl)}" style="display:inline-block;background:${BRAND_EMERALD};color:#ffffff;-webkit-text-fill-color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:10px;">Book online</a></p>
+<p style="margin:0 0 6px;text-align:center;"><a href="${esc(bookUrl)}" style="display:inline-block;background:${BRAND_EMERALD};color:#ffffff;-webkit-text-fill-color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:10px;">Book online</a></p>
+<p style="margin:0 0 22px;text-align:center;font-size:12px;color:#5b6b80;">Booking with this button adds your code for you.</p>
 <p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#5b6b80;">${esc(terms)}</p>
 <p style="margin:0 0 18px;font-size:12px;line-height:1.5;color:#5b6b80;">You received this email because this address was entered on our website to request a discount code. It does not sign you up to marketing emails.</p>
 </td></tr>

@@ -23,6 +23,20 @@ export type PromoBlackoutRange = { from: string; to: string; label?: string };
 
 export const PROMO_MAX_BLACKOUT_RANGES = 60;
 
+/**
+ * A time-limited offer (e.g. Black Friday) that replaces the everyday percentage while it runs.
+ * Codes issued in the window get the campaign percentage and keep it for their normal validity.
+ */
+export type PromoCampaign = {
+  enabled: boolean;
+  /** Customer-facing name, e.g. "Black Friday". */
+  name: string;
+  discountRate: number;
+  /** ISO instants (UTC). Live from startsAt (inclusive) until endsAt (exclusive). */
+  startsAt: string;
+  endsAt: string;
+};
+
 export type PromoSettings = {
   /** Master switch: off = no new codes, the code field is hidden and existing codes are refused. */
   enabled: boolean;
@@ -35,6 +49,8 @@ export type PromoSettings = {
   popupDelaySeconds: number;
   /** Journey dates excluded from promo codes (owner dashboard). Applies to every leg. */
   blackoutDates: PromoBlackoutRange[];
+  /** Scheduled higher-value offer (owner dashboard); null = none. */
+  campaign: PromoCampaign | null;
   updatedAt?: string;
 };
 
@@ -51,6 +67,14 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
     { from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" },
     { from: "2027-05-21", to: "2027-05-23", label: "Garth Brooks" },
   ],
+  // Owner, 16 Nov 2026: 15% for Black Friday (Fri 27 Nov – Mon 30 Nov 2026, UK time = UTC in November).
+  campaign: {
+    enabled: true,
+    name: "Black Friday",
+    discountRate: 0.15,
+    startsAt: "2026-11-27T00:00:00.000Z",
+    endsAt: "2026-12-01T00:00:00.000Z",
+  },
 };
 
 export const PROMO_LIMITS = {
@@ -223,6 +247,7 @@ export function normalizePromoSettings(input: unknown, fallback: PromoSettings =
     blackoutDates: Array.isArray(raw.blackoutDates)
       ? normalizeBlackoutRanges(raw.blackoutDates)
       : [...(fallback.blackoutDates ?? [])],
+    campaign: "campaign" in raw ? normalizeCampaign(raw.campaign) : fallback.campaign ? { ...fallback.campaign } : null,
     ...(typeof raw.updatedAt === "string" ? { updatedAt: raw.updatedAt } : {}),
   };
 }
@@ -273,6 +298,31 @@ export function validatePromoSettingsInput(input: Record<string, unknown>): { ok
       if (to < from) return { ok: false, error: `The end date ${to} is before the start date ${from}.` };
     }
     out.blackoutDates = normalizeBlackoutRanges(list);
+  }
+  if ("campaign" in input) {
+    if (input.campaign === null) {
+      out.campaign = null;
+    } else {
+      const c = (input.campaign ?? {}) as Record<string, unknown>;
+      const pct = Number(c.discountPercent ?? (Number(c.discountRate) * 100));
+      if (!Number.isFinite(pct) || pct < PROMO_LIMITS.minRate * 100 || pct > PROMO_LIMITS.maxRate * 100) {
+        return { ok: false, error: `Offer discount must be between ${PROMO_LIMITS.minRate * 100}% and ${PROMO_LIMITS.maxRate * 100}%.` };
+      }
+      const startsAt = Date.parse(String(c.startsAt ?? ""));
+      const endsAt = Date.parse(String(c.endsAt ?? ""));
+      if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt)) return { ok: false, error: "The offer needs a start and an end time." };
+      if (endsAt <= startsAt) return { ok: false, error: "The offer must end after it starts." };
+      if (endsAt - startsAt > 31 * 86_400_000) return { ok: false, error: "An offer can run for up to 31 days." };
+      const name = String(c.name ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+      if (!name) return { ok: false, error: "Give the offer a name, e.g. Black Friday." };
+      out.campaign = {
+        enabled: c.enabled !== false,
+        name,
+        discountRate: Math.round(pct * 10) / 1000,
+        startsAt: new Date(startsAt).toISOString(),
+        endsAt: new Date(endsAt).toISOString(),
+      };
+    }
   }
   if ("popupDelaySeconds" in input) {
     const s = Number(input.popupDelaySeconds);
@@ -332,13 +382,18 @@ export type PublicPromoConfig = {
   popupDelaySeconds: number;
   /** Excluded journey dates (shown to customers when they apply a code). */
   blackoutDates: PromoBlackoutRange[];
+  /** Set only while a scheduled offer (e.g. Black Friday) is running. */
+  campaign?: { id: string; name: string; endsAt: string };
 };
 
-export function publicPromoConfig(settings: PromoSettings): PublicPromoConfig {
+export function publicPromoConfig(settings: PromoSettings, now: Date = new Date()): PublicPromoConfig {
+  const live = activePromoCampaign(settings, now);
+  const rate = live ? live.discountRate : settings.discountRate;
   return {
     enabled: settings.enabled,
-    discountRate: settings.discountRate,
-    discountPercentLabel: formatPromoPercent(settings.discountRate),
+    discountRate: rate,
+    discountPercentLabel: formatPromoPercent(rate),
+    ...(live ? { campaign: { id: promoCampaignId(live), name: live.name, endsAt: live.endsAt } } : {}),
     minimumVehicleFareGbp: settings.minimumVehicleFareGbp,
     validityDays: settings.validityDays,
     popupEnabled: settings.enabled && settings.popupEnabled,
@@ -478,4 +533,41 @@ export function formatBlackoutRange(range: PromoBlackoutRange): string {
 /** Customer message when a journey date is excluded. */
 export function promoBlackoutMessage(hit: PromoBlackoutRange & { date: string }): string {
   return `Promo codes can't be used for journeys on ${shortUkDate(hit.date)}${hit.label ? ` (${hit.label})` : ""}. Excluded dates: ${formatBlackoutRange(hit)}. Please choose another date or continue without the code.`;
+}
+
+
+function normalizeCampaign(input: unknown): PromoCampaign | null {
+  if (!input || typeof input !== "object") return null;
+  const c = input as Record<string, unknown>;
+  const rate = Number(c.discountRate);
+  const startsAt = Date.parse(String(c.startsAt ?? ""));
+  const endsAt = Date.parse(String(c.endsAt ?? ""));
+  const name = String(c.name ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!name || !Number.isFinite(rate) || rate < PROMO_LIMITS.minRate || rate > PROMO_LIMITS.maxRate) return null;
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || endsAt <= startsAt) return null;
+  return {
+    enabled: c.enabled !== false,
+    name,
+    discountRate: Math.round(rate * 1000) / 1000,
+    startsAt: new Date(startsAt).toISOString(),
+    endsAt: new Date(endsAt).toISOString(),
+  };
+}
+
+/** The scheduled offer running right now, if any (and the promotion itself is on). */
+export function activePromoCampaign(settings: PromoSettings, now: Date = new Date()): PromoCampaign | null {
+  const c = settings.campaign;
+  if (!settings.enabled || !c || !c.enabled) return null;
+  const t = now.getTime();
+  return Date.parse(c.startsAt) <= t && t < Date.parse(c.endsAt) ? c : null;
+}
+
+/** Stable id for browser memory ("closed the Black Friday pop-up"). */
+export function promoCampaignId(c: PromoCampaign): string {
+  return `${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${c.startsAt.slice(0, 10)}`;
+}
+
+/** Percentage for a code issued at `now`: the running offer's, otherwise the everyday one. */
+export function promoIssueRate(settings: PromoSettings, now: Date = new Date()): number {
+  return activePromoCampaign(settings, now)?.discountRate ?? settings.discountRate;
 }

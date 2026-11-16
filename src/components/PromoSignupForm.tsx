@@ -12,13 +12,15 @@ type Props = {
   source: "popup" | "mobile-banner" | "quote-banner" | "exit-intent";
   validityDays: number;
   percentLabel: string;
+  /** Scheduled offer id while one runs (remembered separately in this browser). */
+  offerId?: string;
   /** Visual theme: navy card (pop-up / sheet) or white card (inside the quote tool). */
   tone?: "navy" | "light";
   autoFocus?: boolean;
   onDone?: () => void;
 };
 
-export default function PromoSignupForm({ source, validityDays, percentLabel, tone = "navy", autoFocus = false, onDone }: Props) {
+export default function PromoSignupForm({ source, validityDays, percentLabel, offerId, tone = "navy", autoFocus = false, onDone }: Props) {
   const uid = useId();
   const [email, setEmail] = useState("");
   const [marketing, setMarketing] = useState(false);
@@ -43,7 +45,7 @@ export default function PromoSignupForm({ source, validityDays, percentLabel, to
       setState("done");
       setMessage(result.message);
       if (result.previewCode || result.previewNote) setPreview({ code: result.previewCode, note: result.previewNote });
-      markPromoSignedUp();
+      markPromoSignedUp(Date.now(), offerId);
       onDone?.();
     } else {
       setState("idle");
