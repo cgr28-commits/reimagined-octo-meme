@@ -526,6 +526,16 @@ export const FAQS = [
       "Yes. Confirmed Greater Belfast pickups can receive instant fixed quotes to addresses throughout Northern Ireland and the Republic of Ireland. Existing eligible airport routes keep their online quotes. Other out-of-area pickups use a tailored fixed-quote request where required.",
   },
   {
+    question: "What is Business Class?",
+    answer:
+      "Business Class is a premium executive car, such as a Mercedes, BMW or Lexus, for up to 3 passengers. On journeys of 50 miles or more you can book it at the fixed price shown in the quote; on shorter journeys it is a request and we confirm the price and availability before you pay. Child seats are not available in Business Class.",
+  },
+  {
+    question: "Do you do taxis to concerts and events?",
+    answer:
+      "Yes. We do fixed-price, pre-booked taxis to and from concerts, matches, shows and festivals in Belfast and Dublin. Upcoming events are listed on our Events page (myairporttaxini.co.uk/events). For big events availability is limited, so booking early is advisable.",
+  },
+  {
     question: "Do you provide child seats or booster seats?",
     answer:
       "Child seats and boosters can be requested when you book, but availability is not guaranteed. Ask in advance so we can check. If a legally required child seat cannot be provided, we may be unable to carry the journey.",
