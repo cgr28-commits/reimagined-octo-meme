@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizePromoCode } from "../../../shared/promo-code";
 
@@ -45,7 +46,7 @@ export default function PromoCodeCopy() {
       <section className="rounded-3xl bg-white p-6 text-[#071c38]">
         <h1 className="text-2xl font-extrabold">Discount code</h1>
         <p className="mt-2">This link doesn&apos;t contain a valid code. Please use the button in your email again.</p>
-        <a href="/#quote" className="btn-primary mt-5 w-full rounded-xl">Get a fixed price</a>
+        <Link href="/#quote" className="btn-primary mt-5 w-full rounded-xl">Get a fixed price</Link>
       </section>
     );
   }
@@ -64,12 +65,12 @@ export default function PromoCodeCopy() {
         {copied ? "✓ Copied" : "Copy code"}
       </button>
       {failed ? <p className="mt-2 text-sm">The code is selected — press and hold (or Ctrl+C) to copy it.</p> : null}
-      <a
+      <Link
         href={`/?promo=${encodeURIComponent(code)}#quote`}
         className="mt-3 inline-flex min-h-[50px] w-full items-center justify-center rounded-xl border-2 border-[#071c38] px-5 text-base font-bold text-[#071c38]"
       >
         Book now — code added for you
-      </a>
+      </Link>
       <p className="mt-4 text-xs leading-relaxed text-[#071c38]/70">
         At checkout, use the same email address your code was sent to. Airport charges are not discounted; minimum
         vehicle fare and excluded dates apply.
