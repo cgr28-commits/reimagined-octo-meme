@@ -38,3 +38,11 @@ export function writeCookieConsent(choice: CookieConsentChoice): void {
 export function hasMarketingCookieConsent(): boolean {
   return readCookieConsent() === "accepted";
 }
+
+/** Fired by the footer "Cookie Settings" link to reopen the consent pop-up. */
+export const COOKIE_SETTINGS_OPEN_EVENT = "matni-open-cookie-settings";
+
+export function openCookieSettings(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(COOKIE_SETTINGS_OPEN_EVENT));
+}

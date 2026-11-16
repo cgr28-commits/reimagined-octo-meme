@@ -9972,3 +9972,156 @@ html:not([data-mobile-light]) [data-seasonal-booking-message="list"] { display: 
   [data-homepage-quote-fields] [data-desktop-swap]:hover { background: #28a842; }
   [data-homepage-quote-fields] [data-desktop-swap]:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 }
+
+/* ==========================================================================
+   Cookie consent wall (16 Nov 2026) — full-screen dim, page locked until the
+   customer picks Accept all / Decline all. Bottom sheet on phones, centred
+   card on tablet/desktop. Brand: navy #071C38, emerald #2FBF4A, Manrope.
+   ========================================================================== */
+.cookie-wall {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(2, 8, 20, 0.62);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: cookie-wall-fade 0.2s ease-out;
+}
+.cookie-wall-panel {
+  width: 100%;
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #071C38;
+  color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem 1.25rem 0 0;
+  box-shadow: 0 -12px 40px rgba(2, 8, 20, 0.5);
+  padding: 1.5rem max(1.25rem, env(safe-area-inset-right, 0px))
+    calc(1.25rem + env(safe-area-inset-bottom, 0px))
+    max(1.25rem, env(safe-area-inset-left, 0px));
+  animation: cookie-wall-rise 0.25s ease-out;
+}
+.cookie-wall-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.cookie-wall-body p {
+  margin: 0 0 0.6rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.86);
+}
+.cookie-wall-strong { color: #fff; font-weight: 600; }
+.cookie-wall-link { color: #63D579; text-decoration: underline; text-underline-offset: 2px; }
+.cookie-wall-link:hover { color: #2FBF4A; }
+.cookie-wall-details {
+  margin: 0.5rem 0 0.25rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.cookie-wall-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: default;
+}
+label.cookie-wall-category { cursor: pointer; }
+.cookie-wall-category-name { margin: 0; font-size: 0.875rem; font-weight: 700; color: #fff; }
+.cookie-wall-category-text { margin: 0.15rem 0 0; font-size: 0.75rem; line-height: 1.4; color: rgba(255, 255, 255, 0.7); }
+.cookie-wall-always { flex-shrink: 0; font-size: 0.75rem; font-weight: 700; color: #63D579; }
+.cookie-wall-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cookie-wall-switch::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.cookie-wall-switch:checked { background: #2FBF4A; }
+.cookie-wall-switch:checked::after { transform: translateX(1.15rem); }
+.cookie-wall-switch:focus-visible { outline: 2px solid #63D579; outline-offset: 2px; }
+.cookie-wall-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.cookie-wall-btn {
+  min-height: 3.25rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cookie-wall-btn--accept { background: #2FBF4A; color: #fff; border: 2px solid #2FBF4A; }
+.cookie-wall-btn--accept:hover { background: #28a83f; border-color: #28a83f; }
+.cookie-wall-btn--decline { background: transparent; color: #fff; border: 2px solid rgba(255, 255, 255, 0.85); }
+.cookie-wall-btn--decline:hover { background: rgba(255, 255, 255, 0.08); }
+.cookie-wall-btn:focus-visible,
+.cookie-wall-details-toggle:focus-visible { outline: 2px solid #63D579; outline-offset: 3px; }
+.cookie-wall-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  background: none;
+  border: 0;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cookie-wall-details-toggle:hover { color: #63D579; }
+@media (min-width: 768px) {
+  .cookie-wall { align-items: center; padding: 1.5rem; }
+  .cookie-wall-panel {
+    width: min(38rem, 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 1.25rem;
+    padding: 2rem 2.25rem 1.5rem;
+    box-shadow: 0 24px 64px rgba(2, 8, 20, 0.55);
+  }
+  .cookie-wall-title { font-size: 1.5rem; }
+  .cookie-wall-body p { font-size: 0.9375rem; }
+  .cookie-wall-actions { flex-direction: row; flex-wrap: wrap; }
+  .cookie-wall-btn { flex: 1 1 0; min-height: 3rem; }
+  .cookie-wall-details-toggle { flex-basis: 100%; }
+}
+@keyframes cookie-wall-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cookie-wall-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cookie-wall, .cookie-wall-panel { animation: none; }
+}
