@@ -517,6 +517,13 @@ export default function HomepageQuoteFields({
           </button>
         </div>
       ) : null}
+      {/* Laptop/desktop (1200px+): the same swap, sitting between the two address boxes.
+          Phones and tablets use the design2 button above (owner, 16 Nov 2026). */}
+      {!design2 ? (
+        <button type="button" data-desktop-swap aria-label="Swap pickup and drop-off" title="Swap pickup and drop-off" onClick={onSwap}>
+          <ArrowDownUp size={18} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      ) : null}
       <AddressInput
         key={`homepage-dropoff-${formResetKey}`}
         id="dropoff"

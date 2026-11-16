@@ -92,6 +92,7 @@ export default function LongDistanceTransfersPage() {
               <p className="mt-3 max-w-2xl leading-relaxed text-white/70">A private, door-to-door taxi between Belfast and Dublin city addresses, in either direction, with a fixed price agreed before you pay.</p>
               <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">
                 <Link href="/transfers/belfast-to-dublin-city/" className="underline underline-offset-4">Belfast to Dublin City Taxi</Link>
+                <Link href="/transfers/dublin-to-belfast/" className="underline underline-offset-4">Dublin to Belfast Taxi</Link>
               </div>
             </section>
             <section className="mt-10">
