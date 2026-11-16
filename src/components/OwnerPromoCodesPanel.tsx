@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import OwnerPromoCustomerSend from "@/components/OwnerPromoCustomerSend";
 import {
   formatBlackoutRange,
   formatPromoPercent,
@@ -248,6 +249,8 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
           </div>
         ) : null}
       </section>
+
+      <OwnerPromoCustomerSend ownerKey={ownerKey} onSent={() => void load()} />
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
