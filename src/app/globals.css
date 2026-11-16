@@ -9942,3 +9942,33 @@ html:not([data-mobile-light]) [data-seasonal-booking-message="list"] { display: 
   html[data-mobile-d3] #homepage-booking-intro h1 span.text-emerald { color: #4be03c !important; }
 }
 }
+
+/* Desktop swap button between pickup and drop-off (owner, 16 Nov 2026). Hidden below 1200px,
+   where the phone/tablet layout has its own swap button. */
+[data-desktop-swap] { display: none; }
+@media (min-width: 1200px) {
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow:is(:not([data-quote-results]), [data-desktop-journey-editing="true"]) [data-homepage-quote-scroll] > button[data-desktop-swap],
+  [data-homepage-quote-fields] [data-desktop-swap] {
+    display: flex;
+    grid-row: 2 !important;
+    grid-column: 13 / span 2 !important;
+    justify-self: center !important;
+    align-self: end !important;
+    margin-bottom: 7px !important;
+    position: relative;
+    z-index: 20;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #2fbf4a;
+    color: #071c38;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(7, 28, 56, 0.25);
+    cursor: pointer;
+  }
+  [data-homepage-quote-fields] [data-desktop-swap] svg { display: block !important; width: 18px !important; height: 18px !important; color: #071c38 !important; stroke: #071c38 !important; opacity: 1 !important; rotate: 90deg; }
+  [data-homepage-quote-fields] [data-desktop-swap]:hover { background: #28a842; }
+  [data-homepage-quote-fields] [data-desktop-swap]:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+}

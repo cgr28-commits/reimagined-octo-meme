@@ -13,6 +13,8 @@ import { DUBLIN_CITY_TRANSFER_PAGE, DUBLIN_CITY_TRANSFER_PATH } from "@/lib/dubl
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 
 const CHRISTMAS_PATH = "/transfers/belfast-dublin-christmas-taxi/";
+/** Kept as a literal: dublin-to-belfast-content.ts imports this file's content type. */
+const DUBLIN_TO_BELFAST_PATH = "/transfers/dublin-to-belfast/";
 
 const cardClass = "rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7";
 
@@ -66,13 +68,20 @@ export type BelfastDublinLandingContent = {
   readonly whatsappMessage?: string;
 };
 
-type Props = { page?: BelfastDublinLandingContent; path?: string };
+type Props = {
+  page?: BelfastDublinLandingContent;
+  path?: string;
+  /** "dublin-to-belfast": the page reads Dublin → Belfast throughout (its own page, no ?from= swap). */
+  direction?: "belfast-to-dublin" | "dublin-to-belfast";
+};
 
 /** Belfast ⇄ Dublin city landing. Defaults to the Dublin city page; seasonal pages pass their own content. */
 export default function DublinCityTransferLanding({
   page = DUBLIN_CITY_TRANSFER_PAGE,
   path = DUBLIN_CITY_TRANSFER_PATH,
+  direction = "belfast-to-dublin",
 }: Props = {}) {
+  const fromDublin = direction === "dublin-to-belfast";
   const heroImage: CreditedPhoto = page.hero ?? hero;
   const schemas = [
     getBreadcrumbJsonLd([
@@ -93,6 +102,23 @@ export default function DublinCityTransferLanding({
   const whatsappText = encodeURIComponent(
     page.whatsappMessage ?? "Hello, I would like a quote for a taxi between Belfast and Dublin city.",
   );
+  const belfastToDublinCard = (
+    <section className={cardClass}>
+      <h2 className="text-xl font-bold text-white">{page.belfastToDublinTitle}</h2>
+      <p className="mt-4 leading-relaxed text-white/75">{page.belfastToDublinText}</p>
+      {fromDublin ? (
+        <p className="mt-4 text-sm font-semibold">
+          <Link className="text-emerald underline underline-offset-4" href={DUBLIN_CITY_TRANSFER_PATH}>Belfast to Dublin city taxi</Link>
+        </p>
+      ) : null}
+    </section>
+  );
+  const dublinToBelfastCard = (
+    <section className={cardClass}>
+      <h2 className="text-xl font-bold text-white">{page.dublinToBelfastTitle}</h2>
+      <p className="mt-4 leading-relaxed text-white/75">{page.dublinToBelfastText}</p>
+    </section>
+  );
 
   return (
     <>
@@ -112,12 +138,17 @@ export default function DublinCityTransferLanding({
       <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} dublin-city-transfer-page`}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         {/* Google Ads "Dublin to Belfast" landings open with ?from=dublin: same page, heading the other way round. */}
-        <HeroSlideshow
-          heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" />}
-          intro={firstSentence(page.intro)}
-          introFromAirport="Fixed-price private taxi from Dublin city to anywhere in Belfast, door to door from your hotel, home or office."
-          introFromValue="dublin"
-        />
+        {fromDublin ? (
+          <HeroSlideshow heading={page.h1} intro={firstSentence(page.intro)} quoteCardTitle="Get Your Fixed Price" />
+        ) : (
+          <HeroSlideshow
+            heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" />}
+            intro={firstSentence(page.intro)}
+            introFromAirport="Fixed-price private taxi from Dublin city to anywhere in Belfast, door to door from your hotel, home or office."
+            introFromValue="dublin"
+            quoteCardTitle="Get Your Fixed Price"
+          />
+        )}
         <LandingHeroMedia baseName={heroImage.base} alt={heroImage.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs
@@ -127,6 +158,19 @@ export default function DublinCityTransferLanding({
               { name: page.h1 },
             ]}
           />
+          {/* One-tap switch so a visitor on the wrong direction or the wrong Dublin page can fix it. */}
+          <nav aria-label="Other Belfast and Dublin journeys" data-journey-switch className="mt-5 flex flex-wrap gap-2 text-sm">
+            {fromDublin ? (
+              <Link href={DUBLIN_CITY_TRANSFER_PATH} className="inline-flex min-h-11 items-center rounded-full border border-emerald/40 bg-emerald/10 px-4 font-semibold text-white">Going Belfast to Dublin instead?</Link>
+            ) : path === DUBLIN_CITY_TRANSFER_PATH ? (
+              <Link href={DUBLIN_TO_BELFAST_PATH} className="inline-flex min-h-11 items-center rounded-full border border-emerald/40 bg-emerald/10 px-4 font-semibold text-white">Coming from Dublin to Belfast?</Link>
+            ) : null}
+            {fromDublin ? (
+              <Link href="/transfers/dublin-airport-to-belfast/" className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-4 font-semibold text-white">Landing at Dublin Airport?</Link>
+            ) : path === DUBLIN_CITY_TRANSFER_PATH ? (
+              <Link href="/transfers/belfast-to-dublin-airport/" className="inline-flex min-h-11 items-center rounded-full border border-white/20 px-4 font-semibold text-white">Flying from Dublin Airport?</Link>
+            ) : null}
+          </nav>
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-wider text-emerald">{page.eyebrow}</p>
             <p className="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">{page.intro}</p>
@@ -154,14 +198,8 @@ export default function DublinCityTransferLanding({
               <p className="mt-4 leading-relaxed text-white/75">{page.journeyText}</p>
             </section>
             <div className="grid gap-6 md:grid-cols-2">
-              <section className={cardClass}>
-                <h2 className="text-xl font-bold text-white">{page.belfastToDublinTitle}</h2>
-                <p className="mt-4 leading-relaxed text-white/75">{page.belfastToDublinText}</p>
-              </section>
-              <section className={cardClass}>
-                <h2 className="text-xl font-bold text-white">{page.dublinToBelfastTitle}</h2>
-                <p className="mt-4 leading-relaxed text-white/75">{page.dublinToBelfastText}</p>
-              </section>
+              {fromDublin ? dublinToBelfastCard : belfastToDublinCard}
+              {fromDublin ? belfastToDublinCard : dublinToBelfastCard}
             </div>
             {page.gallery && page.gallery.length > 0 ? (
               <section aria-labelledby="landing-gallery-title">
@@ -205,8 +243,17 @@ export default function DublinCityTransferLanding({
                 This page is for Dublin city addresses. For flights, use our Dublin Airport pages: your driver monitors the flight and airport pickups include up to 60 minutes&apos; waiting.
               </p>
               <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold text-emerald-dark">
-                <Link href="/transfers/belfast-to-dublin-airport/" className="underline underline-offset-4">Belfast to Dublin Airport</Link>
-                <Link href="/transfers/dublin-airport-to-belfast/" className="underline underline-offset-4">Dublin Airport to Belfast</Link>
+                {fromDublin ? (
+                  <>
+                    <Link href="/transfers/dublin-airport-to-belfast/" className="underline underline-offset-4">Dublin Airport to Belfast</Link>
+                    <Link href="/transfers/belfast-to-dublin-airport/" className="underline underline-offset-4">Belfast to Dublin Airport</Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/transfers/belfast-to-dublin-airport/" className="underline underline-offset-4">Belfast to Dublin Airport</Link>
+                    <Link href="/transfers/dublin-airport-to-belfast/" className="underline underline-offset-4">Dublin Airport to Belfast</Link>
+                  </>
+                )}
               </div>
             </section>
             <section className="rounded-2xl border border-emerald/30 bg-emerald/10 p-5 sm:p-7">
@@ -236,6 +283,9 @@ export default function DublinCityTransferLanding({
                 ) : null}
                 {path !== DUBLIN_CITY_TRANSFER_PATH ? (
                   <Link className="underline underline-offset-4" href={DUBLIN_CITY_TRANSFER_PATH}>Belfast to Dublin city</Link>
+                ) : null}
+                {path !== DUBLIN_TO_BELFAST_PATH ? (
+                  <Link className="underline underline-offset-4" href={DUBLIN_TO_BELFAST_PATH}>Dublin to Belfast taxi</Link>
                 ) : null}
                 <Link className="underline underline-offset-4" href="/transfers/business-class-dublin-airport/">Business Class to Dublin</Link>
                 <Link className="underline underline-offset-4" href="/long-distance-transfers/">All long-distance transfers</Link>

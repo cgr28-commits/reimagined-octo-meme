@@ -147,6 +147,16 @@ export default async function TransferRoutePage({ params }: Props) {
         </p>
       ) : null}
       {page.slug === "belfast-to-dublin-airport" || page.slug === "dublin-airport-to-belfast" ? (
+        <p data-journey-switch className="mt-5">
+          <Link
+            href={isFromAirport ? "/transfers/dublin-to-belfast/" : "/transfers/belfast-to-dublin-city/"}
+            className="inline-flex min-h-11 items-center rounded-full border border-emerald/40 bg-emerald/10 px-4 text-sm font-semibold text-white"
+          >
+            {isFromAirport ? "Coming from Dublin city, not the airport?" : "Going to Dublin city, not the airport?"}
+          </Link>
+        </p>
+      ) : null}
+      {page.slug === "belfast-to-dublin-airport" || page.slug === "dublin-airport-to-belfast" ? (
         <div className="mt-5 rounded-2xl border border-emerald/30 bg-emerald/10 px-4 py-4">
           <p className="text-sm font-semibold text-white">Travelling for business?</p>
           <p className="mt-1 text-sm leading-relaxed text-white/75">
