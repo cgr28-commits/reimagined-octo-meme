@@ -52,7 +52,7 @@ const LIVE_KNOTS: Array<[number, number]> = [
   [200, 410], [250, 500], [300, 590],
 ];
 
-function livePricing(corridor?: { enabled: boolean; saloonFareGbp: number }): OwnerPricingSettings {
+function livePricing(corridor?: { enabled: boolean; bfsSaloonFareGbp: number; belfastSaloonFareGbp: number }): OwnerPricingSettings {
   const d = defaultOwnerPricingSettings();
   const raw = {
     ...d,
@@ -78,7 +78,7 @@ function livePricing(corridor?: { enabled: boolean; saloonFareGbp: number }): Ow
 }
 
 const OFF = livePricing();
-const ON = livePricing({ enabled: true, saloonFareGbp: 159 });
+const ON = livePricing({ enabled: true, bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 169 });
 
 const km = (miles: number) => miles / 0.621371;
 
@@ -130,19 +130,19 @@ const DERRY = "Derry~Londonderry, UK";
 
 // 1. Settings
 {
-  assert.deepEqual(DEFAULT_DERRY_CORRIDOR, { enabled: false, saloonFareGbp: 159 });
+  assert.deepEqual(DEFAULT_DERRY_CORRIDOR, { enabled: false, bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 169 });
   assert.equal(OFF.derryCorridor?.enabled, false, "missing stored value = OFF");
   // A stored object without derryCorridor must still validate (no fallback to defaults).
   const normalized = normalizeOwnerPricingSettings({ ...OFF, derryCorridor: undefined });
   assert.equal(normalized.saloon.knots.find((k) => k.miles === 60)?.fareGbp, 162);
   assert.deepEqual(validateDerryCorridorInput(undefined), []);
-  assert.ok(validateDerryCorridorInput({ enabled: true, saloonFareGbp: 159.5 }).length > 0, "whole pounds only");
-  assert.ok(validateDerryCorridorInput({ enabled: true, saloonFareGbp: 10 }).length > 0, "minimum £30");
-  assert.ok(validateDerryCorridorInput({ enabled: "yes", saloonFareGbp: 159 }).length > 0);
-  assert.equal(validateOwnerPricingInput({ ...OFF, derryCorridor: { enabled: true, saloonFareGbp: 5 } }).ok, false);
+  assert.ok(validateDerryCorridorInput({ enabled: true, bfsSaloonFareGbp: 159.5, belfastSaloonFareGbp: 169 }).length > 0, "whole pounds only");
+  assert.ok(validateDerryCorridorInput({ enabled: true, bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 10 }).length > 0, "minimum £30");
+  assert.ok(validateDerryCorridorInput({ enabled: "yes", bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 169 }).length > 0);
+  assert.equal(validateOwnerPricingInput({ ...OFF, derryCorridor: { enabled: true, bfsSaloonFareGbp: 5, belfastSaloonFareGbp: 169 } }).ok, false);
   const changes = diffOwnerPricingSettings(OFF, ON);
   assert.deepEqual(changes, [{ setting: "Derry corridor fare", oldValue: "OFF", newValue: "ON" }]);
-  assert.deepEqual(toPublicOwnerPricingConfig(ON).derryCorridor, { enabled: true, saloonFareGbp: 159 });
+  assert.deepEqual(toPublicOwnerPricingConfig(ON).derryCorridor, { enabled: true, bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 169 });
 }
 
 // 2. Zone matching
@@ -153,10 +153,11 @@ const DERRY = "Derry~Londonderry, UK";
     resolveDerryCorridorSaloonFareGbp({ settings: ON, airportCode, fromAirport, pickup: a, dropoff: b });
   assert.equal(r(P.bfs, P.derry, "BFS", true), 159);
   assert.equal(r(P.derry, P.bfs, "BFS", false), 159);
-  assert.equal(r(P.bhd, P.derry, "BHD", true), 159);
-  assert.equal(r(P.cityHall, P.derry), 159);
-  assert.equal(r(P.derry, P.lisburn), 159);
-  assert.equal(r(P.glengormley, P.derry), 159);
+  assert.equal(r(P.bhd, P.derry, "BHD", true), 169);
+  assert.equal(r(P.derry, P.bhd, "BHD", false), 169);
+  assert.equal(r(P.cityHall, P.derry), 169);
+  assert.equal(r(P.derry, P.lisburn), 169);
+  assert.equal(r(P.glengormley, P.derry), 169);
   // Never Dublin, never LDY, never other towns.
   assert.equal(r(P.dublinAirport, P.derry, "DUB", true), null);
   assert.equal(r(P.derry, P.dublinAirport, "DUB", false), null);
@@ -181,7 +182,7 @@ const DERRY = "Derry~Londonderry, UK";
   assert.equal(quote({ from: P.bfs, to: P.derry, fromLabel: BFS, toLabel: DERRY, miles: 59.2, airportCode: "BFS", fromAirport: true, positioning: 29, endpoints: false }).amount, 189);
 }
 
-// 4. Corridor ON: £159 every way round, drive charge not added.
+// 4. Corridor ON: £159 BFS ↔ Derry, £169 the rest, both directions; drive charge not added.
 {
   const cases: Array<Parameters<typeof quote>[0]> = [
     { from: P.bfs, to: P.derry, fromLabel: BFS, toLabel: DERRY, miles: 59.2, airportCode: "BFS", fromAirport: true, positioning: 29 },
@@ -196,9 +197,12 @@ const DERRY = "Derry~Londonderry, UK";
   ];
   for (const c of cases) {
     const q = quote(c);
-    assert.equal(q.amount, 159, `${c.fromLabel} → ${c.toLabel}`);
-    assert.equal(q.corridorSaloonFareGbp, 159);
+    const expected = c.airportCode === "BFS" ? 159 : 169;
+    assert.equal(q.amount, expected, `${c.fromLabel} → ${c.toLabel}`);
+    assert.equal(q.corridorSaloonFareGbp, expected);
   }
+  // BHD Estate = £169 + £11.
+  assert.equal(quote({ ...cases[2]!, vehicleType: ESTATE }).amount, 180);
 }
 
 // 5. Vehicles, return discount, surcharges on top of the corridor fare.
@@ -213,7 +217,7 @@ const DERRY = "Derry~Londonderry, UK";
 
 // 6. Never raises a price.
 {
-  const high = livePricing({ enabled: true, saloonFareGbp: 250 });
+  const high = livePricing({ enabled: true, bfsSaloonFareGbp: 250, belfastSaloonFareGbp: 250 });
   const q = quote({ from: P.bfs, to: P.derry, fromLabel: BFS, toLabel: DERRY, miles: 59.2, airportCode: "BFS", fromAirport: true, positioning: 29, pricing: high });
   assert.equal(q.amount, 189);
   assert.equal(q.corridorSaloonFareGbp, undefined);

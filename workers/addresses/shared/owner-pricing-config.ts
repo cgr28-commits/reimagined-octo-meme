@@ -113,8 +113,8 @@ export type OwnerPricingSettings = {
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
   /**
-   * Derry corridor fare: one Saloon fare for Derry ↔ Greater Belfast / BFS / BHD
-   * (both directions), replacing the tier fare + drive-to-pickup charge only
+   * Derry corridor fares: Belfast International ↔ Derry, and Belfast City /
+   * Greater Belfast ↔ Derry (both directions), replacing the tier fare + drive-to-pickup charge only
    * when lower. Missing stored values = OFF. Never touches Dublin or LDY.
    */
   derryCorridor?: DerryCorridorSettings;
@@ -950,8 +950,10 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return JSON.stringify(settings.postcodeRules ?? []);
     case "derryCorridor.enabled":
       return normalizeDerryCorridor(settings.derryCorridor).enabled ? "ON" : "OFF";
-    case "derryCorridor.saloonFareGbp":
-      return `£${normalizeDerryCorridor(settings.derryCorridor).saloonFareGbp.toFixed(2)}`;
+    case "derryCorridor.bfsSaloonFareGbp":
+      return `£${normalizeDerryCorridor(settings.derryCorridor).bfsSaloonFareGbp.toFixed(2)}`;
+    case "derryCorridor.belfastSaloonFareGbp":
+      return `£${normalizeDerryCorridor(settings.derryCorridor).belfastSaloonFareGbp.toFixed(2)}`;
     case "postcodePricingEnabled":
       return postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? "ON" : "OFF";
     case "minibus.publicEnabled":
@@ -1030,7 +1032,8 @@ const DIFF_PATHS = [
   "postcodePricingEnabled",
   "postcodeRules",
   "derryCorridor.enabled",
-  "derryCorridor.saloonFareGbp",
+  "derryCorridor.bfsSaloonFareGbp",
+  "derryCorridor.belfastSaloonFareGbp",
   "saloon.minimumFareGbp",
   "saloon.floorMiles",
   "saloon.knots",
@@ -1077,7 +1080,8 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "postcodeRules": "Postcode Pricing rules (district to airport)",
   "postcodePricingEnabled": "Postcode Pricing feature switch",
   "derryCorridor.enabled": "Derry corridor fare",
-  "derryCorridor.saloonFareGbp": "Derry corridor Saloon fare",
+  "derryCorridor.bfsSaloonFareGbp": "Derry corridor — Belfast International Saloon fare",
+  "derryCorridor.belfastSaloonFareGbp": "Derry corridor — Belfast City / Greater Belfast Saloon fare",
   "saloon.minimumFareGbp": "Saloon minimum fare",
   "saloon.floorMiles": "Saloon floor distance",
   "saloon.knots": "Saloon distance rates",

@@ -1,9 +1,9 @@
 /**
  * Derry corridor fare (owner setting, OFF by default).
  *
- * One fixed Saloon fare for journeys between Derry~Londonderry and Greater
- * Belfast, including Belfast International (BFS) and Belfast City (BHD)
- * airports, in either direction. It replaces the mileage-tier fare AND the
+ * Fixed Saloon fares for journeys between Derry~Londonderry and the Belfast
+ * area, in either direction: one for Belfast International (BFS) ↔ Derry,
+ * one for Belfast City Airport (BHD), Belfast and Greater Belfast ↔ Derry. It replaces the mileage-tier fare AND the
  * drive-to-pickup charge for those journeys only. Everything else is composed
  * the normal way on top: Estate supplement / Business Class / 7-seater from the
  * corridor Saloon fare, the return discount, night / Christmas surcharges, and
@@ -25,15 +25,19 @@ export type CorridorPoint = { lat: number; lng: number };
 
 export type DerryCorridorSettings = {
   enabled: boolean;
-  /** One-way Saloon fare for the corridor, before Estate supplement and surcharges. */
-  saloonFareGbp: number;
+  /** One-way Saloon fare, Belfast International ↔ Derry (before Estate supplement and surcharges). */
+  bfsSaloonFareGbp: number;
+  /** One-way Saloon fare, Belfast City Airport / Belfast / Greater Belfast ↔ Derry. */
+  belfastSaloonFareGbp: number;
 };
 
-/** Owner choice 16 Nov 2026: £159. Stored OFF until the owner switches it on. */
-export const DEFAULT_DERRY_CORRIDOR_SALOON_FARE_GBP = 159;
+/** Owner choice 16 Nov 2026: £159 BFS ↔ Derry, £169 the rest. Stored OFF until switched on. */
+export const DEFAULT_DERRY_CORRIDOR_BFS_FARE_GBP = 159;
+export const DEFAULT_DERRY_CORRIDOR_BELFAST_FARE_GBP = 169;
 export const DEFAULT_DERRY_CORRIDOR: DerryCorridorSettings = {
   enabled: false,
-  saloonFareGbp: DEFAULT_DERRY_CORRIDOR_SALOON_FARE_GBP,
+  bfsSaloonFareGbp: DEFAULT_DERRY_CORRIDOR_BFS_FARE_GBP,
+  belfastSaloonFareGbp: DEFAULT_DERRY_CORRIDOR_BELFAST_FARE_GBP,
 };
 export const DERRY_CORRIDOR_MIN_FARE_GBP = 30;
 export const DERRY_CORRIDOR_MAX_FARE_GBP = 1000;
@@ -79,16 +83,20 @@ export function isGreaterBelfastCorridorEnd(point: CorridorPoint | null | undefi
   return isWithinGreaterBelfastGeofence(p.lat, p.lng);
 }
 
+function readFare(value: unknown, fallback: number): number {
+  const fare = Number(value);
+  return Number.isFinite(fare) && fare >= DERRY_CORRIDOR_MIN_FARE_GBP && fare <= DERRY_CORRIDOR_MAX_FARE_GBP
+    ? Math.round(fare)
+    : fallback;
+}
+
 export function normalizeDerryCorridor(raw: unknown): DerryCorridorSettings {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_DERRY_CORRIDOR };
   const input = raw as Record<string, unknown>;
-  const fare = Number(input.saloonFareGbp);
   return {
     enabled: input.enabled === true,
-    saloonFareGbp:
-      Number.isFinite(fare) && fare >= DERRY_CORRIDOR_MIN_FARE_GBP && fare <= DERRY_CORRIDOR_MAX_FARE_GBP
-        ? Math.round(fare)
-        : DEFAULT_DERRY_CORRIDOR_SALOON_FARE_GBP,
+    bfsSaloonFareGbp: readFare(input.bfsSaloonFareGbp, DEFAULT_DERRY_CORRIDOR_BFS_FARE_GBP),
+    belfastSaloonFareGbp: readFare(input.belfastSaloonFareGbp, DEFAULT_DERRY_CORRIDOR_BELFAST_FARE_GBP),
   };
 }
 
@@ -101,16 +109,22 @@ export function validateDerryCorridorInput(raw: unknown): string[] {
   if (input.enabled != null && typeof input.enabled !== "boolean") {
     errors.push("Derry corridor fare must be on or off.");
   }
-  const fare = typeof input.saloonFareGbp === "number" ? input.saloonFareGbp : Number(input.saloonFareGbp);
-  if (
-    !Number.isFinite(fare) ||
-    fare < DERRY_CORRIDOR_MIN_FARE_GBP ||
-    fare > DERRY_CORRIDOR_MAX_FARE_GBP ||
-    !Number.isInteger(fare)
-  ) {
-    errors.push(
-      `Derry corridor Saloon fare must be a whole number of pounds between £${DERRY_CORRIDOR_MIN_FARE_GBP} and £${DERRY_CORRIDOR_MAX_FARE_GBP}.`,
-    );
+  for (const [key, label] of [
+    ["bfsSaloonFareGbp", "Belfast International ↔ Derry"],
+    ["belfastSaloonFareGbp", "Belfast City Airport / Greater Belfast ↔ Derry"],
+  ] as const) {
+    const raw = input[key];
+    const fare = typeof raw === "number" ? raw : Number(raw);
+    if (
+      !Number.isFinite(fare) ||
+      fare < DERRY_CORRIDOR_MIN_FARE_GBP ||
+      fare > DERRY_CORRIDOR_MAX_FARE_GBP ||
+      !Number.isInteger(fare)
+    ) {
+      errors.push(
+        `${label} fare must be a whole number of pounds between £${DERRY_CORRIDOR_MIN_FARE_GBP} and £${DERRY_CORRIDOR_MAX_FARE_GBP}.`,
+      );
+    }
   }
   return errors;
 }
@@ -135,12 +149,13 @@ export function resolveDerryCorridorSaloonFareGbp(input: {
     // Only the two Belfast airports are the Belfast end of the corridor.
     if (airport !== "BFS" && airport !== "BHD") return null;
     const addressEnd = input.fromAirport ? input.dropoff : input.pickup;
-    return isInDerryCityZone(addressEnd) ? corridor.saloonFareGbp : null;
+    if (!isInDerryCityZone(addressEnd)) return null;
+    return airport === "BFS" ? corridor.bfsSaloonFareGbp : corridor.belfastSaloonFareGbp;
   }
 
   const pickupDerry = isInDerryCityZone(input.pickup);
   const dropoffDerry = isInDerryCityZone(input.dropoff);
   if (pickupDerry === dropoffDerry) return null;
   const belfastEnd = isGreaterBelfastCorridorEnd(pickupDerry ? input.dropoff : input.pickup);
-  return belfastEnd ? corridor.saloonFareGbp : null;
+  return belfastEnd ? corridor.belfastSaloonFareGbp : null;
 }

@@ -807,15 +807,21 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
                 />
               </div>
               <MoneyField
-                label="Derry corridor — Saloon fare (one way)"
-                value={normalizeDerryCorridor(draft.derryCorridor).saloonFareGbp}
-                onChange={(saloonFareGbp) =>
-                  update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), saloonFareGbp })
+                label="Belfast International ↔ Derry — Saloon fare (one way)"
+                value={normalizeDerryCorridor(draft.derryCorridor).bfsSaloonFareGbp}
+                onChange={(bfsSaloonFareGbp) =>
+                  update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), bfsSaloonFareGbp })
+                }
+              />
+              <MoneyField
+                label="Belfast City Airport / Greater Belfast ↔ Derry — Saloon fare (one way)"
+                value={normalizeDerryCorridor(draft.derryCorridor).belfastSaloonFareGbp}
+                onChange={(belfastSaloonFareGbp) =>
+                  update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), belfastSaloonFareGbp })
                 }
               />
               <p className="mt-1 text-xs text-white/55">
-                Derry city ↔ Greater Belfast, Belfast International and Belfast City Airport, both
-                directions. Replaces the mileage fare and drive-to-pickup charge only when it is lower.
+                Derry city ↔ the Belfast area, both directions. Whole pounds. Replaces the mileage fare and drive-to-pickup charge only when it is lower.
                 Estate supplement, return discount, surcharges and airport extras still apply. Dublin and
                 City of Derry Airport journeys are never affected.
               </p>
