@@ -7,6 +7,7 @@
  * - force Minibus via vehicleChoice / vehicleType using existing multipliers
  */
 
+import { normalizeDerryCorridor } from "../shared/corridor-fares";
 import { corsHeaders } from "../shared/google-places";
 import {
   parseQuickQuoteVehicleChoice,
@@ -338,8 +339,11 @@ export async function handleQuoteCalculateRequest(
   const protectionActive = isProfitabilityProtectionActive(pricingForRoute.profitability);
   // The drive-to-pickup charge prices from coordinates, so it needs the same
   // server-resolved route (and signed receipt) as profitability protection.
+  // The Derry corridor fare is matched on coordinates, so it also needs them.
   const serverRouting =
-    protectionActive || isPositioningChargeActive(pricingForRoute.profitability);
+    protectionActive ||
+    isPositioningChargeActive(pricingForRoute.profitability) ||
+    normalizeDerryCorridor(pricingForRoute.derryCorridor).enabled;
   let routeMetricsSource: "worker" | "client" | "none" = "none";
   let routeMetrics = serverRouting ? null : clientMetrics;
   let serverPickup: { lat: number; lng: number } | null = null;
@@ -665,6 +669,8 @@ export async function handleQuoteCalculateRequest(
         });
     result = calculateAuthoritativeWebsiteQuote({
       positioningChargeGbp: positioning.chargeGbp,
+      // Server-resolved coordinates only (null when the Worker did not route).
+      corridorEndpoints: { pickup: serverPickup, dropoff: serverDropoff },
       tollAllowance: appliedTollAllowance,
       airportCode,
       fromAirport,
@@ -859,6 +865,9 @@ export async function handleQuoteCalculateRequest(
   };
   // Toll allowance is folded into the customer's single fare; only the owner sees it itemised.
   delete quoteBody.dublinTollsGbp;
+  const corridorSaloonFareGbp =
+    typeof quoteBody.corridorSaloonFareGbp === "number" ? quoteBody.corridorSaloonFareGbp : null;
+  delete quoteBody.corridorSaloonFareGbp;
   if (ownerMode && body.includeOwnerFareBreakdown === true && result.ok) {
     try {
       quoteBody.ownerFareBreakdown = buildOwnerFareBreakdown({
@@ -875,6 +884,7 @@ export async function handleQuoteCalculateRequest(
         finalAmountGbp: result.amount,
         airportFixedCostsGbp: result.airportFixedCostsGbp,
         profitabilityProtectionApplied: profitabilityApplied,
+        corridorSaloonFareGbp,
       });
     } catch (error) {
       console.warn(`[owner-fare-breakdown] ${error instanceof Error ? error.message : "failed"}`);

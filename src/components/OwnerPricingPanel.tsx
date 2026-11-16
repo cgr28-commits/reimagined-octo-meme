@@ -59,6 +59,7 @@ import {
   type ProfitabilitySettings,
 } from "@/lib/owner-profitability-settings";
 import OwnerProfitabilityTester from "@/components/OwnerProfitabilityTester";
+import { normalizeDerryCorridor } from "../../shared/corridor-fares";
 
 type PricingDraft = OwnerPricingSettings & { profitability: ProfitabilitySettings };
 
@@ -70,6 +71,7 @@ function asDraft(
     bfsMinimumSaloonFareGbp: settings.bfsMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bfsMinimumSaloonFareGbp,
     bhdMinimumSaloonFareGbp: settings.bhdMinimumSaloonFareGbp ?? defaultOwnerPricingSettings().bhdMinimumSaloonFareGbp,
     saloonFormula: settings.saloonFormula ?? defaultOwnerPricingSettings().saloonFormula,
+    derryCorridor: normalizeDerryCorridor(settings.derryCorridor),
     profitability: normalizeProfitabilitySettings(settings.profitability),
     dublinAirportFareAdjustment: {
       rate: settings.dublinAirportFareAdjustment?.rate ?? 0,
@@ -792,6 +794,38 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
               label="Belfast City Airport — Minimum Saloon Fare"
               help="Per leg, to or from Belfast City Airport. £0 means no minimum. Before Estate supplement, discounts and airport access charges."
             />
+            <div className="mt-4 rounded-xl border border-white/10 p-3" data-derry-corridor>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-white/80">Derry corridor fare</span>
+                <Toggle
+                  id="derry-corridor-enabled"
+                  label="Derry corridor fare"
+                  checked={draft.derryCorridor?.enabled === true}
+                  onChange={(enabled) =>
+                    update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), enabled })
+                  }
+                />
+              </div>
+              <MoneyField
+                label="Belfast International ↔ Derry — Saloon fare (one way)"
+                value={normalizeDerryCorridor(draft.derryCorridor).bfsSaloonFareGbp}
+                onChange={(bfsSaloonFareGbp) =>
+                  update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), bfsSaloonFareGbp })
+                }
+              />
+              <MoneyField
+                label="Belfast City Airport / Greater Belfast ↔ Derry — Saloon fare (one way)"
+                value={normalizeDerryCorridor(draft.derryCorridor).belfastSaloonFareGbp}
+                onChange={(belfastSaloonFareGbp) =>
+                  update("derryCorridor", { ...normalizeDerryCorridor(draft.derryCorridor), belfastSaloonFareGbp })
+                }
+              />
+              <p className="mt-1 text-xs text-white/55">
+                Derry city ↔ the Belfast area, both directions. Whole pounds. Replaces the mileage fare and drive-to-pickup charge only when it is lower.
+                Estate supplement, return discount, surcharges and airport extras still apply. Dublin and
+                City of Derry Airport journeys are never affected.
+              </p>
+            </div>
             <MoneyField
               label="Tier minimum fare (formula OFF)"
               value={draft.saloon.minimumFareGbp}

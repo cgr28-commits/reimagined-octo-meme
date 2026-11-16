@@ -28,6 +28,7 @@
     "check:express-drop-off": "npx tsx scripts/check-express-drop-off.ts",
     "check:quote-authoritative-fare": "npx tsx scripts/check-quote-authoritative-fare.ts",
     "check:pricing-confirmation": "npx tsx scripts/check-pricing-confirmation.ts",
+    "check:corridor-fares": "npx tsx scripts/check-corridor-fares.ts",
     "check:pricing-vehicle-quote-flow": "npx tsx scripts/check-pricing-vehicle-quote-flow.ts",
     "check:night-weekend-surcharge": "npx tsx scripts/check-night-weekend-surcharge.ts",
     "check:quote-schedule-price-gate": "npx tsx scripts/check-quote-schedule-price-gate.ts",

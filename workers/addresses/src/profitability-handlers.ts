@@ -170,6 +170,10 @@ export async function handleOwnerProfitabilityTestRequest(
     const isAirport = addressAirport.ok && Boolean(addressAirport.context.airportCode);
     const quote = calculateAuthoritativeWebsiteQuote({
       positioningChargeGbp: positioning.chargeGbp,
+      corridorEndpoints: {
+        pickup: Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null,
+        dropoff: Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null,
+      },
       tollAllowance: isAirport
         ? undefined
         : resolveDublinTollAllowance({

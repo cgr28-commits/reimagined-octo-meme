@@ -35,6 +35,12 @@ import {
 } from "./business-class-minimum";
 import { defaultMeetGreetFees, type MeetGreetFeesGbp } from "./meet-greet";
 import { roundGbp } from "./gbp";
+import {
+  DEFAULT_DERRY_CORRIDOR,
+  normalizeDerryCorridor,
+  validateDerryCorridorInput,
+  type DerryCorridorSettings,
+} from "./corridor-fares";
 
 export const OWNER_PRICING_SCHEMA_VERSION = 1 as const;
 
@@ -106,6 +112,12 @@ export type OwnerPricingSettings = {
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
+  /**
+   * Derry corridor fares: Belfast International ↔ Derry, and Belfast City /
+   * Greater Belfast ↔ Derry (both directions), replacing the tier fare + drive-to-pickup charge only
+   * when lower. Missing stored values = OFF. Never touches Dublin or LDY.
+   */
+  derryCorridor?: DerryCorridorSettings;
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -208,6 +220,7 @@ export type PublicOwnerPricingConfig = {
   saloonFormula?: SaloonFormula;
   postcodeRules?: PostcodePricingRule[];
   postcodePricingEnabled?: boolean;
+  derryCorridor?: DerryCorridorSettings;
   schemaVersion: OwnerPricingSchemaVersion;
   version: number;
   updatedAt: string;
@@ -295,6 +308,7 @@ export function defaultOwnerPricingSettings(
     saloonFormula: { ...DEFAULT_SALOON_FORMULA },
     postcodeRules: [],
     postcodePricingEnabled: false,
+    derryCorridor: { ...DEFAULT_DERRY_CORRIDOR },
     updatedAt: now.toISOString(),
     saloon: {
       minimumFareGbp: UNIVERSAL_SALOON_MINIMUM_GBP,
@@ -381,6 +395,7 @@ export function validateOwnerPricingInput(
   const postcodes = validatePostcodeRules(input.postcodeRules);
   if (input.postcodePricingEnabled != null && typeof input.postcodePricingEnabled !== "boolean") errors.push({ field: "postcodePricingEnabled", message: "Postcode pricing switch must be on or off." });
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
+  for (const message of validateDerryCorridorInput(input.derryCorridor)) errors.push({ field: "derryCorridor", message });
   const defaults = defaultOwnerPricingSettings();
 
   const bfsMinimum = input.bfsMinimumSaloonFareGbp === undefined
@@ -706,6 +721,7 @@ export function validateOwnerPricingInput(
       saloonFormula: formula,
       postcodeRules: postcodes.rules,
       postcodePricingEnabled: postcodePricingIsEnabled(input.postcodePricingEnabled, postcodes.rules),
+      derryCorridor: normalizeDerryCorridor(input.derryCorridor),
       schemaVersion: OWNER_PRICING_SCHEMA_VERSION,
       version: Number.isInteger(expectedVersion) && expectedVersion > 0 ? expectedVersion : defaults.version,
       updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : defaults.updatedAt,
@@ -813,6 +829,7 @@ export function toPublicOwnerPricingConfig(
     postcodePricingEnabled: settings.saloonFormula?.enabled !== true && postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules),
     postcodeRules: postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? (settings.postcodeRules ?? []).filter(r => r.enabled && postcodeRuleApproved(r)).map(({ district, airportCode, saloonFareGbp, enabled, direction }) => ({ district, airportCode, saloonFareGbp, enabled, direction, approvalStatus: "approved" as const })) : [],
     saloonFormula: { ...(settings.saloonFormula ?? DEFAULT_SALOON_FORMULA) },
+    derryCorridor: normalizeDerryCorridor(settings.derryCorridor),
     saloon: settings.saloon,
     estate: settings.estate,
     minibus: {
@@ -879,6 +896,7 @@ export function ownerPricingEngineOptions(settings?: OwnerPricingSettings | Publ
     weekendRate: resolved.weekend.surchargeRate,
     weekendDays: resolved.weekend.days,
     publicMinibusEnabled: resolved.minibus.publicEnabled === true,
+    derryCorridor: normalizeDerryCorridor(resolved.derryCorridor),
   };
 }
 
@@ -930,6 +948,12 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return `£${settings.estate.upliftGbp.toFixed(2)}`;
     case "postcodeRules":
       return JSON.stringify(settings.postcodeRules ?? []);
+    case "derryCorridor.enabled":
+      return normalizeDerryCorridor(settings.derryCorridor).enabled ? "ON" : "OFF";
+    case "derryCorridor.bfsSaloonFareGbp":
+      return `£${normalizeDerryCorridor(settings.derryCorridor).bfsSaloonFareGbp.toFixed(2)}`;
+    case "derryCorridor.belfastSaloonFareGbp":
+      return `£${normalizeDerryCorridor(settings.derryCorridor).belfastSaloonFareGbp.toFixed(2)}`;
     case "postcodePricingEnabled":
       return postcodePricingIsEnabled(settings.postcodePricingEnabled, settings.postcodeRules) ? "ON" : "OFF";
     case "minibus.publicEnabled":
@@ -1007,6 +1031,9 @@ const DIFF_PATHS = [
   "saloonFormula",
   "postcodePricingEnabled",
   "postcodeRules",
+  "derryCorridor.enabled",
+  "derryCorridor.bfsSaloonFareGbp",
+  "derryCorridor.belfastSaloonFareGbp",
   "saloon.minimumFareGbp",
   "saloon.floorMiles",
   "saloon.knots",
@@ -1052,6 +1079,9 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "saloonFormula": "Saloon mileage formula",
   "postcodeRules": "Postcode Pricing rules (district to airport)",
   "postcodePricingEnabled": "Postcode Pricing feature switch",
+  "derryCorridor.enabled": "Derry corridor fare",
+  "derryCorridor.bfsSaloonFareGbp": "Derry corridor — Belfast International Saloon fare",
+  "derryCorridor.belfastSaloonFareGbp": "Derry corridor — Belfast City / Greater Belfast Saloon fare",
   "saloon.minimumFareGbp": "Saloon minimum fare",
   "saloon.floorMiles": "Saloon floor distance",
   "saloon.knots": "Saloon distance rates",
