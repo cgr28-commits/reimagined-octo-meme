@@ -126,7 +126,13 @@ async function main() {
 
   await check("excluded dates: 14 Dec – 5 Jan by default, inclusive, either leg of a return", () => {
     const ranges = DEFAULT_PROMO_SETTINGS.blackoutDates;
-    assert.deepEqual(ranges, [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }]);
+    assert.deepEqual(ranges, [
+      { from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" },
+      { from: "2027-05-21", to: "2027-05-23", label: "Garth Brooks" },
+    ]);
+    assert.equal(promoBlackoutFor(["2027-05-20"], ranges), null);
+    assert.equal(promoBlackoutFor(["2027-05-22"], ranges)?.label, "Garth Brooks");
+    assert.equal(promoBlackoutFor(["2027-05-24"], ranges), null);
     assert.equal(promoBlackoutFor(["2026-12-13"], ranges), null);
     assert.equal(promoBlackoutFor(["2026-12-14"], ranges)?.date, "2026-12-14");
     assert.equal(promoBlackoutFor(["2027-01-05"], ranges)?.date, "2027-01-05");
@@ -598,7 +604,7 @@ async function main() {
       assert.equal(dates.status, 200);
       const cfgDates = (await (await call("/promo/config")).json()) as { config: { blackoutDates: unknown } };
       assert.deepEqual(cfgDates.config.blackoutDates, [{ from: "2027-07-11", to: "2027-07-13", label: "Twelfth" }]);
-      await call("/owner/promo/settings", { blackoutDates: [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }] }, auth);
+      await call("/owner/promo/settings", { blackoutDates: DEFAULT_PROMO_SETTINGS.blackoutDates }, auth);
       const off = await call("/owner/promo/settings", { enabled: false }, auth);
       assert.equal(off.status, 200);
       const cfg = (await (await call("/promo/config")).json()) as { config: { enabled: boolean } };
@@ -617,6 +623,27 @@ async function main() {
       const mk = await (await call("/owner/promo/export.csv?list=marketing", undefined, auth)).text();
       assert.ok(mk.includes("fan@example.com"));
       assert.ok(!mk.includes("gone@example.com"));
+    });
+
+    await check("preview site mode: code shown on screen, no email, no live marketing list write", async () => {
+      const previewDb = freshDb();
+      const kvBefore = kvStore.size;
+      const sentBefore = sent.length;
+      const res = await handlePromoRequest(
+        new Request("https://w.example/promo/request", { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "10.0.0.9" }, body: JSON.stringify({ email: "preview@example.com", marketingOptIn: true }) }),
+        { ...env, DRIVER_DB: previewDb.db, PROMO_PREVIEW_MODE: "1" },
+        null,
+      );
+      const json = (await res.json()) as { previewCode?: string };
+      assert.match(String(json.previewCode), /^MATNI-/);
+      assert.equal(sent.length, sentBefore, "no email from the preview site");
+      assert.equal(kvStore.size, kvBefore, "shared live marketing list untouched");
+      // Production never runs in preview mode.
+      const toml = readFileSync("workers/addresses/wrangler.toml", "utf8");
+      const prodVars = toml.split(/^\[vars\]/m)[1]?.split(/^\[/m)[0] ?? "";
+      assert.ok(!/PROMO_PREVIEW_MODE/.test(prodVars));
+      assert.match(toml.split("[env.preview.vars]")[1].split(/^\[/m)[0], /PROMO_PREVIEW_MODE = "1"/);
+      assert.ok(!/bf9aa9cc/.test(toml.split("[env.preview]")[0]), "live Worker keeps the live database");
     });
 
     await check("migration not applied yet: routes answer 503 / promotion hidden, never 500", async () => {

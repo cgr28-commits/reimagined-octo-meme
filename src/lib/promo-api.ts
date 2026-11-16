@@ -42,7 +42,9 @@ export function fetchPromoConfig(): Promise<PublicPromoConfig> {
   return configPromise;
 }
 
-export type PromoRequestResult = { ok: true; message: string } | { ok: false; error: string };
+export type PromoRequestResult =
+  | { ok: true; message: string; previewCode?: string; previewNote?: string }
+  | { ok: false; error: string };
 
 export async function requestPromoCode(input: {
   email: string;
@@ -57,8 +59,21 @@ export async function requestPromoCode(input: {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(input),
     });
-    const payload = (await response.json().catch(() => null)) as { ok?: boolean; message?: string; error?: string } | null;
-    if (response.ok && payload?.ok) return { ok: true, message: String(payload.message ?? "") };
+    const payload = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      message?: string;
+      error?: string;
+      previewCode?: string;
+      previewNote?: string;
+    } | null;
+    if (response.ok && payload?.ok) {
+      return {
+        ok: true,
+        message: String(payload.message ?? ""),
+        ...(payload.previewCode ? { previewCode: String(payload.previewCode) } : {}),
+        ...(payload.previewNote ? { previewNote: String(payload.previewNote) } : {}),
+      };
+    }
     return { ok: false, error: String(payload?.error || "Sorry, something went wrong. Please try again.") };
   } catch {
     return { ok: false, error: "We couldn't reach our server. Please check your connection and try again." };

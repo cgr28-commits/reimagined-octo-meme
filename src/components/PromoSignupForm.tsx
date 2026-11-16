@@ -26,6 +26,7 @@ export default function PromoSignupForm({ source, validityDays, percentLabel, to
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [preview, setPreview] = useState<{ code?: string; note?: string } | null>(null);
   const dark = tone === "navy";
 
   async function submit() {
@@ -41,6 +42,7 @@ export default function PromoSignupForm({ source, validityDays, percentLabel, to
     if (result.ok) {
       setState("done");
       setMessage(result.message);
+      if (result.previewCode || result.previewNote) setPreview({ code: result.previewCode, note: result.previewNote });
       markPromoSignedUp();
       onDone?.();
     } else {
@@ -57,6 +59,18 @@ export default function PromoSignupForm({ source, validityDays, percentLabel, to
           Check your inbox
         </p>
         <p className={`mt-2 text-sm leading-relaxed ${dark ? "text-white/85" : "text-navy/80"}`}>{message}</p>
+        {preview ? (
+          <p data-promo-preview-code className="mt-3 rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm text-[#071c38]">
+            <strong>Preview site only — no email sent.</strong>{" "}
+            {preview.code ? (
+              <>
+                Your code: <span className="font-mono font-bold tracking-wide">{preview.code}</span>
+              </>
+            ) : (
+              preview.note
+            )}
+          </p>
+        ) : null}
         <p className={`mt-2 text-xs leading-relaxed ${dark ? "text-white/70" : "text-navy/65"}`}>
           Enter the code under “Have a promo code?” when you book. It is linked to the email address you gave us.
         </p>

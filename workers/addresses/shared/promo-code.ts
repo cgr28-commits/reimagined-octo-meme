@@ -45,8 +45,12 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
   validityDays: 30,
   popupEnabled: true,
   popupDelaySeconds: 20,
-  // Owner, 16 Nov 2026: no promo codes for journeys 14 December – 5 January.
-  blackoutDates: [{ from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" }],
+  // Owner, 16 Nov 2026: no promo codes for journeys 14 December – 5 January, or on the
+  // Garth Brooks nights at Boucher Road (Fri 21 – Sun 23 May 2027).
+  blackoutDates: [
+    { from: "2026-12-14", to: "2027-01-05", label: "Christmas & New Year" },
+    { from: "2027-05-21", to: "2027-05-23", label: "Garth Brooks" },
+  ],
 };
 
 export const PROMO_LIMITS = {

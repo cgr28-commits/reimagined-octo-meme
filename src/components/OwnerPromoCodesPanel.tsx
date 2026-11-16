@@ -249,6 +249,97 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-white">
+              Customers who asked for 10%{data ? ` (${data.codes.length}${data.codes.length >= 500 ? "+" : ""})` : ""}
+            </h3>
+            <p className="text-xs text-white/55">Newest first. Each customer, when they asked, their code and whether they&apos;ve used it.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => void download("codes")} className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">
+              Export codes (CSV)
+            </button>
+            <button type="button" onClick={() => void download("marketing")} className="min-h-11 rounded-xl border border-emerald/60 px-4 text-sm font-semibold text-white">
+              Export marketing permission (CSV)
+            </button>
+          </div>
+        </div>
+        <form
+          className="mt-3 flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void load();
+          }}
+        >
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search email, code or booking"
+            aria-label="Search promo codes"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white px-3 text-sm text-[#071c38]"
+          />
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Filter by status"
+            className="min-h-11 rounded-xl border border-white/15 bg-white px-3 text-sm text-[#071c38]"
+          >
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="redeemed">Redeemed</option>
+            <option value="expired">Expired</option>
+            <option value="deactivated">Deactivated</option>
+          </select>
+          <button type="submit" className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">
+            Search
+          </button>
+        </form>
+        {!loading && data && !data.codes.length ? (
+          <p className="mt-4 text-sm text-white/60">No codes match.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-white/10">
+            {(data?.codes ?? []).map((c) => (
+              <li key={c.code} className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm" data-promo-row>
+                <div className="min-w-0">
+                  <p className="break-all text-base font-semibold text-white">{c.email || "(email erased after retention period)"}</p>
+                  <p className="text-white/70">
+                    Asked {when(c.issuedAt)} · marketing emails {c.marketingOptIn ? "✓ yes" : "no"}
+                  </p>
+                  <p className="font-mono text-sm tracking-wide text-white/85">
+                    {c.code}{" "}
+                    <span className={`ml-1 rounded-full px-2 py-0.5 font-sans text-xs font-semibold ${STATUS_STYLE[c.displayStatus] ?? ""}`}>
+                      {STATUS_LABEL[c.displayStatus] ?? c.displayStatus}
+                    </span>
+                    {c.conflict ? <span className="ml-1 rounded-full bg-red-500/30 px-2 py-0.5 font-sans text-xs text-red-100">Used twice — check</span> : null}
+                  </p>
+                  <p className="text-white/50">
+                    {formatPromoPercent(c.discountRate)} off · expires {when(c.expiresAt)}
+                  </p>
+                  {c.bookingReference ? (
+                    <p className="text-white/70">
+                      Booking {c.bookingReference} · saved {money(c.discountGbp)} on {money(c.vehicleFareGbp)} · paid {money(c.bookingTotalGbp)} · {when(c.redeemedAt)}
+                    </p>
+                  ) : null}
+                  {c.deactivatedReason ? <p className="text-white/50">{c.deactivatedReason}</p> : null}
+                </div>
+                {c.displayStatus === "active" || c.displayStatus === "reserved" ? (
+                  <button
+                    type="button"
+                    onClick={() => void deactivate(c.code)}
+                    disabled={busyCode === c.code}
+                    className="min-h-11 rounded-xl border border-red-300/40 px-3 text-xs font-semibold text-red-100 disabled:opacity-50"
+                  >
+                    {busyCode === c.code ? "…" : "Deactivate"}
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
         <h3 className="text-base font-semibold text-white">Settings</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-white">
@@ -341,90 +432,6 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h3 className="text-base font-semibold text-white">Codes &amp; customers</h3>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => void download("codes")} className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">
-              Export codes (CSV)
-            </button>
-            <button type="button" onClick={() => void download("marketing")} className="min-h-11 rounded-xl border border-emerald/60 px-4 text-sm font-semibold text-white">
-              Export marketing permission (CSV)
-            </button>
-          </div>
-        </div>
-        <form
-          className="mt-3 flex flex-wrap gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void load();
-          }}
-        >
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search email, code or booking"
-            aria-label="Search promo codes"
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white px-3 text-sm text-[#071c38]"
-          />
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            aria-label="Filter by status"
-            className="min-h-11 rounded-xl border border-white/15 bg-white px-3 text-sm text-[#071c38]"
-          >
-            <option value="">All</option>
-            <option value="active">Active</option>
-            <option value="redeemed">Redeemed</option>
-            <option value="expired">Expired</option>
-            <option value="deactivated">Deactivated</option>
-          </select>
-          <button type="submit" className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-semibold text-white">
-            Search
-          </button>
-        </form>
-        {!loading && data && !data.codes.length ? (
-          <p className="mt-4 text-sm text-white/60">No codes match.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-white/10">
-            {(data?.codes ?? []).map((c) => (
-              <li key={c.code} className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm" data-promo-row>
-                <div className="min-w-0">
-                  <p className="font-mono font-semibold tracking-wide text-white">
-                    {c.code}{" "}
-                    <span className={`ml-1 rounded-full px-2 py-0.5 font-sans text-xs font-semibold ${STATUS_STYLE[c.displayStatus] ?? ""}`}>
-                      {STATUS_LABEL[c.displayStatus] ?? c.displayStatus}
-                    </span>
-                    {c.conflict ? <span className="ml-1 rounded-full bg-red-500/30 px-2 py-0.5 font-sans text-xs text-red-100">Used twice — check</span> : null}
-                  </p>
-                  <p className="break-all text-white/80">{c.email || "(email erased after retention period)"}</p>
-                  <p className="text-white/50">
-                    {formatPromoPercent(c.discountRate)} · issued {when(c.issuedAt)} · expires {when(c.expiresAt)} · marketing{" "}
-                    {c.marketingOptIn ? "yes" : "no"}
-                  </p>
-                  {c.bookingReference ? (
-                    <p className="text-white/70">
-                      Booking {c.bookingReference} · saved {money(c.discountGbp)} on {money(c.vehicleFareGbp)} · paid {money(c.bookingTotalGbp)} · {when(c.redeemedAt)}
-                    </p>
-                  ) : null}
-                  {c.deactivatedReason ? <p className="text-white/50">{c.deactivatedReason}</p> : null}
-                </div>
-                {c.displayStatus === "active" || c.displayStatus === "reserved" ? (
-                  <button
-                    type="button"
-                    onClick={() => void deactivate(c.code)}
-                    disabled={busyCode === c.code}
-                    className="min-h-11 rounded-xl border border-red-300/40 px-3 text-xs font-semibold text-red-100 disabled:opacity-50"
-                  >
-                    {busyCode === c.code ? "…" : "Deactivate"}
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

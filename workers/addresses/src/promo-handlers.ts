@@ -60,7 +60,17 @@ export type PromoHandlerEnv = PromoEnv &
   WorkerEmailEnv & {
     TRACKING_STORE?: KVNamespace;
     SITE_ORIGIN?: string;
+    /**
+     * Preview Worker ONLY (wrangler.toml [env.preview.vars]). No email is sent and nothing is
+     * written to the shared live marketing list; the code is returned on screen instead so the
+     * owner can test the whole flow. Never set this on production.
+     */
+    PROMO_PREVIEW_MODE?: string;
   };
+
+function previewMode(env: { PROMO_PREVIEW_MODE?: string }): boolean {
+  return env.PROMO_PREVIEW_MODE === "1";
+}
 
 type Clock = () => Date;
 let clock: Clock = () => new Date();
@@ -177,7 +187,7 @@ async function handleCodeRequest(request: Request, env: PromoHandlerEnv, origin:
     if (marketingOptIn) {
       try {
         await recordMarketingConsent(db, { at: now, email, emailHash, consented: true, source: `promo-${source}`, ipHash });
-        if (env.TRACKING_STORE) {
+        if (env.TRACKING_STORE && !previewMode(env)) {
           await recordMarketingOptIn(env.TRACKING_STORE, {
             email,
             source: "promo-signup",
@@ -193,6 +203,22 @@ async function handleCodeRequest(request: Request, env: PromoHandlerEnv, origin:
 
     const result = await issueOrResendPromoCode(db, { email, emailHash, settings, now, source, marketingOptIn });
     const site = siteUrl(env);
+    if (previewMode(env)) {
+      // Preview site: show the code instead of emailing it (preview database only).
+      const code = "code" in result ? result.code : "";
+      if (result.kind === "issued") await markPromoEmailSent(db, code, now);
+      await logPromoRequest(db, { at: now, emailHash, ipHash, outcome: result.kind === "issued" ? "issued" : "resent", code, source });
+      return json(
+        {
+          ok: true,
+          message: PROMO_REQUEST_ACCEPTED_MESSAGE,
+          preview: true,
+          ...(code ? { previewCode: code } : { previewNote: result.kind === "already_used" ? "This email has already used its code." : "This email can't get a code." }),
+        },
+        200,
+        origin,
+      );
+    }
     if (result.kind === "issued" || result.kind === "resend") {
       const validityDays = Math.round((Date.parse(result.expiresAt) - Date.parse(result.issuedAt)) / 86_400_000);
       const message = buildPromoCodeEmail({
