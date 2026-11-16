@@ -81,6 +81,11 @@ export type QuoteServiceInput = {
    * sets this, from server-resolved coordinates. Omitted / 0 everywhere else.
    */
   positioningChargeGbp?: number;
+  /**
+   * Worker-computed Dublin toll allowance (address-to-address only, from
+   * `shared/dublin-tolls.ts`). Omitted everywhere else.
+   */
+  tollAllowance?: { outboundGbp: number; returnGbp: number };
 };
 
 export type QuoteServiceSuccess = {
@@ -104,6 +109,8 @@ export type QuoteServiceSuccess = {
   returnOneWayBeforeAccessGbp?: number;
   outboundFixedGbp?: number;
   returnFixedGbp?: number;
+  /** Dublin toll allowance included in `amount` (address-to-address only). */
+  dublinTollsGbp?: number;
   source: "website-pricing-engine";
   /** High combined passenger + luggage load — quote shown, payment held. */
   needsLuggageCapacityConfirmation: boolean;
@@ -380,7 +387,7 @@ export function calculateAuthoritativeWebsiteQuote(
       null,
       undefined,
       input.pricing,
-      { positioningChargeGbp: input.positioningChargeGbp },
+      { positioningChargeGbp: input.positioningChargeGbp, tollAllowance: input.tollAllowance },
     );
   }
 
@@ -435,6 +442,7 @@ export function calculateAuthoritativeWebsiteQuote(
     ...(returnOneWayBeforeAccessGbp != null ? { returnOneWayBeforeAccessGbp } : {}),
     ...(typeof quote.outboundFixedGbp === "number" ? { outboundFixedGbp: quote.outboundFixedGbp } : {}),
     ...(typeof quote.returnFixedGbp === "number" ? { returnFixedGbp: quote.returnFixedGbp } : {}),
+    ...(typeof quote.dublinTollsGbp === "number" && quote.dublinTollsGbp > 0 ? { dublinTollsGbp: quote.dublinTollsGbp } : {}),
     source: "website-pricing-engine",
     needsLuggageCapacityConfirmation: needsLuggageCapacityConfirmation(
       passengers,

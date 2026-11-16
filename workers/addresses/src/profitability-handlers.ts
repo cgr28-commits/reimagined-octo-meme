@@ -14,6 +14,7 @@ import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
 import { resolveWorkerTripRouteMetrics } from "./resolve-route-metrics";
 import { buildOwnerProfitabilityReport } from "./profitability";
 import { resolvePositioningChargeGbp } from "./positioning-charge";
+import { resolveDublinTollAllowance } from "../shared/dublin-tolls";
 
 export function isOwnerProfitabilityTestPath(pathname: string): boolean {
   return pathname === "/owner/profitability-test" || pathname === "/api/owner/profitability-test";
@@ -166,8 +167,23 @@ export async function handleOwnerProfitabilityTestRequest(
         : null,
     });
     positioningChargeGbp = positioning.chargeGbp;
+    const isAirport = addressAirport.ok && Boolean(addressAirport.context.airportCode);
     const quote = calculateAuthoritativeWebsiteQuote({
       positioningChargeGbp: positioning.chargeGbp,
+      tollAllowance: isAirport
+        ? undefined
+        : resolveDublinTollAllowance({
+            pickup: Number.isFinite(pickupLat) && Number.isFinite(pickupLng) ? { lat: pickupLat, lng: pickupLng } : null,
+            dropoff: Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng) ? { lat: dropoffLat, lng: dropoffLng } : null,
+            pickupLabel: pickupAddress,
+            dropoffLabel: dropoffAddress,
+            durationMinutes: routeMetrics.durationMinutes,
+            outboundDate: schedule.outboundDate,
+            outboundTime: schedule.outboundTime,
+            returnJourney,
+            returnDate: schedule.returnDate,
+            returnTime: schedule.returnTime,
+          }),
       airportCode: addressAirport.ok ? addressAirport.context.airportCode : null,
       fromAirport: addressAirport.ok ? addressAirport.context.fromAirport : false,
       pickupAddress,

@@ -1,3 +1,4 @@
+import type { OwnerFareBreakdown } from "./owner-fare-breakdown";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import { withRequestDeadline } from "@/lib/request-deadline";
 import {
@@ -72,6 +73,8 @@ export type QuickQuoteCalculateResult =
       emptyRunNormalAmountGbp?: number;
       /** Empty Run: a cheaper pickup time the same day (estimate; re-quote at that time). */
       emptyRunOffer?: EmptyRunTimeOfferPublic;
+      /** Owner-only itemised fare breakdown (present only for owner-key requests). */
+      ownerFareBreakdown?: OwnerFareBreakdown;
     }
   | {
       ok: false;
@@ -175,7 +178,12 @@ async function calculateServerQuoteOnce(
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ ...journey, quoteProtocol: "optional-terminal-access-v4" }),
+      body: JSON.stringify({
+        ...journey,
+        quoteProtocol: "optional-terminal-access-v4",
+        // Owner-only itemised breakdown; the Worker ignores it without a valid owner key.
+        ...(ownerKey?.trim() ? { includeOwnerFareBreakdown: true } : {}),
+      }),
       cache: "no-store",
       signal,
     },
@@ -246,6 +254,11 @@ async function calculateServerQuoteOnce(
       : {}),
     ...(parseEmptyRunOffer(payload.emptyRunOffer)
       ? { emptyRunOffer: parseEmptyRunOffer(payload.emptyRunOffer) }
+      : {}),
+    ...(payload.ownerFareBreakdown &&
+    typeof payload.ownerFareBreakdown === "object" &&
+    (payload.ownerFareBreakdown as { ownerOnly?: unknown }).ownerOnly === true
+      ? { ownerFareBreakdown: payload.ownerFareBreakdown as OwnerFareBreakdown }
       : {}),
     ...(typeof payload.outboundOneWayBeforeAccessGbp === "number"
       ? { outboundOneWayBeforeAccessGbp: Number(payload.outboundOneWayBeforeAccessGbp) }

@@ -56,6 +56,7 @@ import {
   resolveWorkerTripRouteMetricsForPayment,
 } from "./resolve-route-metrics";
 import { isPositioningChargeActive, resolvePositioningChargeGbp } from "./positioning-charge";
+import { resolveDublinTollAllowance } from "../shared/dublin-tolls";
 import type { ProfitabilitySettings } from "../../../src/lib/owner-profitability-settings";
 import {
   clearSavedQuoteReminderClaim,
@@ -267,8 +268,24 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     dropoff: paymentRoute?.ok ? paymentRoute.dropoff : null,
   });
 
+  const dublinTolls = isAirportTrip
+    ? undefined
+    : resolveDublinTollAllowance({
+        pickup: paymentRoute?.ok ? paymentRoute.pickup : null,
+        dropoff: paymentRoute?.ok ? paymentRoute.dropoff : null,
+        pickupLabel: journey.pickupLabel,
+        dropoffLabel: journey.dropoffLabel,
+        durationMinutes: routeMetrics?.durationMinutes ?? null,
+        outboundDate: journey.tripDate,
+        outboundTime: journey.tripTime,
+        returnJourney: Boolean(journey.returnJourney),
+        returnDate: journey.returnDate,
+        returnTime: journey.returnTime,
+      });
+
   const quote = calculateAuthoritativeWebsiteQuote({
     positioningChargeGbp: positioning.chargeGbp,
+    tollAllowance: dublinTolls,
     airportCode: isAirportTrip ? airportCode : null,
     fromAirport: Boolean(journey.isFromAirport),
     pickupAddress: journey.pickupLabel,
