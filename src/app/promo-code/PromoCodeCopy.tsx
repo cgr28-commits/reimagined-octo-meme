@@ -21,22 +21,45 @@ export default function PromoCodeCopy() {
     }
   }, [code]);
 
+  function selectCode(): boolean {
+    const el = document.getElementById("promo-code-text");
+    if (!el) return false;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    return true;
+  }
+
+  function showCopied() {
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2500);
+  }
+
   async function copy() {
     setFailed(false);
+    // 1) Copy straight away while the tap still counts (works on iPhone and older browsers).
     try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // Older browsers: select the text so a long-press / Ctrl+C copies it.
-      const el = document.getElementById("promo-code-text");
-      if (el) {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
+      if (selectCode() && document.execCommand("copy")) {
+        window.getSelection()?.removeAllRanges();
+        showCopied();
+        return;
       }
+    } catch {
+      // fall through to the clipboard API
+    }
+    // 2) Modern clipboard API, but never leave the button hanging.
+    try {
+      if (!navigator.clipboard) throw new Error("no clipboard");
+      await Promise.race([
+        navigator.clipboard.writeText(code),
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error("timeout")), 1500)),
+      ]);
+      showCopied();
+    } catch {
+      // 3) Leave the code selected so a long-press / Ctrl+C copies it.
+      selectCode();
       setFailed(true);
     }
   }
