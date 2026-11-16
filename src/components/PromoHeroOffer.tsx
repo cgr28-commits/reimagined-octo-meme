@@ -10,6 +10,8 @@
  * customer is part-way through booking.
  */
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { promoExcludedPath } from "@/components/PromoPopup";
 import { COOKIE_CONSENT_EVENT, readCookieConsent } from "@/lib/cookie-consent";
 import {
   PROMO_OPEN_EVENT,
@@ -21,6 +23,8 @@ import {
 } from "@/lib/promo-api";
 
 export default function PromoHeroOffer() {
+  // Booking pages (e.g. a saved quote at /quote/) never show the offer: the sign-up form is off there too.
+  const excluded = promoExcludedPath(usePathname());
   const [config, setConfig] = useState<PublicPromoConfig | null>(null);
   const [consentDone, setConsentDone] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -33,7 +37,7 @@ export default function PromoHeroOffer() {
   }, []);
 
   useEffect(() => {
-    if (!consentDone) return;
+    if (!consentDone || excluded) return;
     let live = true;
     fetchPromoConfig().then((c) => {
       if (live) setConfig(c);
@@ -41,7 +45,7 @@ export default function PromoHeroOffer() {
     return () => {
       live = false;
     };
-  }, [consentDone]);
+  }, [consentDone, excluded]);
 
   const offerId = config?.campaign?.id;
 
@@ -58,7 +62,7 @@ export default function PromoHeroOffer() {
     };
   }, [config, offerId]);
 
-  if (!config?.enabled || hidden) return null;
+  if (excluded || !config?.enabled || hidden) return null;
   const pct = config.discountPercentLabel || "10%";
   const offer = config.campaign?.name;
 
