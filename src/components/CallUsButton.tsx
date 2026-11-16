@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { SITE } from "@/lib/data";
 
 /** Same telephone button everywhere: site header, booking steps 2 and 3, mobile header. */
@@ -9,7 +12,14 @@ type Props = {
   className?: string;
 };
 
+/** The owner doesn't want the phone number on the homepage; it lives on the Contact Us page instead. */
+export function isHomePath(pathname: string | null | undefined): boolean {
+  return (pathname ?? "").replace(/\/+$/, "") === "";
+}
+
 export default function CallUsButton({ variant = "header", className }: Props) {
+  const pathname = usePathname();
+  if (isHomePath(pathname)) return null;
   return (
     <a
       href={CALL_US_HREF}
