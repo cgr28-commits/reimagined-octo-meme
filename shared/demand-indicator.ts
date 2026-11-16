@@ -28,7 +28,8 @@ export type DemandIndicator = {
 export const SOON_WITHIN_DAYS = 3;
 
 const VERY_HIGH_SEASONS: BookingSeason[] = ["christmas", "christmas-run-up", "between-christmas-new-year", "new-year"];
-const HIGH_SEASONS: BookingSeason[] = ["easter", "bank-holiday", "summer"];
+// Early December (1–13 Dec) shows "High" (owner, 16 Nov 2026).
+const HIGH_SEASONS: BookingSeason[] = ["december", "easter", "bank-holiday", "summer"];
 
 function londonToday(now: Date): string {
   return now.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
