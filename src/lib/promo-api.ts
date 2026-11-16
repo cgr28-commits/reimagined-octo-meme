@@ -148,7 +148,12 @@ export function rememberPromoCodeFromUrl(): string {
   }
 }
 
-type PopupState = { dismissedAt?: number; signedUpAt?: number };
+type PopupState = {
+  dismissedAt?: number;
+  signedUpAt?: number;
+  /** Per scheduled offer (e.g. Black Friday): closing or signing up for one offer is separate. */
+  offers?: Record<string, { dismissedAt?: number; signedUpAt?: number }>;
+};
 
 function readPopupState(): PopupState {
   try {
@@ -167,21 +172,39 @@ function writePopupState(next: PopupState): void {
   }
 }
 
-/** Never after a sign-up on this browser; not for 30 days after it was closed. */
-export function promoPopupAllowed(now = Date.now()): boolean {
+/**
+ * Never after a sign-up on this browser; not for 30 days after it was closed. A scheduled offer
+ * (Black Friday) is shown once more even to people who closed or used the everyday one, and
+ * then follows the same rules for that offer.
+ */
+export function promoPopupAllowed(now = Date.now(), offerId?: string): boolean {
   if (typeof window === "undefined") return false;
   const state = readPopupState();
-  if (state.signedUpAt) return false;
-  if (state.dismissedAt && now - state.dismissedAt < PROMO_POPUP_DISMISS_DAYS * 86_400_000) return false;
+  const entry = offerId ? state.offers?.[offerId] ?? {} : state;
+  if (entry.signedUpAt) return false;
+  if (entry.dismissedAt && now - entry.dismissedAt < PROMO_POPUP_DISMISS_DAYS * 86_400_000) return false;
   return true;
 }
 
-export function markPromoPopupDismissed(now = Date.now()): void {
-  writePopupState({ ...readPopupState(), dismissedAt: now });
+function markOffer(state: PopupState, offerId: string, patch: { dismissedAt?: number; signedUpAt?: number }): PopupState {
+  return { ...state, offers: { ...(state.offers ?? {}), [offerId]: { ...(state.offers?.[offerId] ?? {}), ...patch } } };
 }
 
-export function markPromoSignedUp(now = Date.now()): void {
-  writePopupState({ ...readPopupState(), signedUpAt: now });
+export function markPromoPopupDismissed(now = Date.now(), offerId?: string): void {
+  const state = readPopupState();
+  writePopupState(offerId ? markOffer(state, offerId, { dismissedAt: now }) : { ...state, dismissedAt: now });
+}
+
+/** Has this browser already asked for a code (for this offer, when one is running)? */
+export function promoAlreadySignedUp(offerId?: string): boolean {
+  const state = readPopupState();
+  return Boolean(offerId ? state.offers?.[offerId]?.signedUpAt : state.signedUpAt);
+}
+
+export function markPromoSignedUp(now = Date.now(), offerId?: string): void {
+  const state = readPopupState();
+  // Asking during an offer also counts as the everyday sign-up.
+  writePopupState(offerId ? { ...markOffer(state, offerId, { signedUpAt: now }), signedUpAt: now } : { ...state, signedUpAt: now });
   try {
     window.dispatchEvent(new CustomEvent(PROMO_SIGNED_UP_EVENT));
   } catch {

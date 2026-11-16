@@ -16,8 +16,11 @@ import {
   normalizePromoEmail,
   promoCodesCsv,
   promoDisplayStatus,
+  activePromoCampaign,
   promoBlackoutFor,
   promoBlackoutMessage,
+  promoIssueRate,
+  publicPromoConfig,
   promoMeetsMinimum,
   validatePromoSettingsInput,
 } from "../shared/promo-code";
@@ -146,6 +149,54 @@ async function main() {
     assert.ok(one.ok);
     assert.deepEqual(one.ok && one.settings.blackoutDates, [{ from: "2027-07-12", to: "2027-07-12", label: "Twelfth" }]);
     assert.deepEqual(validatePromoSettingsInput({ blackoutDates: [] }).ok && true, true, "owner can remove all dates");
+  });
+
+  await check("Black Friday: 15% from Fri 27 Nov 00:00 until Mon 30 Nov 23:59 UK, then back to 10%", () => {
+    const s = DEFAULT_PROMO_SETTINGS;
+    assert.equal(promoIssueRate(s, new Date("2026-11-26T23:59:59Z")), 0.1);
+    assert.equal(promoIssueRate(s, new Date("2026-11-27T00:00:00Z")), 0.15);
+    assert.equal(promoIssueRate(s, new Date("2026-11-30T23:59:59Z")), 0.15);
+    assert.equal(promoIssueRate(s, new Date("2026-12-01T00:00:00Z")), 0.1);
+    const cfg = publicPromoConfig(s, new Date("2026-11-28T12:00:00Z"));
+    assert.equal(cfg.discountPercentLabel, "15%");
+    assert.equal(cfg.campaign?.name, "Black Friday");
+    assert.equal(publicPromoConfig(s, new Date("2026-12-02T12:00:00Z")).campaign, undefined);
+    assert.equal(activePromoCampaign({ ...s, enabled: false }, new Date("2026-11-28T12:00:00Z")), null, "promotion off = no offer");
+    assert.equal(validatePromoSettingsInput({ campaign: { name: "BF", discountPercent: 15, startsAt: "2026-11-30T00:00:00Z", endsAt: "2026-11-27T00:00:00Z" } }).ok, false);
+    assert.equal(validatePromoSettingsInput({ campaign: { name: "BF", discountPercent: 45, startsAt: "2026-11-27T00:00:00Z", endsAt: "2026-11-30T00:00:00Z" } }).ok, false);
+    const ok = validatePromoSettingsInput({ campaign: { name: "Black Friday", discountPercent: 15, startsAt: "2026-11-27T00:00:00Z", endsAt: "2026-12-01T00:00:00Z" } });
+    assert.ok(ok.ok && ok.settings.campaign?.discountRate === 0.15);
+    assert.deepEqual(validatePromoSettingsInput({ campaign: null }).ok && true, true, "owner can remove the offer");
+  });
+
+  await check("Black Friday codes: issued at 15%, unused 10% codes raised on request, used/in-checkout codes untouched", async () => {
+    const { db, sqlite } = freshDb();
+    const bf = new Date("2026-11-28T10:00:00Z");
+    const h1 = await promoEmailHash("new@bf.com");
+    const fresh = await issueOrResendPromoCode(db, { email: "new@bf.com", emailHash: h1, settings, now: bf, source: "popup", marketingOptIn: false });
+    assert.equal(fresh.kind === "issued" && fresh.discountRate, 0.15);
+    assert.equal(fresh.kind === "issued" && fresh.expiresAt, "2026-12-28T10:00:00.000Z", "normal 30-day validity");
+    const h2 = await promoEmailHash("early@bf.com");
+    const early = await issueOrResendPromoCode(db, { email: "early@bf.com", emailHash: h2, settings, now: new Date("2026-11-20T10:00:00Z"), source: "popup", marketingOptIn: false });
+    assert.equal(early.kind === "issued" && early.discountRate, 0.1);
+    sqlite.prepare("UPDATE promo_codes SET email_sent_at = ?, email_send_count = 1").run("2026-11-20T10:00:00Z");
+    const upgraded = await issueOrResendPromoCode(db, { email: "early@bf.com", emailHash: h2, settings, now: bf, source: "popup", marketingOptIn: false });
+    assert.equal(upgraded.kind, "resend");
+    assert.equal(upgraded.kind === "resend" && upgraded.discountRate, 0.15);
+    assert.equal("code" in upgraded && upgraded.code, "code" in early && early.code, "same code, now 15%");
+    // After Black Friday the 15% code keeps 15%; a new customer gets 10%.
+    const after = await checkPromoCodeForBooking(db, { code: "code" in early ? early.code : "", bookingEmail: "early@bf.com", now: new Date("2026-12-05T10:00:00Z") });
+    assert.equal(after.ok && after.terms.discountRate, 0.15);
+    const h3 = await promoEmailHash("later@bf.com");
+    const later = await issueOrResendPromoCode(db, { email: "later@bf.com", emailHash: h3, settings, now: new Date("2026-12-05T10:00:00Z"), source: "popup", marketingOptIn: false });
+    assert.equal(later.kind === "issued" && later.discountRate, 0.1);
+    // A code part-way through a checkout is not changed.
+    const h4 = await promoEmailHash("busy@bf.com");
+    const busy = await issueOrResendPromoCode(db, { email: "busy@bf.com", emailHash: h4, settings, now: new Date("2026-11-20T10:00:00Z"), source: "popup", marketingOptIn: false });
+    const code4 = "code" in busy ? busy.code : "";
+    await reservePromoCode(db, { code: code4, emailHash: h4, key: "cs_x", until: new Date("2026-11-29T10:00:00Z"), now: bf });
+    await issueOrResendPromoCode(db, { email: "busy@bf.com", emailHash: h4, settings, now: bf, source: "popup", marketingOptIn: false });
+    assert.equal((sqlite.prepare("SELECT discount_rate AS r FROM promo_codes WHERE code = ?").get(code4) as { r: number }).r, 0.1);
   });
 
   await check("£100 minimum is compared in pence", () => {
@@ -658,6 +709,13 @@ async function main() {
     globalThis.fetch = originalFetch;
     setPromoClockForTests(null);
   }
+
+  await check("Black Friday email wording", () => {
+    const email = buildPromoCodeEmail({ code: "MATNI-AAAA-BBBB", expiresAt: "2026-12-28T10:00:00Z", discountRate: 0.15, minimumVehicleFareGbp: 100, validityDays: 30, offerName: "Black Friday" });
+    assert.equal(email.subject, "Your Black Friday 15% Airport Transfer Discount");
+    assert.ok(email.text.includes("Your exclusive Black Friday 15% discount code is:"));
+    assert.ok(email.text.includes("15% off your vehicle fare"));
+  });
 
   await check("email copy: subject, business sign-off only, validity reflects settings", () => {
     const email = buildPromoCodeEmail({ code: "MATNI-AAAA-BBBB", expiresAt: days(14).toISOString(), discountRate: 0.1, minimumVehicleFareGbp: 100, validityDays: 14 });

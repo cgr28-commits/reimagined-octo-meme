@@ -6,31 +6,23 @@
  */
 import { useEffect, useState } from "react";
 import PromoSignupForm from "@/components/PromoSignupForm";
-import { PROMO_POPUP_STATE_KEY, PROMO_SIGNED_UP_EVENT, type PublicPromoConfig } from "@/lib/promo-api";
-
-function alreadySignedUp(): boolean {
-  try {
-    const raw = window.localStorage.getItem(PROMO_POPUP_STATE_KEY);
-    return Boolean(raw && (JSON.parse(raw) as { signedUpAt?: number }).signedUpAt);
-  } catch {
-    return false;
-  }
-}
+import { PROMO_SIGNED_UP_EVENT, promoAlreadySignedUp, type PublicPromoConfig } from "@/lib/promo-api";
 
 export default function PromoQuoteBanner({ config, className = "" }: { config: PublicPromoConfig; className?: string }) {
   const [open, setOpen] = useState(false);
   const [signedUp, setSignedUp] = useState(false);
 
   useEffect(() => {
-    setSignedUp(alreadySignedUp());
+    setSignedUp(promoAlreadySignedUp(config.campaign?.id));
     const onSigned = () => setSignedUp(true);
     window.addEventListener(PROMO_SIGNED_UP_EVENT, onSigned);
     return () => window.removeEventListener(PROMO_SIGNED_UP_EVENT, onSigned);
-  }, []);
+  }, [config.campaign?.id]);
 
   if (!config.enabled) return null;
   const pct = config.discountPercentLabel || "10%";
   const minimum = `£${Math.round(config.minimumVehicleFareGbp)}`;
+  const offer = config.campaign?.name;
 
   return (
     <aside
@@ -46,8 +38,10 @@ export default function PromoQuoteBanner({ config, className = "" }: { config: P
       ) : !open ? (
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className="min-w-0 flex-1 text-sm leading-snug">
-            <span className="mr-1.5 inline-block rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-[#071c38]">{pct} OFF</span>
-            <span className="font-semibold">Get {pct} off your vehicle fare</span>
+            <span className="mr-1.5 inline-block rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-[#071c38]">
+              {offer ? `${offer.toUpperCase()} ${pct} OFF` : `${pct} OFF`}
+            </span>
+            <span className="font-semibold">{offer ? `${offer}: ` : ""}Get {pct} off your vehicle fare</span>
             <span className="text-[#071c38]/70"> with an email code (fares of {minimum}+).</span>
           </p>
           <button
@@ -62,7 +56,7 @@ export default function PromoQuoteBanner({ config, className = "" }: { config: P
       ) : (
         <div>
           <div className="mb-2 flex items-start justify-between gap-3">
-            <p className="text-sm font-bold">Get your {pct} discount code</p>
+            <p className="text-sm font-bold">Get your {offer ? `${offer} ` : ""}{pct} discount code</p>
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -77,6 +71,7 @@ export default function PromoQuoteBanner({ config, className = "" }: { config: P
             tone="light"
             validityDays={config.validityDays}
             percentLabel={pct}
+            offerId={config.campaign?.id}
             autoFocus
             onDone={() => setSignedUp(true)}
           />

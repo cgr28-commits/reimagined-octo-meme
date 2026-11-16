@@ -110,7 +110,8 @@ export default function PromoPopup() {
     };
   }, [consentDone, excluded]);
 
-  const eligible = Boolean(config?.enabled) && consentDone && !excluded && promoPopupAllowedSafe();
+  const offerId = config?.campaign?.id;
+  const eligible = Boolean(config?.enabled) && consentDone && !excluded && promoPopupAllowedSafe(offerId);
 
   const open = useCallback((next: Mode) => {
     if (shownRef.current && next === "dialog") return;
@@ -123,7 +124,7 @@ export default function PromoPopup() {
   useEffect(() => {
     if (!eligible || desktop !== true || !config?.popupEnabled) return;
     const tryOpen = () => {
-      if (shownRef.current || !promoPopupAllowed() || bookingInProgress() || document.hidden) return;
+      if (shownRef.current || !promoPopupAllowed(Date.now(), offerId) || bookingInProgress() || document.hidden) return;
       open("dialog");
     };
     const timer = window.setTimeout(tryOpen, Math.max(5, config.popupDelaySeconds) * 1000);
@@ -135,7 +136,7 @@ export default function PromoPopup() {
       window.clearTimeout(timer);
       document.removeEventListener("mouseout", onLeave);
     };
-  }, [eligible, desktop, config, open]);
+  }, [eligible, desktop, config, open, offerId]);
 
   // Phones / tablets: a small banner, never an automatic overlay.
   useEffect(() => {
@@ -169,11 +170,11 @@ export default function PromoPopup() {
 
   const close = useCallback(
     (remember: boolean) => {
-      if (remember && !signedUp) markPromoPopupDismissed();
+      if (remember && !signedUp) markPromoPopupDismissed(Date.now(), offerId);
       setMode("none");
       window.setTimeout(() => restoreFocus.current?.focus?.(), 0);
     },
-    [signedUp],
+    [signedUp, offerId],
   );
 
   // Dialog / sheet: Escape closes, Tab stays inside.
@@ -206,8 +207,14 @@ export default function PromoPopup() {
 
   if (!mounted || !config?.enabled || mode === "none") return null;
   const percent = config.discountPercentLabel || "10%";
-  const headline = percent === "10%" ? PROMO_POPUP_HEADLINE : `GET ${percent} OFF YOUR AIRPORT TRANSFER`;
-  const description = `Enter your email address and we’ll send you an exclusive ${percent} discount code, valid for ${config.validityDays} days.`;
+  const offer = config.campaign;
+  const headline = offer
+    ? `${offer.name.toUpperCase()}: GET ${percent} OFF YOUR AIRPORT TRANSFER`
+    : percent === "10%"
+      ? PROMO_POPUP_HEADLINE
+      : `GET ${percent} OFF YOUR AIRPORT TRANSFER`;
+  const description = `Enter your email address and we’ll send you an exclusive ${offer ? `${offer.name} ` : ""}${percent} discount code, valid for ${config.validityDays} days.`;
+  const offerEnds = offer ? formatOfferEnd(offer.endsAt) : "";
 
   if (mode === "banner") {
     return createPortal(
@@ -226,7 +233,8 @@ export default function PromoPopup() {
           >
             <span aria-hidden className="rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-navy">{percent}</span>
             <span>
-              Get {percent} off your transfer <span className="text-emerald underline underline-offset-2">Get my code</span>
+              {offer ? `${offer.name}: ` : ""}Get {percent} off your transfer{" "}
+              <span className="text-emerald underline underline-offset-2">Get my code</span>
             </span>
           </button>
           <button
@@ -274,7 +282,9 @@ export default function PromoPopup() {
           ×
         </button>
         <div className="px-6 pb-6 pt-7 sm:px-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald">My Airport Taxi NI</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald">
+            {offer ? `${offer.name} · ends ${offerEnds}` : "My Airport Taxi NI"}
+          </p>
           <h2 id="promo-dialog-title" className="mt-2 pr-10 text-[1.6rem] font-extrabold leading-[1.15] tracking-tight">
             {headline}
           </h2>
@@ -286,6 +296,7 @@ export default function PromoPopup() {
               source={isSheet ? "mobile-banner" : "popup"}
               validityDays={config.validityDays}
               percentLabel={percent}
+              offerId={offerId}
               autoFocus={!isSheet}
               onDone={() => setSignedUp(true)}
             />
@@ -297,10 +308,18 @@ export default function PromoPopup() {
   );
 }
 
-function promoPopupAllowedSafe(): boolean {
+function promoPopupAllowedSafe(offerId?: string): boolean {
   try {
-    return promoPopupAllowed();
+    return promoPopupAllowed(Date.now(), offerId);
   } catch {
     return false;
   }
+}
+
+/** "Mon 30 Nov, 11:59pm" — the last minute of the offer, UK time. */
+function formatOfferEnd(endsAt: string): string {
+  const last = new Date(Date.parse(endsAt) - 60_000);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" }).formatToParts(last);
+  const p = (t: string) => parts.find((x) => x.type === t)?.value ?? "";
+  return `${p("weekday")} ${p("day")} ${p("month")}`;
 }

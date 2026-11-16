@@ -13,6 +13,7 @@ import {
   normalizePromoEmail,
   normalizePromoSettings,
   promoDisplayStatus,
+  promoIssueRate,
   promoExpiresAt,
   promoMeetsMinimum,
   type PromoCodeRow,
@@ -224,7 +225,8 @@ export async function issueOrResendPromoCode(
   if (rows.some((r) => r.status === "redeemed")) return { kind: "already_used" };
   if (rows.some((r) => r.status === "deactivated")) return { kind: "blocked" };
   const live = rows.find((r) => r.status === "active" || r.status === "reserved");
-  if (live) return resendDecision(live, input.now, input.marketingOptIn, db);
+  const issueRate = promoIssueRate(input.settings, input.now);
+  if (live) return resendDecision(await upgradeForOffer(db, live, issueRate), input.now, input.marketingOptIn, db);
 
   const generate = input.generate ?? (() => generatePromoCode());
   const issuedAt = input.now.toISOString();
@@ -241,7 +243,7 @@ export async function issueOrResendPromoCode(
           code,
           email,
           input.emailHash,
-          input.settings.discountRate,
+          issueRate,
           pence(input.settings.minimumVehicleFareGbp),
           issuedAt,
           expiresAt,
@@ -254,7 +256,7 @@ export async function issueOrResendPromoCode(
         code,
         issuedAt,
         expiresAt,
-        discountRate: input.settings.discountRate,
+        discountRate: issueRate,
         minimumVehicleFareGbp: input.settings.minimumVehicleFareGbp,
       };
     } catch (error) {
@@ -265,13 +267,27 @@ export async function issueOrResendPromoCode(
           .prepare("SELECT * FROM promo_codes WHERE email_hash = ? AND status IN ('active','reserved') LIMIT 1")
           .bind(input.emailHash)
           .first<CodeRecord>();
-        if (winner) return resendDecision(winner, input.now, input.marketingOptIn, db);
+        if (winner) return resendDecision(await upgradeForOffer(db, winner, issueRate), input.now, input.marketingOptIn, db);
         continue; // code collision (vanishingly rare): try another code
       }
       throw error;
     }
   }
   throw new Error("Could not allocate a unique promo code");
+}
+
+/**
+ * During an offer (e.g. Black Friday) a customer asking again with an unused, lower-value code
+ * gets that code raised to the offer percentage (and it is emailed again). Never lowers a code,
+ * never touches a code that is part-way through a checkout.
+ */
+async function upgradeForOffer(db: PromoDb, live: CodeRecord, rate: number): Promise<CodeRecord> {
+  if (live.status !== "active" || !(rate > Number(live.discount_rate))) return live;
+  const result = await db
+    .prepare("UPDATE promo_codes SET discount_rate = ?, email_sent_at = NULL WHERE code = ? AND status = 'active' AND discount_rate < ?")
+    .bind(rate, live.code, rate)
+    .run();
+  return changes(result) === 1 ? { ...live, discount_rate: rate, email_sent_at: null } : live;
 }
 
 async function resendDecision(live: CodeRecord, now: Date, marketingOptIn: boolean, db: PromoDb): Promise<IssueResult> {

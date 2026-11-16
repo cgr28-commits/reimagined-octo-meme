@@ -21,6 +21,7 @@ import {
   PROMO_REQUEST_SEND_FAILED_MESSAGE,
   normalizePromoCode,
   normalizePromoEmail,
+  activePromoCampaign,
   promoBlackoutFor,
   promoBlackoutMessage,
   promoCodesCsv,
@@ -150,7 +151,7 @@ async function handleConfig(env: PromoHandlerEnv, origin: string | null): Promis
   if (!db) return json({ ok: true, config: { enabled: false } }, 200, origin);
   try {
     const settings = await getPromoSettings(db);
-    return json({ ok: true, config: publicPromoConfig(settings) }, 200, origin, { "Cache-Control": "public, max-age=60" });
+    return json({ ok: true, config: publicPromoConfig(settings, clock()) }, 200, origin, { "Cache-Control": "public, max-age=60" });
   } catch {
     // Table not created yet: the promotion simply does not show.
     return json({ ok: true, config: { enabled: false } }, 200, origin);
@@ -221,8 +222,10 @@ async function handleCodeRequest(request: Request, env: PromoHandlerEnv, origin:
     }
     if (result.kind === "issued" || result.kind === "resend") {
       const validityDays = Math.round((Date.parse(result.expiresAt) - Date.parse(result.issuedAt)) / 86_400_000);
+      const offer = activePromoCampaign(settings, now);
       const message = buildPromoCodeEmail({
         ...result,
+        ...(offer && result.discountRate >= offer.discountRate ? { offerName: offer.name } : {}),
         validityDays,
         siteUrl: site,
         hasExcludedDates: settings.blackoutDates.length > 0,

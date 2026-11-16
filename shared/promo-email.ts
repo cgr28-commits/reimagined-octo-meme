@@ -41,6 +41,8 @@ export function buildPromoCodeEmail(input: {
   validityDays?: number;
   /** Owner has excluded some travel dates (shown in the terms line). */
   hasExcludedDates?: boolean;
+  /** Scheduled offer the code was issued under, e.g. "Black Friday". */
+  offerName?: string;
   siteUrl?: string;
 }): { subject: string; text: string; html: string } {
   const days = Math.max(1, Math.round(Number(input.validityDays) || 30));
@@ -49,12 +51,14 @@ export function buildPromoCodeEmail(input: {
   const expiry = formatPromoExpiryDate(input.expiresAt);
   const bookUrl = promoBookingUrl(site, input.code);
   const minimum = pounds(Math.round(input.minimumVehicleFareGbp * 100) / 100);
-  const subject = `Your Exclusive ${pct} Airport Transfer Discount`;
+  const offer = input.offerName?.trim();
+  const subject = offer ? `Your ${offer} ${pct} Airport Transfer Discount` : `Your Exclusive ${pct} Airport Transfer Discount`;
+  const codeLine = offer ? `Your exclusive ${offer} ${pct} discount code is:` : `Your exclusive ${pct} discount code is:`;
   const terms = `Airport charges are excluded. Minimum eligible vehicle fare ${minimum}. One redemption per customer.${input.hasExcludedDates ? " Some peak travel dates are excluded; you'll see this when you enter the code." : ""} The code is linked to this email address, so please book using it.`;
 
   const text =
     `Thank you for choosing ${BUSINESS_NAME}.\n\n` +
-    `Your exclusive ${pct} discount code is:\n\n` +
+    `${codeLine}\n\n` +
     `${input.code}\n\n` +
     `Your code is valid for ${days} days from the date of issue, until ${expiry}.\n\n` +
     `Enter your code when booking your airport transfer online to receive ${pct} off your vehicle fare.\n\n` +
@@ -71,7 +75,7 @@ export function buildPromoCodeEmail(input: {
 <tr><td bgcolor="${BRAND_NAVY}" style="background:${BRAND_NAVY};padding:22px 24px;text-align:center;">${businessEmailLogoHtml()}</td></tr>
 <tr><td style="padding:28px 24px 8px;font-size:15px;line-height:1.6;color:${BRAND_NAVY};">
 <p style="margin:0 0 14px;">Thank you for choosing ${esc(BUSINESS_NAME)}.</p>
-<p style="margin:0 0 10px;">Your exclusive ${esc(pct)} discount code is:</p>
+<p style="margin:0 0 10px;">${esc(codeLine)}</p>
 </td></tr>
 <tr><td align="center" style="padding:4px 24px 6px;">
 <table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed ${BRAND_EMERALD};border-radius:12px;background:#f2fbf4;"><tr>
