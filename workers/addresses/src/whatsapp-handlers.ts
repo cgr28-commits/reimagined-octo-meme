@@ -742,6 +742,10 @@ async function customerHasUpcomingBooking(store: KVNamespace, phone: string): Pr
 export const WHATSAPP_QUOTE_FORM_INTRO =
   "Tap below to fill in your journey: pick the addresses from a list, then the date and time. Your fixed price will come straight back here.";
 
+/** Sent with the quote form when the chat can't pin down an address after one list. */
+export const WHATSAPP_ADDRESS_STRUGGLE_FORM_INTRO =
+  "Let's get that address exactly right. Tap below to fill in your journey and search for the address from a list. Your price will come straight back here.";
+
 /**
  * Send the quote form (a WhatsApp Flow) when it's switched on for this customer. Its
  * session remembers the number and what the chat already knows. False when not sent
@@ -1029,6 +1033,11 @@ async function handleInboundMessage(
   }
   let conversation = decision.conversation;
   clearStaleWhatsAppPlaces(conversation, existing);
+  if (addressPick && conversation.addressListsShown?.[addressPick.field]) {
+    // Picked from the list: a later change to this address starts with a list again.
+    const { [addressPick.field]: _picked, ...restLists } = conversation.addressListsShown;
+    conversation.addressListsShown = restLists;
+  }
 
   // Claude decided the form is the easier way (e.g. the chat is going round in circles).
   if (decision.sendQuoteForm) {
@@ -1076,6 +1085,31 @@ async function handleInboundMessage(
         return;
       }
       if (check && check !== "not_found") {
+        const listsShown = conversation.addressListsShown?.[field] ?? 0;
+        if (listsShown >= 1) {
+          // A second "Which is your address?" list for the same address: the customer has
+          // already typed instead of picking once, so send the quote form rather than go
+          // round again (16 Nov 2026).
+          conversation.addressChecked = [...(conversation.addressChecked ?? []), typed];
+          conversation.stage = "collecting";
+          conversation.awaiting = field;
+          await store.put(conversationKey(phone), JSON.stringify(conversation), {
+            expirationTtl: CONVERSATION_TTL_SECONDS,
+          });
+          if (
+            await sendWhatsAppQuoteForm(
+              env,
+              store,
+              phone,
+              conversation,
+              WHATSAPP_ADDRESS_STRUGGLE_FORM_INTRO,
+            )
+          ) {
+            logEvent("whatsapp_address_form_instead_of_list", phone, { field });
+            return;
+          }
+        }
+        conversation.addressListsShown = { ...conversation.addressListsShown, [field]: listsShown + 1 };
         conversation.addressCheck = check;
         conversation.stage = "collecting";
         await store.put(conversationKey(phone), JSON.stringify(conversation), {

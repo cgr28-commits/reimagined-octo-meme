@@ -994,6 +994,33 @@ async function main() {
       assert.doesNotMatch(bodyOf(sentMsgs.at(-1)!), /right pickup address/);
       assert.equal(convo("447700900404").addressCheck, undefined);
 
+      // Typing the address again instead of picking from the list (Cathrina, 16 Nov 2026):
+      // a second list for the same address sends the quote form instead.
+      const formEnv = { ...aenv, WHATSAPP_QUOTE_FORM: "all", WHATSAPP_QUOTE_FORM_ID: "1234567890" };
+      await processWhatsAppWebhook(said("f1", "From 12 Main Street to Dublin Airport tomorrow at 9am", "447700900406"), formEnv);
+      assert.equal(sentMsgs.at(-1)!.interactive?.type, "list");
+      assert.equal(convo("447700900406").addressListsShown?.pickupAddress, 1);
+      await processWhatsAppWebhook(said("f2", "12 Main St Lisburn", "447700900406"), formEnv);
+      const formMsg = sentMsgs.at(-1)!;
+      assert.equal(formMsg.interactive?.type, "flow", "quote form sent instead of a second list");
+      assert.match(bodyOf(formMsg), /search for the address from a list/);
+      c = convo("447700900406");
+      assert.equal(c.addressCheck, undefined);
+      assert.equal(c.draft.airportCode, "DUB", "rest of the journey kept for the form");
+
+      // Form switched off: the list is shown again rather than nothing.
+      await processWhatsAppWebhook(said("g1", "From 12 Main Street to Dublin Airport tomorrow at 9am", "447700900407"), aenv);
+      await processWhatsAppWebhook(said("g2", "12 Main St Lisburn", "447700900407"), aenv);
+      assert.equal(sentMsgs.at(-1)!.interactive?.type, "list");
+
+      // Picking from the first list resets it: no form for that.
+      await processWhatsAppWebhook(said("h1", "From 12 Main Street to Dublin Airport tomorrow at 9am", "447700900408"), formEnv);
+      await processWhatsAppWebhook(tapped("h2", "txt:address 1", "447700900408"), formEnv);
+      c = convo("447700900408");
+      assert.equal(c.draft.pickupPlaceId, "m1");
+      assert.equal(c.addressListsShown?.pickupAddress, undefined);
+      assert.notEqual(sentMsgs.at(-1)!.interactive?.type, "flow");
+
       // Switch off (default): no lookups at all.
       const offBefore = lookups;
       await processWhatsAppWebhook(said("e1", journey, "447700900405"), { ...aenv, WHATSAPP_ADDRESS_CHECK: undefined });

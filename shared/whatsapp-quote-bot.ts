@@ -84,6 +84,8 @@ export type WhatsAppConversation = {
   addressCheck?: WhatsAppAddressCheck;
   /** Typed addresses already looked up (no match, declined or moved on) — never asked twice. */
   addressChecked?: string[];
+  /** How many "Which is your address?" lists were sent per field — a second one sends the quote form instead. */
+  addressListsShown?: Partial<Record<WhatsAppAddressField, number>>;
   /**
    * False while no evening, night or weekend surcharge is on: the date and time cannot change
    * the price, so the chat does not ask for them and the booking link collects them.
