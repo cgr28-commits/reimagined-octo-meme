@@ -1140,7 +1140,7 @@ export function whatsAppQuoteLegs(draft: WhatsAppQuoteDraft): Array<{ leg: "both
     whatsAppNeedsSevenSeater(draft.passengers, draft.suitcases) ===
     whatsAppNeedsSevenSeater(backPassengers, backSuitcases)
   ) {
-    // Same vehicle both ways: one return quote sized for the bigger group (keeps the return discount).
+    // Same vehicle both ways: one return quote sized for the bigger group.
     return [
       {
         leg: "both",
