@@ -108,6 +108,14 @@ id = "53fa3cc2bd46436f90ae19200e599ea1"
 [[kv_namespaces]]
 binding = "BOOKING_COUNTER"
 id = "869e2c2e02004d4a88c9cfbf563f1d6a"
+
+# Driver portal (Stage 1 accounts + Stage 2 offers, bids, jobs, alerts). Live since 16 Nov 2026
+# (owner approved). Migrations 0001–0004 applied; new ones: wrangler d1 migrations apply matni-drivers --remote
+[[d1_databases]]
+binding = "DRIVER_DB"
+database_name = "matni-drivers"
+database_id = "e3fa0869-2e0a-4b22-acd7-cfc541d386e2"
+migrations_dir = "migrations/driver-db"
 #
 # Live driver tracking (paid bookings). setup-worker.mjs creates TRACKING_STORE KV and
 # sets DRIVER_ACCESS_KEY secret for the /driver/ dashboard.

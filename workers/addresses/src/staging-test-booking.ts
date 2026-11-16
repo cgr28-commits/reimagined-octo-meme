@@ -19,7 +19,12 @@ export async function handleStagingTestBooking(
   const url = new URL(request.url);
   if (url.pathname !== "/staging/test-booking") return null;
   const json = (body: unknown, status: number) =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...Object.fromEntries(new Headers(cors)) } });
+    {
+      const headers = new Headers(cors);
+      headers.set("content-type", "application/json");
+      headers.set("cache-control", "no-store");
+      return new Response(JSON.stringify(body), { status, headers });
+    };
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   if (request.method !== "POST") return json({ ok: false, error: "Not found." }, 404);
   if (!ownerOk) return json({ ok: false, error: "Owner sign-in required." }, 401);

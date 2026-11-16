@@ -68,7 +68,10 @@ Not in Stage 1: jobs, offers, assignment, earnings, payments, notifications, doc
 (needs a private R2 bucket — to be approved), httpOnly cookie sessions (need a same-site domain; Stage 1
 uses an individual session token header, revoked on suspend/remove).
 
-## Stage 2 scope (built on staging 12 Nov 2026 — not live)
+## Stage 2 scope (built on staging 12 Nov 2026 — live 16 Nov 2026, owner approved)
+
+Live: D1 `matni-drivers` (`e3fa0869-2e0a-4b22-acd7-cfc541d386e2`) bound as `DRIVER_DB` on the live Worker,
+migrations 0001–0004 applied; maintenance runs on the existing cron.
 
 Routes `/owner/driver-jobs*` and `/driver-portal/jobs*` (`workers/addresses/src/driver-jobs.ts`), tables in
 `migrations/driver-db/0004_stage2_offers_jobs.sql`. All answer 404 without a `DRIVER_DB` binding.
