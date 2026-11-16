@@ -45,7 +45,7 @@ type Props = {
   };
   /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
   heroBackground?: { baseName: string; widths: readonly number[] };
-  /** The rotating cards under the quote tool (laptops 1200px+). Default on (homepage). */
+  /** The rotating image cards under the quote tool (laptops 1200px+). Homepage only — off by default. */
   showRotatingCards?: boolean;
   /** Saved-quote summary and Book button, shown above the quote tool at every step. */
   belowIntro?: ReactNode;
@@ -83,7 +83,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = true }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);

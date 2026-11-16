@@ -52,7 +52,7 @@ export default function Home() {
       />
       <Header />
       <main className="overflow-x-clip">
-        <HeroSlideshow homepageQuickPicks />
+        <HeroSlideshow homepageQuickPicks showRotatingCards />
         <Design3QuickLinks />
         <AirportsSection />
         <PopularBelfastTransfers />
