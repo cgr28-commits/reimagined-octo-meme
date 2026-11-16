@@ -164,7 +164,8 @@ export default function PromoPopup() {
   useEffect(() => {
     const onOpen = () => {
       if (!config?.enabled) return;
-      open(desktop ? "dialog" : "sheet", true);
+      // Owner, 16 Nov 2026: the form appears in front of the page on every device (no bottom sheet).
+      open("dialog", true);
     };
     window.addEventListener(PROMO_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(PROMO_OPEN_EVENT, onOpen);
@@ -178,6 +179,16 @@ export default function PromoPopup() {
     },
     [signedUp, offerId],
   );
+
+  // While the form is open the page behind it doesn't scroll.
+  useEffect(() => {
+    if (mode !== "dialog" && mode !== "sheet") return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mode]);
 
   // Dialog / sheet: Escape closes, Tab stays inside.
   useEffect(() => {
@@ -230,7 +241,7 @@ export default function PromoPopup() {
         <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-navy py-2 pl-4 pr-2 text-white shadow-[0_10px_30px_rgba(7,28,56,0.35)] ring-1 ring-white/10">
           <button
             type="button"
-            onClick={() => open("sheet")}
+            onClick={() => open("dialog", true)}
             className="flex min-h-11 flex-1 items-center gap-2 text-left text-sm font-semibold"
           >
             <span aria-hidden className="rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-navy">{percent}</span>
@@ -257,7 +268,7 @@ export default function PromoPopup() {
   return createPortal(
     <div
       data-promo-overlay
-      className={`fixed inset-0 z-[90] flex ${isSheet ? "items-end" : "items-center"} justify-center p-0 sm:p-4`}
+      className={`fixed inset-0 z-[90] flex ${isSheet ? "items-end p-0 sm:p-4" : "items-center p-4"} justify-center`}
       style={{ backgroundColor: "rgba(4, 16, 32, 0.62)" }}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close(true);
@@ -271,7 +282,7 @@ export default function PromoPopup() {
         aria-describedby="promo-dialog-desc"
         data-promo-dialog
         className={`relative w-full overflow-hidden bg-navy text-white shadow-2xl ring-1 ring-white/10 ${
-          isSheet ? "max-h-[92vh] overflow-y-auto rounded-t-3xl pb-[max(20px,env(safe-area-inset-bottom))]" : "max-w-[460px] rounded-3xl"
+          isSheet ? "max-h-[92vh] overflow-y-auto rounded-t-3xl pb-[max(20px,env(safe-area-inset-bottom))]" : "max-h-[90dvh] max-w-[460px] overflow-y-auto rounded-3xl"
         }`}
       >
         <div aria-hidden className="h-1.5 w-full bg-emerald" />
@@ -295,11 +306,11 @@ export default function PromoPopup() {
           </p>
           <div className="mt-5">
             <PromoSignupForm
-              source={isSheet ? "mobile-banner" : "popup"}
+              source={isSheet || desktop === false ? "mobile-banner" : "popup"}
               validityDays={config.validityDays}
               percentLabel={percent}
               offerId={offerId}
-              autoFocus={!isSheet}
+              autoFocus={!isSheet && desktop === true}
               onDone={() => setSignedUp(true)}
             />
           </div>
