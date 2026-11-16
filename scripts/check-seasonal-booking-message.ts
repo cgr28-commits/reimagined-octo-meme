@@ -150,6 +150,11 @@ check("expected demand levels", () => {
   assert.equal(level("2026-12-20"), "very-high");
   assert.equal(level("2026-12-25"), "very-high");
   assert.equal(level("2027-01-02"), "very-high");
+  assert.equal(level("2026-12-01"), "high"); // early December (owner, 16 Nov 2026)
+  assert.equal(level("2026-12-10"), "high");
+  assert.equal(level("2026-12-13"), "high");
+  assert.equal(level("2026-12-14"), "very-high"); // Christmas run-up
+  assert.equal(level("2026-11-30"), "normal");
   assert.equal(level("2027-03-26"), "high"); // Easter
   assert.equal(level("2027-05-03"), "high"); // bank holiday
   assert.equal(level("2027-07-20"), "high"); // summer
