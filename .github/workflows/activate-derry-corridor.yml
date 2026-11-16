@@ -1,0 +1,77 @@
+# Owner go-live 16 Nov 2026: switch ON the Derry corridor fare —
+# Belfast International ↔ Derry £159, Belfast City Airport / Greater Belfast ↔ Derry £169.
+# Changes ONLY derryCorridor in live owner pricing. Refuses to save if anything
+# else would change. Idempotent: no write when already saved.
+
+name: Activate Derry corridor fare
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/activate-derry-corridor.yml"
+
+concurrency:
+  group: owner-pricing-write
+  cancel-in-progress: false
+
+jobs:
+  save-corridor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Save the approved Derry corridor fares only
+        env:
+          OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
+          DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const fail = (message) => { console.error(message); process.exit(1); };
+            const APPROVED = { enabled: true, bfsSaloonFareGbp: 159, belfastSaloonFareGbp: 169 };
+            const key = (process.env.OWNER_ACCESS_KEY || "").trim() || (process.env.DRIVER_ACCESS_KEY || "").trim();
+            if (!key) fail("Owner key is not available");
+            const worker = "https://reimagined-octo-meme.cgr28.workers.dev";
+            const origin = "https://www.myairporttaxini.co.uk";
+            const headers = { Accept: "application/json", "Content-Type": "application/json", Origin: origin, "X-Owner-Key": key };
+            const sorted = (value) => {
+              if (Array.isArray(value)) return value.map(sorted);
+              if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((k) => [k, sorted(value[k])]));
+              return value;
+            };
+            const rest = (settings) => {
+              const copy = structuredClone(settings);
+              delete copy.version;
+              delete copy.updatedAt;
+              delete copy.derryCorridor;
+              return JSON.stringify(sorted(copy));
+            };
+            const same = (a, b) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));
+
+            const currentRes = await fetch(worker + "/owner/pricing", { headers });
+            const current = await currentRes.json().catch(() => ({}));
+            if (!currentRes.ok || !current.settings) fail("Could not read owner pricing " + currentRes.status);
+            const before = current.settings;
+            if (!before.derryCorridor) fail("Refusing to save: the live Worker does not have the Derry corridor setting yet");
+            if (same(before.derryCorridor, APPROVED)) {
+              console.log(JSON.stringify({ status: "DERRY CORRIDOR ALREADY LIVE", version: before.version }));
+              return;
+            }
+            const next = structuredClone(before);
+            next.derryCorridor = { ...APPROVED };
+            if (rest(before) !== rest(next)) fail("Refusing to save: a setting other than the Derry corridor would change");
+
+            const saveRes = await fetch(worker + "/owner/pricing", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ expectedVersion: before.version, settings: next }),
+            });
+            const saved = await saveRes.json().catch(() => ({}));
+            if (!saveRes.ok || !saved.settings) fail("Save failed " + saveRes.status + " " + (saved.error || saved.code || ""));
+            const after = saved.settings;
+            if (!same(after.derryCorridor, APPROVED)) fail("Saved Derry corridor does not match the approved fares");
+            if (rest(before) !== rest(after)) fail("A setting other than the Derry corridor changed on save");
+            console.log("Saved pricing version " + after.version + " (was " + before.version + ")");
+            console.log(JSON.stringify({ status: "DERRY CORRIDOR LIVE", before: before.derryCorridor, after: after.derryCorridor }));
+          })().catch((error) => { console.error(error); process.exit(1); });
+          NODE
