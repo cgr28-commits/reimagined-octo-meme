@@ -56,7 +56,8 @@ export default function GoogleReviewsBadge({
         aria-label={`Rated ${rating} out of 5 on Google from ${count} reviews`}
       >
         {/* Phones (owner, 17 Nov 2026): multicolour Google "G" (Icons8 flat-color-icons, MIT) before the stars,
-            and "5.0 · 19 Google reviews". Hidden by default; mobile-home-mockup.css shows them up to 767px. */}
+            and "5.0 · 19 Google reviews". Hidden by default; mobile-home-mockup.css shows the G up to 1199px
+            (phones and tablets) and the shorter text on phones. */}
         <img data-reviews-google-g src={withBasePath("/images/google-g.svg")} alt="" width={18} height={18} hidden aria-hidden="true" />
         <span data-reviews-stars aria-hidden="true">★★★★★</span>
         <span data-reviews-text-phone hidden aria-hidden="true">
@@ -121,7 +122,9 @@ export default function GoogleReviewsBadge({
       className={`inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm lg:min-h-0 text-white/85 transition-colors hover:border-emerald/40 hover:text-white ${className}`}
       aria-label={`Rated ${rating} out of 5 from ${count} Google reviews — read them on Google`}
     >
-      <span data-reviews-stars className="tracking-tight text-amber-300" aria-hidden="true">
+      {/* Owner, 17 Nov 2026: multicolour Google "G" immediately before the gold stars, on every page that shows this badge. */}
+      <img data-reviews-google-g src={withBasePath("/images/google-g.svg")} alt="" width={16} height={16} className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span data-reviews-stars className="-ml-1 tracking-tight text-amber-300" aria-hidden="true">
         ★★★★★
       </span>
       <span>

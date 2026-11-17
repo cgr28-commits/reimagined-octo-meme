@@ -8,7 +8,7 @@
 @media (min-width: 1200px) {
 @layer base {
   /* Shared palette, homepage only (same values as the phone tokens). */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body {
     --matni-navy: #011930;
     --matni-navy-raised: #072443;
     --matni-navy-deep: #00172d;
@@ -22,14 +22,14 @@
   }
 
   /* ---------- Header: same navy and green as the phone header (layout unchanged) ---------- */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body header[data-site-header] {
     background: linear-gradient(180deg, #03203d 0%, #001b34 100%) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
     background: var(--matni-green-bright) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] a:is([class*="bg-emerald"]) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body header[data-site-header] a:is([class*="bg-emerald"]) {
     background: var(--matni-cta) !important;
     box-shadow: 0 6px 14px -8px rgba(0, 138, 1, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
     color: #ffffff !important;
@@ -88,38 +88,38 @@
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p [data-intro-desktop] { display: inline !important; }
 
   /* ---------- Quote card: bright white, soft shadow, light borders (same size and layout) ---------- */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
     background: var(--matni-card) !important;
     border: 1px solid rgba(255, 255, 255, 0.7) !important;
     box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.75), 0 12px 24px -16px rgba(0, 10, 30, 0.45), inset 0 1px 0 #ffffff !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(div:has(> div > :is(input#pickup, input#dropoff)), [data-schedule-control], select, [data-homepage-quote-scroll] > div:first-child > div) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(div:has(> div > :is(input#pickup, input#dropoff)), [data-schedule-control], select, [data-homepage-quote-scroll] > div:first-child > div) {
     border-color: var(--matni-border) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is([data-gps-location], [data-schedule-control] > svg, label + div svg.lucide, div:has(> div > :is(input#pickup, input#dropoff)) svg) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is([data-gps-location], [data-schedule-control] > svg, label + div svg.lucide, div:has(> div > :is(input#pickup, input#dropoff)) svg) {
     color: var(--matni-green) !important;
   }
   /* Small uppercase labels: darker for contrast (same size and spacing). */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(label, .form-label, [data-quick-picks-label]) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(label, .form-label, [data-quick-picks-label]) {
     color: #071c38 !important;
     opacity: 1 !important;
   }
   /* Airport chips: light borders; pale green once that airport is chosen */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick] {
     border-color: var(--matni-border) !important;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick][data-quick-pick-chosen] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick][data-quick-pick-chosen] {
     background: var(--matni-green-tint) !important;
     border-color: var(--matni-green) !important;
     box-shadow: 0 0 0 1px var(--matni-green) inset !important;
   }
   /* One Way / Return: selected in the approved navy */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] {
     background: linear-gradient(180deg, #072443 0%, #001a31 100%) !important;
   }
   /* Get My Fixed Price: the same green as the phone button */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote button[data-get-fixed-price]:not(:disabled) {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote button[data-get-fixed-price]:not(:disabled) {
     background: var(--matni-cta) !important;
     box-shadow: var(--matni-cta-shadow) !important;
     color: #ffffff !important;
@@ -127,29 +127,29 @@
   }
 
   /* ---------- Trust strip: approved green icons; Google badge with the multicolour G ---------- */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] {
     color: var(--matni-green-bright) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] {
     align-items: center !important;
     gap: 0.5rem !important;
     border: 1px solid rgba(214, 218, 228, 0.6) !important;
     background: rgba(1, 25, 48, 0.62) !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] {
     display: block !important;
     width: 1.2rem;
     height: 1.2rem;
     flex: none;
   }
   /* Order as on mobile: G, gold stars, then "5.0", then the review count. */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] {
     display: inline-flex !important;
     align-items: center !important;
     gap: 0.45rem !important;
   }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] [data-reviews-stars] { order: -1; color: #ffc81e !important; }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] :is([data-reviews-score] strong, [data-reviews-meta], [data-reviews-meta] *) { color: #ffffff !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] [data-reviews-stars] { order: -1; color: #ffc81e !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] :is([data-reviews-score] strong, [data-reviews-meta], [data-reviews-meta] *) { color: #ffffff !important; }
 }
 }
 
@@ -161,10 +161,10 @@
     opacity: 0.75;
   }
   /* Keep the trust strip on one line with the Google G added. */
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { gap: 0.35rem !important; padding-left: 0.7rem !important; padding-right: 0.8rem !important; }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] { width: 1rem; height: 1rem; }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: nowrap !important; font-size: 0.875rem !important; }
-  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li { gap: 0.4rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { gap: 0.35rem !important; padding-left: 0.7rem !important; padding-right: 0.8rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] { width: 1rem; height: 1rem; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: nowrap !important; font-size: 0.875rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li { gap: 0.4rem !important; }
 }
 }
 
@@ -307,5 +307,59 @@
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main[data-customer-standalone][data-brand-green] :is(input[type="checkbox"], input[type="radio"]) {
     accent-color: #2fc30a;
   }
+}
+}
+
+/* "Book with confidence" rating line on desktop: the same Google G, gold stars and live
+   "5.0 · 19 Google reviews" link as on phones (GoogleReviewsBadge variant="confidence"). */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-vehicle-confidence-list] li:has([data-confidence-rating-phone]) > :is(svg[data-vehicle-confidence-star], [data-confidence-rating-text]) { display: none !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-vehicle-confidence-list] [data-confidence-rating-phone] { display: block !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-reviews-confidence] {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    color: #071c38 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-reviews-confidence]:hover { text-decoration: underline !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-reviews-confidence] [data-reviews-google-g] { display: block !important; width: 1.1rem; height: 1.1rem; flex: none; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-reviews-confidence] [data-reviews-stars] { color: #f5b301 !important; letter-spacing: 0.02em; font-size: 0.95rem; line-height: 1; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) #quote#quote#quote [data-reviews-confidence] strong { font-weight: 800; }
+}
+}
+
+/* One brand green on tablets and desktop too (phones already use it): the approved #2FC30A replaces
+   the near-identical #2FBF4A for every existing "emerald" button, icon and border. Error, warning and
+   disabled colours are separate and unchanged; green text links that need contrast keep their darker shade. */
+@media (min-width: 768px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root {
+    --color-emerald: #2fc30a;
+  }
+}
+}
+
+/* Other quote pages (airport, location, route hubs) on desktop: their trust strip sits under a narrower
+   card, so it is set a little tighter to keep the Google badge inside the card width (it already ran
+   past the card edge before the G was added). Same items and wording. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] { column-gap: 0.85rem !important; gap: 0.85rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li { gap: 0.4rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: nowrap !important; font-size: 0.875rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { gap: 0.35rem !important; padding-left: 0.7rem !important; padding-right: 0.8rem !important; flex: none; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] { width: 1rem; height: 1rem; }
+}
+}
+@media (min-width: 1200px) and (max-width: 1299.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] { column-gap: 0.6rem !important; gap: 0.6rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li { gap: 0.3rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { font-size: 0.8rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { font-size: 0.8rem !important; padding-left: 0.55rem !important; padding-right: 0.6rem !important; }
 }
 }
