@@ -55,13 +55,17 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
   if (!message || !demand) return null;
   const showBar = true; // a demand bar on every date (owner, 17 Nov 2026)
   const soon = demand.level === "soon";
-  // Pulsing colour by how busy the DATE is (owner, 17 Nov 2026), not by the percentage:
-  // red = big events / concerts on the journey, and Christmas–New Year; amber = other holidays
-  // (bank holidays, Easter); every other day is green.
+  // Colour = how busy the date is (owner, 17 Nov 2026): green low, amber high, red very high.
+  // Booked % decides it where set (60–79% amber, 80%+ red); otherwise big events / concerts and
+  // Christmas–New Year are red, bank holidays and Easter amber, and every other day green.
   const RED_SEASONS = ["christmas", "christmas-run-up", "between-christmas-new-year", "new-year"];
   const AMBER_SEASONS = ["bank-holiday", "easter"];
-  const tone: "green" | "amber" | "red" =
+  const RANK = { green: 0, amber: 1, red: 2 } as const;
+  const dateTone: "green" | "amber" | "red" =
     demand.event || RED_SEASONS.includes(demand.season) ? "red" : AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
+  const pct = demand.bookedPercent;
+  const pctTone: "green" | "amber" | "red" = pct === null ? "green" : pct >= 80 ? "red" : pct >= 60 ? "amber" : "green";
+  const tone = RANK[pctTone] > RANK[dateTone] ? pctTone : dateTone;
   const veryHigh = tone !== "green";
   const filledSegments =
     demand.bookedPercent !== null ? demand.filledSegments : tone === "red" ? 4 : tone === "amber" ? 3 : 2;
@@ -125,7 +129,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
                   className={`h-1.5 overflow-hidden rounded-full ${index < filledSegments ? "demand-segment-on" : ""}`}
                   style={{
                     background: index < filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee",
-                    animationDelay: `${index * 140}ms`,
+                    animationDelay: `${index * 140}ms, ${900 + index * 140}ms`,
                   }}
                 />
               ))}
