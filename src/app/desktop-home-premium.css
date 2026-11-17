@@ -363,3 +363,30 @@
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { font-size: 0.8rem !important; padding-left: 0.55rem !important; padding-right: 0.6rem !important; }
 }
 }
+
+/*
+ * Hub pages on desktop (1200px+): the quote card starts at the same height as on the homepage on
+ * every hub (owner, 17 Nov 2026). The heading and description sit in a shared area of fixed
+ * minimum height, so a heading or description that wraps onto a second line no longer pushes the
+ * card down. Text, sizes and the homepage itself are unchanged; phones and tablets keep their layout.
+ */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]) #homepage-booking-intro {
+    box-sizing: border-box;
+    min-height: 10.75rem;
+    padding-top: 1.25rem !important;
+  }
+}
+}
+
+/* Root cause of the thin white/dark rectangles around page headings (owner, 17 Nov 2026): after a
+   menu or header link, the site moves focus to the page's main heading so screen readers announce
+   it (src/lib/site-nav-scroll.ts, tabindex="-1"), and the browser drew its focus outline around it.
+   Elements with tabindex="-1" are never reached with the Tab key, and these are ordinary headings,
+   text and panels — not buttons, links or fields — so they get no focus rectangle. Links, buttons
+   and form fields keep their keyboard focus outlines. */
+:is(h1, h2, h3, h4, h5, h6, p, div, section, article, main, header, span, ol, ul, li, dl, form, fieldset)[tabindex="-1"]:focus,
+:is(h1, h2, h3, h4, h5, h6, p, div, section, article, main, header, span, ol, ul, li, dl, form, fieldset)[tabindex="-1"]:focus-visible {
+  outline: none !important;
+}
