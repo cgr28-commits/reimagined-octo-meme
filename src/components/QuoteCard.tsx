@@ -5047,6 +5047,9 @@ function QuoteCard({
     if (!promoConfig?.enabled || !openWebsiteFareBreakdown || appliedPersonalQuote || testChargeAmount != null) {
       return null;
     }
+    // Owner, 17 Nov 2026: no discount-code box at all on excluded dates. (If a code was applied and
+    // the date was then changed onto an excluded date, the box stays to explain it no longer counts.)
+    if (!appliedPromo && promoBlackoutNotice()) return null;
     const breakdown = openWebsiteFareBreakdown;
     const applied =
       appliedPromo && breakdown.promoCodeStatus === "applied" && breakdown.promoCode
@@ -10589,7 +10592,7 @@ function QuoteCard({
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}
-                    {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() ? (
+                    {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() && !promoBlackoutNotice() ? (
                       <PromoQuoteBanner config={promoConfig} className="mt-3" />
                     ) : null}
                     {renderDesktopMeetGreetUpgrades()}
@@ -11158,7 +11161,7 @@ function QuoteCard({
               aria-hidden="true"
             />
             {renderQuoteVehicleChoice()}
-            {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() ? (
+            {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() && !promoBlackoutNotice() ? (
               <PromoQuoteBanner config={promoConfig} className="mt-3" />
             ) : null}
             {renderBookingErrorHelp("results")}
