@@ -9,36 +9,61 @@
  */
 @media (max-width: 767.98px) {
 @layer base {
-  /* ---------- Header ---------- */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] {
+  /* ---------- Shared phone palette (owner, 17 Nov 2026), sampled from the approved mockup ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] {
+    --matni-navy: #011930;
+    --matni-navy-raised: #072443;
+    --matni-navy-deep: #00172d;
+    --matni-green: #2fc30a;          /* icons, borders, selected states on white */
+    --matni-green-bright: #45d704;   /* green on navy: headline, links, markers */
+    --matni-green-tint: #e8fde1;
+    --matni-green-panel: #f3fcef;
+    --matni-green-panel-border: #cdeec2;
+    --matni-border: #dce2eb;
+    --matni-cta: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%);
+    --matni-cta-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+    --matni-card: linear-gradient(180deg, #fefefe 0%, #fbfcfd 35%, #f4f7fa 100%);
+    /* Existing brand-green variables now follow the approved green (error, warning and disabled colours are separate and unchanged). */
+    --color-emerald: var(--matni-green);
+    --pm-green: var(--matni-green);
+    --pm-green-bright: var(--matni-green-bright);
+  }
+
+  /* ---------- Header: identical on every phone page (owner, 17 Nov 2026) ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] {
     background: linear-gradient(180deg, #03203d 0%, #001b34 100%) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
   }
   /* Logo a touch smaller, as in the mockup (official file, not redrawn). */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] .quote-header-logo-wide {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide {
     /* Shrinks on narrow phones so it never runs into the WhatsApp button. */
     width: min(14rem, calc(100vw - 8.75rem)) !important;
     height: auto !important;
     aspect-ratio: 240 / 42;
   }
-  /* Official logo without the Santa hat on the phone homepage (no Christmas decorations here). */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] .quote-header-logo-wide::after {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] a:has(.quote-header-logo-wide) {
+    width: auto !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+  }
+  /* Official logo without the Santa hat on every phone page. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide::after {
     content: none !important;
     display: none !important;
   }
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] {
     background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
     border: 0 !important;
     border-radius: 0.75rem !important;
     color: #ffffff !important;
     box-shadow: 0 6px 14px -6px rgba(32, 196, 3, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
   }
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg,
-    html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg path {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg,
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg path {
     color: #ffffff !important;
     fill: #ffffff !important;
   }
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-mobile-header-actions] > button {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-mobile-header-actions] > button {
     background: #0a2445 !important;
     border: 1px solid rgba(255, 255, 255, 0.28) !important;
     border-radius: 0.75rem !important;
@@ -358,6 +383,72 @@
     padding: 0.3rem 0.05rem !important;
     font-size: 0.66rem !important;
     letter-spacing: -0.01em;
+  }
+}
+}
+
+/* ---------- Booking steps on phones: vehicle, details & payment (owner, 17 Nov 2026) ----------
+   Colours only: same layout, content and behaviour. Uses the shared phone palette above. */
+@media (max-width: 767.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:has(#quote [data-quote-results], #quote [data-d2="vehicle"], #quote [data-d2="details"], #step3-payment-actions) {
+    background:
+      radial-gradient(90% 40% at 50% 30%, rgba(9, 40, 78, 0.5) 0%, rgba(9, 40, 78, 0) 100%),
+      linear-gradient(180deg, var(--matni-navy) 0%, #00182f 45%, var(--matni-navy-deep) 100%) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote > .quote-flow:is([data-quote-results], [data-d2="vehicle"], [data-d2="details"]) {
+    background: var(--matni-card) !important;
+  }
+  /* Journey summary and payment summary: approved navy, bright green markers, Edit and View route */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote :is([data-d2-journey-card], [data-d2-pay-summary]) {
+    background: linear-gradient(180deg, var(--matni-navy-raised) 0%, var(--matni-navy) 100%) !important;
+    border-color: var(--matni-navy) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-d2-journey-card] [data-d2-stop]::before {
+    border-color: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote :is([data-d2-edit], [data-d3-view-route]) {
+    color: var(--matni-green-bright) !important;
+    border-color: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-d2-pay-note], html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-d2-pay-note] svg {
+    color: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-d3-view-route] {
+    background-color: rgba(69, 215, 4, 0.12) !important;
+  }
+  /* Selected vehicle: approved green border and tick */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote button[data-vehicle-category][aria-pressed="true"] {
+    border-color: var(--matni-green) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote button[data-vehicle-category][aria-pressed="true"] [data-vehicle-selection-indicator] {
+    background-color: var(--matni-green) !important;
+    border-color: var(--matni-green) !important;
+  }
+  /* Progress: completed and current steps in the approved green */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote ol[data-mobile-steps] li:is([data-step-state="done"], [data-step-state="current"]) > span,
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote ol[data-mobile-steps] li:is([data-step-state="done"], [data-step-state="current"]) > button > span,
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote li.quote-step-act {
+    background: var(--matni-green) !important;
+    border-color: var(--matni-green) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote ol[data-mobile-steps] [data-d3-step-link] {
+    text-decoration-color: var(--matni-green) !important;
+    border-bottom-color: var(--matni-green) !important;
+  }
+  /* Book with confidence: very pale green */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-vehicle-confidence] {
+    background: var(--matni-green-panel) !important;
+    border-color: var(--matni-green-panel-border) !important;
+  }
+  /* Primary booking actions match "Get My Fixed Price" */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote :is(#quote-book-now-button, .btn-pay):not(:disabled) {
+    background: var(--matni-cta) !important;
+    box-shadow: var(--matni-cta-shadow) !important;
+    border: 0 !important;
+    border-radius: 0.95rem !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35);
   }
 }
 }
