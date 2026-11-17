@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { LockKeyhole, ShieldCheck, Star } from "lucide-react";
 import { GOOGLE_REVIEW_COUNT, GOOGLE_REVIEW_RATING } from "../../shared/google-business-profile";
 import { withBasePath } from "@/lib/paths";
+import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
 import {
   ESTATE_VEHICLE,
   EXECUTIVE_VEHICLE,
@@ -177,8 +178,12 @@ export default function QuoteVehicleCategories({
           </li>
           <li>
             <Star size={18} strokeWidth={2.2} aria-hidden="true" data-vehicle-confidence-star />
-            <span>
+            <span data-confidence-rating-text>
               {GOOGLE_REVIEW_RATING} Google rating · {GOOGLE_REVIEW_COUNT} reviews
+            </span>
+            {/* Phones only (shown by mobile-home-mockup.css): same Google badge content as the homepage. */}
+            <span data-confidence-rating-phone hidden>
+              <GoogleReviewsBadge variant="confidence" />
             </span>
           </li>
           <li>

@@ -57,6 +57,7 @@ name: Deploy Pages Preview
       - claude/home-heading-mobile
       - claude/mobile-home-mockup
       - claude/desktop-premium
+      - claude/confidence-google-badge
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
