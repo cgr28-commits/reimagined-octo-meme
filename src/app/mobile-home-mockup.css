@@ -66,7 +66,7 @@
     pointer-events: none;
     z-index: 0;
     background:
-      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.9) 16%, rgba(1, 25, 48, 0.5) 38%, rgba(1, 25, 48, 0) 60%),
+      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 20%, rgba(1, 25, 48, 0.62) 40%, rgba(1, 25, 48, 0.18) 55%, rgba(1, 25, 48, 0) 64%),
       linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.6) 14%, rgba(0, 24, 47, 0) 36%),
       linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 12%),
       image-set(url("/images/hero/mobile-dublin-airport-dusk.avif") type("image/avif"), url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) center / 100% 100% no-repeat !important;
@@ -76,14 +76,18 @@
     z-index: 1;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
-    font-size: 1.65rem !important;
-    line-height: 1.04 !important;
+    /* Two fixed lines: "Belfast & Dublin" (white) / "Airport Transfers" (green). Scales with the phone width. */
+    font-size: clamp(1.45rem, 6.9vw, 1.85rem) !important;
+    line-height: 1.06 !important;
+    white-space: nowrap !important;
     font-weight: 800 !important;
     letter-spacing: -0.025em !important;
     color: #ffffff !important;
     text-shadow: 0 2px 12px rgba(1, 24, 52, 0.6);
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-green] {
+    display: block !important;
+    margin-top: 0.06em;
     color: #45d704 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
