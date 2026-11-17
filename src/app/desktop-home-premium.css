@@ -83,6 +83,10 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Shorter description on desktop (owner, 17 Nov 2026); tablet and phone wording unchanged. */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p:has([data-intro-desktop]) [data-intro-default] { display: none !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p [data-intro-desktop] { display: inline !important; }
+
   /* ---------- Quote card: bright white, soft shadow, light borders (same size and layout) ---------- */
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
     background: var(--matni-card) !important;
@@ -94,6 +98,11 @@
   }
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is([data-gps-location], [data-schedule-control] > svg, label + div svg.lucide, div:has(> div > :is(input#pickup, input#dropoff)) svg) {
     color: var(--matni-green) !important;
+  }
+  /* Small uppercase labels: darker for contrast (same size and spacing). */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(label, .form-label, [data-quick-picks-label]) {
+    color: #071c38 !important;
+    opacity: 1 !important;
   }
   /* Airport chips: light borders; pale green once that airport is chosen */
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick] {
@@ -133,6 +142,14 @@
     height: 1.2rem;
     flex: none;
   }
+  /* Order as on mobile: G, gold stars, then "5.0", then the review count. */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-score] [data-reviews-stars] { order: -1; color: #ffc81e !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] :is([data-reviews-score] strong, [data-reviews-meta], [data-reviews-meta] *) { color: #ffffff !important; }
 }
 }
 
