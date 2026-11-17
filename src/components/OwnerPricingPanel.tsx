@@ -237,6 +237,48 @@ function PercentField({
   );
 }
 
+/** Raise / Lower choice + size: iPhone's decimal keypad has no minus key. */
+function DublinAdjustmentField({ rate, onRate }: { rate: number; onRate: (rate: number) => void }) {
+  const [lowering, setLowering] = useState(rate < 0);
+  useEffect(() => {
+    if (rate !== 0) setLowering(rate < 0);
+  }, [rate]);
+  const magnitudePct = Math.round(Math.abs(rate) * 1000) / 10;
+  const setRate = (lower: boolean, pct: number) =>
+    onRate(Math.round((lower ? -1 : 1) * Math.abs(pct) * 100) / 10000);
+  return (
+    <>
+      <div className="mt-3 flex gap-2" role="group" aria-label="Dublin Airport fare direction">
+        {([
+          [false, "Raise fares"],
+          [true, "Lower fares"],
+        ] as const).map(([lower, text]) => (
+          <button
+            key={text}
+            type="button"
+            data-dublin-direction={lower ? "lower" : "raise"}
+            aria-pressed={lowering === lower}
+            onClick={() => {
+              setLowering(lower);
+              setRate(lower, magnitudePct);
+            }}
+            className={`rounded-full border px-3 py-1.5 text-sm ${
+              lowering === lower ? "border-emerald bg-emerald/20 text-white" : "border-white/20 text-white/70"
+            }`}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+      <PercentField
+        label={lowering ? "Dublin Airport Fare Adjustment: lower by (%)" : "Dublin Airport Fare Adjustment: raise by (%)"}
+        value={magnitudePct}
+        onChange={(value) => setRate(lowering, value)}
+      />
+    </>
+  );
+}
+
 /** Digits and at most one decimal point, including a trailing "." while typing. */
 function isMultiplierTyping(value: string): boolean {
   return value === "" || /^\d*\.?\d*$/.test(value);
@@ -1641,14 +1683,14 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
           Airport / fixed charges
         </h3>
         <div data-dublin-fare-adjustment>
-          <PercentField
-            label="Dublin Airport Fare Adjustment (%)"
-            value={Math.round((draft.dublinAirportFareAdjustment?.rate ?? 0) * 1000) / 10}
-            onChange={(value) => update("dublinAirportFareAdjustment", { rate: value / 100 })}
+          <DublinAdjustmentField
+            rate={draft.dublinAirportFareAdjustment?.rate ?? 0}
+            onRate={(rate) => update("dublinAirportFareAdjustment", { rate })}
           />
           <p className="mt-1 text-xs text-white/55">
-            Increases the journey fare for transfers to and from Dublin Airport. Tolls, parking,
-            airport access fees and optional extras stay the same. 0% keeps current fares.
+            Raises or lowers the journey fare for transfers to and from Dublin Airport (up to 50%
+            lower or 100% higher). Tolls, parking, airport access fees and optional extras stay the
+            same. 0% keeps current fares.
           </p>
         </div>
         <p className="mt-3 text-xs text-white/55">
