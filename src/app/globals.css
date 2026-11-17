@@ -10129,3 +10129,16 @@ label.cookie-wall-category { cursor: pointer; }
 /* Email promo code (Nov 2026): error text stays red on the light mobile design. */
 html[data-mobile-light] [data-promo-message] { color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
 html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
+
+/* Bookings-for-your-date bar (owner, 17 Nov 2026): fills on arrival, then the whole bar and the dot
+   pulse continuously in their colour — green low, amber high, red very high. Figures never change. */
+@keyframes demand-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes demand-segment-in { from { transform: scaleX(0.2); } to { transform: scaleX(1); } }
+@keyframes demand-bar-pulse { 0%, 100% { opacity: 1; filter: brightness(1); } 50% { opacity: 0.45; filter: brightness(1.25); } }
+@keyframes demand-dot-pulse { 0% { box-shadow: 0 0 0 0 currentColor; transform: scale(1); } 50% { transform: scale(1.35); } 100% { box-shadow: 0 0 0 9px transparent; transform: scale(1); } }
+.demand-pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex: none; animation: demand-dot-pulse 1.4s ease-out infinite; }
+.demand-bar-fill { display: block; transform-origin: left center; animation: demand-bar-grow 1.2s cubic-bezier(0.22, 1, 0.36, 1) both, demand-bar-pulse 1.4s ease-in-out 1.2s infinite; }
+.demand-segment-on { transform-origin: left center; animation: demand-segment-in 0.5s ease-out both, demand-bar-pulse 1.4s ease-in-out 0.9s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .demand-pulse-dot, .demand-bar-fill, .demand-segment-on { animation: none !important; }
+}
