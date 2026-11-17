@@ -477,3 +477,24 @@
   }
 }
 }
+
+/* Contact (incl. the email form) and Manage Booking on phones: buttons and pale panels in the approved
+   phone green (owner, 17 Nov 2026). Layout, wording and behaviour unchanged. Green text links stay the
+   darker #1a7f2e so they remain easy to read on white. */
+@media (max-width: 767.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) {
+    background-color: #2fc30a !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) {
+    background-color: #28ad08 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] [class*="bg-emerald/"]:not(button):not(a) {
+    background-color: var(--matni-green-panel) !important;
+    border-color: var(--matni-green-panel-border) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: #2fc30a;
+  }
+}
+}
