@@ -14,6 +14,7 @@ import {
   INCOMPLETE_PICKUP_ADDRESS_MESSAGE,
   isIncompleteAddressPlace,
   isQuoteReadyPlace,
+  quickSelectToPlace,
   venueNameForPlace,
   type SelectedPlace,
 } from "@/lib/selected-place";
@@ -35,7 +36,7 @@ const QUICK_PICK_AIRPORTS: ReadonlyArray<{ code: QuickPickAirportCode; label: st
 ];
 
 /** One-tap airport chips (homepage only). `placement` picks the phone/tablet row or the desktop title row. */
-function QuickPickChips({ placement, onPick }: { placement: "fields" | "head"; onPick: (code: QuickPickAirportCode) => void }) {
+function QuickPickChips({ placement, onPick, chosenPlaceIds = [] }: { placement: "fields" | "head"; onPick: (code: QuickPickAirportCode) => void; chosenPlaceIds?: ReadonlyArray<string | undefined> }) {
   return (
     <div
       role="group"
@@ -49,6 +50,8 @@ function QuickPickChips({ placement, onPick }: { placement: "fields" | "head"; o
           key={code}
           type="button"
           data-quick-pick={code}
+          // Marks an airport already in the pickup or drop-off box (styled green on phones).
+          data-quick-pick-chosen={chosenPlaceIds.some((id) => id && id === quickSelectToPlace(code)?.placeId) ? "" : undefined}
           onClick={() => onPick(code)}
           className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-[10px] border border-[#071c38]/15 bg-white px-3 text-[13px] font-semibold text-[#071c38]"
         >
@@ -532,7 +535,7 @@ export default function HomepageQuoteFields({
         </p>
       ) : null}
 
-      {quickPicks && onQuickPickAirport ? <QuickPickChips placement="fields" onPick={onQuickPickAirport} /> : null}
+      {quickPicks && onQuickPickAirport ? <QuickPickChips placement="fields" onPick={onQuickPickAirport} chosenPlaceIds={[pickupConfirmedPlace?.placeId, dropoffConfirmedPlace?.placeId]} /> : null}
 
       {design3 ? (
         <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>

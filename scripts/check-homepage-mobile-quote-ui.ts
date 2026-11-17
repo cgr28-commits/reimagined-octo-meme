@@ -25,7 +25,7 @@ console.log("=== Homepage hero + quote presentation ===");
 assert.match(hero, /<HeroBenefitsRow/);
 assert.match(hero, /id="quote"/);
 assert.match(hero, /<QuoteCard/);
-assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
+assert.match(hero, /Belfast &amp; Dublin <span data-hero-green[^>]*>Airport Transfers<\/span>/);
 assert.doesNotMatch(hero, /Private airport transfers/, "hero has no eyebrow line above the H1");
 assert.match(
   hero,

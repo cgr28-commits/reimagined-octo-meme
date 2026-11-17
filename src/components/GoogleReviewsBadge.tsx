@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
+import { withBasePath } from "@/lib/paths";
 import {
   GOOGLE_BUSINESS_PROFILE_URL,
   GOOGLE_REVIEW_COUNT,
@@ -54,8 +55,14 @@ export default function GoogleReviewsBadge({
         className={className}
         aria-label={`Rated ${rating} out of 5 on Google from ${count} reviews`}
       >
+        {/* Phones (owner, 17 Nov 2026): multicolour Google "G" (Icons8 flat-color-icons, MIT) before the stars,
+            and "5.0 · 19 Google reviews". Hidden by default; mobile-home-mockup.css shows them up to 767px. */}
+        <img data-reviews-google-g src={withBasePath("/images/google-g.svg")} alt="" width={18} height={18} hidden aria-hidden="true" />
         <span data-reviews-stars aria-hidden="true">★★★★★</span>
-        <span aria-hidden="true">
+        <span data-reviews-text-phone hidden aria-hidden="true">
+          <strong>{rating}</strong> · {count} Google reviews
+        </span>
+        <span data-reviews-text aria-hidden="true">
           <strong>{rating}</strong> on Google · {count} reviews
         </span>
       </a>

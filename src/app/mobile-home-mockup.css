@@ -4,15 +4,20 @@
  * form's fields, validation, pricing, booking, payments or tracking. Tablets and desktop unchanged.
  *
  * Colours sampled from the mockup:
- *   navy  #011834 (page) / #081f36 (selected One way)   green #45d818 (heading, icons)
- *   button gradient #3fc61c → #1d9f0e → #0b8805           WhatsApp #36bb13   card #ffffff / #f7f9fc
+ *   navy  #011930 / #00172d (page), #001a31 (selected One way)   green #45d704 (heading), #2fc30a (icons), #57f403 (sweep)
+ *   button #27bb01 → #08a201 → #008a01   WhatsApp #20c403   card #fefefe → #f1f5f9   borders #dce2eb   chosen #e8fde1
  */
 @media (max-width: 767.98px) {
 @layer base {
   /* ---------- Header ---------- */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] {
-    background: #011834 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(180deg, #03203d 0%, #001b34 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  }
+  /* Logo a touch smaller, as in the mockup (official file, not redrawn). */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] .quote-header-logo-wide {
+    height: 2.45rem !important;
+    width: 14rem !important;
   }
   /* Official logo without the Santa hat on the phone homepage (no Christmas decorations here). */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] .quote-header-logo-wide::after {
@@ -20,11 +25,11 @@
     display: none !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] {
-    background: linear-gradient(180deg, #3fc61c 0%, #2eae12 100%) !important;
+    background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
     border: 0 !important;
     border-radius: 0.75rem !important;
     color: #ffffff !important;
-    box-shadow: 0 6px 14px -6px rgba(54, 187, 19, 0.7) !important;
+    box-shadow: 0 6px 14px -6px rgba(32, 196, 3, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg,
     html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg path {
@@ -32,37 +37,46 @@
     fill: #ffffff !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-mobile-header-actions] > button {
-    background: transparent !important;
-    border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
+    background: #0a2445 !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
     border-radius: 0.75rem !important;
   }
 
   /* ---------- Hero: airport photo at dusk, deep navy, white + green heading ---------- */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) {
-    background: linear-gradient(180deg, #011834 0%, #011a35 55%, #001f39 100%) !important;
+    /* Deep navy with gentle depth: a faint blue lift behind the photo and the card, darker at the edges. */
+    background:
+      radial-gradient(70% 28% at 80% 12%, rgba(12, 52, 110, 0.55) 0%, rgba(12, 52, 110, 0) 100%),
+      radial-gradient(90% 40% at 50% 62%, rgba(9, 40, 78, 0.55) 0%, rgba(9, 40, 78, 0) 100%),
+      linear-gradient(180deg, #011930 0%, #00182f 45%, #00172d 80%, #001931 100%) !important;
     position: relative;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::before {
     content: "" !important;
     display: block !important;
     position: absolute !important;
-    top: 3.8rem;
+    /* Owner's AI-generated Dublin Airport dusk image, kept at its own 3:2 shape (no stretching).
+       Tower and aircraft sit on the right; navy gradients blend every edge into the background. */
+    top: 3.75rem;
     right: 0;
-    width: 100%;
-    height: 27rem;
+    width: 78%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    filter: saturate(1.08) contrast(1.04);
     pointer-events: none;
     z-index: 0;
     background:
-      linear-gradient(90deg, rgba(1, 24, 52, 0.55) 0%, rgba(1, 24, 52, 0.15) 45%, rgba(1, 24, 52, 0) 70%),
-      linear-gradient(0deg, #011834 0%, rgba(1, 24, 52, 0) 30%),
-      image-set(url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) right top / cover no-repeat !important;
+      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.9) 16%, rgba(1, 25, 48, 0.5) 38%, rgba(1, 25, 48, 0) 60%),
+      linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.6) 14%, rgba(0, 24, 47, 0) 36%),
+      linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 12%),
+      image-set(url("/images/hero/mobile-dublin-airport-dusk.avif") type("image/avif"), url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) center / 100% 100% no-repeat !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
     position: relative;
     z-index: 1;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
-    font-size: 1.875rem !important;
+    font-size: 1.65rem !important;
     line-height: 1.04 !important;
     font-weight: 800 !important;
     letter-spacing: -0.025em !important;
@@ -70,25 +84,28 @@
     text-shadow: 0 2px 12px rgba(1, 24, 52, 0.6);
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-green] {
-    color: #45d818 !important;
+    color: #45d704 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
-    max-width: 16.5rem !important;
-    margin-top: 0.5rem !important;
-    font-size: 0.96rem !important;
-    line-height: 1.35 !important;
+    max-width: 13.6rem !important;
+    margin-top: 0.45rem !important;
+    font-size: 0.875rem !important;
+    line-height: 1.32 !important;
     font-weight: 500 !important;
     color: #ffffff !important;
     text-shadow: 0 1px 8px rgba(1, 24, 52, 0.7);
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] {
     margin-top: 0.25rem;
-    padding: 0.4rem 0.85rem !important;
+    gap: 0.4rem !important;
+    padding: 0.35rem 0.8rem 0.35rem 0.6rem !important;
     min-height: 2.25rem;
-    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(214, 218, 228, 0.78) !important;
     border-radius: 999px !important;
-    background: rgba(1, 24, 52, 0.55) !important;
-    font-size: 0.84rem !important;
+    background: rgba(1, 25, 48, 0.62) !important;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    font-size: 0.8rem !important;
     font-weight: 600 !important;
     align-items: center !important;
   }
@@ -97,6 +114,14 @@
     font-size: 0.95rem !important;
     letter-spacing: 0.02em;
   }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] [data-reviews-google-g] {
+    display: block !important;
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: none;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] [data-reviews-text-phone] { display: inline !important; color: #ffffff !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] [data-reviews-text] { display: none !important; }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact]::after {
     content: "" !important;
     display: inline-block !important;
@@ -111,10 +136,10 @@
 
   /* ---------- Quote card: bright white, rounded, soft shadow ---------- */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote > [data-quote-presentation="homepage"] {
-    background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%) !important;
-    border: 0 !important;
-    border-radius: 1.4rem !important;
-    box-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+    background: linear-gradient(180deg, #fefefe 0%, #fbfcfd 35%, #f4f7fa 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    border-radius: 1.15rem !important;
+    box-shadow: 0 28px 50px -26px rgba(0, 0, 0, 0.75), 0 10px 22px -14px rgba(0, 10, 30, 0.45), inset 0 1px 0 #ffffff !important;
     padding: 1rem 0.9rem 1.1rem !important;
   }
   /* No Christmas decorations on the phone homepage (owner, 17 Nov 2026): no lights or snow on the card. */
@@ -127,19 +152,20 @@
   /* Card heading with a green calendar icon and the "instant quote" line (moved up from under the button). */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-card-head] {
     display: grid !important;
-    grid-template-columns: 2.6rem 1fr;
+    grid-template-columns: 2.2rem 1fr;
     column-gap: 0.7rem;
     align-items: center;
     height: auto !important;
-    min-height: 2.75rem;
-    margin-bottom: 0.25rem;
+    min-height: 2.5rem;
+    row-gap: 0.1rem;
+    margin-bottom: 0.15rem;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-card-head]::before {
     content: "";
     grid-row: 1 / span 2;
-    width: 2.4rem;
-    height: 2.4rem;
-    background: #36c21a;
+    width: 2rem;
+    height: 2rem;
+    background: #2fc30a;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='16.5' rx='2.5'/%3E%3Cpath d='M8 2.5v4M16 2.5v4M3 9.5h18M8.5 15l2.5 2.5 4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='16.5' rx='2.5'/%3E%3Cpath d='M8 2.5v4M16 2.5v4M3 9.5h18M8.5 15l2.5 2.5 4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
   }
@@ -149,8 +175,8 @@
     white-space: normal !important;
     overflow: visible !important;
     text-overflow: clip !important;
-    font-size: 1.5rem !important;
-    line-height: 1.15 !important;
+    font-size: 1.55rem !important;
+    line-height: 1.12 !important;
     font-weight: 800 !important;
     letter-spacing: -0.02em;
     color: #071c38 !important;
@@ -159,10 +185,10 @@
     content: "Instant quote · No payment needed";
     grid-column: 2;
     grid-row: 2;
-    font-size: 0.86rem;
+    font-size: 0.82rem;
     font-weight: 500;
     line-height: 1.3;
-    color: #1c2d49;
+    color: #24344f;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quote-price-action] [data-d2-caption] {
     display: none !important;
@@ -172,8 +198,9 @@
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-homepage-quote-scroll] div:has(> div > :is(input#pickup, input#dropoff)),
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-schedule-control],
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-row] {
-    border-color: #dbe2ec !important;
+    border-color: #dce2eb !important;
     background-color: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), inset 0 1px 0 #ffffff !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quote-schedule] label,
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] {
@@ -184,10 +211,10 @@
     color: #071c38 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-gps-location], [data-schedule-control] > svg, [data-d2-stepper-btn="plus"]) {
-    color: #36c21a !important;
+    color: #2fc30a !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-btn="plus"] {
-    border-color: #36c21a !important;
+    border-color: #2fc30a !important;
   }
 
   /* Airport shortcuts: name, then a small plane and the airport code */
@@ -202,10 +229,10 @@
     justify-content: center !important;
     min-height: 2.9rem !important;
     padding: 0.3rem 0.2rem !important;
-    border: 1px solid #dbe2ec !important;
-    border-radius: 0.75rem !important;
-    background: #ffffff !important;
-    box-shadow: 0 2px 6px -2px rgba(7, 28, 56, 0.15) !important;
+    border: 1px solid #dce2eb !important;
+    border-radius: 0.7rem !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+    box-shadow: 0 2px 5px -2px rgba(7, 28, 56, 0.16), inset 0 1px 0 #ffffff !important;
     font-size: 0.76rem !important;
     font-weight: 700 !important;
     line-height: 1.15 !important;
@@ -221,28 +248,34 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     color: #3b4c66;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2336c21a'%3E%3Cpath d='M21 15.5v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V8.5l-8 5v2l8-2.5V18l-2 1.5V21l3.5-1 3.5 1v-1.5L13 18v-5z'/%3E%3C/svg%3E") left center / 0.8rem no-repeat;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%232fc30a'%3E%3Cpath d='M21 15.5v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V8.5l-8 5v2l8-2.5V18l-2 1.5V21l3.5-1 3.5 1v-1.5L13 18v-5z'/%3E%3C/svg%3E") left center / 0.8rem no-repeat;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick][data-quick-pick-chosen] {
+    background: #e8fde1 !important;
+    border-color: #2fc30a !important;
+    box-shadow: 0 0 0 1px #2fc30a inset, 0 2px 6px -2px rgba(47, 195, 10, 0.35) !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick]:active {
-    background: #eafee7 !important;
-    border-color: #36c21a !important;
+    background: #e8fde1 !important;
+    border-color: #2fc30a !important;
   }
 
   /* One way / Return */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] {
-    min-height: 2.6rem !important;
+    min-height: 2.45rem !important;
     padding: 0 !important;
     border-radius: 0.75rem !important;
-    background: #e3e7ee !important;
+    background: #e5eaf1 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] > button {
-    min-height: 2.6rem !important;
+    min-height: 2.45rem !important;
     border-radius: 0.75rem !important;
-    font-size: 1rem !important;
+    font-size: 0.97rem !important;
     font-weight: 700 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] > button[aria-pressed="true"] {
-    background: #081f36 !important;
+    background: linear-gradient(180deg, #072443 0%, #001a31 100%) !important;
+    box-shadow: 0 4px 10px -6px rgba(0, 26, 49, 0.8) !important;
     color: #ffffff !important;
   }
 
@@ -250,9 +283,10 @@
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote button[data-get-fixed-price] {
     min-height: 3.4rem !important;
     border-radius: 0.95rem !important;
-    background: linear-gradient(180deg, #3fc61c 0%, #1d9f0e 55%, #0b8805 100%) !important;
-    box-shadow: 0 10px 22px -10px rgba(11, 136, 5, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
-    font-size: 1.3rem !important;
+    background: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%) !important;
+    box-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08) !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35);
+    font-size: 1.25rem !important;
     font-weight: 800 !important;
     color: #ffffff !important;
     border: 0 !important;
@@ -263,12 +297,12 @@
     margin-top: 2rem !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] > li + li {
-    border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+    border-left: 1px solid rgba(151, 164, 182, 0.45) !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] [data-d2-benefit-icon] {
     width: 1.85rem !important;
     height: 1.85rem !important;
-    color: #45d818 !important;
+    color: #3fd104 !important;
   }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] > li > span {
     font-size: 0.78rem !important;
@@ -288,7 +322,7 @@
     height: 2.1rem;
     pointer-events: none;
     z-index: 0;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 34' preserveAspectRatio='none'%3E%3Cpath d='M0 20 C 120 34, 250 30, 390 6' fill='none' stroke='%2345d818' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M0 26 C 140 38, 260 34, 390 14' fill='none' stroke='%2345d818' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat !important;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 34' preserveAspectRatio='none'%3E%3Cpath d='M0 20 C 120 34, 250 30, 390 6' fill='none' stroke='%2357f403' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M0 26 C 140 38, 260 34, 390 14' fill='none' stroke='%2357f403' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat !important;
   }
 }
 }
