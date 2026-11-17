@@ -56,13 +56,27 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
   const veryHigh = demand.level === "very-high";
   const showBar = demand.filledSegments > 0;
   const soon = demand.level === "soon";
-  const accent = veryHigh ? "#BA7517" : "#2FBF4A";
+  // Pulsing colour by level (owner, 17 Nov 2026): green low, amber middle, red high.
+  const tone: "green" | "amber" | "red" =
+    demand.bookedPercent !== null
+      ? demand.bookedPercent >= 80
+        ? "red"
+        : demand.bookedPercent >= 60
+          ? "amber"
+          : "green"
+      : veryHigh
+        ? "red"
+        : demand.level === "high"
+          ? "amber"
+          : "green";
+  const accent = tone === "red" ? "#D93025" : tone === "amber" ? "#E8A317" : "#2FBF4A";
   const icon = demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
   return (
     <div
       data-seasonal-booking-message={placement}
       data-season={message.season}
       data-demand-level={demand.level}
+      data-demand-tone={tone}
       className={`mt-2.5 rounded-xl border px-3.5 py-2.5 text-left text-[#071C38] ${
         veryHigh ? "border-[#e2c98f] bg-[#fdf6e7]" : "border-[#071C38]/12 bg-white"
       }`}
@@ -84,7 +98,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               <span className="demand-pulse-dot" style={{ background: accent, color: accent }} aria-hidden="true" />
               {demand.bookedPercent !== null ? "Bookings for your date" : "Expected demand for your date"}
             </span>
-            <span className={`font-extrabold tabular-nums ${veryHigh ? "text-[#633806]" : "text-[#0F6E56]"}`}>
+            <span className={`font-extrabold tabular-nums ${tone === "red" ? "text-[#B3261E]" : tone === "amber" ? "text-[#8A5A00]" : "text-[#0F6E56]"}`}>
               {demand.bookedPercent !== null && shownPercent !== null ? `${shownPercent}% booked` : demand.label}
             </span>
           </p>

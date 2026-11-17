@@ -10134,7 +10134,7 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
    The figure itself never changes — it is the owner's set level for the date. */
 @keyframes demand-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes demand-bar-shimmer { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(260%); } }
-@keyframes demand-dot-pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: 0.85; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
+@keyframes demand-dot-pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; transform: scale(1); } 50% { transform: scale(1.25); } 70% { box-shadow: 0 0 0 7px transparent; opacity: 0.85; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
 @keyframes demand-segment-in { from { opacity: 0.15; transform: scaleX(0.3); } to { opacity: 1; transform: scaleX(1); } }
 .demand-pulse-dot { display: inline-block; width: 7px; height: 7px; border-radius: 9999px; flex: none; animation: demand-dot-pulse 1.8s ease-out infinite; }
 .demand-bar-fill { position: relative; overflow: hidden; transform-origin: left center; animation: demand-bar-grow 1.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -10144,3 +10144,8 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
 @media (prefers-reduced-motion: reduce) {
   .demand-pulse-dot, .demand-bar-fill, .demand-segment-on, .demand-bar-fill::after, .demand-segment-on::after { animation: none !important; }
 }
+/* Filled bar gently breathes in its level colour (green / amber / red). */
+@keyframes demand-bar-breathe { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+.demand-bar-fill, .demand-segment-on { animation-name: demand-bar-grow, demand-bar-breathe; animation-duration: 1.4s, 1.8s; animation-delay: 0s, 1.4s; animation-iteration-count: 1, infinite; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), ease-in-out; animation-fill-mode: both, none; }
+.demand-segment-on { animation-name: demand-segment-in, demand-bar-breathe; animation-duration: 0.5s, 1.8s; }
+@media (prefers-reduced-motion: reduce) { .demand-bar-fill, .demand-segment-on { animation: none !important; } }
