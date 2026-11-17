@@ -78,13 +78,15 @@ export default function ContactCardClient() {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-12 pt-8 sm:px-6">
         <div className="contact-fade-up flex min-w-0 flex-1 flex-col">
           <div className="flex justify-center">
-            <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-emerald bg-navy/40 p-3 shadow-[0_0_0_6px_rgba(47,191,74,0.12)] sm:h-40 sm:w-40">
+            {/* New side-by-side logo (owner, 17 Nov 2026) — replaces the old stacked logo in a circle. */}
+            <div data-contact-logo className="w-full max-w-[19rem] rounded-2xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(7,28,56,0.08)] ring-1 ring-black/5">
               <Image
-                src={withBasePath("/logo.png")}
+                src={withBasePath("/logo-wide-light.svg")}
                 alt={SITE.name}
-                width={697}
-                height={541}
+                width={1011}
+                height={177}
                 priority
+                unoptimized
                 className="h-auto w-full object-contain"
               />
             </div>

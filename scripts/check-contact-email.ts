@@ -137,7 +137,149 @@ async function checkSending(): Promise<void> {
   console.log("OK  one POST with name + message only; success only when the email is confirmed sent");
 }
 
+/**
+ * End to end without touching anything live: the form's real sender posts to the real booking
+ * Worker code, run in-process, with the outside email providers stubbed.
+ */
+async function checkWorkerDelivery(): Promise<void> {
+  console.log("\n=== 6. The booking Worker delivers the message to the owner inbox (in-process) ===");
+  const { default: worker } = await import("../workers/addresses/src/index");
+  const liveOrigin = "https://www.myairporttaxini.co.uk";
+  const previewOrigin = "https://claude-home-bigger-quote.my-airport-taxi-ni-preview.pages.dev";
+
+  const memoryKv = () => {
+    const map = new Map<string, string>();
+    return {
+      map,
+      kv: {
+        async get(key: string, type?: string) {
+          const value = map.get(key);
+          return value == null ? null : type === "json" ? JSON.parse(value) : value;
+        },
+        async put(key: string, value: string) {
+          map.set(key, value);
+        },
+        async delete(key: string) {
+          map.delete(key);
+        },
+        async list() {
+          return { keys: [...map.keys()].map((name) => ({ name })), list_complete: true };
+        },
+      },
+    };
+  };
+  const tracking = memoryKv();
+  const counter = memoryKv();
+  const env = { TRACKING_STORE: tracking.kv, BOOKING_COUNTER: counter.kv, RESEND_API_KEY: "mock-email" };
+
+  type Delivered = { provider: string; to: string; subject: string; text: string };
+  const delivered: Delivered[] = [];
+  const providerUp = { formsubmit: true, resend: true };
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    const payload = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    if (url.hostname === "formsubmit.co") {
+      if (!providerUp.formsubmit) return new Response("down", { status: 503 });
+      delivered.push({
+        provider: "formsubmit",
+        to: decodeURIComponent(url.pathname.split("/").pop() ?? ""),
+        subject: String(payload._subject ?? ""),
+        text: String(payload.message ?? ""),
+      });
+      return Response.json({ success: "true" });
+    }
+    if (url.hostname === "api.resend.com") {
+      if (!providerUp.resend) return Response.json({ message: "down" }, { status: 503 });
+      delivered.push({
+        provider: "resend",
+        to: String(Array.isArray(payload.to) ? payload.to[0] : payload.to ?? ""),
+        subject: String(payload.subject ?? ""),
+        text: String(payload.text ?? ""),
+      });
+      return Response.json({ id: "email_1" });
+    }
+    // No other outside service may be reached from this check.
+    return new Response("blocked in check", { status: 503 });
+  }) as typeof fetch;
+
+  const responses: Response[] = [];
+  const viaWorker = (origin: string): typeof fetch =>
+    (async (url: RequestInfo | URL, init?: RequestInit) => {
+      const response = await worker.fetch(
+        new Request(String(url), { ...init, headers: { ...(init?.headers as Record<string, string>), Origin: origin } }),
+        env as never,
+      );
+      responses.push(response.clone());
+      return response;
+    }) as typeof fetch;
+
+  try {
+    // The browser asks permission first (JSON POST from another origin).
+    for (const origin of [liveOrigin, previewOrigin]) {
+      const preflight = await worker.fetch(
+        new Request("https://worker.example/bookings", {
+          method: "OPTIONS",
+          headers: {
+            Origin: origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+          },
+        }),
+        env as never,
+      );
+      assert.ok(preflight.status === 200 || preflight.status === 204, `preflight allowed for ${origin}`);
+      assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), origin);
+      assert.match(preflight.headers.get("Access-Control-Allow-Methods") ?? "", /POST/);
+      assert.match(preflight.headers.get("Access-Control-Allow-Headers") ?? "", /content-type/i);
+    }
+    console.log("OK  the live site and this preview are both allowed to post to the Worker");
+
+    // A. Normal delivery.
+    await sendContactMessage(good, viaWorker(liveOrigin));
+    assert.equal(delivered.length, 1, "exactly one email to the owner");
+    assert.equal(delivered[0].to, "bookings@myairporttaxini.co.uk");
+    assert.match(delivered[0].subject, /^New request MATNI-\d+ — Jane Smith \(website message\)$/);
+    assert.ok(delivered[0].text.includes(contactMessageEmailBody(good)), "the owner sees the whole message");
+    assert.match(delivered[0].text, /Reply to: jane@example\.com/);
+    const accepted = (await responses[0].json()) as Record<string, unknown>;
+    assert.equal(responses[0].headers.get("Access-Control-Allow-Origin"), liveOrigin);
+    assert.equal(accepted.ok, true);
+    assert.equal(accepted.emailSent, true);
+    assert.equal(accepted.bookingSaved, false, "no booking is created");
+    assert.equal(accepted.bookingJobId, undefined);
+    assert.equal(accepted.calendarLogged, false);
+    assert.equal(tracking.map.size, 0, "nothing is written to the bookings store");
+    console.log(`OK  owner email: "${delivered[0].subject}" → ${delivered[0].to}; no booking, job or calendar entry`);
+
+    // B. First provider down: the Worker's own fallback still gets it to the inbox.
+    console.error = () => {};
+    providerUp.formsubmit = false;
+    await sendContactMessage(good, viaWorker(liveOrigin));
+    assert.equal(delivered.length, 2);
+    assert.equal(delivered[1].provider, "resend");
+    assert.equal(delivered[1].to, "bookings@myairporttaxini.co.uk");
+    console.log("OK  if the first email provider is down, the fallback provider delivers it");
+
+    // C. Every provider down: the customer is told, and offered the direct email address.
+    providerUp.resend = false;
+    await assert.rejects(
+      sendContactMessage(good, viaWorker(liveOrigin)),
+      new RegExp(CONTACT_MESSAGE_SEND_FAILED.slice(0, 30)),
+    );
+    assert.equal(delivered.length, 2, "nothing is reported as sent when no provider accepted it");
+    assert.equal(responses[2].status, 502);
+    console.log("OK  if no provider accepts it, the form reports the failure instead of a false thank-you");
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalError;
+  }
+}
+
 checkSending()
+  .then(checkWorkerDelivery)
   .then(() => console.log("\nAll Contact page / email contact checks passed."))
   .catch((error) => {
     console.error(error);
