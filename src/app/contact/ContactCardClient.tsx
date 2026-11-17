@@ -19,6 +19,9 @@ import { useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
 import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
+/** The email contact page (form to the bookings inbox). */
+const EMAIL_CONTACT_PATH = "/contact/email/";
+
 function ActionIcon({
   children,
   tone = "default",
@@ -64,7 +67,8 @@ export default function ContactCardClient() {
 
   return (
     <>
-    <StandaloneBrandBar />
+    {/* No telephone number on the Contact page (owner, 17 Nov 2026). */}
+    <StandaloneBrandBar showCall={false} />
     <main data-customer-standalone className="relative min-h-dvh w-full max-w-full overflow-x-clip bg-navy">
       <div
         aria-hidden
@@ -74,13 +78,15 @@ export default function ContactCardClient() {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-12 pt-8 sm:px-6">
         <div className="contact-fade-up flex min-w-0 flex-1 flex-col">
           <div className="flex justify-center">
-            <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-emerald bg-navy/40 p-3 shadow-[0_0_0_6px_rgba(47,191,74,0.12)] sm:h-40 sm:w-40">
+            {/* New side-by-side logo (owner, 17 Nov 2026) — replaces the old stacked logo in a circle. */}
+            <div data-contact-logo className="w-full max-w-[19rem] rounded-2xl bg-white px-5 py-4 shadow-[0_8px_24px_rgba(7,28,56,0.08)] ring-1 ring-black/5">
               <Image
-                src={withBasePath("/logo.png")}
+                src={withBasePath("/logo-wide-light.svg")}
                 alt={SITE.name}
-                width={697}
-                height={541}
+                width={1011}
+                height={177}
                 priority
+                unoptimized
                 className="h-auto w-full object-contain"
               />
             </div>
@@ -89,8 +95,10 @@ export default function ContactCardClient() {
           <h1 className="contact-fade-up-delay-1 mt-5 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Contact My Airport Taxi NI
           </h1>
-          <p className="mt-2 text-center text-sm leading-relaxed text-white/70 sm:text-base">
-            {SITE.tagline}
+          {/* Same wording as above the homepage quote tool (owner, 17 Nov 2026). */}
+          <p data-contact-strapline className="mt-2 text-balance text-center text-base font-semibold leading-snug text-white/80 sm:text-lg">
+            <span className="block">Belfast &amp; Dublin Airport Transfers</span>
+            <span className="block text-emerald">Premium Private Travel</span>
           </p>
 
           <div className="contact-fade-up-delay-2 mt-8 min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
@@ -186,8 +194,10 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <a
-              href={`mailto:${SITE.email}`}
+            {/* Opens the email contact page: a short form that reaches the bookings inbox. */}
+            <Link
+              href={EMAIL_CONTACT_PATH}
+              data-contact-email-link
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
@@ -204,11 +214,10 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Email
                 </span>
-                <span className="mt-0.5 block truncate text-base font-semibold sm:text-lg">
-                  {SITE.email}
-                </span>
+                <span className="mt-0.5 block text-lg font-bold">Send us a message</span>
+                <span className="block truncate text-xs text-white/60">{SITE.email}</span>
               </span>
-            </a>
+            </Link>
 
             <a
               href={`https://wa.me/${SITE.whatsapp}`}
@@ -231,27 +240,6 @@ export default function ContactCardClient() {
                   WhatsApp only
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
-              </span>
-            </a>
-
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-contact-office-landline
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
-            >
-              <ActionIcon>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-              </ActionIcon>
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">Landline</span>
-                <span className="mt-0.5 block text-lg font-bold">{SITE.officeLandlineDisplay}</span>
               </span>
             </a>
 

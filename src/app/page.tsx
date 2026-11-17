@@ -54,7 +54,9 @@ export default function Home() {
       />
       <Header />
       <main className="overflow-x-clip">
-        <HeroSlideshow homepageQuickPicks showRotatingCards />
+        {/* Desktop (1200px+): no rotating boxes; the wording has more room and the quote tool
+            sits lower and bigger (owner, 17 Nov 2026). Phones and tablets are unchanged. */}
+        <HeroSlideshow homepageQuickPicks desktopRoomy />
         {/* Christmas video below the quote calculator — dates in CHRISTMAS_VIDEO (src/lib/seasonal.ts) */}
         <ChristmasVideoSection initiallyLive={isChristmasVideoLive()} />
         <Design3QuickLinks />

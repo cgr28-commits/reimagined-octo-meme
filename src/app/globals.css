@@ -10230,3 +10230,143 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
 @media (prefers-reduced-motion: reduce) {
   html:root:root:root:root:root:root:root main > section.homepage-hero #quote > [data-quote-presentation="homepage"]::before { animation: none !important; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Desktop homepage (≥1200px), first step only (owner, 17 Nov 2026): the rotating
+   boxes are gone, so the heading and intro get more room and the quote tool sits
+   lower and is bigger. Same wording, colours, fields and behaviour — spacing and
+   sizes only. Sizes follow the window height (vh) between a compact floor and a
+   roomy ceiling, so on a short laptop screen the price button still shows without
+   scrolling. Homepage only (section[data-desktop-roomy], set in src/app/page.tsx);
+   hub pages, phones/tablets (<1200px) and later booking steps are untouched.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) {
+    --roomy-field: clamp(3.5rem, 7.3vh, 3.75rem); /* address boxes, selectors, trip toggle and price button: 56–60px (was 50px) */
+  }
+
+  /* 1. Heading and intro: more room above, between and below. The quote tool starts lower. */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    padding-top: clamp(1.25rem, calc(9vh - 2rem), 4rem) !important;
+    padding-bottom: clamp(2.5rem, 6vh, 4rem) !important;
+    row-gap: clamp(2.25rem, calc(9vh - 1.75rem), 4.25rem) !important; /* also keeps the wording clear of the Christmas snow on the card */
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    margin-top: clamp(0.5rem, 1.6vh, 1rem) !important;
+    line-height: 1.55 !important;
+  }
+
+  /* 2. A bigger quote tool: more padding, taller boxes, larger text. */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote { row-gap: clamp(0.875rem, 2.6vh, 1.625rem) !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    padding: clamp(1.375rem, 3.4vh, 2.125rem) clamp(1.375rem, 2.4vw, 2.25rem) clamp(0.5rem, calc(3.4vh - 1rem), 1.125rem) !important; /* the form keeps 1rem under itself */
+    border-radius: 1.5rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] {
+    row-gap: clamp(1rem, 2.5vh, 1.5rem) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-desktop-card-head-title] {
+    font-size: clamp(1.3125rem, 2.9vh, 1.5rem) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form label {
+    margin-bottom: clamp(0.5rem, 1.1vh, 0.625rem) !important;
+    font-size: 0.8125rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, [data-schedule-control], select),
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form div:has(> div > :is(input#pickup, input#dropoff)) {
+    height: var(--roomy-field) !important;
+    min-height: var(--roomy-field) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(input#pickup, input#dropoff, select),
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-schedule-control] span {
+    font-size: clamp(0.98rem, 1.25vw, 1.0625rem) !important; /* grows with the box width so the full hint still fits at 1200px */
+  }
+  /* One way / Return */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child > div {
+    height: var(--roomy-field) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > div:first-child button {
+    font-size: clamp(0.875rem, 1.95vh, 1rem) !important;
+  }
+  /* Get My Fixed Price */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price],
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price]:disabled {
+    height: var(--roomy-field) !important;
+    min-height: var(--roomy-field) !important;
+    font-size: clamp(1.25rem, 2.7vh, 1.375rem) !important;
+    border-radius: 0.875rem !important;
+  }
+  /* The swap button stays centred on the taller address boxes. */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-scroll] > button[data-desktop-swap] {
+    margin-bottom: calc((var(--roomy-field) - 36px) / 2) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form #homepage-quote-requirements {
+    font-size: 0.875rem !important;
+  }
+  /* Address boxes: one outline, the same as the selectors beside them (the box around the
+     address field only shows its own border while it is in use or has an error). */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form div:has(> div > :is(input#pickup, input#dropoff)):not(:focus-within):not(:has([aria-invalid="true"])) {
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+
+  /* 3. Price first (no date and time row): passengers and suitcases line up under the two
+        address boxes instead of leaving an empty space under Pickup. */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#quote-section-schedule)) #passenger-luggage-section > div:nth-child(1) { grid-column: 1 / span 13 !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:not(:has(#quote-section-schedule)) #passenger-luggage-section > div:nth-child(2) { grid-column: 14 / span 13 !important; }
+
+  /* 4. The benefits strip lines up with the quote tool: the Google reviews badge used to run
+        past the right-hand edge on wider laptops. */
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] { gap: 1rem !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important; /* minimum; the spare width is shared out between the four */
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { font-size: 0.9375rem !important; }
+}
+}
+/* Short laptop windows (up to 760px high), Return journeys with dates — the form's tallest state,
+   four rows: slightly tighter spacing inside the card so the price button stays on screen. */
+@media (min-width: 1200px) and (max-height: 760px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"]:has(#returnDate) { padding-top: 1.125rem !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) { row-gap: 0.75rem !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) label { margin-bottom: 0.375rem !important; }
+}
+}
+
+/* Desktop homepage heading (owner, 17 Nov 2026): "Belfast & Dublin Airport Transfers" as the
+   dominant white headline, "& Premium Private Travel" on its own emerald line, a brighter and
+   larger intro, more room before the quote tool, and no decorations behind the text.
+   Same wording; 1200px+ homepage only. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) { background: #071c38 !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::after,
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::before { content: none !important; display: none !important; background: none !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    font-size: clamp(2.625rem, calc(1.6rem + 2.4vh), 3.25rem) !important;
+    line-height: 1.12 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #fff !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 > span:first-child { display: block !important; color: #fff !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 > span.text-emerald {
+    display: block !important;
+    margin-top: clamp(0.25rem, 0.9vh, 0.5rem) !important;
+    color: #2fbf4a !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    max-width: 56rem !important;
+    margin-top: clamp(0.875rem, 2.2vh, 1.375rem) !important;
+    font-size: clamp(1.0625rem, calc(0.85rem + 0.6vh), 1.1875rem) !important;
+    line-height: 1.65 !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout { padding-top: clamp(0.5rem, calc(6vh - 2rem), 3rem) !important; row-gap: clamp(2.5rem, calc(10vh - 1.25rem), 4.75rem) !important; }
+}
+}
