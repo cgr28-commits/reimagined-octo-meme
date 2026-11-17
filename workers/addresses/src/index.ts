@@ -3525,11 +3525,14 @@ async function handlePaymentRequest(
     });
 
     if (promoTerms && breakdown.promoCodeStatus !== "applied") {
+      // Return booking where the 5% return discount is the better price: codes are never combined
+      // with it (owner, 17 Nov 2026). The website only sends a code when it applies, so this is rare.
+      const promoReason = breakdown.promoCodeStatus === "return_discount_better" ? "not_combinable" : "minimum_fare";
       return json(
         {
-          error: promoRejectMessage("minimum_fare", promoTerms),
+          error: promoRejectMessage(promoReason, promoTerms),
           code: "promo_rejected",
-          promoReason: "minimum_fare",
+          promoReason,
           promoEligibleVehicleFareGbp: breakdown.promoEligibleVehicleFareGbp,
         },
         409,

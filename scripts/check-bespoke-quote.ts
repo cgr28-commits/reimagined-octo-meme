@@ -1051,8 +1051,7 @@ async function main(): Promise<void> {
   // Live pricing constants untouched.
   assert.match(read("shared/universal-distance-pricing.ts"), /UNIVERSAL_ESTATE_PREMIUM_GBP = 7;/);
   assert.match(read("shared/universal-distance-pricing.ts"), /minibusMultiplier \?\? 1\.55/);
-  // 5% return discount retired by the owner (Nov 2026, replaced by email promo codes).
-  assert.match(read("shared/return-journey-discount-rate.json"), /"returnJourneyDiscountRate": 0\n/);
+  assert.match(read("shared/return-journey-discount-rate.json"), /"returnJourneyDiscountRate": 0\.05/);
   assert.match(read("shared/bfs-minimum-fare.ts"), /if \(!estate && kind !== "saloon"\) return vehicleFareGbp;/);
   // Phase 2 guards.
   const clientApi = read("src/lib/bespoke-quote-api.ts");

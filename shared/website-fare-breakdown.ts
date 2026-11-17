@@ -149,7 +149,12 @@ export type WebsiteFareBreakdown = {
   /** Vehicle fare the promo was assessed on (journey fare, both legs, excl. airport charges). */
   promoEligibleVehicleFareGbp: number;
   /** "applied" | "below_minimum" when a code was supplied; "none" otherwise. */
-  promoCodeStatus: "applied" | "below_minimum" | "none";
+  /**
+   * "return_discount_better": a return booking where the 5% return discount saves more than the
+   * code would; the codes and the return discount are never combined (owner, 17 Nov 2026), so the
+   * 5% stays and the code is not used.
+   */
+  promoCodeStatus: "applied" | "below_minimum" | "return_discount_better" | "none";
 };
 
 /**
@@ -173,7 +178,7 @@ export function composeWebsiteFareBreakdown(
   const baseJourneyBeforeReturnDiscountGbp = returnJourney
     ? getUndiscountedReturnJourneyFareGbp(discountedBaseGbp)
     : discountedBaseGbp;
-  const returnJourneySavingGbp = returnJourney
+  let returnJourneySavingGbp = returnJourney
     ? getReturnJourneySavingGbp(discountedBaseGbp)
     : 0;
   const journeyFareBeforeReturnDiscountGbp = returnJourney
@@ -223,7 +228,7 @@ export function composeWebsiteFareBreakdown(
   const transferFareAfterPromotionsGbp = roundGbp(
     journeyFareAfterPromotionsGbp + airportFixedCostsGbp,
   );
-  const totalPromotionalSavingGbp = roundGbp(
+  let totalPromotionalSavingGbp = roundGbp(
     returnJourneySavingGbp + returnOfferSavingGbp,
   );
   // Keep the existing vehicle-fare rounding; optional services retain their exact price.
@@ -271,7 +276,10 @@ export function composeWebsiteFareBreakdown(
 
   // Email promo code: last, on the vehicle fare only. The saving is the exact drop in the
   // amount payable after the usual whole-pound rounding, so the rows always add up.
-  const promoEligibleVehicleFareGbp = roundGbp(Math.max(0, journeyFareAfterPromotionsAdjusted));
+  // No stacking with the return discount (owner, 17 Nov 2026): on a return booking the code is
+  // assessed on the fare without the return discount and replaces it only when it saves more.
+  const returnSavingForPromo = returnJourney ? returnJourneySavingGbp : 0;
+  let promoEligibleVehicleFareGbp = roundGbp(Math.max(0, journeyFareAfterPromotionsAdjusted + returnSavingForPromo));
   let promoCodeSavingGbp = 0;
   let promoCodeStatus: WebsiteFareBreakdown["promoCodeStatus"] = "none";
   const promo = input.promoCode;
@@ -281,20 +289,39 @@ export function composeWebsiteFareBreakdown(
     if (Math.round(promoEligibleVehicleFareGbp * 100) < minimumPence) {
       promoCodeStatus = "below_minimum";
     } else {
+      const payable = (amount: number) =>
+        roundGbp((input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(amount) + airportAccessChargeGbp);
       const rawDiscount = roundGbp(promoEligibleVehicleFareGbp * promoRate);
-      const transferAfterPromo = roundGbp(Math.max(0, transferFareAfterPromotionsAdjusted - rawDiscount));
-      const payableAfterPromo = roundGbp(
-        (input.preserveFixedFarePence ? roundGbp : roundCustomerPayableGbp)(transferAfterPromo) + airportAccessChargeGbp,
-      );
-      promoCodeSavingGbp = roundGbp(Math.max(0, finalAmountPayableGbp - payableAfterPromo));
-      if (promoCodeSavingGbp > 0) {
-        promoCodeStatus = "applied";
-        finalAmountPayableGbp = payableAfterPromo;
-        journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsAdjusted - promoCodeSavingGbp);
-        transferFareAfterPromotionsAdjusted = roundGbp(transferFareAfterPromotionsAdjusted - promoCodeSavingGbp);
-        journeyFareDisplayAdjusted = roundGbp(journeyFareDisplayAdjusted - promoCodeSavingGbp);
+      // Without the return discount (same as the current transfer fare on one-way bookings).
+      const transferWithoutReturnDiscount = roundGbp(transferFareAfterPromotionsAdjusted + returnSavingForPromo);
+      const transferAfterPromo = roundGbp(Math.max(0, transferWithoutReturnDiscount - rawDiscount));
+      const payableAfterPromo = payable(transferAfterPromo);
+      if (returnSavingForPromo > 0 && payableAfterPromo >= finalAmountPayableGbp) {
+        // The 5% return discount is the better (or equal) price: keep it, don't use the code.
+        promoCodeStatus = "return_discount_better";
+      } else {
+        const payableWithoutReturnDiscount = returnSavingForPromo > 0 ? payable(transferWithoutReturnDiscount) : finalAmountPayableGbp;
+        promoCodeSavingGbp = roundGbp(Math.max(0, payableWithoutReturnDiscount - payableAfterPromo));
+        if (promoCodeSavingGbp > 0) {
+          promoCodeStatus = "applied";
+          if (returnSavingForPromo > 0) {
+            // The code replaces the return discount: put the 5% back, then take the code off.
+            journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsAdjusted + returnSavingForPromo);
+            transferFareAfterPromotionsAdjusted = roundGbp(transferFareAfterPromotionsAdjusted + returnSavingForPromo);
+            journeyFareDisplayAdjusted = roundGbp(journeyFareDisplayAdjusted + returnSavingForPromo);
+            totalPromotionalSavingGbp = roundGbp(totalPromotionalSavingGbp - returnSavingForPromo);
+            returnJourneySavingGbp = 0;
+          }
+          finalAmountPayableGbp = payableAfterPromo;
+          journeyFareAfterPromotionsAdjusted = roundGbp(journeyFareAfterPromotionsAdjusted - promoCodeSavingGbp);
+          transferFareAfterPromotionsAdjusted = roundGbp(transferFareAfterPromotionsAdjusted - promoCodeSavingGbp);
+          journeyFareDisplayAdjusted = roundGbp(journeyFareDisplayAdjusted - promoCodeSavingGbp);
+        }
       }
     }
+  }
+  if (promoCodeStatus !== "applied" && returnSavingForPromo > 0) {
+    promoEligibleVehicleFareGbp = roundGbp(Math.max(0, journeyFareAfterPromotionsAdjusted + returnSavingForPromo));
   }
 
   return {

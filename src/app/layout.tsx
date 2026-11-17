@@ -7,7 +7,6 @@ import "./mobile-home-mockup.css";
 import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
-import PromoPopup from "@/components/PromoPopup";
 import ChristmasWelcome from "@/components/ChristmasWelcome";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
@@ -197,7 +196,6 @@ export default function RootLayout({
           <SiteHashScroll />
           <WhatsAppQrFloating />
           <CookieConsent />
-          <PromoPopup />
           <ChristmasWelcome />
         </SiteOfflineGate>
         <PreventHorizontalScroll />

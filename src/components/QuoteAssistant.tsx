@@ -129,7 +129,7 @@ function QuotePriceCard({
       </div>
       <div className="space-y-1.5 px-3 py-2.5 text-sm text-white/90">
         <p>
-          {card.returnJourney ? "Return" : "One way"}
+          {card.returnJourney ? "Return (5% off)" : "One way"}
           <span className="text-white/55"> · </span>
           {card.passengers} passengers
           <span className="text-white/55"> · </span>

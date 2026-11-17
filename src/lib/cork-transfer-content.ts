@@ -3,7 +3,7 @@ const sharedFaqs = [
   { question: "Which vehicle should I choose for a long-distance transfer?", answer: "Enter everyone travelling and all standard suitcases before choosing a vehicle. Saloon and Estate carry up to four passengers, with Estate suited to extra luggage. A 7-Seater Minibus is offered only when available and suitable for the party. Vehicle capacity and availability are checked during the quote." },
   { question: "Can we arrange a comfort stop?", answer: "Please tell us before booking if you would like a comfort stop, an additional pickup or a detour. We can confirm the plan and any effect on your quote before you commit. Allow extra time if you have a flight or appointment at the destination." },
   { question: "Is the price per passenger or per vehicle?", answer: "Your confirmed transfer price is for the booked vehicle and journey, rather than a separate fare for each passenger. Enter the full party and suitcase count so we can offer a suitable vehicle. The price is agreed before payment." },
-  { question: "Can I arrange the journey back as well?", answer: "Yes. Choose Return and enter the details for both journeys. Where an eligible online return fare is shown, you can book both journeys together. A personalised return request is confirmed with you before payment." },
+  { question: "Can I arrange the journey back as well?", answer: "Yes. Choose Return and enter the details for both journeys. Where an eligible online return fare is shown, the existing return-booking discount is applied by the quote tool. A personalised return request is confirmed with you before payment." },
 ];
 export const CORK_TRANSFER_PAGES = {
   "belfast-to-cork": {

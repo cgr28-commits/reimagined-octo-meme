@@ -216,9 +216,9 @@ async function main() {
   });
 
   /* --------------------------------------------------------------- 5% retired */
-  await check("automatic 5% return discount is retired; legacy records keep their price", () => {
-    assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0);
-    assert.equal(getWebsiteReturnJourneyFare(100), 200, "return = two full journeys");
+  await check("5% return discount is live again (owner, 17 Nov 2026); records keep the price they were given", () => {
+    assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
+    assert.equal(getWebsiteReturnJourneyFare(100), 190, "return = 5% off two journeys");
     assert.equal(getWebsiteReturnJourneyFare(100, LEGACY_RETURN_JOURNEY_DISCOUNT_RATE), 190);
     assert.equal(returnDiscountRateForRecord({}), 0.05, "unstamped (older) record = 5% it was quoted with");
     assert.equal(returnDiscountRateForRecord({ returnDiscountRate: 0 }), 0);
@@ -229,14 +229,43 @@ async function main() {
     assert.equal(after, 200);
   });
 
-  await check("live owner pricing ignores an old stored 5%; legacy saved quotes get it back", () => {
+  await check("live owner pricing uses the stored 5%; quotes stamped 0% (16–17 Nov) keep that price", () => {
     const stored = { ...defaultOwnerPricingSettings(), returnDiscount: { rate: 0.05 } };
     const live = retireReturnBookingDiscount(stored);
-    assert.equal(live.returnDiscount.rate, 0);
-    // Other pricing untouched (Christmas, minimums, Estate, airport fees).
-    assert.deepEqual({ ...live, returnDiscount: stored.returnDiscount }, stored);
+    assert.equal(live.returnDiscount.rate, 0.05);
+    assert.deepEqual(live, stored, "nothing else changes");
+    assert.equal(defaultOwnerPricingSettings().returnDiscount.rate, 0.05, "default is 5%");
     assert.equal(savedQuotePricingFor(live, {}).returnDiscount.rate, 0.05);
     assert.equal(savedQuotePricingFor(live, { returnDiscountRate: 0 }).returnDiscount.rate, 0);
+  });
+
+  await check("codes never stack with the 5% return discount: the better price applies", () => {
+    // Return booking: 2 × £150 journeys, 5% off = £285 + £10 airport fixed costs.
+    const base = { returnJourney: true, journeyFareBeforeAirportAccessGbp: 285, airportFixedCostsGbp: 10 } as Parameters<typeof composeWebsiteFareBreakdown>[0];
+    const plain = composeWebsiteFareBreakdown(base);
+    assert.equal(plain.returnJourneySavingGbp, 15);
+    assert.equal(plain.finalAmountPayableGbp, 295);
+    // 10% code beats 5%: 10% of £300 = £30 off instead of £15.
+    const ten = composeWebsiteFareBreakdown({ ...base, promoCode: { code: "MATNI-ABCD-EFGH", discountRate: 0.1, minimumVehicleFareGbp: 100 } });
+    assert.equal(ten.promoCodeStatus, "applied");
+    assert.equal(ten.returnJourneySavingGbp, 0);
+    assert.equal(ten.promoEligibleVehicleFareGbp, 300);
+    assert.equal(ten.finalAmountPayableGbp, 280);
+    assert.equal(ten.promoCodeSavingGbp, 30, "saving shown against the price without the 5%");
+    // A 3% code is worse than 5%: keep the 5%, don't use the code.
+    const three = composeWebsiteFareBreakdown({ ...base, promoCode: { code: "MATNI-ABCD-EFGH", discountRate: 0.03, minimumVehicleFareGbp: 100 } });
+    assert.equal(three.promoCodeStatus, "return_discount_better");
+    assert.equal(three.finalAmountPayableGbp, 295);
+    assert.equal(three.returnJourneySavingGbp, 15);
+    assert.equal(three.promoCodeSavingGbp, 0);
+    // Equal saving (5% code): the 5% stays, the code is not used up.
+    const five = composeWebsiteFareBreakdown({ ...base, promoCode: { code: "MATNI-ABCD-EFGH", discountRate: 0.05, minimumVehicleFareGbp: 100 } });
+    assert.equal(five.promoCodeStatus, "return_discount_better");
+    assert.equal(five.finalAmountPayableGbp, 295);
+    // One-way bookings: unchanged (code on the full vehicle fare).
+    const oneWay = composeWebsiteFareBreakdown({ returnJourney: false, journeyFareBeforeAirportAccessGbp: 160, airportFixedCostsGbp: 10, promoCode: { code: "MATNI-ABCD-EFGH", discountRate: 0.1, minimumVehicleFareGbp: 100 } } as Parameters<typeof composeWebsiteFareBreakdown>[0]);
+    assert.equal(oneWay.promoCodeStatus, "applied");
+    assert.equal(oneWay.promoEligibleVehicleFareGbp, 160, "journey fare only; airport fixed costs are separate");
   });
 
   /* --------------------------------------------------------------- fare maths */
@@ -264,9 +293,13 @@ async function main() {
       returnJourney: true,
       promoCode: terms,
     });
-    assert.equal(b.returnJourneySavingGbp, 0, "no automatic return discount any more");
-    assert.equal(b.promoCodeSavingGbp, 30);
-    assert.equal(b.finalAmountPayableGbp, 300 + 13 + 10 - 30);
+    // £300 is the combined fare after the 5% return discount (£315.79 before it). The 10% code
+    // saves more, so it replaces the 5%: 10% of £315.79, airport charges never discounted.
+    assert.equal(b.promoCodeStatus, "applied");
+    assert.equal(b.returnJourneySavingGbp, 0, "codes are not added on top of the 5%");
+    assert.equal(b.promoEligibleVehicleFareGbp, 315.79);
+    assert.equal(b.finalAmountPayableGbp, 307, "315.79 − 31.58 + 13 → £297, + £10 access");
+    assert.equal(b.promoCodeSavingGbp, 32, "against the £339 the customer would pay with neither discount");
   });
 
   await check("minimum vehicle fare £100: exactly £100 qualifies, £99 does not", () => {

@@ -494,7 +494,7 @@ export const FAQS = [
   {
     question: "Can I book a return journey?",
     answer:
-      "Yes — choose Return on the quote form. Each leg shows its own inclusions (for example drop-off fee outbound and pickup fee plus airport waiting on the return).",
+      "Yes — choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare. Each leg shows its own inclusions (for example drop-off fee outbound and pickup fee plus airport waiting on the return).",
   },
   {
     question: "How do I pay?",

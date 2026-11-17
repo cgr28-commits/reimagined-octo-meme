@@ -1,3 +1,4 @@
+import ReturnDiscountBand from "@/components/ReturnDiscountBand";
 import type { Metadata } from "next";
 import ChristmasVideoSection from "@/components/ChristmasVideoSection";
 import Design3QuickLinks from "@/components/Design3QuickLinks";
@@ -57,6 +58,8 @@ export default function Home() {
         {/* Desktop (1200px+): no rotating boxes; the wording has more room and the quote tool
             sits lower and bigger (owner, 17 Nov 2026). Phones and tablets are unchanged. */}
         <HeroSlideshow homepageQuickPicks desktopRoomy />
+        {/* 5% return-booking discount (owner, 17 Nov 2026) */}
+        <ReturnDiscountBand />
         {/* Christmas video below the quote calculator — dates in CHRISTMAS_VIDEO (src/lib/seasonal.ts) */}
         <ChristmasVideoSection initiallyLive={isChristmasVideoLive()} />
         <Design3QuickLinks />

@@ -4,9 +4,9 @@
  * Christmas welcome pop-up (owner brief, 17 Nov 2026).
  *
  * First visit during the campaign: the 8-second Google Flow video plays muted (sound button
- * available), then the Christmas offer is revealed. The offer IS the existing 10% email promo
- * code — same form, same rules (minimum fare, excluded dates, one per customer). Nothing here
- * changes prices or creates a discount.
+ * available), then the 5% return-booking discount is shown with the quote button (owner, 17 Nov
+ * 2026: the 10% code offer that used to follow the video is withdrawn). Nothing here changes
+ * prices or creates a discount; the 5% is applied by the quote tool.
  *
  * Shown once per browser, only after the cookie choice and once the page has finished loading,
  * never on booking / payment / account / saved-quote pages (same list as the promo pop-up),
@@ -168,15 +168,11 @@ export default function ChristmasWelcome() {
 
   const nextAfterVideo = useCallback(() => {
     videoRef.current?.pause();
-    if (offerUsable && !promoAlreadySignedUp(offerId)) {
-      // The customer has now seen the offer — don't follow up with the 20-second promo pop-up.
-      markPromoPopupDismissed(Date.now(), offerId);
-      trackChristmasVideo("popup_offer_seen");
-      setStep("offer");
-    } else {
-      setStep("quote");
-    }
-  }, [offerUsable, offerId]);
+    // Owner, 17 Nov 2026: the 10% code offer is withdrawn (codes already sent are still honoured).
+    // After the video the pop-up shows the 5% return-booking discount and the quote button.
+    trackChristmasVideo("popup_offer_seen");
+    setStep("quote");
+  }, []);
 
   const close = useCallback(() => {
     if (stepRef.current === "video") trackChristmasVideo("popup_closed");
@@ -435,13 +431,11 @@ export default function ChristmasWelcome() {
 
         {step === "quote" ? (
           <div className="cw-reveal px-6 pb-8 pt-10 text-center sm:px-10">
-            <h2 id="cw-title" data-cw-step-heading tabIndex={-1} className="text-2xl font-extrabold tracking-tight outline-none sm:text-[1.9rem]">
-              Your journey, taken care of.
+            <h2 id="cw-title" data-cw-step-heading data-return-discount-offer tabIndex={-1} className="text-2xl font-extrabold tracking-tight outline-none sm:text-[1.9rem]">
+              Save 5% When You Book a Return Transfer
             </h2>
             <p className="cw-sub mx-auto mt-3 max-w-md text-[0.98rem] leading-relaxed">
-              {promoAlreadySignedUp(offerId) && offerUsable
-                ? "Your code is on its way — enter it when you book. Get your fixed airport fare now."
-                : "Fixed prices, flight monitoring and a pre-booked driver waiting for you."}
+              Book both journeys together and enjoy 5% off your total fare.
             </p>
             <div className="mx-auto mt-6 flex max-w-sm flex-col items-stretch gap-3">
               <QuoteNavLink onNavigate={() => { trackChristmasVideo("popup_get_quote"); close(); }} className="btn-primary cw-primary inline-flex min-h-12 items-center justify-center px-6 text-base font-bold">

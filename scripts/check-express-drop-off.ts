@@ -1155,11 +1155,10 @@ check("Owner dashboard surfaces paid vs free airport access", () => {
   );
 });
 
-check("A–J: single vs return Express legs, return = two full journeys, independent selections", () => {
+check("A–J: single vs return Express legs, 5% on taxi only, independent selections", () => {
   const oneWayFare = 40;
-  // The automatic 5% return discount was retired (Nov 2026): a return is two full journeys.
-  const returnTaxiFare = 80; // 2 × 40
-  const returnSaving = 0;
+  const returnTaxiFare = 76; // 2 × 40 × 0.95
+  const returnSaving = 4;
 
   // A. Single journey to airport – Express selected
   const a = resolveExpressDropOff({
@@ -1211,7 +1210,7 @@ check("A–J: single vs return Express legs, return = two full journeys, indepen
     returnJourney: true,
   });
   assert.equal(cFare.returnJourneySavingGbp, returnSaving);
-  assert.equal(cFare.finalAmountPayableGbp, 90);
+  assert.equal(cFare.finalAmountPayableGbp, 86);
 
   // D. Return – free on both legs
   const d = resolveExpressDropOff({
@@ -1228,7 +1227,7 @@ check("A–J: single vs return Express legs, return = two full journeys, indepen
       airportAccessChargeGbp: 0,
       returnJourney: true,
     }).finalAmountPayableGbp,
-    80,
+    76,
   );
 
   // E. Return – Express outbound / free return
@@ -1250,7 +1249,7 @@ check("A–J: single vs return Express legs, return = two full journeys, indepen
     returnJourney: true,
   });
   assert.equal(eFare.returnJourneySavingGbp, returnSaving);
-  assert.equal(eFare.finalAmountPayableGbp, 85);
+  assert.equal(eFare.finalAmountPayableGbp, 81);
 
   // F. Return – free outbound / Express return
   const f = resolveExpressDropOff({
@@ -1279,11 +1278,11 @@ check("A–J: single vs return Express legs, return = two full journeys, indepen
 
   // H + I. 5% saving is on taxi fare only; airport fees added at full value after
   assert.equal(cFare.originalEligibleJourneyPriceGbp, 80);
-  assert.equal(cFare.journeyFareBeforePromotionsGbp, 80);
-  assert.equal(cFare.returnJourneySavingGbp, 0);
+  assert.equal(cFare.journeyFareBeforePromotionsGbp, 76);
+  assert.equal(cFare.returnJourneySavingGbp, 4);
   assert.equal(cFare.airportAccessChargeGbp, 10);
-  assert.equal(cFare.totalPromotionalSavingGbp, 0);
-  assert.equal(cFare.finalAmountPayableGbp, 80 + 10);
+  assert.equal(cFare.totalPromotionalSavingGbp, 4);
+  assert.equal(cFare.finalAmountPayableGbp, 80 - 4 + 10);
 
   // J. Changing one leg does not change the other
   assert.equal(e.outboundSelected, true);

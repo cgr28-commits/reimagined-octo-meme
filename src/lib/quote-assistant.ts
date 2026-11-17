@@ -1038,7 +1038,7 @@ function promptForField(field: MissingField, draft: QuoteDraft): AssistantRespon
       };
     case "returnJourney":
       return {
-        reply: "Is this a one-way trip or a return journey?",
+        reply: "Is this a one-way trip or a return journey? (Return includes 5% off.)",
         draft,
         quickReplies: ["One way", "Return"],
       };

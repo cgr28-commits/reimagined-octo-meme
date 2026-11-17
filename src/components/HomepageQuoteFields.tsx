@@ -457,6 +457,14 @@ export default function HomepageQuoteFields({
             }`}
           >
             <span className="text-sm font-semibold">Return</span>
+            <span
+              data-return-discount-note
+              className={`mt-0.5 text-[11.5px] font-bold tracking-[0.06em] ${
+                journeyMode === "return" ? "text-[#071c38]" : "text-emerald"
+              }`}
+            >
+              SAVE 5%
+            </span>
           </button>
         </div>
       </div>
@@ -556,6 +564,7 @@ export default function HomepageQuoteFields({
           </button>
           <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
             Return
+            <span data-return-discount-note>Save 5%</span>
           </button>
         </div>
       ) : null}

@@ -128,7 +128,7 @@ async function main() {
 
   const pricing = defaultOwnerPricingSettings();
   pricing.saloonFormula = { enabled: true, startingChargeGbp: 10, ratePerMileGbp: 2.5, minimumFareGbp: 30 };
-  // An older saved pricing record still says 5%: the live site must ignore it now.
+  // Owner, 17 Nov 2026: the 5% return-booking discount is live again (stored owner setting 5%).
   pricing.returnDiscount = { rate: 0.05 };
   kvMap.set("owner:pricing-settings", JSON.stringify(pricing));
 
@@ -228,10 +228,10 @@ async function main() {
   };
 
   try {
-    await check("return quotes are two full journeys (old stored 5% ignored)", async () => {
+    await check("return quotes get the 5% return-booking discount again", async () => {
       const one = await quoteFor(dub, false, 0);
       const ret = await quoteFor(dub, true, 0);
-      assert.equal(ret.quote.journeyFareGbp, Math.round(one.quote.journeyFareGbp! * 2 * 100) / 100, "no automatic return discount");
+      assert.equal(ret.quote.journeyFareGbp, Math.round(one.quote.journeyFareGbp! * 2 * 0.95 * 100) / 100, "5% off the combined journey fare");
     });
 
     await check("one-way with a valid code: server charges exactly the discounted total and holds the code", async () => {
@@ -282,8 +282,20 @@ async function main() {
       const q = await quoteFor(dub, true);
       const code = await issue("promo.return@example.com");
       const expected = composeWebsiteFareBreakdown({ ...q.base, promoCode: { code, discountRate: 0.1, minimumVehicleFareGbp: 100 } });
-      assert.equal(expected.promoEligibleVehicleFareGbp, q.quote.journeyFareGbp);
-      assert.ok(Math.abs(expected.promoCodeSavingGbp - q.quote.journeyFareGbp! * 0.1) < 1);
+      const plain = composeWebsiteFareBreakdown(q.base);
+      // No stacking: the 10% code replaces the 5% return discount (it saves more), assessed on the
+      // combined fare without the 5%.
+      assert.equal(expected.promoCodeStatus, "applied");
+      assert.equal(expected.returnJourneySavingGbp, 0, "the 5% is not added on top of the code");
+      const undiscounted = Math.round((q.quote.journeyFareGbp! + plain.returnJourneySavingGbp) * 100) / 100;
+      assert.ok(plain.returnJourneySavingGbp > 0);
+      assert.equal(expected.promoEligibleVehicleFareGbp, undiscounted);
+      assert.ok(expected.finalAmountPayableGbp < plain.finalAmountPayableGbp, "the code is the better price here");
+      assert.ok(Math.abs(expected.finalAmountPayableGbp - (plain.finalAmountPayableGbp + plain.returnJourneySavingGbp - undiscounted * 0.1)) <= 1);
+      // Tampering: claiming both discounts is refused.
+      const before = checkouts;
+      await assert.rejects(request(q, "promo.return@example.com", Math.round((expected.finalAmountPayableGbp - plain.returnJourneySavingGbp) * 100) / 100, code), (e) => isPaymentFareMismatchError(e));
+      assert.equal(checkouts, before);
       const result = await request(q, "promo.return@example.com", expected.finalAmountPayableGbp, code);
       assert.equal(lastCheckoutAmount, expected.finalAmountPayableGbp);
       assert.ok(result.checkoutId);

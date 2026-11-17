@@ -109,9 +109,16 @@ export const TERMS_SECTIONS = [
     ],
   },
   {
+    title: "Return booking discount",
+    content: [
+      "Book your outward and return journeys together on our website and get 5% off the combined journey fare. There is no minimum spend and no expiry date. Airport access, pickup, drop-off, parking and barrier charges, Express and optional extras are not discounted.",
+      "The return discount is not combined with a discount code on the same booking: if you enter a valid code on a return booking, whichever gives the lower price is applied.",
+    ],
+  },
+  {
     title: "Promotional codes",
     content: [
-      "Discount codes we email on request (for example our 10% welcome code) apply to the vehicle fare only: the journey fare for a one-way booking, or the combined outward and return journey fares for a return booking. Airport access, pickup, drop-off, parking and barrier charges and optional extras such as Meet & Greet are not discounted.",
+      "Discount codes we have emailed (codes already issued are honoured until they expire) apply to the vehicle fare only: the journey fare for a one-way booking, or the combined outward and return journey fares for a return booking. Airport access, pickup, drop-off, parking and barrier charges and optional extras such as Meet & Greet are not discounted.",
       "Each code is shown with its terms when it is sent: the percentage, a minimum eligible vehicle fare (currently £100) and an expiry date (currently 30 days from issue). A code can be used once, only by the customer whose email address it was sent to, and only on standard online bookings. One welcome discount per customer.",
       "Codes cannot be used for journeys on excluded dates (currently 14 December to 5 January, our Christmas and New Year period; 24 March to 5 April 2027, Easter; 21–23 May 2027, the Garth Brooks concerts in Belfast; 9–18 July 2027, the Twelfth fortnight; and 17–21 August 2027, the Harry Styles concerts in Dublin); if either journey of a return falls on an excluded date the code cannot be used. Any excluded dates are shown when you enter the code.",
       "From time to time we run limited-time offers (for example Black Friday) with a higher percentage. A code requested during the offer gets the offer percentage and keeps it until its normal expiry date; the offer dates and percentage are shown on the website while it runs.",

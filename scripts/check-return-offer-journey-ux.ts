@@ -120,9 +120,7 @@ check("6. Valid Return Offer hides the One way / Return toggle", () => {
 check("7. Ordinary booking still shows the One way / Return toggle", () => {
   const progressive = read("src/components/QuoteProgressiveRoute.tsx");
   assert.match(progressive, /One way/);
-  // The automatic 5% return discount was retired (Nov 2026): the toggle just says "Return".
-  assert.match(progressive, />\s*Return\s*</);
-  assert.doesNotMatch(progressive, /Return · 5% off/);
+  assert.match(progressive, /Return · 5% off/);
   assert.match(progressive, /lockReturnOfferJourney = false/);
 });
 

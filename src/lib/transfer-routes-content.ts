@@ -43,7 +43,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return airport transfer?",
         answer:
-          "Yes. Choose Return on the quote form. Each leg keeps its own inclusions.",
+          "Yes. Choose Return on the quote form. Where an instant online price is shown, a 5% discount applies to the combined fare. Each leg keeps its own inclusions.",
       },
       {
         question: "What happens if my flight into Belfast International is delayed?",
@@ -94,7 +94,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return from City Airport to Newtownabbey?",
         answer:
-          "Yes. Use Return on the quote form.",
+          "Yes. Use Return on the quote form. Instant online return prices include a 5% discount on the combined fare where that price is shown.",
       },
       {
         question: "What if my City Airport flight is late?",
@@ -145,7 +145,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return from Dublin Airport to Newtownabbey?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. Instant online returns include a 5% combined-fare discount where that price is shown.",
       },
       {
         question: "What if my Dublin flight is delayed?",
@@ -195,7 +195,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Carrickfergus?",
         answer:
-          "Yes. Use Return on the quote form.",
+          "Yes. Use Return on the quote form. Instant online combined fares include a 5% discount where that price is shown.",
       },
       {
         question: "What happens if my Aldergrove flight is delayed?",
@@ -245,7 +245,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return journey?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. A 5% discount applies to instant online combined fares where shown.",
       },
       {
         question: "What if my City Airport flight is delayed?",
@@ -295,7 +295,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return?",
         answer:
-          "Yes. Choose Return on the quote form.",
+          "Yes. Choose Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if the Dublin flight is late?",
@@ -345,7 +345,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Ballyclare?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my flight is delayed?",
@@ -395,7 +395,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return?",
         answer:
-          "Yes. Use Return on the quote form.",
+          "Yes. Use Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What happens if the flight is delayed?",
@@ -445,7 +445,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Ballyclare?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my Dublin flight is delayed?",
@@ -495,7 +495,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Lisburn?",
         answer:
-          "Yes. Choose Return on the quote form.",
+          "Yes. Choose Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my flight is delayed?",
@@ -546,7 +546,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return?",
         answer:
-          "Yes. Use Return on the quote form.",
+          "Yes. Use Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my City Airport flight is late?",
@@ -597,7 +597,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Lisburn?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if the Dublin flight is delayed?",
@@ -647,7 +647,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Bangor?",
         answer:
-          "Yes. Choose Return on the quote form.",
+          "Yes. Choose Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my Aldergrove flight is delayed?",
@@ -698,7 +698,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return?",
         answer:
-          "Yes. Use Return on the quote form.",
+          "Yes. Use Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my City Airport flight is delayed?",
@@ -749,7 +749,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return to Bangor?",
         answer:
-          "Yes. Select Return on the quote form.",
+          "Yes. Select Return on the quote form. Instant online combined fares include a 5% discount where shown.",
       },
       {
         question: "What if my Dublin flight is delayed?",
@@ -1528,7 +1528,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     metaDescription:
       "Yes, you can pre-book a taxi from Dublin Airport to Belfast. Your driver meets you in Arrivals, tracks your flight and drives you door to door. Fixed price, tolls included.",
     intro:
-      "Landed at Dublin Airport and need to get to Belfast? Pre-book a private taxi with My Airport Taxi NI and your driver will meet you in Arrivals at Terminal 1 or Terminal 2 and drive you door to door to your Belfast home, hotel or office — no bus connections and no queue at the taxi rank. The journey takes around two hours in normal traffic. Add your flight number when you book and we'll track your flight, so if it lands early or late your driver knows. Airport pickups include up to 60 minutes' free waiting, and M1 tolls are included in the fare. Enter your Belfast address in the quote box above to see your fixed price, then book and pay securely online. Need to fly back out of Dublin? Add the return on the same form and book both journeys together. WhatsApp us on 07549 815538 if you need to check luggage or anything else before you fly.",
+      "Landed at Dublin Airport and need to get to Belfast? Pre-book a private taxi with My Airport Taxi NI and your driver will meet you in Arrivals at Terminal 1 or Terminal 2 and drive you door to door to your Belfast home, hotel or office — no bus connections and no queue at the taxi rank. The journey takes around two hours in normal traffic. Add your flight number when you book and we'll track your flight, so if it lands early or late your driver knows. Airport pickups include up to 60 minutes' free waiting, and M1 tolls are included in the fare. Enter your Belfast address in the quote box above to see your fixed price, then book and pay securely online. Need to fly back out of Dublin? Add the return on the same form; where an instant price is shown, you get 5% off the combined fare. WhatsApp us on 07549 815538 if you need to check luggage or anything else before you fly.",
     journeyInfo: `Dublin Airport to Belfast is a reserved cross-border transfer, typically around two hours in normal traffic. ${TRAFFIC}`,
     goingToAirport:
       "Flying back out of Dublin? Add the return on this form, or use our Belfast to Dublin Airport page. We collect you at your Belfast door and drive you to your terminal, with M1 tolls included. Allow plenty of time for check-in.",
@@ -1567,7 +1567,7 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
       {
         question: "Can I book a return from Belfast to Dublin Airport?",
         answer:
-          "Yes. Choose Return on the quote form.",
+          "Yes. Choose Return on the quote form. Where an instant price is shown, you get 5% off the combined fare.",
       },
       {
         question: "How do I pay for a Dublin Airport to Belfast transfer?",

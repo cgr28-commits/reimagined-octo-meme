@@ -236,7 +236,7 @@ export function PromotionalPriceBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3">
-            <dt>Return Booking Discount</dt>
+            <dt>5% Return Booking Discount</dt>
             <dd className="shrink-0 text-emerald/90">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
             </dd>
@@ -378,7 +378,7 @@ export function FinalPayableBreakdown({
         </div>
         {breakdown.returnJourneySavingGbp > 0 ? (
           <div className="flex justify-between gap-3 text-emerald/90">
-            <dt>Return Booking Discount</dt>
+            <dt>5% Return Booking Discount</dt>
             <dd className="shrink-0 tabular-nums">
               −{formatGbpFare(breakdown.returnJourneySavingGbp)}
             </dd>

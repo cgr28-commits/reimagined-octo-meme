@@ -429,7 +429,6 @@ import {
   promoRejectMessage,
 } from "../../shared/promo-code";
 import PromoCodeField from "@/components/PromoCodeField";
-import PromoQuoteBanner from "@/components/PromoQuoteBanner";
 
 const IS_A2A_PRIMARY = SERVICE_FLAGS.addressToAddress;
 
@@ -5071,6 +5070,8 @@ function QuoteCard({
           })()
         : null;
     const belowMinimum = appliedPromo && breakdown.promoCodeStatus === "below_minimum";
+    // Return booking where the 5% return discount already beats the code: the two are never combined.
+    const returnDiscountBetter = appliedPromo && breakdown.promoCodeStatus === "return_discount_better";
     // A date changed after the code was applied: keep the code, explain why it isn't counted.
     const blackoutNotice = appliedPromo ? promoBlackoutNotice() : null;
     return (
@@ -5088,7 +5089,9 @@ function QuoteCard({
             ? blackoutNotice
             : belowMinimum
               ? promoRejectMessage("minimum_fare", appliedPromo ?? undefined)
-              : promoMessage
+              : returnDiscountBetter
+                ? "Your return discount already gives you a better price than this code, so we've kept it. Codes and the return discount can't be combined."
+                : promoMessage
         }
         applied={applied}
         unavailableReason={promoUnavailableReason() ?? undefined}
@@ -10592,9 +10595,6 @@ function QuoteCard({
                       </div>
                     ) : null}
                     {renderQuoteVehicleChoice()}
-                    {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() && !promoBlackoutNotice() ? (
-                      <PromoQuoteBanner config={promoConfig} className="mt-3" />
-                    ) : null}
                     {renderDesktopMeetGreetUpgrades()}
                     {design2Home ? (
                       /* Design 3 (?mobile=d3) only, shown by its stylesheet: what the fare includes,
@@ -11161,9 +11161,6 @@ function QuoteCard({
               aria-hidden="true"
             />
             {renderQuoteVehicleChoice()}
-            {promoConfig?.enabled && openWebsiteFareBreakdown && !appliedPersonalQuote && !promoUnavailableReason() && !promoBlackoutNotice() ? (
-              <PromoQuoteBanner config={promoConfig} className="mt-3" />
-            ) : null}
             {renderBookingErrorHelp("results")}
             {showInstantQuoteResultCard ? (
               <>

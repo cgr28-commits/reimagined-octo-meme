@@ -210,8 +210,9 @@ export default async function AirportTransferPage({ params }: Props) {
                   Your Dublin Airport quote includes applicable M1 tolls and any airport pickup or parking
                   allowance shown in the breakdown. Vehicle supplements form part of the journey fare; review
                   the total for your selected vehicle before booking. Choose Return to book both directions
-                  together on one booking. Any applicable time-of-day or seasonal pricing is already included
-                  in the quoted total.
+                  together. The existing 5% return-booking discount applies to the combined journey fare,
+                  excluding tolls, airport access, parking and other fixed charges. Any applicable night or
+                  weekend surcharge is also excluded from the discount and included in the quoted total.
                 </p>
               </div>
             </section>
@@ -248,6 +249,7 @@ export default async function AirportTransferPage({ params }: Props) {
                   available vehicles and quote before adding your date, pickup time and contact details to book.
                   Vehicle supplements form part of the journey fare. Applicable airport terminal access charges
                   are separate from that fare in the price breakdown and included in the total you see.
+                  The 5% return-booking discount applies to the journey fare, not the airport access charges.
                 </p>
               </div>
               <p className="text-sm leading-relaxed text-white/70">

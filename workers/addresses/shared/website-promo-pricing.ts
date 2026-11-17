@@ -147,7 +147,7 @@ export function formatCustomerPromoPricingLines(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     lines.push(
-      `Return Booking Discount: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
+      `5% Return Booking Discount: −${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
     );
   }
   if ((fields.promoCodeSavingGbp ?? 0) > 0 && fields.promoCode) {
@@ -213,7 +213,7 @@ export function formatCustomerPromoPricingHtmlRows(
   }
   if ((fields.returnJourneySavingGbp ?? 0) > 0) {
     rows.push({
-      label: "Return Booking Discount",
+      label: "5% Return Booking Discount",
       value: `−${formatGbpFare(fields.returnJourneySavingGbp ?? 0)}`,
     });
   }

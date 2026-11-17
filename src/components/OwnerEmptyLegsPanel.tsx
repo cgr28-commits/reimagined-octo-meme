@@ -228,7 +228,8 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. Simulation only: max discount{" "}
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.maxDiscountPercent}%, Belfast–Dublin journey floor £
           {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.minAcceptableFareGbp}. Post-drop-off and pre-pickup are both
-          listed; only post-drop-off can be priced. Airport fees and Estate stay unchanged with no stacking. Live Smart Return stays locked OFF.
+          listed; only post-drop-off can be priced. Airport fees, Estate and the 5% return-booking
+          discount stay unchanged with no stacking. Live Smart Return stays locked OFF.
         </p>
         <p className="mt-2 text-xs text-white/55">
           Contribution = discounted revenue − incremental costs (detour + passenger airport fees).
