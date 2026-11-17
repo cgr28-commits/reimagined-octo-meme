@@ -1,0 +1,307 @@
+/*
+ * Phone homepage restyle to the owner's approved mockup (17 Nov 2026).
+ * Phones only (up to 767px), homepage journey step only. Visual only: no change to the quote
+ * form's fields, validation, pricing, booking, payments or tracking. Tablets and desktop unchanged.
+ *
+ * Colours sampled from the mockup:
+ *   navy  #011834 (page) / #081f36 (selected One way)   green #45d818 (heading, icons)
+ *   button gradient #3fc61c → #1d9f0e → #0b8805           WhatsApp #36bb13   card #ffffff / #f7f9fc
+ */
+@media (max-width: 767.98px) {
+@layer base {
+  /* ---------- Header ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] {
+    background: #011834 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+  /* Official logo without the Santa hat on the phone homepage (no Christmas decorations here). */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] .quote-header-logo-wide::after {
+    content: none !important;
+    display: none !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] {
+    background: linear-gradient(180deg, #3fc61c 0%, #2eae12 100%) !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 14px -6px rgba(54, 187, 19, 0.7) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg,
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-matni-whatsapp-quick] svg path {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] [data-mobile-header-actions] > button {
+    background: transparent !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* ---------- Hero: airport photo at dusk, deep navy, white + green heading ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) {
+    background: linear-gradient(180deg, #011834 0%, #011a35 55%, #001f39 100%) !important;
+    position: relative;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 3.6rem;
+    right: 0;
+    width: 52%;
+    height: 10.5rem;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      linear-gradient(90deg, #011834 0%, rgba(1, 24, 52, 0.7) 22%, rgba(1, 24, 52, 0) 55%),
+      linear-gradient(0deg, #011834 0%, rgba(1, 24, 52, 0) 38%),
+      linear-gradient(180deg, #011834 0%, rgba(1, 24, 52, 0) 16%),
+      image-set(url("/images/hero/mobile-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-airport-dusk.jpg") type("image/jpeg")) right top / cover no-repeat !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    position: relative;
+    z-index: 1;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    font-size: 1.875rem !important;
+    line-height: 1.04 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 12px rgba(1, 24, 52, 0.6);
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-green] {
+    color: #45d818 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    max-width: 16.5rem !important;
+    margin-top: 0.5rem !important;
+    font-size: 0.96rem !important;
+    line-height: 1.35 !important;
+    font-weight: 500 !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 8px rgba(1, 24, 52, 0.7);
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] {
+    margin-top: 0.25rem;
+    padding: 0.4rem 0.85rem !important;
+    min-height: 2.25rem;
+    border: 1.5px solid rgba(255, 255, 255, 0.8) !important;
+    border-radius: 999px !important;
+    background: rgba(1, 24, 52, 0.55) !important;
+    font-size: 0.84rem !important;
+    font-weight: 600 !important;
+    align-items: center !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] [data-reviews-stars] {
+    color: #ffc81e !important;
+    font-size: 0.95rem !important;
+    letter-spacing: 0.02em;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact]::after {
+    content: "" !important;
+    display: inline-block !important;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-left: 0.55rem;
+    border-right: 2px solid #ffffff;
+    border-top: 2px solid #ffffff;
+    transform: rotate(45deg);
+    flex: none;
+  }
+
+  /* ---------- Quote card: bright white, rounded, soft shadow ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote > [data-quote-presentation="homepage"] {
+    background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%) !important;
+    border: 0 !important;
+    border-radius: 1.4rem !important;
+    box-shadow: 0 22px 44px -20px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+    padding: 1rem 0.9rem 1.1rem !important;
+  }
+  /* No Christmas decorations on the phone homepage (owner, 17 Nov 2026): no lights or snow on the card. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote > [data-quote-presentation="homepage"]::before,
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote > [data-quote-presentation="homepage"]::after {
+    content: none !important;
+    display: none !important;
+    background: none !important;
+  }
+  /* Card heading with a green calendar icon and the "instant quote" line (moved up from under the button). */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-card-head] {
+    display: grid !important;
+    grid-template-columns: 2.6rem 1fr;
+    column-gap: 0.7rem;
+    align-items: center;
+    height: auto !important;
+    min-height: 2.75rem;
+    margin-bottom: 0.25rem;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-card-head]::before {
+    content: "";
+    grid-row: 1 / span 2;
+    width: 2.4rem;
+    height: 2.4rem;
+    background: #36c21a;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='16.5' rx='2.5'/%3E%3Cpath d='M8 2.5v4M16 2.5v4M3 9.5h18M8.5 15l2.5 2.5 4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4.5' width='18' height='16.5' rx='2.5'/%3E%3Cpath d='M8 2.5v4M16 2.5v4M3 9.5h18M8.5 15l2.5 2.5 4.5-4.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-d3-card-head-title] {
+    grid-column: 2;
+    grid-row: 1;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    font-size: 1.5rem !important;
+    line-height: 1.15 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em;
+    color: #071c38 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-card-head]::after {
+    content: "Instant quote · No payment needed";
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: #1c2d49;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quote-price-action] [data-d2-caption] {
+    display: none !important;
+  }
+
+  /* Field and control borders, labels, green icons */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-homepage-quote-scroll] div:has(> div > :is(input#pickup, input#dropoff)),
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-schedule-control],
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-row] {
+    border-color: #dbe2ec !important;
+    background-color: #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quote-schedule] label,
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] {
+    font-size: 0.86rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: #071c38 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-gps-location], [data-schedule-control] > svg, [data-d2-stepper-btn="plus"]) {
+    color: #36c21a !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-btn="plus"] {
+    border-color: #36c21a !important;
+  }
+
+  /* Airport shortcuts: name, then a small plane and the airport code */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] {
+    gap: 0.4rem !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick] {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 2.9rem !important;
+    padding: 0.3rem 0.2rem !important;
+    border: 1px solid #dbe2ec !important;
+    border-radius: 0.75rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 6px -2px rgba(7, 28, 56, 0.15) !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap;
+    color: #071c38 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick]::after {
+    content: attr(data-quick-pick);
+    display: block;
+    margin-top: 0.12rem;
+    padding-left: 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #3b4c66;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2336c21a'%3E%3Cpath d='M21 15.5v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V8.5l-8 5v2l8-2.5V18l-2 1.5V21l3.5-1 3.5 1v-1.5L13 18v-5z'/%3E%3C/svg%3E") left center / 0.8rem no-repeat;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick]:active {
+    background: #eafee7 !important;
+    border-color: #36c21a !important;
+  }
+
+  /* One way / Return */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] {
+    min-height: 2.6rem !important;
+    padding: 0 !important;
+    border-radius: 0.75rem !important;
+    background: #e3e7ee !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] > button {
+    min-height: 2.6rem !important;
+    border-radius: 0.75rem !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] > button[aria-pressed="true"] {
+    background: #081f36 !important;
+    color: #ffffff !important;
+  }
+
+  /* Get My Fixed Price */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote button[data-get-fixed-price] {
+    min-height: 3.4rem !important;
+    border-radius: 0.95rem !important;
+    background: linear-gradient(180deg, #3fc61c 0%, #1d9f0e 55%, #0b8805 100%) !important;
+    box-shadow: 0 10px 22px -10px rgba(11, 136, 5, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    border: 0 !important;
+  }
+
+  /* ---------- Benefits under the card ---------- */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] {
+    margin-top: 2rem !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] > li + li {
+    border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] [data-d2-benefit-icon] {
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+    color: #45d818 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] > li > span {
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    color: #ffffff !important;
+  }
+
+  /* Green sweep along the bottom of the hero */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2.1rem;
+    pointer-events: none;
+    z-index: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 34' preserveAspectRatio='none'%3E%3Cpath d='M0 20 C 120 34, 250 30, 390 6' fill='none' stroke='%2345d818' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M0 26 C 140 38, 260 34, 390 14' fill='none' stroke='%2345d818' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat !important;
+  }
+}
+}
+
+/* Smallest phones (320px): airport names fit without clipping. */
+@media (max-width: 359.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] { gap: 0.25rem !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick] {
+    padding: 0.3rem 0.05rem !important;
+    font-size: 0.66rem !important;
+    letter-spacing: -0.01em;
+  }
+}
+}
