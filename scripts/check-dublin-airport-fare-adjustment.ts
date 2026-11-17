@@ -147,11 +147,17 @@ const tooHigh = validateOwnerPricingInput({
   dublinAirportFareAdjustment: { rate: 1.5 },
 });
 assert.equal(tooHigh.ok, false);
+// Negative = lower Dublin Airport fares (owner approved 17 Nov 2026), down to -50%.
 const negative = validateOwnerPricingInput({
   ...defaultOwnerPricingSettings(),
-  dublinAirportFareAdjustment: { rate: -0.1 },
+  dublinAirportFareAdjustment: { rate: -0.07 },
 });
-assert.equal(negative.ok, false);
+assert.equal(negative.ok, true, "a 7% reduction is allowed");
+const tooLow = validateOwnerPricingInput({
+  ...defaultOwnerPricingSettings(),
+  dublinAirportFareAdjustment: { rate: -0.6 },
+});
+assert.equal(tooLow.ok, false, "more than 50% off is rejected");
 
 const changes = diffOwnerPricingSettings(pricingAt(0), pricingAt(0.1));
 assert.deepEqual(
@@ -160,7 +166,8 @@ assert.deepEqual(
 );
 
 const panel = fs.readFileSync("src/components/OwnerPricingPanel.tsx", "utf8");
-assert.match(panel, /Dublin Airport Fare Adjustment \(%\)/);
+assert.match(panel, /Dublin Airport Fare Adjustment: lower by \(%\)/);
+assert.match(panel, /data-dublin-direction/);
 assert.match(panel, /data-dublin-fare-adjustment/);
 const quoteSrc = fs.readFileSync("src/lib/quote.ts", "utf8");
 assert.match(quoteSrc, /dublinAirportJourneyFareGbp/);
