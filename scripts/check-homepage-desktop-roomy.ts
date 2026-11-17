@@ -26,8 +26,8 @@ console.log("=== 1. Rotating boxes are off, on every page ===");
 
 console.log("\n=== 2. Wording is unchanged ===");
 {
-  assert.match(hero, /Belfast &amp; Dublin <span data-hero-green-mobile className="max-\[74\.99rem\]:text-emerald">Airport Transfers<\/span>/);
-  assert.match(hero, /<span data-hero-second-line className="hidden text-emerald min-\[75rem\]:block">Premium Private Travel<\/span>/);
+  assert.match(hero, /Belfast &amp; Dublin <span data-hero-green className="text-emerald">Airport Transfers<\/span>/);
+  assert.doesNotMatch(hero, /Premium Private Travel/);
   assert.match(
     hero,
     /Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond\. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price\./,
@@ -53,7 +53,10 @@ console.log("\n=== 3. The roomy layout is homepage-only, desktop-only, first ste
     // Every line that opens a rule ("{") or continues a selector list (","), except the @-wrappers.
     .filter((line) => (line.includes("{") || line.endsWith(",")) && !line.startsWith("@") && !line.startsWith("/*"));
   assert.ok(selectorLines.length >= 20, `expected the roomy selectors, found ${selectorLines.length}`);
-  for (const line of selectorLines) {
+  // The one all-device rule: "Airport Transfers" in green in the homepage heading.
+  const greenHeading = "html:root:root:root:root:root:root:root:root main > section.homepage-hero #homepage-booking-intro > h1 [data-hero-green] { color: #2fbf4a !important; }";
+  assert.ok(css.includes(greenHeading), "Airport Transfers is green on every device");
+  for (const line of selectorLines.filter((l) => l !== greenHeading)) {
     assert.ok(line.startsWith(scope), `every rule must be scoped to the roomy homepage hero: ${line.slice(0, 120)}`);
   }
   // Outside this block nothing else targets the attribute (so hub pages cannot be affected).
