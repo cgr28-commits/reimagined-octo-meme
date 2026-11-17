@@ -143,5 +143,10 @@
     width: 34%;
     opacity: 0.75;
   }
+  /* Keep the trust strip on one line with the Google G added. */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] { gap: 0.35rem !important; padding-left: 0.7rem !important; padding-right: 0.8rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] { width: 1rem; height: 1rem; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { white-space: nowrap !important; font-size: 0.875rem !important; }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li { gap: 0.4rem !important; }
 }
 }
