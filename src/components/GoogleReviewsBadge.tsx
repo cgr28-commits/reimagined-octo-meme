@@ -79,6 +79,8 @@ export default function GoogleReviewsBadge({
         className={className}
         aria-label={`Rated ${rating} out of 5 from ${count} Google reviews — read them on Google`}
       >
+        {/* Desktop homepage (owner, 17 Nov 2026): multicolour Google "G" before the score; hidden unless desktop-home-premium.css shows it. */}
+        <img data-reviews-google-g src={withBasePath("/images/google-g.svg")} alt="" width={20} height={20} hidden aria-hidden="true" />
         <span data-reviews-score aria-hidden="true">
           <strong>{rating}</strong>
           <span data-reviews-stars>★★★★★</span>

@@ -1,0 +1,146 @@
+/*
+ * Desktop homepage (1200px and wider) — premium polish to match the approved phone homepage
+ * (owner, 17 Nov 2026). Visual only: same layout, wording, fields and behaviour. The desktop
+ * design starts at 1200px in this project (tablet layout below), so phones and tablets are untouched.
+ * Colours reuse the approved phone palette (src/app/mobile-home-mockup.css).
+ * Christmas hat, lights, video and pop-up are left exactly as they are.
+ */
+@media (min-width: 1200px) {
+@layer base {
+  /* Shared palette, homepage only (same values as the phone tokens). */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) {
+    --matni-navy: #011930;
+    --matni-navy-raised: #072443;
+    --matni-navy-deep: #00172d;
+    --matni-green: #2fc30a;
+    --matni-green-bright: #45d704;
+    --matni-green-tint: #e8fde1;
+    --matni-border: #dce2eb;
+    --matni-cta: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%);
+    --matni-cta-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+    --matni-card: linear-gradient(180deg, #ffffff 0%, #fbfcfd 40%, #f4f7fa 100%);
+  }
+
+  /* ---------- Header: same navy and green as the phone header (layout unchanged) ---------- */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] {
+    background: linear-gradient(180deg, #03203d 0%, #001b34 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] > div:first-child > div > p:first-child > span:not([aria-hidden])::before {
+    background: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] a:is([class*="bg-emerald"]) {
+    background: var(--matni-cta) !important;
+    box-shadow: 0 6px 14px -8px rgba(0, 138, 1, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    color: #ffffff !important;
+  }
+
+  /* ---------- Hero: deep navy with gentle depth ---------- */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) {
+    position: relative;
+    background:
+      radial-gradient(55% 45% at 82% 18%, rgba(12, 52, 110, 0.5) 0%, rgba(12, 52, 110, 0) 100%),
+      radial-gradient(70% 40% at 45% 62%, rgba(9, 40, 78, 0.45) 0%, rgba(9, 40, 78, 0) 100%),
+      linear-gradient(180deg, #011930 0%, #00182f 50%, #00172d 100%) !important;
+  }
+  /* Decorative Dublin Airport image (owner's AI-generated image) on the right ~40% of the hero.
+     Kept at its own 3:2 shape; navy gradients blend every edge; the white quote card sits above it. */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::before {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    top: 4.6rem;
+    right: 0;
+    width: 40%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.88;
+    background:
+      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.92) 18%, rgba(1, 25, 48, 0.55) 40%, rgba(1, 25, 48, 0.12) 62%, rgba(1, 25, 48, 0) 75%),
+      linear-gradient(0deg, #00182f 0%, #00182f 30%, rgba(0, 24, 47, 0.6) 46%, rgba(0, 24, 47, 0) 66%),
+      linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 14%),
+      image-set(url("/images/hero/mobile-dublin-airport-dusk.avif") type("image/avif"), url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) center / 100% 100% no-repeat !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    position: relative;
+    z-index: 1;
+  }
+  /* Headline and text: same white and green as the phone homepage (wording and size unchanged). */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    color: #ffffff !important;
+    text-shadow: 0 2px 14px rgba(1, 25, 48, 0.55);
+    -webkit-font-smoothing: antialiased;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-green] {
+    color: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    color: #ffffff !important;
+    text-shadow: 0 1px 10px rgba(1, 25, 48, 0.6);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Quote card: bright white, soft shadow, light borders (same size and layout) ---------- */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    background: var(--matni-card) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.75), 0 12px 24px -16px rgba(0, 10, 30, 0.45), inset 0 1px 0 #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is(div:has(> div > :is(input#pickup, input#dropoff)), [data-schedule-control], select, [data-homepage-quote-scroll] > div:first-child > div) {
+    border-color: var(--matni-border) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form :is([data-gps-location], [data-schedule-control] > svg, label + div svg.lucide, div:has(> div > :is(input#pickup, input#dropoff)) svg) {
+    color: var(--matni-green) !important;
+  }
+  /* Airport chips: light borders; pale green once that airport is chosen */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick] {
+    border-color: var(--matni-border) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-quick-picks-head] button[data-quick-pick][data-quick-pick-chosen] {
+    background: var(--matni-green-tint) !important;
+    border-color: var(--matni-green) !important;
+    box-shadow: 0 0 0 1px var(--matni-green) inset !important;
+  }
+  /* One Way / Return: selected in the approved navy */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote [data-homepage-quote-scroll] > div:first-child button[aria-pressed="true"] {
+    background: linear-gradient(180deg, #072443 0%, #001a31 100%) !important;
+  }
+  /* Get My Fixed Price: the same green as the phone button */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote button[data-get-fixed-price]:not(:disabled) {
+    background: var(--matni-cta) !important;
+    box-shadow: var(--matni-cta-shadow) !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35);
+  }
+
+  /* ---------- Trust strip: approved green icons; Google badge with the multicolour G ---------- */
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefit-icon] {
+    color: var(--matni-green-bright) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] {
+    align-items: center !important;
+    gap: 0.5rem !important;
+    border: 1px solid rgba(214, 218, 228, 0.6) !important;
+    background: rgba(1, 25, 48, 0.62) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-panel] [data-reviews-google-g] {
+    display: block !important;
+    width: 1.2rem;
+    height: 1.2rem;
+    flex: none;
+  }
+}
+}
+
+/* Narrower desktops (1200–1365px): the image is smaller and quieter so the headline keeps the space. */
+@media (min-width: 1200px) and (max-width: 1365.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::before {
+    width: 34%;
+    opacity: 0.75;
+  }
+}
+}

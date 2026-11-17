@@ -423,7 +423,7 @@ export default function HomepageQuoteFields({
         <div className="hidden" data-desktop-card-head aria-hidden={quickPicks || cardTitle ? undefined : true}>
           {/* Plane icon and green "Instant Quote" chip removed (owner, 17 Nov 2026). */}
           <span data-desktop-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
-          {quickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} /> : null}
+          {quickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} chosenPlaceIds={[pickupConfirmedPlace?.placeId, dropoffConfirmedPlace?.placeId]} /> : null}
         </div>
       )}
       <div className="space-y-1" data-homepage-quote-scroll>
