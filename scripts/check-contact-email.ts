@@ -26,23 +26,32 @@ const good: ContactMessage = {
   message: " Can you collect us from Belfast International on Friday at 9pm? ",
 };
 
-console.log("=== 1. Contact page shows no telephone number ===");
+console.log("=== 1. Contact page is the only page with the telephone number (Business Line) ===");
 {
   const contact = read("src/app/contact/ContactCardClient.tsx");
-  assert.doesNotMatch(contact, /officeLandline/, "no landline number or tel: link on the Contact page");
-  assert.doesNotMatch(contact, /href=\{?`?tel:/, "no tel: links on the Contact page");
-  assert.doesNotMatch(contact, /Landline/);
-  assert.match(contact, /<StandaloneBrandBar showCall=\{false\} \/>/, "no Call Us pill in the Contact page header");
+  // Owner, 17 Nov 2026: "Business Line — 028 9602 2952" with a tel: link, on the Contact page only.
+  assert.match(contact, /href=\{`tel:\$\{SITE\.officeLandline\}`\}/, "Business Line tel: link on the Contact page");
+  assert.match(contact, /Business Line/);
+  assert.equal((contact.match(/tel:/g) ?? []).length, 1, "exactly one tel: link on the Contact page");
+  assert.match(read("src/lib/data.ts"), /officeLandline: "\+442896022952"/);
+  assert.match(contact, /<StandaloneBrandBar showCall=\{false\} \/>/, "no extra Contact link in the Contact page header");
   // The other ways to get in touch stay.
   assert.match(contact, /Get a quote &amp; book/);
   assert.match(contact, /whatsAppChatUrl\(\)/);
   assert.match(contact, /@\{SITE\.whatsappUsername\}/);
   assert.match(contact, /Save to contacts/);
 
+  // Everywhere else: no call buttons.
   const bar = read("src/components/StandaloneBrandBar.tsx");
-  assert.match(bar, /showCall = true/, "other standalone pages keep the Call Us button by default");
-  assert.match(bar, /\{showCall \? <CallUsButton variant="header" \/> : null\}/);
-  console.log("OK  no landline card, tel: link or Call Us pill; quote, WhatsApp and Save to contacts remain");
+  assert.doesNotMatch(bar, /CallUsButton/, "standalone pages show no call button");
+  assert.match(bar, /href="\/contact\/"/, "standalone pages link to Contact instead");
+  const header = read("src/components/Header.tsx");
+  assert.doesNotMatch(header, /CallUsButton/, "site header shows no call button");
+  assert.match(header, /data-header-contact-link/, "desktop header links to Contact");
+  const footer = read("src/components/FooterContact.tsx");
+  assert.doesNotMatch(footer, /tel:|officeLandline|landlineDisplay/, "footer shows no phone numbers");
+  assert.match(footer, /data-footer-contact-link/);
+  console.log("OK  Business Line on Contact only; header, footer and standalone pages link to Contact; WhatsApp and Save to contacts remain");
 }
 
 console.log("\n=== 2. Email card opens the email contact page ===");

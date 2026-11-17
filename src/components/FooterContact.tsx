@@ -1,13 +1,11 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { SITE } from "@/lib/data";
-import { isHomePath } from "./CallUsButton";
 import { whatsAppChatUrl } from "@/lib/contact-card";
 import { DEFAULT_GOOGLE_REVIEW_URL, GOOGLE_BUSINESS_PROFILE_URL } from "../../shared/google-business-profile";
 
+/** Footer contact: email, WhatsApp and a Contact link. The phone number is on the Contact page only (owner, 17 Nov 2026). */
 export default function FooterContact() {
-  const onHome = isHomePath(usePathname());
   return (
     <ul className="mt-4 space-y-3 text-sm text-white/50">
       <li>
@@ -25,37 +23,11 @@ export default function FooterContact() {
           WhatsApp @{SITE.whatsappUsername}
         </a>
       </li>
-      {onHome ? null : (
-        <li>
-          <a
-            href={`https://wa.me/${SITE.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-emerald"
-          >
-            <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-white/70">WhatsApp only</span>
-            {SITE.landlineDisplay}
-          </a>
-        </li>
-      )}
-      {onHome ? (
-        <li>
-          <a href="/contact/" className="transition-colors hover:text-emerald" data-footer-contact-link>
-            Contact us
-          </a>
-        </li>
-      ) : (
-        <li>
-          <a
-            href={`tel:${SITE.officeLandline}`}
-            className="transition-colors hover:text-emerald"
-            data-footer-office-landline
-          >
-            <span className="block text-xs font-semibold uppercase tracking-[0.12em] text-white/70">Call</span>
-            {SITE.officeLandlineDisplay}
-          </a>
-        </li>
-      )}
+      <li>
+        <a href="/contact/" className="transition-colors hover:text-emerald" data-footer-contact-link>
+          Contact us
+        </a>
+      </li>
       <li>
         <a
           href={GOOGLE_BUSINESS_PROFILE_URL}

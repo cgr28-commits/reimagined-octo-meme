@@ -5,7 +5,6 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Logo from "./Logo";
 import QuoteNavLink from "./QuoteNavLink";
-import CallUsButton from "./CallUsButton";
 import SiteNavLink from "./SiteNavLink";
 import { SITE } from "@/lib/data";
 import { PUBLIC_NAV_LINKS as NAV_LINKS } from "@/lib/public-nav";
@@ -305,15 +304,16 @@ export default function Header() {
 
           {/* Desktop/laptop CTAs — slim pre-xl styles (not btn-primary / mobile chrome) */}
           <div className="hidden items-center gap-3 lg:flex lg:justify-self-end">
-            <CallUsButton variant="header" />
+            <SiteNavLink href="/contact/" data-header-contact-link className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:border-emerald hover:text-emerald">
+              Contact
+            </SiteNavLink>
             <QuoteNavLink className="rounded-full bg-emerald px-5 py-2 text-sm font-semibold text-navy transition-all hover:bg-emerald-light hover:shadow-lg hover:shadow-emerald/25 lg:px-6">
               Get a Quote
             </QuoteNavLink>
           </div>
 
-          {/* Mobile only (< md): logo + Call + WhatsApp (quote assistant) + Menu. Slimmer chrome so the logo leads. */}
+          {/* Mobile only (< md): logo + WhatsApp (quote assistant) + Menu; the phone number is on the Contact page only (owner, 17 Nov 2026). Slimmer chrome so the logo leads. */}
           <div data-mobile-header-actions className="flex min-w-0 items-center justify-end gap-1.5 sm:gap-2 lg:hidden">
-            <CallUsButton variant="compact" />
             <a
               href={assistantWhatsAppHref}
               target="_blank"

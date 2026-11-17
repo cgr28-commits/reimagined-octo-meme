@@ -332,6 +332,7 @@ export default function BookingConfirmedClient() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/"
+            data-confirm-home
             className="rounded-xl bg-emerald px-4 py-2.5 text-sm font-bold text-navy transition-colors hover:bg-emerald-light"
           >
             Back to home

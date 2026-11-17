@@ -1,7 +1,6 @@
 "use client";
 
 import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
-import CallUsButton from "@/components/CallUsButton";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
 import { emailTypoSuggestion } from "../../shared/email-typo";
@@ -6470,9 +6469,9 @@ function QuoteCard({
     handleBackToQuote();
   }
 
-  /** Desktop booking header (1200px+): the same Call Us link on every booking step. */
+  /** Desktop booking header (1200px+): no call button; the phone number is on the Contact page only (owner, 17 Nov 2026). */
   function renderDesktopCallUs() {
-    return <CallUsButton variant="booking" />;
+    return null;
   }
 
   function renderBackToQuoteButton(placement: "top" | "bottom") {

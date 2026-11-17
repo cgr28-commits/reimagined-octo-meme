@@ -390,7 +390,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           <li>3. Your booking is confirmed only once you accept and pay online.</li>
         </ol>
         <p className="mt-5 text-sm text-white/60">
-          Questions? Call {SITE.officeLandlineDisplay} or WhatsApp us quoting {reference}.
+          Questions? WhatsApp us or <a className="font-semibold text-emerald underline" href="/contact/">contact us</a> quoting {reference}.
         </p>
       </div>
     );
@@ -539,7 +539,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
             <span id={id("passengers-hint")} className={hintClass}>
               {category === "business_class"
                 ? `Business Class carries up to ${BUSINESS_CLASS_MAX_PASSENGERS} passengers.`
-                : `Up to ${EVENT_REQUEST_MAX_PASSENGERS}. For 8 or more, please call ${SITE.officeLandlineDisplay}.`}
+                : `Up to ${EVENT_REQUEST_MAX_PASSENGERS}. For 8 or more, please contact us.`}
             </span>
             {err("passengers")}
           </div>

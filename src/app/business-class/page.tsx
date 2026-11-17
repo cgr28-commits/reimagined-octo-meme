@@ -352,8 +352,8 @@ export default function BusinessClassPage() {
                 <div className="mt-10 space-y-2 text-[0.9375rem] bc-c-w65">
                   <p>
                     Prefer to talk?{" "}
-                    <a className="font-semibold bc-c-w underline decoration-[#C8AD79] underline-offset-4" href={`tel:${SITE.officeLandline}`}>
-                      {SITE.officeLandlineDisplay}
+                    <a className="font-semibold bc-c-w underline decoration-[#C8AD79] underline-offset-4" href="/contact/">
+                      Contact us
                     </a>{" "}
                     or{" "}
                     <a className="font-semibold bc-c-w underline decoration-[#C8AD79] underline-offset-4" href={whatsAppChatUrl()}>

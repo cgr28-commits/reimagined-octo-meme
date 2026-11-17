@@ -331,8 +331,8 @@ export default function ExecutiveQuoteForm() {
           <button type="button" className="bc-btn-ghost" onClick={() => setEmailPrepared(null)}>Edit my details</button>
         </div>
         <p className="mt-7 text-sm bc-c-w65">
-          Email didn&apos;t open? Write to {SITE.email}, or call{" "}
-          <a className="font-semibold bc-c-em underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>.
+          Email didn&apos;t open? Write to {SITE.email}, or{" "}
+          <a className="font-semibold bc-c-em underline underline-offset-4" href="/contact/">contact us</a>.
         </p>
       </div>
     );
@@ -369,9 +369,9 @@ export default function ExecutiveQuoteForm() {
           </li>
         </ol>
         <p className="mt-7 text-sm bc-c-w65">
-          Anything to add? Call{" "}
-          <a className="font-semibold bc-c-em underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>
-            {SITE.officeLandlineDisplay}
+          Anything to add?{" "}
+          <a className="font-semibold bc-c-em underline underline-offset-4" href="/contact/">
+            Contact us
           </a>{" "}
           or WhatsApp us quoting {reference}.
         </p>
@@ -582,8 +582,8 @@ export default function ExecutiveQuoteForm() {
           <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} action={BESPOKE_TURNSTILE_ACTION} onToken={setToken} resetSignal={resetSignal} />
         ) : (
           <p className="text-sm leading-relaxed bc-c-w65" role="note">
-            Sending opens your email app with your enquiry ready to go to {SITE.email}. Prefer to talk? Call{" "}
-            <a className="font-semibold bc-c-w underline underline-offset-4" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>.
+            Sending opens your email app with your enquiry ready to go to {SITE.email}. Prefer to talk? See our{" "}
+            <a className="font-semibold bc-c-w underline underline-offset-4" href="/contact/">Contact page</a>.
           </p>
         )}
         <button type="submit" disabled={submitting} aria-disabled={submitting} className="bc-btn-primary w-full sm:w-auto">
