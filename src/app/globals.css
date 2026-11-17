@@ -10337,3 +10337,36 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) label { margin-bottom: 0.375rem !important; }
 }
 }
+
+/* Desktop homepage heading (owner, 17 Nov 2026): "Belfast & Dublin Airport Transfers" as the
+   dominant white headline, "& Premium Private Travel" on its own emerald line, a brighter and
+   larger intro, more room before the quote tool, and no decorations behind the text.
+   Same wording; 1200px+ homepage only. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) { background: #071c38 !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::after,
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro::before { content: none !important; display: none !important; background: none !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    font-size: clamp(2.625rem, calc(1.6rem + 2.4vh), 3.25rem) !important;
+    line-height: 1.12 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em !important;
+    color: #fff !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 > span:first-child { display: block !important; color: #fff !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 > span.text-emerald {
+    display: block !important;
+    margin-top: clamp(0.25rem, 0.9vh, 0.5rem) !important;
+    color: #2fbf4a !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    max-width: 56rem !important;
+    margin-top: clamp(0.875rem, 2.2vh, 1.375rem) !important;
+    font-size: clamp(1.0625rem, calc(0.85rem + 0.6vh), 1.1875rem) !important;
+    line-height: 1.65 !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+  }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout { padding-top: clamp(0.5rem, calc(6vh - 2rem), 3rem) !important; row-gap: clamp(2.5rem, calc(10vh - 1.25rem), 4.75rem) !important; }
+}
+}
