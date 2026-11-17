@@ -235,6 +235,11 @@ async function main() {
     assert.equal(live.returnDiscount.rate, 0.05);
     assert.deepEqual(live, stored, "nothing else changes");
     assert.equal(defaultOwnerPricingSettings().returnDiscount.rate, 0.05, "default is 5%");
+    // A 0% saved while the discount was retired (16–17 Nov, no dashboard field) reads as 5%.
+    const savedDuringRetirement = { ...defaultOwnerPricingSettings(), returnDiscount: { rate: 0 } };
+    assert.equal(retireReturnBookingDiscount(savedDuringRetirement).returnDiscount.rate, 0.05);
+    // Any other rate the owner sets is used (e.g. 10% for a 48-hour promotion).
+    assert.equal(retireReturnBookingDiscount({ ...defaultOwnerPricingSettings(), returnDiscount: { rate: 0.1 } }).returnDiscount.rate, 0.1);
     assert.equal(savedQuotePricingFor(live, {}).returnDiscount.rate, 0.05);
     assert.equal(savedQuotePricingFor(live, { returnDiscountRate: 0 }).returnDiscount.rate, 0);
   });

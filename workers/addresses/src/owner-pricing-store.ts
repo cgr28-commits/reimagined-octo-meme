@@ -1,4 +1,4 @@
-import { RETURN_BOOKING_DISCOUNT_RETIRED, returnDiscountRateForRecord } from "../shared/return-journey-discount";
+import { RETURN_BOOKING_DISCOUNT_RETIRED, RETURN_JOURNEY_DISCOUNT_RATE, returnDiscountRateForRecord } from "../shared/return-journey-discount";
 /**
  * Owner pricing settings + lightweight audit history (KV).
  * Public Minibus never fails open. Corrupt payloads fall back to approved defaults.
@@ -67,13 +67,19 @@ function attachProfitability(
 }
 
 /**
- * The automatic 5% return-booking discount is retired (owner, Nov 2026 — replaced by email
- * promo codes). Whatever rate an older saved pricing record holds, live pricing uses 0%.
- * Legacy saved quotes / Personal Quotes put their own rate back (see savedQuotePricingFor).
+ * Return-booking discount on the live site.
+ * - Retired 16 Nov 2026: while RETURN_BOOKING_DISCOUNT_RETIRED is true, live pricing uses 0%.
+ * - Reinstated 17 Nov 2026 (owner): 5%. While it was retired the Owner Dashboard had no return
+ *   discount field, so any pricing save in that window stored 0%. A stored 0% is therefore read as
+ *   the 5% default; the owner can still set any other rate (e.g. 10% for a short promotion) in the
+ *   dashboard. To switch the discount off altogether, set RETURN_BOOKING_DISCOUNT_RETIRED.
+ * Legacy saved quotes / Personal Quotes keep their own stamped rate (see savedQuotePricingFor).
  */
 export function retireReturnBookingDiscount<T extends { returnDiscount: { rate: number } }>(settings: T): T {
-  if (!RETURN_BOOKING_DISCOUNT_RETIRED) return settings;
-  return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+  if (RETURN_BOOKING_DISCOUNT_RETIRED) return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+  const stored = Number(settings.returnDiscount?.rate);
+  if (Number.isFinite(stored) && stored > 0 && stored < 1) return settings;
+  return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: RETURN_JOURNEY_DISCOUNT_RATE } };
 }
 
 /** A saved quote made before the retirement is re-priced with the 5% it was quoted with. */
