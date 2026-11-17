@@ -54,6 +54,12 @@ export { DEFAULT_EXECUTIVE_MULTIPLIER };
 export const DEFAULT_RETURN_DISCOUNT_RATE = RETURN_JOURNEY_DISCOUNT_RATE;
 /** 0 keeps current Dublin Airport journey fares. Stored as a rate (0.10 = 10%). */
 export const DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE = 0;
+/**
+ * Lowest allowed Dublin Airport adjustment: a reduction of up to 50%
+ * (owner approved 17 Nov 2026 so Belfast ↔ Dublin Airport can sit just under £240
+ * without changing other long-distance tiers).
+ */
+export const DUBLIN_AIRPORT_FARE_ADJUSTMENT_MIN_RATE = -0.5;
 export const DEFAULT_NIGHT_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 export const DEFAULT_WEEKEND_SURCHARGE_RATE = NIGHT_WEEKEND_SURCHARGE_RATE;
 /** Current approved Night window: Mon–Fri 22:00–05:59 (06:00 is not Night). */
@@ -159,8 +165,8 @@ export type OwnerPricingSettings = {
     rate: number;
   };
   /**
-   * Extra percentage on the journey fare for trips to or from Dublin Airport.
-   * Missing stored values use 0%. Tolls, parking, access fees and extras are unchanged.
+   * Percentage change on the journey fare for trips to or from Dublin Airport:
+   * positive raises it, negative lowers it (-50% to +100%). Missing stored values use 0%. Tolls, parking, access fees and extras are unchanged.
    */
   dublinAirportFareAdjustment: {
     rate: number;
@@ -592,11 +598,11 @@ export function validateOwnerPricingInput(
       "dublinAirportFareAdjustment.rate",
       errors,
     );
-    if (parsedDublin != null && (parsedDublin < 0 || parsedDublin > 1)) {
+    if (parsedDublin != null && (parsedDublin < DUBLIN_AIRPORT_FARE_ADJUSTMENT_MIN_RATE || parsedDublin > 1)) {
       reject(
         errors,
         "dublinAirportFareAdjustment.rate",
-        "Dublin Airport Fare Adjustment must be between 0% and 100%.",
+        "Dublin Airport Fare Adjustment must be between -50% and +100%.",
       );
     } else if (parsedDublin != null) {
       dublinAirportFareAdjustmentRate = Math.round(parsedDublin * 10000) / 10000;
@@ -915,8 +921,11 @@ export function dublinAirportJourneyFareGbp(
   rate: number,
 ): number {
   const fare = Number(journeyFareGbp);
-  if (!dublinAirport || !(Number(rate) > 0) || !Number.isFinite(fare)) return fare;
-  return roundGbp(fare * (1 + rate));
+  const r = Number(rate);
+  if (!dublinAirport || !Number.isFinite(r) || r === 0 || !Number.isFinite(fare)) return fare;
+  // Positive raises the journey fare; negative lowers it (never below -50%).
+  const bounded = Math.min(1, Math.max(DUBLIN_AIRPORT_FARE_ADJUSTMENT_MIN_RATE, r));
+  return roundGbp(fare * (1 + bounded));
 }
 
 export function formatPercentFromRate(rate: number): string {
