@@ -53,22 +53,19 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
   const demand = demandIndicatorFor({ tripDate, returnDate, pickup, dropoff, needsApproval });
   const shownPercent = useCountUp(demand?.bookedPercent ?? null);
   if (!message || !demand) return null;
-  const veryHigh = demand.level === "very-high";
-  const showBar = demand.filledSegments > 0;
+  const showBar = true; // a demand bar on every date (owner, 17 Nov 2026)
   const soon = demand.level === "soon";
-  // Pulsing colour by level (owner, 17 Nov 2026): green low, amber middle, red high.
+  // Pulsing colour by how busy the DATE is (owner, 17 Nov 2026), not by the percentage:
+  // red = big events / concerts on the journey, and Christmas–New Year; amber = other holidays
+  // (bank holidays, Easter); every other day is green.
+  const RED_SEASONS = ["christmas", "christmas-run-up", "between-christmas-new-year", "new-year"];
+  const AMBER_SEASONS = ["bank-holiday", "easter"];
   const tone: "green" | "amber" | "red" =
-    demand.bookedPercent !== null
-      ? demand.bookedPercent >= 80
-        ? "red"
-        : demand.bookedPercent >= 60
-          ? "amber"
-          : "green"
-      : veryHigh
-        ? "red"
-        : demand.level === "high"
-          ? "amber"
-          : "green";
+    demand.event || RED_SEASONS.includes(demand.season) ? "red" : AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
+  const veryHigh = tone !== "green";
+  const filledSegments =
+    demand.bookedPercent !== null ? demand.filledSegments : tone === "red" ? 4 : tone === "amber" ? 3 : 2;
+  const label = demand.bookedPercent !== null ? (demand.label ?? "") : tone === "red" ? "Very high" : tone === "amber" ? "High" : "Normal";
   const accent = tone === "red" ? "#D93025" : tone === "amber" ? "#E8A317" : "#2FBF4A";
   const icon = demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
   return (
@@ -99,7 +96,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               {demand.bookedPercent !== null ? "Bookings for your date" : "Expected demand for your date"}
             </span>
             <span className={`font-extrabold tabular-nums ${tone === "red" ? "text-[#B3261E]" : tone === "amber" ? "text-[#8A5A00]" : "text-[#0F6E56]"}`}>
-              {demand.bookedPercent !== null && shownPercent !== null ? `${shownPercent}% booked` : demand.label}
+              {demand.bookedPercent !== null && shownPercent !== null ? `${shownPercent}% booked` : label}
             </span>
           </p>
           {demand.bookedPercent !== null ? (
@@ -107,7 +104,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               className="mt-1.5 h-1.5 overflow-hidden rounded-full"
               style={{ background: veryHigh ? "#e7dfcf" : "#e3e8ee" }}
               role="img"
-              aria-label={demand.label ?? undefined}
+              aria-label={label}
               data-demand-bar
             >
               <span
@@ -119,15 +116,15 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
             <div
               className="mt-1.5 grid grid-cols-5 gap-1"
               role="img"
-              aria-label={`Expected demand: ${demand.label}`}
+              aria-label={`Expected demand: ${label}`}
               data-demand-bar
             >
               {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (
                 <span
                   key={index}
-                  className={`h-1.5 overflow-hidden rounded-full ${index < demand.filledSegments ? "demand-segment-on" : ""}`}
+                  className={`h-1.5 overflow-hidden rounded-full ${index < filledSegments ? "demand-segment-on" : ""}`}
                   style={{
-                    background: index < demand.filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee",
+                    background: index < filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee",
                     animationDelay: `${index * 140}ms`,
                   }}
                 />
