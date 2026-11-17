@@ -16,8 +16,10 @@
   }
   /* Logo a touch smaller, as in the mockup (official file, not redrawn). */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) header[data-site-header] .quote-header-logo-wide {
-    height: 2.45rem !important;
-    width: 14rem !important;
+    /* Shrinks on narrow phones so it never runs into the WhatsApp button. */
+    width: min(14rem, calc(100vw - 8.75rem)) !important;
+    height: auto !important;
+    aspect-ratio: 240 / 42;
   }
   /* Official logo without the Santa hat on the phone homepage (no Christmas decorations here). */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] body:has(main > section.homepage-hero[data-desktop-roomy]) header[data-site-header] .quote-header-logo-wide::after {
@@ -105,8 +107,8 @@
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] {
     margin-top: 0.25rem;
     gap: 0.4rem !important;
-    padding: 0.35rem 0.8rem 0.35rem 0.6rem !important;
-    min-height: 2.25rem;
+    padding: 0.5rem 0.8rem 0.5rem 0.6rem !important;
+    min-height: 2.25rem !important;
     border: 1px solid rgba(214, 218, 228, 0.78) !important;
     border-radius: 999px !important;
     background: rgba(1, 25, 48, 0.62) !important;
@@ -224,6 +226,11 @@
     border-color: #2fc30a !important;
   }
 
+  /* "Suitcases / Large bags" on phones (homepage only); tablet keeps "Suitcases / L/bags". */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] [data-stepper-label-default] { display: none !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] [data-stepper-label-phone] { display: inline !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] { white-space: nowrap !important; overflow: visible !important; }
+
   /* Airport shortcuts: name, then a small plane and the airport code */
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] {
     gap: 0.4rem !important;
@@ -337,6 +344,15 @@
 /* Smallest phones (320px): airport names fit without clipping. */
 @media (max-width: 359.98px) {
 @layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-d2-stepper-label], [data-quote-schedule] label) { font-size: 0.78rem !important; }
+  /* 320px: "Suitcases / Large bags" may take two lines; both labels share the same height so the counters stay level. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-label] {
+    white-space: normal !important;
+    min-height: 2.5em;
+    display: flex !important;
+    align-items: flex-end;
+    line-height: 1.2 !important;
+  }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] { gap: 0.25rem !important; }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-quick-picks] > button[data-quick-pick] {
     padding: 0.3rem 0.05rem !important;

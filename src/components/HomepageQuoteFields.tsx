@@ -254,10 +254,13 @@ function Design2Stepper({
   format,
   error,
   allowUnset = false,
+  phoneLabel,
 }: {
   allowUnset?: boolean;
   id: string;
   label: string;
+  /** Homepage phones (up to 767px) only: longer wording shown instead of `label` by mobile-home-mockup.css. */
+  phoneLabel?: string;
   value: number | null;
   choices: number[];
   onChange: (value: number | null) => void;
@@ -272,7 +275,16 @@ function Design2Stepper({
   const atMax = !unset && index >= choices.length - 1;
   return (
     <div data-d2-stepper className="min-w-0">
-      <span id={`${id}-label`} data-d2-stepper-label>{label}</span>
+      <span id={`${id}-label`} data-d2-stepper-label>
+        {phoneLabel ? (
+          <>
+            <span data-stepper-label-default>{label}</span>
+            <span data-stepper-label-phone hidden>{phoneLabel}</span>
+          </>
+        ) : (
+          label
+        )}
+      </span>
       <div data-d2-stepper-row>
         <output id={id} aria-labelledby={`${id}-label`} aria-live="polite" data-d2-stepper-value>
           {unset ? "0" : format(current)}
@@ -563,6 +575,7 @@ export default function HomepageQuoteFields({
           <Design2Stepper
             id="quote-section-suitcases"
             label="Suitcases / L/bags"
+            phoneLabel="Suitcases / Large bags"
             value={suitcases}
             choices={suitcaseChoices}
             onChange={(value) => { if (value != null) onSuitcasesChange(value); }}
