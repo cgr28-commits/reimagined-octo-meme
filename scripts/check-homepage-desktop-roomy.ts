@@ -26,7 +26,7 @@ console.log("=== 1. Rotating boxes are off, on every page ===");
 
 console.log("\n=== 2. Wording is unchanged ===");
 {
-  assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
+  assert.match(hero, /Belfast &amp; Dublin <span data-hero-green-mobile className="max-\[74\.99rem\]:text-emerald">Airport Transfers<\/span>/);
   assert.match(hero, /<span data-hero-second-line className="hidden text-emerald min-\[75rem\]:block">Premium Private Travel<\/span>/);
   assert.match(
     hero,

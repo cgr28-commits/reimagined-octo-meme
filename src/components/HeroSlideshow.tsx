@@ -130,7 +130,7 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
               <span className="text-white">{heading}</span>
             ) : (
               <>
-                <span className="text-white">Belfast &amp; Dublin Airport Transfers</span>{" "}
+                <span className="text-white">Belfast &amp; Dublin <span data-hero-green-mobile className="max-[74.99rem]:text-emerald">Airport Transfers</span></span>{" "}
                 {/* Phones and tablets show the first line only (owner, 17 Nov 2026). */}
                 <span data-hero-second-line className="hidden text-emerald min-[75rem]:block">Premium Private Travel</span>
               </>
