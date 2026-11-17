@@ -10328,3 +10328,12 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-desktop-benefits-list] > li strong { font-size: 0.9375rem !important; }
 }
 }
+/* Short laptop windows (up to 760px high), Return journeys with dates — the form's tallest state,
+   four rows: slightly tighter spacing inside the card so the price button stays on screen. */
+@media (min-width: 1200px) and (max-height: 760px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"]:has(#returnDate) { padding-top: 1.125rem !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) { row-gap: 0.75rem !important; }
+  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has(#returnDate) label { margin-bottom: 0.375rem !important; }
+}
+}
