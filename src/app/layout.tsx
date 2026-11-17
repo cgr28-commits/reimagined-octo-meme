@@ -7,6 +7,7 @@ import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";
 import PromoPopup from "@/components/PromoPopup";
+import ChristmasWelcome from "@/components/ChristmasWelcome";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import AdsAttributionCapture from "@/components/AdsAttributionCapture";
 import AdFraudMonitor from "@/components/AdFraudMonitor";
@@ -196,6 +197,7 @@ export default function RootLayout({
           <WhatsAppQrFloating />
           <CookieConsent />
           <PromoPopup />
+          <ChristmasWelcome />
         </SiteOfflineGate>
         <PreventHorizontalScroll />
       </body>

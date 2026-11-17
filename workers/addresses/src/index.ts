@@ -604,6 +604,7 @@ import {
 } from "./return-offer-handlers";
 import { promoFieldsFromFareBreakdown } from "../shared/website-promo-pricing";
 import { handlePromoRequest, isPromoPath } from "./promo-handlers";
+import { handleChristmasVideoRequest, isChristmasVideoPath } from "./christmas-video-stats";
 import { savedQuotePricingFor } from "./owner-pricing-store";
 import { promoDb, runPromoRetention } from "./promo-store";
 import { normalizePromoCode, promoRejectMessage, type PromoTerms } from "../shared/promo-code";
@@ -5320,6 +5321,11 @@ export default {
     // Email promo codes (public request / validate / config + Owner Dashboard section).
     if (isPromoPath(url.pathname)) {
       return handlePromoRequest(request, env, origin);
+    }
+
+    // Christmas video viewing figures (anonymous counters + Owner Dashboard → Marketing).
+    if (isChristmasVideoPath(url.pathname)) {
+      return handleChristmasVideoRequest(request, env, origin);
     }
 
     // Stripe webhook (server-to-server, signature-verified inside).

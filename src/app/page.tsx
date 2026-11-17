@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ChristmasVideoSection from "@/components/ChristmasVideoSection";
 import Design3QuickLinks from "@/components/Design3QuickLinks";
 import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
@@ -17,6 +18,7 @@ import EmergePromoCard from "@/components/EmergePromoCard";
 import Footer from "@/components/Footer";
 import { HOMEPAGE_SEO_DESCRIPTION, HOMEPAGE_SEO_TITLE, SERVICE_FLAGS, SITE } from "@/lib/data";
 import { absoluteSiteUrl } from "@/lib/paths";
+import { isChristmasVideoLive } from "@/lib/seasonal";
 import { getFaqPageJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
@@ -53,6 +55,8 @@ export default function Home() {
       <Header />
       <main className="overflow-x-clip">
         <HeroSlideshow homepageQuickPicks showRotatingCards />
+        {/* Christmas video below the quote calculator — dates in CHRISTMAS_VIDEO (src/lib/seasonal.ts) */}
+        <ChristmasVideoSection initiallyLive={isChristmasVideoLive()} />
         <Design3QuickLinks />
         <AirportsSection />
         <PopularBelfastTransfers />
