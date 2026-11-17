@@ -390,3 +390,15 @@
 :is(h1, h2, h3, h4, h5, h6, p, div, section, article, main, header, span, ol, ul, li, dl, form, fieldset)[tabindex="-1"]:focus-visible {
   outline: none !important;
 }
+
+/* Get My Fixed Price on hub pages (desktop): the same text size and corner radius as the homepage
+   button (owner, 17 Nov 2026). Colours, shadow, hover, focus and disabled states are already shared;
+   the button keeps the hub form's height. */
+@media (min-width: 1200px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form button[data-get-fixed-price] {
+    font-size: clamp(1.25rem, 2.7vh, 1.375rem) !important;
+    border-radius: 0.875rem !important;
+  }
+}
+}
