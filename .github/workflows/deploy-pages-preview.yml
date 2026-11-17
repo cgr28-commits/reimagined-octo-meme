@@ -49,6 +49,7 @@ name: Deploy Pages Preview
       - claude/cookie-wall
       - feature/black-friday-15
       - feature/email-promo-10pct
+      - claude/live-demand-bar
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

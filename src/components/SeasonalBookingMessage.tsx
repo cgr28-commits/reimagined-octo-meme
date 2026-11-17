@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { seasonalBookingMessage } from "../../shared/seasonal-booking-message";
 import { DEMAND_BAR_SEGMENTS, demandIndicatorFor } from "../../shared/demand-indicator";
 import { websiteEventIcon } from "../../shared/website-event-notices";
@@ -16,6 +17,33 @@ type Props = {
   placement: "panel" | "list";
 };
 
+/** Counts up from 0 to the real figure once, so the bar feels alive (owner, 17 Nov 2026). Never goes past the real figure. */
+function useCountUp(target: number | null, durationMs = 1400): number | null {
+  const [value, setValue] = useState<number | null>(target === null ? null : 0);
+  useEffect(() => {
+    if (target === null) {
+      setValue(null);
+      return;
+    }
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setValue(target);
+      return;
+    }
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(target * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    setValue(0);
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, durationMs]);
+  return value;
+}
+
 /**
  * Date-specific booking message with "Expected demand for your date" (owner, 15 Nov 2026).
  * Busy dates show a demand bar; everyday dates show the seasonal message only.
@@ -23,6 +51,7 @@ type Props = {
 export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, dropoff, needsApproval, placement }: Props) {
   const message = seasonalBookingMessage(tripDate, { needsApproval });
   const demand = demandIndicatorFor({ tripDate, returnDate, pickup, dropoff, needsApproval });
+  const shownPercent = useCountUp(demand?.bookedPercent ?? null);
   if (!message || !demand) return null;
   const veryHigh = demand.level === "very-high";
   const showBar = demand.filledSegments > 0;
@@ -51,10 +80,13 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
       {showBar ? (
         <>
           <p className="mt-1.5 flex items-center justify-between gap-2 text-[0.8rem]">
-            <span className={veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}>
+            <span className={`inline-flex items-center gap-1.5 ${veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}`}>
+              <span className="demand-pulse-dot" style={{ background: accent, color: accent }} aria-hidden="true" />
               {demand.bookedPercent !== null ? "Bookings for your date" : "Expected demand for your date"}
             </span>
-            <span className={`font-extrabold ${veryHigh ? "text-[#633806]" : "text-[#0F6E56]"}`}>{demand.label}</span>
+            <span className={`font-extrabold tabular-nums ${veryHigh ? "text-[#633806]" : "text-[#0F6E56]"}`}>
+              {demand.bookedPercent !== null && shownPercent !== null ? `${shownPercent}% booked` : demand.label}
+            </span>
           </p>
           {demand.bookedPercent !== null ? (
             <div
@@ -64,7 +96,10 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               aria-label={demand.label ?? undefined}
               data-demand-bar
             >
-              <span className="block h-full rounded-full" style={{ width: `${demand.bookedPercent}%`, background: accent }} />
+              <span
+                className="demand-bar-fill block h-full rounded-full"
+                style={{ width: `${demand.bookedPercent}%`, background: accent }}
+              />
             </div>
           ) : (
             <div
@@ -76,8 +111,11 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (
                 <span
                   key={index}
-                  className="h-1.5 rounded-full"
-                  style={{ background: index < demand.filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee" }}
+                  className={`h-1.5 overflow-hidden rounded-full ${index < demand.filledSegments ? "demand-segment-on" : ""}`}
+                  style={{
+                    background: index < demand.filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee",
+                    animationDelay: `${index * 140}ms`,
+                  }}
                 />
               ))}
             </div>

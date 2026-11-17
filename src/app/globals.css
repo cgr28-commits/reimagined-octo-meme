@@ -10129,3 +10129,18 @@ label.cookie-wall-category { cursor: pointer; }
 /* Email promo code (Nov 2026): error text stays red on the light mobile design. */
 html[data-mobile-light] [data-promo-message] { color: #b42318 !important; -webkit-text-fill-color: #b42318 !important; }
 html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
+
+/* Bookings-for-your-date bar: fills on arrival, gentle shimmer and pulsing dot so it feels live (owner, 17 Nov 2026).
+   The figure itself never changes — it is the owner's set level for the date. */
+@keyframes demand-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes demand-bar-shimmer { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(260%); } }
+@keyframes demand-dot-pulse { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 70% { box-shadow: 0 0 0 6px transparent; opacity: 0.85; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
+@keyframes demand-segment-in { from { opacity: 0.15; transform: scaleX(0.3); } to { opacity: 1; transform: scaleX(1); } }
+.demand-pulse-dot { display: inline-block; width: 7px; height: 7px; border-radius: 9999px; flex: none; animation: demand-dot-pulse 1.8s ease-out infinite; }
+.demand-bar-fill { position: relative; overflow: hidden; transform-origin: left center; animation: demand-bar-grow 1.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.demand-bar-fill::after,
+.demand-segment-on::after { content: ""; position: absolute; inset: 0; width: 45%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent); animation: demand-bar-shimmer 2.6s ease-in-out 1.4s infinite; }
+.demand-segment-on { position: relative; transform-origin: left center; animation: demand-segment-in 0.5s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .demand-pulse-dot, .demand-bar-fill, .demand-segment-on, .demand-bar-fill::after, .demand-segment-on::after { animation: none !important; }
+}
