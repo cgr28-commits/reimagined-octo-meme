@@ -2,7 +2,7 @@
 
 /**
  * Desktop floating WhatsApp button (bottom-right).
- * Opens a small panel with a QR code to scan with a phone, the assistant's number
+ * Opens a small panel with a QR code to scan with a phone, the WhatsApp handle
  * and an "Open WhatsApp" link. Both pre-fill the journey being quoted, if any.
  * Mobile keeps the Header quick-row WhatsApp icon instead (no floating button there).
  */
@@ -121,7 +121,7 @@ function WhatsAppQrLauncher({ style, corner }: Props) {
             dangerouslySetInnerHTML={{ __html: qrSvg }}
           />
           <p className="mt-3 text-sm font-semibold">{SITE.name}</p>
-          <p className="text-xs text-white/65">WhatsApp {SITE.whatsappAssistantDisplay} · instant quotes 24/7</p>
+          <p className="text-xs text-white/65">WhatsApp @{SITE.whatsappUsername} · instant quotes 24/7</p>
           <a
             href={href}
             target="_blank"

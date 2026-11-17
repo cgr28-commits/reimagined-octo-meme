@@ -137,7 +137,15 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
           </h1>
 
           <p data-homepage-intro={intro ? undefined : true} className="mx-auto mt-1.5 max-w-xl text-pretty text-[0.9rem] leading-snug text-white/90 md:mt-5 md:text-lg md:leading-relaxed lg:mt-6 lg:text-[1.125rem]">
-            <FromAirportText text={introText} fromAirportText={introFromAirport} fromValue={introFromValue} />
+            <span data-intro-default>
+              <FromAirportText text={introText} fromAirportText={introFromAirport} fromValue={introFromValue} />
+            </span>
+            {/* Desktop homepage (owner, 17 Nov 2026): the shorter wording; shown by desktop-home-premium.css from 1200px. */}
+            {introSplit ? (
+              <span data-intro-desktop hidden>
+                Professional, pre-booked airport transfers across Northern Ireland and the Republic of Ireland.
+              </span>
+            ) : null}
           </p>
           {/* Mobile Design 2 only (hidden elsewhere by CSS). */}
           <p className="hidden" data-d2-intro-sub>Pre-booked taxis at a fixed price, across all of Ireland.</p>

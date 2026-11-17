@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import "./seasonal-christmas.css";
 import "./mobile-home-mockup.css";
+import "./desktop-home-premium.css";
 import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";

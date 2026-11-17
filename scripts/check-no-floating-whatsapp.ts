@@ -68,7 +68,9 @@ assert.match(qr, /--matni-cookie-banner-offset/);
 assert.match(qr, /data-matni-whatsapp-qr-launcher/);
 assert.match(qr, /QRCode\.toString\(href/);
 assert.match(qr, /useWhatsAppAssistantHref\(\)/);
-assert.match(qr, /SITE\.whatsappAssistantDisplay/);
+// The pop-up shows the WhatsApp handle, not the number (owner, 17 Nov 2026); the QR and link still open the assistant chat.
+assert.match(qr, /WhatsApp @\{SITE\.whatsappUsername\} · instant quotes 24\/7/);
+assert.doesNotMatch(qr, /whatsappAssistantDisplay/);
 
 // Journey pre-fill: QuoteCard publishes, header / Need help? / QR read it.
 const journeyCtx = read("src/lib/whatsapp-journey-context.ts");

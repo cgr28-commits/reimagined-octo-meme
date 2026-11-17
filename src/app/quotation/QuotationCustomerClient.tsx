@@ -133,7 +133,10 @@ export default function QuotationCustomerClient() {
 
   const contact = (
     <p className="mt-4 text-sm text-white/70">
-      Call {SITE.officeLandlineDisplay} or{" "}
+      <a className="text-emerald underline" href="/contact/">
+        Contact us
+      </a>{" "}
+      or{" "}
       <a className="text-emerald underline" href={whatsAppChatUrl()} rel="noreferrer">
         WhatsApp us
       </a>

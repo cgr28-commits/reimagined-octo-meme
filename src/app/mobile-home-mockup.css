@@ -498,3 +498,110 @@
   }
 }
 }
+
+/* "Book with confidence" on phones and tablets (up to 1199px; desktop has its own copy in desktop-home-premium.css):
+   Google G, gold stars and "5.0 · 19 Google reviews", as on the homepage (owner, 17 Nov 2026). Content only, no layout change. */
+@media (max-width: 1199.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-vehicle-confidence-list] li:has([data-confidence-rating-phone]) > :is(svg[data-vehicle-confidence-star], [data-confidence-rating-text]) { display: none !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-vehicle-confidence-list] [data-confidence-rating-phone] { display: block !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    color: #071c38 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-google-g] { width: 1.1rem; height: 1.1rem; flex: none; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-stars] { color: #f5b301 !important; letter-spacing: 0.02em; font-size: 0.95rem; line-height: 1; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] strong { font-weight: 800; }
+}
+}
+
+/* Smallest phones: the Google rating line stays on one line. */
+@media (max-width: 379.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] { gap: 0.3rem; white-space: nowrap; font-size: 0.82rem !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-google-g] { width: 0.95rem; height: 0.95rem; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-stars] { font-size: 0.78rem; letter-spacing: 0; }
+}
+}
+
+/* Tablets (768–1199px) homepage hero badge: the same Google "G" immediately before the gold stars as on phones
+   (owner, 17 Nov 2026). The tablet wording and layout stay as they are. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] [data-reviews-compact] {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] [data-reviews-compact] [data-reviews-google-g] {
+    display: block !important;
+    width: 1.05rem;
+    height: 1.05rem;
+    flex: none;
+  }
+}
+}
+
+/*
+ * Other quote pages on phones (airport, location, route, station, cruise, events, golf hubs):
+ * the same colours as the approved phone homepage card (owner, 17 Nov 2026). Colours and surfaces
+ * only — each page keeps its own layout, wording, prefilled airport/destination, Christmas lights
+ * and behaviour. The homepage keeps its own rules above.
+ */
+@media (max-width: 767.98px) {
+@layer base {
+  /* Google badge in the hero: G before the gold stars and "5.0 · 19 Google reviews", as on the homepage. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]) [data-reviews-compact] {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]) [data-reviews-compact] [data-reviews-google-g] { display: block !important; width: 1.1rem; height: 1.1rem; flex: none; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]) [data-reviews-compact] [data-reviews-stars] { color: #ffc81e !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]) [data-reviews-compact] [data-reviews-text-phone] { display: inline !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]) [data-reviews-compact] [data-reviews-text] { display: none !important; }
+
+  /* Quote card surface, field borders, green icons */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote > [data-quote-presentation="homepage"] {
+    background: linear-gradient(180deg, #fefefe 0%, #fbfcfd 35%, #f4f7fa 100%) !important;
+    box-shadow: 0 28px 50px -26px rgba(0, 0, 0, 0.75), 0 10px 22px -14px rgba(0, 10, 30, 0.45), inset 0 1px 0 #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-homepage-quote-scroll] div:has(> div > :is(input#pickup, input#dropoff)), [data-schedule-control], [data-d2-stepper-row]) {
+    border-color: #dce2eb !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), inset 0 1px 0 #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-quote-schedule] label, [data-d2-stepper-label]) {
+    color: #071c38 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote :is([data-gps-location], [data-schedule-control] > svg, [data-d2-stepper-btn="plus"]) {
+    color: #2fc30a !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-stepper-btn="plus"] {
+    border-color: #2fc30a !important;
+  }
+
+  /* One way / Return: selected in the approved navy */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d3-home-segment] > button[aria-pressed="true"] {
+    background: linear-gradient(180deg, #072443 0%, #001a31 100%) !important;
+    box-shadow: 0 4px 10px -6px rgba(0, 26, 49, 0.8) !important;
+    color: #ffffff !important;
+  }
+
+  /* Get My Fixed Price: the same green gradient (size unchanged) */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote button[data-get-fixed-price]:not(:disabled) {
+    background: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%) !important;
+    box-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08) !important;
+    color: #ffffff !important;
+  }
+
+  /* Benefits under the card: the bright green icons */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote [data-d2-benefits] [data-d2-benefit-icon] {
+    color: #3fd104 !important;
+  }
+}
+}

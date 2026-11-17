@@ -69,7 +69,7 @@ export default function BusinessClassRequestPage() {
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <h2 className="text-base font-bold text-white">Prefer to talk?</h2>
                 <p className="mt-2 text-sm leading-relaxed text-white/70">
-                  Call <a className="font-semibold text-emerald underline" href={`tel:${SITE.officeLandline}`}>{SITE.officeLandlineDisplay}</a>.
+                  See our <a className="font-semibold text-emerald underline" href="/contact/">Contact page</a>.
                 </p>
               </div>
             </aside>

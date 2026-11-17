@@ -199,7 +199,7 @@ export async function finalizePaidBookingFromUrl(
         return {
           status: "pending",
           summary:
-            "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh, or open the payment link from your email. If you need help, call 028 9602 2952.",
+            "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh, or open the payment link from your email. If you need help, WhatsApp @belfasttaxi or use our Contact page.",
           checkoutId,
           error: message,
         };
@@ -216,7 +216,7 @@ export async function finalizePaidBookingFromUrl(
 
   return {
     status: "pending",
-    summary: "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh. If you need help, call 028 9602 2952.",
+    summary: "Your payment is still being confirmed. Please don’t pay again. Wait a minute and press Refresh. If you need help, WhatsApp @belfasttaxi or use our Contact page.",
     checkoutId,
   };
 }

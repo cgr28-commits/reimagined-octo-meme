@@ -108,10 +108,10 @@ export default async function BelfastEventsHubPage() {
                 WhatsApp us
               </a>
               <a
-                href={`tel:${SITE.officeLandline}`}
+                href="/contact/"
                 className="inline-flex min-h-12 items-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white/80 hover:border-emerald/40 hover:text-emerald"
               >
-                Call {SITE.officeLandlineDisplay}
+                Contact us
               </a>
             </div>
           </header>

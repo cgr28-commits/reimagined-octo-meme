@@ -416,8 +416,8 @@ export default function StripeCardPayClient() {
             </button>
           ) : null}
           <p className="mt-2 text-center text-[11px] leading-snug text-white/55">
-            Secured by Stripe — we never see your card details. Questions? Call{" "}
-            {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
+            Secured by Stripe — we never see your card details. Questions? WhatsApp @{SITE.whatsappUsername}{" "}
+            or <a className="underline" href="/contact/">contact us</a>.
           </p>
           {info?.reference ? (
             <p className="mt-1 text-center text-[10px] text-white/40" data-pay-reference>
@@ -466,7 +466,7 @@ export default function StripeCardPayClient() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-white/70">
-            Questions? Call {SITE.officeLandlineDisplay} or WhatsApp {SITE.landlineDisplay}.
+            Questions? WhatsApp @{SITE.whatsappUsername} or <a className="font-semibold text-emerald underline" href="/contact/">contact us</a>.
           </p>
         </>
       )}
