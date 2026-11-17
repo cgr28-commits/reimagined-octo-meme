@@ -27,7 +27,7 @@ console.log("=== 1. Rotating boxes are off, on every page ===");
 console.log("\n=== 2. Wording is unchanged ===");
 {
   assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
-  assert.match(hero, /<span className="text-emerald">Premium Private Travel<\/span>/);
+  assert.match(hero, /<span data-hero-second-line className="hidden text-emerald min-\[75rem\]:block">Premium Private Travel<\/span>/);
   assert.match(
     hero,
     /Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond\. Whether you’re travelling to the airport, attending an event or planning a longer journey, enjoy comfortable, reliable transport at a fixed price\./,
