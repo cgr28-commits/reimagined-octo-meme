@@ -452,3 +452,28 @@
   }
 }
 }
+
+/* Phones: larger invisible tap areas (about 44px) for the small quote-form controls; nothing moves or changes colour. */
+@media (max-width: 767.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote button[data-d2-stepper-btn]::after,
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote button[data-d2-swap]::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: -0.5rem !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-schedule-control] { overflow: visible !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-schedule-control] > input#date {
+    top: -5px !important;
+    bottom: auto !important;
+    height: calc(100% + 10px) !important;
+    min-height: 0 !important;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-schedule-control] > [data-d3-time-trigger] { position: relative !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-schedule-control] > [data-d3-time-trigger]::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: -6px -2px !important;
+  }
+}
+}
