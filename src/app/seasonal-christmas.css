@@ -73,3 +73,23 @@ body:has([data-seasonal-christmas]) .quote-flow:not([data-quote-results], [data-
       url("/seasonal/snowflakes-still.svg");
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Christmas homepage video (owner, 17 Nov 2026) — ChristmasVideoSection.tsx.
+   Navy band directly under the quote calculator; colours pinned so the light-design
+   and mobile stylesheets can't recolour it. On/off + dates: CHRISTMAS_VIDEO in
+   src/lib/seasonal.ts.
+   ─────────────────────────────────────────────────────────────────────────── */
+/* Same cascade layer as the mobile stylesheets' !important colour rules, so specificity wins. */
+@layer base {
+  html:root:root:root:root main [data-christmas-video] {
+    background-color: #071c38 !important;
+    color: #ffffff !important;
+  }
+  html:root:root:root:root main [data-christmas-video] [data-cv-eyebrow] { color: #e2c275 !important; }
+  html:root:root:root:root main [data-christmas-video] :is([data-cv-heading], [data-cv-tagline]) {
+    color: #ffffff !important;
+    font-family: var(--font-manrope), "Manrope", ui-sans-serif, system-ui, sans-serif !important;
+  }
+  html:root:root:root:root main [data-christmas-video] [data-cv-sub] { color: rgba(255, 255, 255, 0.86) !important; }
+}
