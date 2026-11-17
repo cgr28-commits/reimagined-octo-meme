@@ -56,12 +56,13 @@
     aspect-ratio: 3 / 2;
     pointer-events: none;
     z-index: 0;
-    opacity: 0.88;
-    background:
-      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.92) 18%, rgba(1, 25, 48, 0.55) 40%, rgba(1, 25, 48, 0.12) 62%, rgba(1, 25, 48, 0) 75%),
-      linear-gradient(0deg, #00182f 0%, #00182f 30%, rgba(0, 24, 47, 0.6) 46%, rgba(0, 24, 47, 0) 66%),
-      linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 14%),
-      image-set(url("/images/hero/mobile-dublin-airport-dusk.avif") type("image/avif"), url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) center / 100% 100% no-repeat !important;
+    opacity: 0.9;
+    background: image-set(url("/images/hero/mobile-dublin-airport-dusk.avif") type("image/avif"), url("/images/hero/mobile-dublin-airport-dusk.webp") type("image/webp"), url("/images/hero/mobile-dublin-airport-dusk.jpg") type("image/jpeg")) center / 100% 100% no-repeat !important;
+    /* Soft mask on every edge: the image fades into the navy, so there is no seam or rectangle. */
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 28%, #000 55%), linear-gradient(180deg, transparent 0%, #000 16%, #000 42%, transparent 72%);
+    -webkit-mask-composite: source-in;
+            mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.35) 28%, #000 55%), linear-gradient(180deg, transparent 0%, #000 16%, #000 42%, transparent 72%);
+            mask-composite: intersect;
   }
   html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
     position: relative;
