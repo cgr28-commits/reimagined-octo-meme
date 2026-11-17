@@ -52,6 +52,7 @@ name: Deploy Pages Preview
       - feature/email-promo-10pct
       - claude/live-demand-bar
       - claude/christmas-video
+      - claude/quote-card-tidy
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 

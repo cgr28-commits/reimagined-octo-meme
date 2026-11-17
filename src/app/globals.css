@@ -5817,7 +5817,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2] { background: #fff !important; border: 1px solid var(--d2-line) !important; border-radius: 1.125rem !important; box-shadow: 0 6px 24px rgba(7,28,56,.06) !important; padding: 1rem !important; backdrop-filter: none !important; }
   html[data-mobile-light] [data-d2] h2[data-site-nav-heading="quote"] { font-family: inherit !important; font-size: 1.25rem !important; font-weight: 800 !important; letter-spacing: -.01em !important; color: #071c38 !important; text-transform: none !important; margin-bottom: .75rem !important; }
   html[data-mobile-light] [data-d2] h2[data-site-nav-heading="quote"] + div.quote-secondary { display: none !important; }
-  html[data-mobile-light] [data-d2] :is(.form-label, label.form-label) { text-transform: none !important; letter-spacing: 0 !important; font-size: .8125rem !important; font-weight: 700 !important; color: #0f2340 !important; margin: 0 0 .3rem .125rem !important; }
+  html[data-mobile-light] [data-d2] :is(.form-label, label.form-label) { text-transform: none !important; letter-spacing: 0 !important; font-size: .78rem !important; font-weight: 700 !important; color: #0f2340 !important; margin: 0 0 .3rem .125rem !important; }
   html[data-mobile-light] [data-d2-fields] [data-homepage-quote-scroll] { display: flex; flex-direction: column; gap: .35rem; }
   html[data-mobile-light] [data-d2] .address-input { height: 3.25rem !important; font-size: 1rem !important; color: #071c38 !important; }
   html[data-mobile-light] [data-d2] .address-input::placeholder { color: #8090a3 !important; }
@@ -5959,7 +5959,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email, input[id$="FlightNumber"]) { height: 3.25rem !important; border: 1.5px solid var(--d2-field) !important; border-radius: .75rem !important; background: #fff !important; color: #071c38 !important; font-size: 1rem !important; padding: 0 .9rem !important; }
   html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email):not(:placeholder-shown):valid:not([aria-invalid="true"]) { border-color: #9ad9a8 !important; }
   html[data-mobile-light] [data-d2="details"] :is(#name, #mobile, #email):focus { border-color: #071c38 !important; box-shadow: 0 0 0 3px rgba(47,191,74,.35) !important; outline: none !important; }
-  html[data-mobile-light] [data-d2="details"] #step3-customer-details .form-label { font-size: .8125rem !important; font-weight: 700 !important; text-transform: none !important; letter-spacing: 0 !important; color: #0f2340 !important; }
+  html[data-mobile-light] [data-d2="details"] #step3-customer-details .form-label { font-size: .78rem !important; font-weight: 700 !important; text-transform: none !important; letter-spacing: 0 !important; color: #0f2340 !important; }
 
   /* Airport hub (screen 5): breadcrumb, title, short photo with badge, then the quote card. */
   html[data-mobile-light] main:has(> [data-d2-airport-photo]) { display: flex; flex-direction: column; background: var(--d2-bg) !important; }
@@ -10141,4 +10141,32 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
 .demand-segment-on { transform-origin: left center; animation: demand-segment-in 0.5s ease-out both, demand-bar-pulse 1.4s ease-in-out 0.9s infinite; }
 @media (prefers-reduced-motion: reduce) {
   .demand-pulse-dot, .demand-bar-fill, .demand-segment-on { animation: none !important; }
+}
+
+/* Airport quick-pick buttons (owner, 17 Nov 2026): slightly longer, squarer, modern and NOT green —
+   white with navy text, soft border and shadow; navy outline on hover/press. Phones/tablets fill the
+   row in four equal buttons under the destination box; desktop keeps them in the card title row. */
+@layer base {
+  @media (max-width: 1199px) {
+    html:root:root:root:root:root:root:root #quote [data-quick-picks] {
+      display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: .4rem !important;
+    }
+    html:root:root:root:root:root:root:root #quote [data-quick-picks] [data-quick-picks-label] { grid-column: 1 / -1 !important; }
+  }
+  html:root:root:root:root:root:root:root #quote :is([data-quick-picks], [data-quick-picks-head]) button[data-quick-pick] {
+    min-height: 2.35rem !important; padding: 0 .35rem !important; border-radius: .6rem !important;
+    background: #ffffff !important; background-image: none !important;
+    border: 1px solid rgba(7, 28, 56, .16) !important; color: #071c38 !important; -webkit-text-fill-color: #071c38 !important;
+    font-size: .78rem !important; font-weight: 700 !important; letter-spacing: -.005em !important; line-height: 1.1 !important;
+    white-space: nowrap !important; box-shadow: 0 1px 2px rgba(7, 28, 56, .06) !important;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .1s ease !important;
+  }
+  html:root:root:root:root:root:root:root #quote [data-quick-picks-head] button[data-quick-pick] { min-width: 6.25rem !important; padding: 0 .9rem !important; }
+  html:root:root:root:root:root:root:root #quote :is([data-quick-picks], [data-quick-picks-head]) button[data-quick-pick]:hover {
+    border-color: #071c38 !important; box-shadow: 0 2px 6px rgba(7, 28, 56, .12) !important;
+  }
+  html:root:root:root:root:root:root:root #quote :is([data-quick-picks], [data-quick-picks-head]) button[data-quick-pick]:active { transform: scale(.98) !important; }
+  html:root:root:root:root:root:root:root #quote :is([data-quick-picks], [data-quick-picks-head]) button[data-quick-pick]:focus-visible {
+    outline: 2px solid #071c38 !important; outline-offset: 2px !important;
+  }
 }
