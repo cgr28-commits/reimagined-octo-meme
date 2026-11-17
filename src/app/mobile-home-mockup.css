@@ -99,6 +99,9 @@
     color: #ffffff !important;
     text-shadow: 0 1px 8px rgba(1, 24, 52, 0.7);
   }
+  /* Phone wording for the description (homepage only). */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro [data-d3-intro-sub]:has([data-d3-intro-phone]) :is([data-d3-intro-lead], [data-d3-intro-more]) { display: none !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro [data-d3-intro-sub] [data-d3-intro-phone] { display: inline !important; }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) [data-reviews-compact] {
     margin-top: 0.25rem;
     gap: 0.4rem !important;

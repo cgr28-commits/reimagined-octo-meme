@@ -144,8 +144,17 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
           {/* Mobile Design 3 only (hidden elsewhere by CSS). */}
           {/* Phones show only the first sentence (data-d3-intro-more is hidden by CSS below 768px). */}
           <p className="hidden" data-d3-intro-sub>
-            <FromAirportText text={introLead} fromAirportText={introSplit ? undefined : introFromAirport} fromValue={introFromValue} />
+            <span data-d3-intro-lead>
+              <FromAirportText text={introLead} fromAirportText={introSplit ? undefined : introFromAirport} fromValue={introFromValue} />
+            </span>
             {introMore ? <span data-d3-intro-more> {introMore}</span> : null}
+            {/* Homepage on phones only (owner, 17 Nov 2026); mobile-home-mockup.css shows it up to 767px.
+                Tablet and desktop keep the wording above. */}
+            {introSplit ? (
+              <span data-d3-intro-phone hidden>
+                Professional, pre-booked airport transfers across Northern Ireland and the Republic of Ireland.
+              </span>
+            ) : null}
           </p>
           <div className="hidden" data-d2-rating>
             <GoogleReviewsBadge variant="compact" />
