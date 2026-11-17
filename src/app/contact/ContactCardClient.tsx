@@ -95,8 +95,10 @@ export default function ContactCardClient() {
           <h1 className="contact-fade-up-delay-1 mt-5 text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Contact My Airport Taxi NI
           </h1>
-          <p className="mt-2 text-center text-sm leading-relaxed text-white/70 sm:text-base">
-            {SITE.tagline}
+          {/* Same wording as above the homepage quote tool (owner, 17 Nov 2026). */}
+          <p data-contact-strapline className="mt-2 text-balance text-center text-base font-semibold leading-snug text-white/80 sm:text-lg">
+            <span className="block">Belfast &amp; Dublin Airport Transfers</span>
+            <span className="block text-emerald">Premium Private Travel</span>
           </p>
 
           <div className="contact-fade-up-delay-2 mt-8 min-w-0 rounded-2xl border border-emerald/35 bg-emerald/10 px-4 py-6 text-center sm:px-5">
