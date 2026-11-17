@@ -124,11 +124,19 @@ export default function PromoPopup() {
   // Every device: after the delay (once per page view). Desktop also opens on exit intent.
   useEffect(() => {
     if (!eligible || desktop === null || !config?.popupEnabled) return;
+    let timer = 0;
     const tryOpen = () => {
-      if (shownRef.current || !promoPopupAllowed(Date.now(), offerId) || bookingInProgress() || document.hidden) return;
+      if (shownRef.current || !promoPopupAllowed(Date.now(), offerId)) return;
+      // Part-way through booking: never. Just typing in the quote form or tab in the background:
+      // wait and try again a few seconds later instead of giving up for this visit.
+      if (document.documentElement.dataset.bookingInProgress === "1") return;
+      if (bookingInProgress() || document.hidden) {
+        timer = window.setTimeout(tryOpen, 4000);
+        return;
+      }
       open("dialog");
     };
-    const timer = window.setTimeout(tryOpen, Math.max(5, config.popupDelaySeconds) * 1000);
+    timer = window.setTimeout(tryOpen, Math.max(5, config.popupDelaySeconds) * 1000);
     const onLeave = (event: MouseEvent) => {
       if (event.relatedTarget === null && event.clientY <= 0) tryOpen();
     };
