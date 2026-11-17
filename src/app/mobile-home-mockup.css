@@ -517,3 +517,12 @@
   html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] strong { font-weight: 800; }
 }
 }
+
+/* Smallest phones: the Google rating line stays on one line. */
+@media (max-width: 379.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] { gap: 0.3rem; white-space: nowrap; font-size: 0.82rem !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-google-g] { width: 0.95rem; height: 0.95rem; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-stars] { font-size: 0.78rem; letter-spacing: 0; }
+}
+}
