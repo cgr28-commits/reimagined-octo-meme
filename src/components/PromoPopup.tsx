@@ -3,10 +3,8 @@
 /**
  * 10% email discount promotion (owner brief, 16 Nov 2026).
  *
- * Desktop (1200px+, the site's desktop breakpoint): a pop-up after the configured delay
- * (default 20 s) or on exit intent, whichever comes first.
- * Phones and tablets: never an automatic full-screen pop-up — a slim dismissible banner;
- * tapping it opens the sign-up sheet.
+ * Every device (owner, 17 Nov 2026 — no offer bars): a centred pop-up after the configured
+ * delay (default 20 s). Desktop (1200px+) also opens it on exit intent, whichever comes first.
  *
  * Never shown: before the cookie choice is made, on booking / payment / account pages, while
  * the customer is part-way through booking (quote step 2+, or typing in a form), for 30 days
@@ -62,7 +60,7 @@ export function promoExcludedPath(pathname: string | null | undefined): boolean 
   return EXCLUDED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
-type Mode = "none" | "dialog" | "banner" | "sheet";
+type Mode = "none" | "dialog" | "sheet";
 
 /** The site's desktop layout starts at 1200px; touch-only tablets get the banner instead. */
 const PROMO_DESKTOP_QUERY = "(min-width: 1200px) and (hover: hover) and (pointer: fine)";
@@ -122,9 +120,10 @@ export default function PromoPopup() {
     setMode(next);
   }, []);
 
-  // Desktop: timer + exit intent (once per page view).
+  // Owner, 17 Nov 2026: no bars — the pop-up itself on desktop, tablet and mobile.
+  // Every device: after the delay (once per page view). Desktop also opens on exit intent.
   useEffect(() => {
-    if (!eligible || desktop !== true || !config?.popupEnabled) return;
+    if (!eligible || desktop === null || !config?.popupEnabled) return;
     const tryOpen = () => {
       if (shownRef.current || !promoPopupAllowed(Date.now(), offerId) || bookingInProgress() || document.hidden) return;
       open("dialog");
@@ -133,32 +132,12 @@ export default function PromoPopup() {
     const onLeave = (event: MouseEvent) => {
       if (event.relatedTarget === null && event.clientY <= 0) tryOpen();
     };
-    document.addEventListener("mouseout", onLeave);
+    if (desktop) document.addEventListener("mouseout", onLeave);
     return () => {
       window.clearTimeout(timer);
-      document.removeEventListener("mouseout", onLeave);
+      if (desktop) document.removeEventListener("mouseout", onLeave);
     };
   }, [eligible, desktop, config, open, offerId]);
-
-  // Phones / tablets: a small banner, never an automatic overlay.
-  useEffect(() => {
-    if (!eligible || desktop !== false) return;
-    const timer = window.setTimeout(() => {
-      if (!bookingInProgress()) setMode((m) => (m === "none" ? "banner" : m));
-    }, 4000);
-    return () => window.clearTimeout(timer);
-  }, [eligible, desktop]);
-
-  // Hide the banner as soon as the customer moves into booking.
-  useEffect(() => {
-    if (mode !== "banner") return;
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => {
-      if (root.dataset.bookingInProgress === "1") setMode("none");
-    });
-    observer.observe(root, { attributes: true, attributeFilter: ["data-booking-in-progress"] });
-    return () => observer.disconnect();
-  }, [mode]);
 
   // "Get your code" from the quote-results banner can open the form on any device.
   useEffect(() => {
@@ -228,41 +207,6 @@ export default function PromoPopup() {
       : `GET ${percent} OFF YOUR AIRPORT TRANSFER`;
   const description = `Enter your email address and we’ll send you an exclusive ${offer ? `${offer.name} ` : ""}${percent} discount code, valid for ${config.validityDays} days.`;
   const offerEnds = offer ? formatOfferEnd(offer.endsAt) : "";
-
-  if (mode === "banner") {
-    return createPortal(
-      <div
-        data-promo-banner
-        role="region"
-        aria-label={`${percent} discount offer`}
-        className="fixed inset-x-0 z-[58] px-3"
-        style={{ bottom: "calc(max(10px, env(safe-area-inset-bottom, 0px)) + var(--matni-cookie-banner-offset, 0px))" }}
-      >
-        <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl bg-navy py-2 pl-4 pr-2 text-white shadow-[0_10px_30px_rgba(7,28,56,0.35)] ring-1 ring-white/10">
-          <button
-            type="button"
-            onClick={() => open("dialog", true)}
-            className="flex min-h-11 flex-1 items-center gap-2 text-left text-sm font-semibold"
-          >
-            <span aria-hidden className="rounded-md bg-emerald px-1.5 py-0.5 text-xs font-extrabold text-navy">{percent}</span>
-            <span>
-              {offer ? `${offer.name}: ` : ""}Get {percent} off your transfer{" "}
-              <span className="text-emerald underline underline-offset-2">Get my code</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Close offer"
-            onClick={() => close(true)}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl leading-none text-white/80 hover:bg-white/10 hover:text-white"
-          >
-            ×
-          </button>
-        </div>
-      </div>,
-      document.body,
-    );
-  }
 
   const isSheet = mode === "sheet";
   return createPortal(
