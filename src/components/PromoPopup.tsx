@@ -25,6 +25,7 @@ import {
   type PublicPromoConfig,
 } from "@/lib/promo-api";
 import PromoSignupForm from "@/components/PromoSignupForm";
+import { CHRISTMAS_WELCOME_FLAG } from "@/lib/seasonal";
 import { PROMO_POPUP_HEADLINE } from "../../shared/promo-code";
 
 /** Booking, payment, account and staff pages: the promotion never appears there. */
@@ -130,6 +131,8 @@ export default function PromoPopup() {
       // Part-way through booking: never. Just typing in the quote form or tab in the background:
       // wait and try again a few seconds later instead of giving up for this visit.
       if (document.documentElement.dataset.bookingInProgress === "1") return;
+      // Christmas welcome pop-up already shown this visit (it carries the same offer): don't stack.
+      if (document.documentElement.dataset[CHRISTMAS_WELCOME_FLAG] === "1") return;
       if (bookingInProgress() || document.hidden) {
         timer = window.setTimeout(tryOpen, 4000);
         return;

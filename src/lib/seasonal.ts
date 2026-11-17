@@ -48,3 +48,18 @@ export function isChristmasVideoLive(
   const today = londonDateKey(now, config.timeZone);
   return today >= config.showFrom && today <= config.showUntil;
 }
+
+/**
+ * Christmas welcome pop-up (owner, 17 Nov 2026): video → 10% offer (the existing email promo
+ * code) → quote tool, once per visitor. Same date rules as above. Also off whenever the promo
+ * pop-up switch is off in the Owner Dashboard. Never changes the promo code's own dates/rules.
+ */
+export const CHRISTMAS_WELCOME = {
+  enabled: true,
+  showFrom: "2026-11-17",
+  showUntil: "2027-01-01",
+  timeZone: "Europe/London",
+} as const;
+
+/** `<html data-christmas-welcome-shown="1">` while the welcome has been shown this visit (PromoPopup waits). */
+export const CHRISTMAS_WELCOME_FLAG = "christmasWelcomeShown";

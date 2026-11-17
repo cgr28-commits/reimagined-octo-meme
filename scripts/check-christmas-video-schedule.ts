@@ -2,7 +2,7 @@
  * Checks the Christmas homepage video date window (Europe/London, inclusive days).
  * Run: npx tsx scripts/check-christmas-video-schedule.ts
  */
-import { CHRISTMAS_VIDEO, isChristmasVideoLive } from "../src/lib/seasonal";
+import { CHRISTMAS_VIDEO, CHRISTMAS_WELCOME, isChristmasVideoLive } from "../src/lib/seasonal";
 
 const cases: [string, boolean][] = [
   ["2026-11-16T23:59:00Z", false], // 16 Nov, 23:59 London (GMT)
@@ -15,10 +15,12 @@ const cases: [string, boolean][] = [
 
 let failed = 0;
 for (const [iso, expected] of cases) {
-  const got = isChristmasVideoLive(new Date(iso));
-  const ok = got === expected;
-  if (!ok) failed++;
-  console.log(`${ok ? "PASS" : "FAIL"}  ${iso}  live=${got}  expected=${expected}`);
+  for (const [name, config] of [["video section", CHRISTMAS_VIDEO], ["welcome pop-up", CHRISTMAS_WELCOME]] as const) {
+    const got = isChristmasVideoLive(new Date(iso), config);
+    const ok = got === expected;
+    if (!ok) failed++;
+    console.log(`${ok ? "PASS" : "FAIL"}  ${name}  ${iso}  live=${got}  expected=${expected}`);
+  }
 }
 if (isChristmasVideoLive(new Date("2026-12-25T12:00:00Z"), { ...CHRISTMAS_VIDEO, enabled: false })) {
   failed++;

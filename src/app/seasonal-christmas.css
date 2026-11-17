@@ -93,3 +93,26 @@ body:has([data-seasonal-christmas]) .quote-flow:not([data-quote-results], [data-
   }
   html:root:root:root:root main [data-christmas-video] [data-cv-sub] { color: rgba(255, 255, 255, 0.86) !important; }
 }
+
+/* Christmas welcome pop-up (ChristmasWelcome.tsx) — portal on <body>, outside main. */
+@layer base {
+  html:root:root:root:root [data-christmas-welcome] [role="dialog"] { background-color: #071c38 !important; color: #ffffff !important; }
+  html:root:root:root:root [data-christmas-welcome] :is(h2, h2 span:not(.text-emerald)) { color: #ffffff !important; }
+  html:root:root:root:root [data-christmas-welcome] h2 .text-emerald { color: #2fbf4a !important; }
+  html:root:root:root:root [data-christmas-welcome] .text-\[\#E2C275\] { color: #e2c275 !important; }
+  html:root:root:root:root [data-christmas-welcome] .cw-sub { color: rgba(255, 255, 255, 0.86) !important; }
+  html:root:root:root:root [data-christmas-welcome] .cw-small { color: rgba(255, 255, 255, 0.66) !important; }
+  html:root:root:root:root [data-christmas-welcome] :is(.cw-link, .cw-chip) { color: rgba(255, 255, 255, 0.9) !important; }
+  html:root:root:root:root [data-christmas-welcome] [data-promo-confirmation] :is(p:not([data-promo-preview-code]), p:not([data-promo-preview-code]) *) { color: #ffffff !important; }
+  html:root:root:root:root [data-christmas-welcome] [data-promo-confirmation] p[data-promo-preview-code] { color: #071c38 !important; }
+}
+@keyframes cw-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+[data-christmas-welcome] { animation: cw-fade-in 0.25s ease-out both; }
+@keyframes cw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+[data-christmas-welcome] .cw-reveal { animation: cw-fade-up 0.45s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  [data-christmas-welcome], [data-christmas-welcome] .cw-reveal { animation: none; }
+}
