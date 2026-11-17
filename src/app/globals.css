@@ -10360,8 +10360,6 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
     margin-top: clamp(0.25rem, 0.9vh, 0.5rem) !important;
     color: #2fbf4a !important;
   }
-  /* Second line reads "Premium Private Travel" — only one & in the headline (owner, 17 Nov 2026). */
-  html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-amp] { display: none !important; }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
     max-width: 56rem !important;
     margin-top: clamp(0.875rem, 2.2vh, 1.375rem) !important;
