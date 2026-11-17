@@ -45,8 +45,16 @@ type Props = {
   };
   /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
   heroBackground?: { baseName: string; widths: readonly number[] };
-  /** The rotating image cards under the quote tool (laptops 1200px+). Homepage only — off by default. */
+  /**
+   * The rotating image cards under the quote tool (laptops 1200px+). Off by default, and no
+   * page turns them on since the owner removed them from the homepage (17 Nov 2026).
+   */
   showRotatingCards?: boolean;
+  /**
+   * Homepage only, laptops 1200px+ (owner, 17 Nov 2026): more room for the heading and intro,
+   * with the quote tool lower and bigger. Styling only — see [data-desktop-roomy] in globals.css.
+   */
+  desktopRoomy?: boolean;
   /** Saved-quote summary and Book button, shown above the quote tool at every step. */
   belowIntro?: ReactNode;
   /** Homepage only: neutral quote tool with airport quick picks and "More journeys" links. */
@@ -85,14 +93,14 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
   const introLead = introSplit ? introSplit[1] : introText;
   const introMore = introSplit ? introSplit[2] : "";
   return (
-    <section className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
+    <section data-desktop-roomy={desktopRoomy ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
       <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
         <OptimizedHeroPicture
           baseName={heroBackground?.baseName ?? "belfast-international-homepage"}

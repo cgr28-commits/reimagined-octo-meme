@@ -129,6 +129,8 @@
     "check:book-quote-mobile": "npx tsx scripts/check-book-quote-mobile.ts",
     "check:mobile-menu-scroll": "npx tsx scripts/check-mobile-menu-scroll.ts",
     "check:public-nav-no-landline": "npx tsx scripts/check-public-nav-no-landline.ts",
+    "check:contact-email": "npx tsx scripts/check-contact-email.ts",
+    "check:homepage-desktop-roomy": "npx tsx scripts/check-homepage-desktop-roomy.ts",
     "check:refund-ops": "npx tsx scripts/check-refund-ops.ts",
     "check:refund-leg-cancel": "npx tsx scripts/check-refund-leg-cancel.ts",
     "check:cancellation-refund-wording": "npx tsx scripts/check-cancellation-refund-wording.ts",

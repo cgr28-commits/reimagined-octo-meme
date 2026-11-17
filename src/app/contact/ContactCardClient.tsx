@@ -19,6 +19,9 @@ import { useIsMobileDevice } from "@/lib/device";
 import { withBasePath } from "@/lib/paths";
 import StandaloneBrandBar from "@/components/StandaloneBrandBar";
 
+/** The email contact page (form to the bookings inbox). */
+const EMAIL_CONTACT_PATH = "/contact/email/";
+
 function ActionIcon({
   children,
   tone = "default",
@@ -64,7 +67,8 @@ export default function ContactCardClient() {
 
   return (
     <>
-    <StandaloneBrandBar />
+    {/* No telephone number on the Contact page (owner, 17 Nov 2026). */}
+    <StandaloneBrandBar showCall={false} />
     <main data-customer-standalone className="relative min-h-dvh w-full max-w-full overflow-x-clip bg-navy">
       <div
         aria-hidden
@@ -186,8 +190,10 @@ export default function ContactCardClient() {
               </span>
             </a>
 
-            <a
-              href={`mailto:${SITE.email}`}
+            {/* Opens the email contact page: a short form that reaches the bookings inbox. */}
+            <Link
+              href={EMAIL_CONTACT_PATH}
+              data-contact-email-link
               className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
             >
               <ActionIcon>
@@ -204,11 +210,10 @@ export default function ContactCardClient() {
                 <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">
                   Email
                 </span>
-                <span className="mt-0.5 block truncate text-base font-semibold sm:text-lg">
-                  {SITE.email}
-                </span>
+                <span className="mt-0.5 block text-lg font-bold">Send us a message</span>
+                <span className="block truncate text-xs text-white/60">{SITE.email}</span>
               </span>
-            </a>
+            </Link>
 
             <a
               href={`https://wa.me/${SITE.whatsapp}`}
@@ -231,27 +236,6 @@ export default function ContactCardClient() {
                   WhatsApp only
                 </span>
                 <span className="mt-0.5 block text-lg font-bold">{SITE.landlineDisplay}</span>
-              </span>
-            </a>
-
-            <a
-              href={`tel:${SITE.officeLandline}`}
-              data-contact-office-landline
-              className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/15 bg-white/[0.03] px-5 py-4 text-white transition-colors hover:border-white/30 hover:bg-white/[0.06]"
-            >
-              <ActionIcon>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                  />
-                </svg>
-              </ActionIcon>
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-white/50">Landline</span>
-                <span className="mt-0.5 block text-lg font-bold">{SITE.officeLandlineDisplay}</span>
               </span>
             </a>
 

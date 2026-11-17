@@ -8,8 +8,13 @@ import { SITE } from "@/lib/data";
  * Slim navy brand bar for focused customer screens (payment links, saved quotes, Manage Booking,
  * tracking, tips). Desktop 1200px+ only: logo and the shared Call Us button, no site navigation,
  * so it never pulls customers away from the task. Below 1200px the pages keep their own layout.
+ *
+ * `showCall={false}`: the Contact pages show no telephone number (owner, 17 Nov 2026).
  */
-export default function StandaloneBrandBar({ quoteLink = false }: { quoteLink?: boolean } = {}) {
+export default function StandaloneBrandBar({
+  quoteLink = false,
+  showCall = true,
+}: { quoteLink?: boolean; showCall?: boolean } = {}) {
   return (
     <div data-standalone-brand-bar className="hidden border-b border-white/10 bg-[#071c38] min-[75rem]:block">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-10 py-3 xl:px-12">
@@ -17,7 +22,7 @@ export default function StandaloneBrandBar({ quoteLink = false }: { quoteLink?: 
           <Logo wide className="h-12 w-auto" />
         </Link>
         <div className="flex items-center gap-3">
-          <CallUsButton variant="header" />
+          {showCall ? <CallUsButton variant="header" /> : null}
           {quoteLink ? (
             <QuoteNavLink
               href="/#quote"

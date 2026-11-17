@@ -75,7 +75,10 @@ assert.match(footer, /SITE\.email/);
 console.log("OK  footer has email, WhatsApp, and a quiet business line");
 
 assert.doesNotMatch(contact, /tel:\$\{SITE\.landline\}/);
-assert.match(contact, /tel:\$\{SITE\.officeLandline\}/);
+// Owner request (17 Nov 2026): no telephone number on the Contact page; an email contact page
+// instead (see scripts/check-contact-email.ts).
+assert.doesNotMatch(contact, /tel:\$\{SITE\.officeLandline\}/);
+assert.doesNotMatch(contact, /officeLandlineDisplay/);
 assert.match(contact, /SITE\.landlineDisplay/);
 assert.match(contact, /WhatsApp only/);
 assert.doesNotMatch(contact, /Call or WhatsApp/);
@@ -83,7 +86,7 @@ assert.match(contact, /Get a quote/);
 assert.match(contact, /whatsAppChatUrl\(\)/);
 assert.match(contact, /@\{SITE\.whatsappUsername\}/);
 assert.doesNotMatch(contactPage, /Call \$\{SITE\.landlineDisplay\}/);
-console.log("OK  Contact page keeps quote + WhatsApp, and shows the business line");
+console.log("OK  Contact page keeps quote + WhatsApp, with no landline number");
 
 assert.doesNotMatch(quoteHelp, /tel:/);
 assert.doesNotMatch(quoteHelp, /landlineDisplay|07549 815538/);

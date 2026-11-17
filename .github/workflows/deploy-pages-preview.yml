@@ -53,6 +53,7 @@ name: Deploy Pages Preview
       - claude/live-demand-bar
       - claude/christmas-video
       - claude/quote-card-tidy
+      - claude/home-bigger-quote
       # claude/owner-dashboard-mobile now deploys to the isolated staging account instead
       # (deploy-dashboard-staging.yml), because this preview Worker shares the live KV store.
 
@@ -184,7 +185,7 @@ jobs:
           GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL: ${{ secrets.GOOGLE_ADS_PHONE_CLICK_CONVERSION_LABEL }}
         run: |
           KEY="${GOOGLE_PLACES_API_KEY:-${GOOGLE_API_KEY:-${GOOGLE_MAPS_API_KEY}}}"
-          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ] || [ "${GITHUB_REF_NAME:-}" = "feature/email-promo-10pct" ] || [ "${GITHUB_REF_NAME:-}" = "feature/black-friday-15" ] || [ "${GITHUB_REF_NAME:-}" = "feature/home-no-phone" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-prominent" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-modal" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-popup-all-devices" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-hide-excluded" ]; then
+          if [ "${GITHUB_REF_NAME:-}" = "claude/owner-dashboard-mobile" ] || [ "${GITHUB_REF_NAME:-}" = "feature/email-promo-10pct" ] || [ "${GITHUB_REF_NAME:-}" = "feature/black-friday-15" ] || [ "${GITHUB_REF_NAME:-}" = "feature/home-no-phone" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-prominent" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-modal" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-popup-all-devices" ] || [ "${GITHUB_REF_NAME:-}" = "feature/promo-hide-excluded" ] || [ "${GITHUB_REF_NAME:-}" = "claude/home-bigger-quote" ]; then
             # No Google Ads tracking on these previews.
             GOOGLE_ADS_ID=""
           fi
