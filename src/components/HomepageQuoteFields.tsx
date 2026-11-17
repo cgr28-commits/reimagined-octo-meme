@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck, Zap, Ticket, type LucideIcon } from "lucide-react";
+import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck,  type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
@@ -50,9 +50,8 @@ function QuickPickChips({ placement, onPick }: { placement: "fields" | "head"; o
           type="button"
           data-quick-pick={code}
           onClick={() => onPick(code)}
-          className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-[#071c38]/15 bg-white px-2.5 text-[13px] font-semibold text-[#071c38] hover:border-emerald hover:bg-emerald/10 md:px-3"
+          className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-[10px] border border-[#071c38]/15 bg-white px-3 text-[13px] font-semibold text-[#071c38]"
         >
-          <Plane size={13} strokeWidth={2.4} className="hidden text-emerald md:inline" aria-hidden="true" />
           {label}
         </button>
       ))}
@@ -401,22 +400,14 @@ export default function HomepageQuoteFields({
       {design3 ? (
         /* Mobile homepage card title (owner mockup, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-d3-card-head aria-hidden="true">
-          {cardTitle && /event|concert/i.test(cardTitle) ? <Ticket size={20} strokeWidth={2.2} data-d3-card-head-icon /> : <Plane size={20} strokeWidth={2.2} data-d3-card-head-icon />}
+          {/* Plane icon and green "Instant Quote" chip removed (owner, 17 Nov 2026). */}
           <span data-d3-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
-          <span data-d3-card-head-chip>
-            <Zap size={13} strokeWidth={2.4} />
-            Instant Quote
-          </span>
         </div>
       ) : (
         /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
         <div className="hidden" data-desktop-card-head aria-hidden={quickPicks || cardTitle ? undefined : true}>
-          {cardTitle && /event|concert/i.test(cardTitle) ? <Ticket size={22} strokeWidth={2.2} data-desktop-card-head-icon /> : <Plane size={22} strokeWidth={2.2} data-desktop-card-head-icon />}
+          {/* Plane icon and green "Instant Quote" chip removed (owner, 17 Nov 2026). */}
           <span data-desktop-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
-          <span data-desktop-card-head-chip>
-            <Zap size={14} strokeWidth={2.4} />
-            Instant Quote
-          </span>
           {quickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} /> : null}
         </div>
       )}
