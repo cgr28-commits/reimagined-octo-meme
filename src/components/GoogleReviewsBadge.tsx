@@ -21,7 +21,7 @@ export default function GoogleReviewsBadge({
 }: {
   className?: string;
   /** "panel": the desktop navy panel's larger strip. Same live numbers and link. */
-  variant?: "pill" | "panel" | "compact";
+  variant?: "pill" | "panel" | "compact" | "confidence";
 }) {
   const [rating, setRating] = useState<string>(GOOGLE_REVIEW_RATING);
   const [count, setCount] = useState<number>(GOOGLE_REVIEW_COUNT);
@@ -64,6 +64,26 @@ export default function GoogleReviewsBadge({
         </span>
         <span data-reviews-text aria-hidden="true">
           <strong>{rating}</strong> on Google · {count} reviews
+        </span>
+      </a>
+    );
+  }
+
+  if (variant === "confidence") {
+    // "Book with confidence" line on phones (owner, 17 Nov 2026): Google G, gold stars, live rating and count.
+    return (
+      <a
+        href={GOOGLE_BUSINESS_PROFILE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-reviews-confidence
+        className={className}
+        aria-label={`Rated ${rating} out of 5 on Google from ${count} reviews`}
+      >
+        <img data-reviews-google-g src={withBasePath("/images/google-g.svg")} alt="" width={18} height={18} aria-hidden="true" />
+        <span data-reviews-stars aria-hidden="true">★★★★★</span>
+        <span aria-hidden="true">
+          <strong>{rating}</strong> · {count} Google reviews
         </span>
       </a>
     );

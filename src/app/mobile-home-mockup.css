@@ -498,3 +498,22 @@
   }
 }
 }
+
+/* "Book with confidence" on phones: Google G, gold stars and "5.0 · 19 Google reviews", as on the homepage (owner, 17 Nov 2026). */
+@media (max-width: 767.98px) {
+@layer base {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-vehicle-confidence-list] li:has([data-confidence-rating-phone]) > :is(svg[data-vehicle-confidence-star], [data-confidence-rating-text]) { display: none !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-vehicle-confidence-list] [data-confidence-rating-phone] { display: block !important; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    color: #071c38 !important;
+    text-decoration: none !important;
+    font-weight: 600;
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-google-g] { width: 1.1rem; height: 1.1rem; flex: none; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] [data-reviews-stars] { color: #f5b301 !important; letter-spacing: 0.02em; font-size: 0.95rem; line-height: 1; }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote [data-reviews-confidence] strong { font-weight: 800; }
+}
+}
