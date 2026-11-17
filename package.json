@@ -18,7 +18,7 @@
     "check:dublin-pricing-consistency": "npx tsx scripts/check-dublin-pricing-consistency.ts",
     "calibrate:ots-pricing": "npx tsx scripts/auto-calibrate-ots-pricing.ts",
     "health-check": "node scripts/daily-health-check.mjs",
-    "check:christmas-video": "npx tsx scripts/check-christmas-video-schedule.ts",
+    "check:christmas-video": "npx tsx scripts/check-christmas-video-schedule.ts && npx tsx scripts/check-christmas-video-stats.ts",
     "check:demo-features": "npx tsx scripts/check-demo-features.ts",
     "check:a2a-roi": "npx tsx scripts/check-a2a-roi-journeys.ts",
     "check:bfs-bhd-roi-instant-quote": "npx tsx scripts/check-bfs-bhd-roi-instant-quote.ts",

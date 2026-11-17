@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import { withBasePath } from "@/lib/paths";
+import { trackChristmasVideo } from "@/lib/christmas-video-stats";
 import { isChristmasVideoLive } from "@/lib/seasonal";
 
 /**
@@ -35,6 +36,7 @@ export default function ChristmasVideoSection({ initiallyLive }: { initiallyLive
     const video = videoRef.current;
     if (!video) return;
     setStarted(true);
+    trackChristmasVideo("section_play");
     video.controls = true;
     const attempt = video.play();
     if (attempt && typeof attempt.catch === "function") {
@@ -84,6 +86,7 @@ export default function ChristmasVideoSection({ initiallyLive }: { initiallyLive
               height={1080}
               aria-label="My Airport Taxi NI Christmas video: a plane lands in winter, a driver opens the car door for a family, and the car drives through festive Belfast. Ends with: Your journey, taken care of."
               onEnded={(e) => {
+                trackChristmasVideo("section_watched");
                 e.currentTarget.currentTime = 0;
               }}
             >

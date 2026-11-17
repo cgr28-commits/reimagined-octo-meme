@@ -30,6 +30,7 @@ import {
   promoAlreadySignedUp,
   type PublicPromoConfig,
 } from "@/lib/promo-api";
+import { trackChristmasVideo } from "@/lib/christmas-video-stats";
 import { CHRISTMAS_WELCOME, CHRISTMAS_WELCOME_FLAG, isChristmasVideoLive, londonDateKey } from "@/lib/seasonal";
 import { promoExcludedPath } from "@/components/PromoPopup";
 
@@ -102,6 +103,8 @@ export default function ChristmasWelcome() {
   const restoreFocus = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const stepRef = useRef<Step>("video");
+  stepRef.current = step;
   const excluded = promoExcludedPath(pathname);
 
   useEffect(() => setMounted(true), []);
@@ -138,6 +141,7 @@ export default function ChristmasWelcome() {
       restoreFocus.current = (document.activeElement as HTMLElement | null) ?? null;
       document.documentElement.dataset[CHRISTMAS_WELCOME_FLAG] = "1";
       markSeen();
+      trackChristmasVideo("popup_shown");
       setOpen(true);
     };
 
@@ -167,6 +171,7 @@ export default function ChristmasWelcome() {
     if (offerUsable && !promoAlreadySignedUp(offerId)) {
       // The customer has now seen the offer — don't follow up with the 20-second promo pop-up.
       markPromoPopupDismissed(Date.now(), offerId);
+      trackChristmasVideo("popup_offer_seen");
       setStep("offer");
     } else {
       setStep("quote");
@@ -174,6 +179,7 @@ export default function ChristmasWelcome() {
   }, [offerUsable, offerId]);
 
   const close = useCallback(() => {
+    if (stepRef.current === "video") trackChristmasVideo("popup_closed");
     videoRef.current?.pause();
     setOpen(false);
     window.setTimeout(() => restoreFocus.current?.focus?.({ preventScroll: true }), 0);
@@ -243,6 +249,7 @@ export default function ChristmasWelcome() {
     if (!video) return;
     video.muted = !video.muted;
     setMuted(video.muted);
+    if (!video.muted) trackChristmasVideo("popup_sound_on");
     if (video.paused) void video.play().catch(() => setNeedsTap(true));
   };
   const tapToPlay = () => {
@@ -294,7 +301,10 @@ export default function ChristmasWelcome() {
                 width={1920}
                 height={1080}
                 aria-label="Christmas video: a plane lands in winter, a driver opens the car door for a family, and the car drives through festive Belfast."
-                onEnded={nextAfterVideo}
+                onEnded={() => {
+                  trackChristmasVideo("popup_watched");
+                  nextAfterVideo();
+                }}
               >
                 <source src={withBasePath(`${VIDEO_DIR}/christmas-homecoming-1080.mp4`)} type="video/mp4" media="(min-width: 768px)" />
                 <source src={withBasePath(`${VIDEO_DIR}/christmas-homecoming-720.mp4`)} type="video/mp4" />
@@ -333,7 +343,10 @@ export default function ChristmasWelcome() {
               <button
                 type="button"
                 data-cw-focus
-                onClick={nextAfterVideo}
+                onClick={() => {
+                  trackChristmasVideo("popup_skipped");
+                  nextAfterVideo();
+                }}
                 className="cw-chip inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white/10 px-4 text-sm font-semibold hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E2C275]"
               >
                 Skip <span aria-hidden="true">›</span>
@@ -351,7 +364,7 @@ export default function ChristmasWelcome() {
               <span className="block text-[3.4rem] font-extrabold leading-none tracking-tight text-emerald sm:text-[4.2rem]">
                 {percent} OFF
               </span>
-              <span className="mt-2 block text-xl font-semibold text-white sm:text-2xl">Your Christmas Airport Transfer</span>
+              <span className="mt-2 block text-xl font-semibold text-white sm:text-2xl">Your Christmas Journey</span>
             </h2>
             <p className="cw-sub mx-auto mt-4 max-w-md text-[0.98rem] leading-relaxed">
               Make your Christmas journey a little more special with My Airport Taxi NI.
@@ -359,7 +372,10 @@ export default function ChristmasWelcome() {
             <div className="mx-auto mt-6 flex max-w-sm flex-col items-stretch gap-3">
               <button
                 type="button"
-                onClick={() => setStep("form")}
+                onClick={() => {
+                  trackChristmasVideo("popup_claim");
+                  setStep("form");
+                }}
                 className="btn-primary cw-primary inline-flex min-h-12 items-center justify-center px-6 text-base font-bold"
               >
                 Claim My {percent} Discount
@@ -395,11 +411,14 @@ export default function ChristmasWelcome() {
                 percentLabel={percent}
                 offerId={offerId}
                 autoFocus
-                onDone={() => setClaimed(true)}
+                onDone={() => {
+                  trackChristmasVideo("popup_code_sent");
+                  setClaimed(true);
+                }}
               />
             </div>
             {claimed ? (
-              <QuoteNavLink onNavigate={close} className="btn-primary cw-primary mt-5 inline-flex min-h-12 w-full items-center justify-center px-6 text-base font-bold">
+              <QuoteNavLink onNavigate={() => { trackChristmasVideo("popup_get_quote"); close(); }} className="btn-primary cw-primary mt-5 inline-flex min-h-12 w-full items-center justify-center px-6 text-base font-bold">
                 Get My Quote
               </QuoteNavLink>
             ) : (
@@ -425,7 +444,7 @@ export default function ChristmasWelcome() {
                 : "Fixed prices, flight monitoring and a pre-booked driver waiting for you."}
             </p>
             <div className="mx-auto mt-6 flex max-w-sm flex-col items-stretch gap-3">
-              <QuoteNavLink onNavigate={close} className="btn-primary cw-primary inline-flex min-h-12 items-center justify-center px-6 text-base font-bold">
+              <QuoteNavLink onNavigate={() => { trackChristmasVideo("popup_get_quote"); close(); }} className="btn-primary cw-primary inline-flex min-h-12 items-center justify-center px-6 text-base font-bold">
                 Get My Quote
               </QuoteNavLink>
               <button
