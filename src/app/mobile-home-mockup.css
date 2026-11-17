@@ -592,11 +592,18 @@
     color: #ffffff !important;
   }
 
-  /* Get My Fixed Price: the same green gradient (size unchanged) */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote button[data-get-fixed-price]:not(:disabled) {
-    background: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%) !important;
-    box-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08) !important;
+  /* Get My Fixed Price: identical to the homepage button in every state, including before the form
+     is complete (owner, 17 Nov 2026). The old rule here only covered the ready state, so hubs showed
+     the older Design 3 green until every field was filled. Same approved tokens as the homepage;
+     each page keeps its own button height. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside])) #quote#quote#quote button[data-get-fixed-price] {
+    border-radius: 0.95rem !important;
+    background: var(--matni-cta) !important;
+    box-shadow: var(--matni-cta-shadow) !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35);
+    font-weight: 800 !important;
     color: #ffffff !important;
+    border: 0 !important;
   }
 
   /* Benefits under the card: the bright green icons */
