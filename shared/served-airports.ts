@@ -19,6 +19,8 @@ export type ServedAirport = {
   postalCode: string | null;
   /** Query matchers — keep Dublin requiring explicit “airport” / DUB */
   patterns: RegExp[];
+  /** Alternate airport names customers may still be in the middle of typing. */
+  suggestionAliases?: readonly string[];
 };
 
 /**
@@ -36,6 +38,7 @@ export const SERVED_AIRPORTS: readonly ServedAirport[] = [
     lng: -6.2158,
     countryCode: "GB",
     postalCode: "BT29 4AB",
+    suggestionAliases: ["Belfast Airport", "Belfast Intl", "Belfast Aldergrove", "Airport Belfast International"],
     patterns: [
       /belfast international/i,
       /\baldergrove\b/i,
@@ -53,6 +56,7 @@ export const SERVED_AIRPORTS: readonly ServedAirport[] = [
     lng: -5.8724,
     countryCode: "GB",
     postalCode: "BT3 9JH",
+    suggestionAliases: ["Belfast George Best Airport", "City Airport Belfast"],
     patterns: [
       /belfast city airport/i,
       /george best belfast city/i,
@@ -158,7 +162,7 @@ export function matchServedAirportSuggestions(
       : CORE_MANAGE_BOOKING_AIRPORTS) as ServedAirportCode[],
   );
 
-  const q = trimmed.toLowerCase();
+  const q = trimmed.toLowerCase().replace(/\s+/g, " ");
   const out: ServedAirportSuggestion[] = [];
 
   for (const airport of SERVED_AIRPORTS) {
@@ -178,14 +182,7 @@ export function matchServedAirportSuggestions(
     } else {
       const softHit =
         haystack.includes(q) ||
-        airport.name.toLowerCase().startsWith(q) ||
-        airport.label.toLowerCase().startsWith(q) ||
-        (q.includes("belfast") &&
-          airport.code === "BFS" &&
-          (q.includes("int") || q.includes("alder") || q.includes("air"))) ||
-        (q.includes("belfast") &&
-          airport.code === "BHD" &&
-          (q.includes("city") || q.includes("george")));
+        airport.suggestionAliases?.some((alias) => alias.toLowerCase().startsWith(q));
       if (!patternHit && !softHit) continue;
     }
 
