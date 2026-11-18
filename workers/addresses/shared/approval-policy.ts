@@ -7,10 +7,13 @@
  *   2–4h                → owner approval, 15-minute deadline
  *   under 2h            → owner approval, 5-minute deadline
  *
- * Overnight (23:00–07:00 UK time) submissions:
- *   every booking needs owner approval (12h+ included, with a 30-minute window).
- *   The owner is asleep, so the approval clock starts at 07:00 — the request is
- *   never confirmed just because the night ended; it simply becomes answerable.
+ * Overnight (23:00–07:00 UK time) submissions for same-day pickups:
+ *   owner approval is required, even when booked 12h+ ahead. The approval clock
+ *   starts at 07:00 — the request is never confirmed just because the night ended.
+ *
+ * Overnight submissions for pickups on a later UK calendar day follow the normal
+ * lead-time rules. The approval clock still observes owner quiet hours for manual
+ * requests.
  *
  * Approval time is counted only while the owner is available (07:00–23:00): a
  * 30-minute window that starts at 22:50 has 10 minutes that evening and the
@@ -70,6 +73,17 @@ export function isOvernight(at: Date): boolean {
   return minutes >= OVERNIGHT_START_HOUR * 60 || minutes < OVERNIGHT_END_HOUR * 60;
 }
 
+/**
+ * Overnight submission forces manual approval only for a pickup on that same
+ * Europe/London calendar date.
+ */
+export function isOvernightSubmissionForSameDayPickup(
+  tripDate: string,
+  submittedAt: Date,
+): boolean {
+  return isOvernight(submittedAt) && tripDate.trim() === todayLondonDate(submittedAt);
+}
+
 /** `at` when the owner is available, otherwise the next 07:00 UK time. */
 export function nextApprovalClockStart(at: Date): Date {
   if (!isOvernight(at)) return at;
@@ -126,7 +140,9 @@ export function decideBookingApproval(input: {
   const leadMs = pickupAt.getTime() - submittedAt.getTime();
   if (leadMs <= 0) return { mode: "reject", reason: "pickup_passed", leadMs };
   const overnight = isOvernight(submittedAt);
-  if (!overnight && !input.forceManual && leadMs >= AUTO_CONFIRM_LEAD_MS) {
+  const overnightSameDayPickup =
+    overnight && todayLondonDate(pickupAt) === todayLondonDate(submittedAt);
+  if (!overnightSameDayPickup && !input.forceManual && leadMs >= AUTO_CONFIRM_LEAD_MS) {
     return { mode: "auto", leadMs };
   }
   const tier = input.tier ?? approvalTierForLead(leadMs);
