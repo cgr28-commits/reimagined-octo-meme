@@ -1,8 +1,8 @@
+import { setQuoteCount } from './playwright-quote-count.mjs';
 /** Run against a locally served build; external traffic is blocked. */
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
-import sharp from 'sharp';
 import { skipCookieConsent } from './playwright-cookie-consent.mjs';
 const base = process.env.TEST_BASE_URL || 'http://localhost:38845';
 await mkdir('test-results/homepage-fields', { recursive: true });
@@ -14,97 +14,62 @@ for (const [name, engine] of Object.entries(process.env.PLAYWRIGHT_BROWSER ? {[p
       await skipCookieConsent(context);
       await context.route('**/*', route => new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort());
       const page = await context.newPage();
-      // Phones, tablets and laptops below 1200px keep the original styling, checked exactly.
-      // From 1200px the unified desktop journey restyles the form (white panel, light fields).
-      const legacy = width < 1200;
       await page.goto(base);
       await page.locator('#date').waitFor();
       await page.evaluate(() => document.fonts.ready);
       assert.equal((await page.locator('h1').innerText()).replace(/\s+/g,' ').trim(),'Belfast & Dublin Airport Transfers');
       // The "Private airport transfers" eyebrow was removed from the hero (PR #699).
       assert.equal(await page.locator('.homepage-hero .section-eyebrow').count(), 0, 'hero has no eyebrow line');
-      assert.equal(await page.locator('h1 + p').innerText(),'Reliable, pre-booked airport transfers at a fixed price. Travel with confidence across Northern Ireland and beyond.');
-      if (legacy) {
-        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'600');
-        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
-      } else {
-        assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'left');
-        assert.equal(await page.locator('[data-desktop-quote-benefits]').isVisible(),true,'desktop navy benefits panel');
-        assert.equal(await page.locator('.homepage-hero .quote-flow').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)','desktop white quote panel');
-      }
-      assert.equal(await page.locator('[data-swap-locations]').count(),0);
+      assert.equal((await page.locator('[data-homepage-intro]:visible, [data-d3-intro-sub]:visible, [data-d2-intro-sub]:visible').first().innerText()).replace(/\s+/g,' ').trim(),width===768 ? 'Professional, pre-booked airport transfers and private travel across Northern Ireland and beyond.' : 'Professional, pre-booked airport transfers across Northern Ireland and the Republic of Ireland.');
+      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).fontWeight),'800');
+      assert.equal(await page.locator('h1').evaluate(el=>getComputedStyle(el).textAlign),'left');
+      assert.equal(await page.locator('[data-desktop-quote-benefits]').isVisible(),width>=1200);
       async function checkFields() {
-        const metrics = await page.evaluate(() => {
-          const controls = [...document.querySelectorAll('.homepage-hero [data-schedule-control], .homepage-hero .homepage-compact-control')];
-          return controls.map(el => {
-            const input = el.querySelector('input,select'), icon = el.querySelector('svg'), prompt = el.querySelector('.homepage-schedule-prompt');
-            const r=el.getBoundingClientRect(), i=icon.getBoundingClientRect(), s=getComputedStyle(input);
-            const textLeft=prompt ? prompt.getBoundingClientRect().left : input.getBoundingClientRect().left+parseFloat(s.borderLeftWidth)+parseFloat(s.paddingLeft);
-            return {height:r.height,delta:Math.abs(i.y+i.height/2-r.y-r.height/2),gap:textLeft-i.right,visible:input.type,disabled:input.disabled};
-          });
-        });
-        // Allow one CSS pixel for transformed SVG/border rounding after scrolling.
-        for (const m of metrics) {if(!legacy){assert.equal(m.disabled,false);continue;}assert.equal(m.height,44);assert.ok(m.delta<=1,JSON.stringify(m));assert.ok(m.gap>=10 && m.gap<=13,JSON.stringify(m));assert.equal(m.disabled,false);}
+        for (const id of ['pickup','dropoff','date','time','quote-section-passengers','quote-section-suitcases']) {
+          const control=page.locator('#'+id);
+          assert.ok(await control.isVisible(),id);
+          assert.ok(await control.isEnabled(),id);
+          const box=await control.boundingBox();
+          assert.ok(box.width>0 && box.x>=0 && box.x+box.width<=width+1,id+' fits viewport');
+        }
+        // Check legibility against the rendered field surface, including the entered values.
+        const fields = await page.locator('#pickup,#dropoff,#date,#time,#quote-section-passengers,#quote-section-suitcases').evaluateAll(els=>els.map(el=>{
+          const luminance = color => color.match(/[\d.]+/g).slice(0,3).reduce((sum,n,i)=>{
+            const v=Number(n)/255;
+            return sum+[0.2126,0.7152,0.0722][i]*(v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4);
+          },0);
+          let surface=el;
+          while(surface.parentElement && getComputedStyle(surface).backgroundColor==='rgba(0, 0, 0, 0)') surface=surface.parentElement;
+          const bg=getComputedStyle(surface).backgroundColor;
+          const background=bg==='rgba(0, 0, 0, 0)'?1:luminance(bg);
+          const foreground=luminance(getComputedStyle(el).color);
+          return {id:el.id,contrast:(Math.max(background,foreground)+0.05)/(Math.min(background,foreground)+0.05)};
+        }));
+        for(const field of fields) assert.ok(field.contrast>=4.5,JSON.stringify(field));
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
       }
-      const fieldSelectors = ['#pickup','#dropoff','#date','#time','#quote-section-passengers','#quote-section-suitcases'];
-      async function palette(selector) {
-        return page.locator(selector).evaluate(el => {
-          const shell=el.matches('.address-input') ? el.parentElement.parentElement : el.closest('[data-schedule-control]') || el;
-          const prompt=shell.querySelector('.homepage-schedule-prompt');
-          const style=getComputedStyle(shell);
-          return {background:style.backgroundColor,border:style.borderTopColor,borderWidth:style.borderTopWidth,
-            color:getComputedStyle(prompt || el).color,placeholder:getComputedStyle(el,'::placeholder').color};
-        });
-      }
-      for(const selector of (legacy?fieldSelectors:[])) {
-        const color=await palette(selector);
-        assert.equal(color.background,'rgb(30, 48, 71)',selector);
-        assert.equal(color.border,'rgb(82, 99, 122)',selector);
-        assert.equal(color.borderWidth,'1px',selector);
-        if(selector==='#pickup'||selector==='#dropoff') {
-          // WebKit does not expose ::placeholder reliably through getComputedStyle.
-          const {data,info}=await sharp(await page.locator(selector).screenshot()).raw().toBuffer({resolveWithObject:true});
-          let matches=0;
-          for(let n=0;n<data.length;n+=info.channels) if(Math.abs(data[n]-193)<9 && Math.abs(data[n+1]-202)<9 && Math.abs(data[n+2]-214)<9) matches++;
-          assert.ok(matches>3,selector+' visibly paints the approved placeholder colour');
-        } else assert.equal(color.color,'rgb(193, 202, 214)',selector);
-        await page.locator(selector).focus();
-        await page.waitForFunction(selector=>{
-          const el=document.querySelector(selector);
-          const shell=el.matches('.address-input')?el.parentElement.parentElement:el.closest('[data-schedule-control]')||el;
-          return getComputedStyle(shell).borderTopColor===getComputedStyle(document.querySelector('.homepage-field-icon')).color;
-        },selector);
-        await page.locator(selector).blur();
-        await page.waitForFunction(selector=>{
-          const el=document.querySelector(selector);
-          const shell=el.matches('.address-input')?el.parentElement.parentElement:el.closest('[data-schedule-control]')||el;
-          return getComputedStyle(shell).borderTopColor==='rgb(82, 99, 122)';
-        },selector);
-      }
-      const quoteHeading=page.locator('[data-site-nav-heading="quote"]');
-      assert.ok((await quoteHeading.evaluate(el=>getComputedStyle(el).fontFamily)).toLowerCase().includes('manrope'));
-      if (legacy) assert.equal(await quoteHeading.evaluate(el=>getComputedStyle(el).fontWeight),'600');
       await checkFields();
-      for (const [id,value] of [['date','2027-02-10'],['time','12:30']]) {
-        const input=page.locator('#'+id); if(width<768) await input.tap(); else await input.click(); assert.equal(await input.evaluate(el=>document.activeElement===el),true); await input.fill(value); assert.equal(await input.inputValue(),value);
-      }
-      await page.locator('#quote-section-passengers').selectOption('2');
-      await page.locator('#quote-section-suitcases').selectOption('2');
-      // Blur without clicking h1 — the fixed header can intercept that click.
-      await page.locator('#quote-section-passengers').evaluate(el=>el.blur());
-      if (legacy) await page.waitForFunction(()=>getComputedStyle(document.querySelector('#quote-section-passengers')).borderTopColor==='rgb(82, 99, 122)');
-      for(const selector of (legacy?fieldSelectors.slice(2):[])) {
-        await page.waitForFunction(selector=>getComputedStyle(document.querySelector(selector)).color==='rgb(255, 255, 255)',selector);
-        assert.equal((await palette(selector)).color,'rgb(255, 255, 255)',selector);
-      }
+      const date=page.locator('#date');
+      await date.focus();assert.ok(await date.evaluate(el=>el===document.activeElement));
+      await date.fill('2027-02-10');assert.equal(await date.inputValue(),'2027-02-10');
+      const picker=page.locator('[data-d3-time-trigger]:visible').first();
+      if(await picker.count()) {
+        await picker.click();
+        const dialog=page.getByRole('dialog');
+        await dialog.getByRole('group',{name:'Hour',exact:true}).getByRole('button',{name:'12',exact:true}).click();
+        await dialog.getByRole('group',{name:'Minute',exact:true}).getByRole('button',{name:'30',exact:true}).click();
+        await dialog.getByRole('button',{name:/Confirm.*time/}).click();
+      } else await page.locator('#time').fill('12:30');
+      assert.equal(await page.locator('#time').inputValue(),'12:30');
+      await setQuoteCount(page,'passengers',2);
+      await setQuoteCount(page,'suitcases',2);
       await checkFields();
       await page.getByRole('button',{name:/Return.*5%/}).click();
       await page.locator('#returnDate').fill('2027-02-12');
       await page.locator('#returnTime').fill('13:45');
       await checkFields();
       await page.screenshot({path:`test-results/homepage-fields/${name}-${width}.png`,fullPage:false});
-      console.log(`PASS ${name} ${width}px: heading, 44px fields, centered icons, text gap, native input focus/values, return dates, no overflow`);
+      console.log(`PASS ${name} ${width}px: heading, responsive controls, focus, selected values, return dates, no overflow`);
       await context.close();
     }
   } finally { await browser.close(); }

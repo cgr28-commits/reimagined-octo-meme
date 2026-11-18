@@ -1,3 +1,4 @@
+import { setQuoteCount } from './playwright-quote-count.mjs';
 /** Isolated delayed authoritative fares: vehicle selection must not move the viewport. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -41,9 +42,9 @@ try {
   await page.goto(`${base}/?previewJourney=bfs`);
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
   await page.evaluate(()=>document.fonts.ready);
-  if(returning) await page.getByRole('button',{name:/Return SAVE/}).click();
-  await page.locator('#quote-section-passengers').selectOption('2');
-  await page.locator('#quote-section-suitcases').selectOption('0');
+  if(returning) await page.getByRole('button',{name:/Return.*5%/i}).click();
+  await setQuoteCount(page,'passengers',2);
+  await setQuoteCount(page,'suitcases',0);
   // Main and candidate both require a complete schedule before quoting. The
   // old fixture never supplied the return collection and timed out on both.
   const futureDate=days=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
@@ -103,7 +104,9 @@ try {
     const amount=price?.textContent?.trim();
     // The customer total includes the existing airport fees/return treatment;
     // it is not just the mock's journey-fare component.
-    return /^£\d+(?:\.\d{2})?$/.test(amount || '') && (button?.querySelector('[data-book-cta-default]')?.textContent ?? button?.textContent)?.trim()===`BOOK THIS TRANSFER — ${amount}` && !button.disabled;
+    const sticky=document.querySelector('[data-d2-sticky-price] strong');
+    const displayed=sticky?.getBoundingClientRect().height ? sticky.textContent.trim() : amount;
+    return /^£\d+(?:\.\d{2})?$/.test(amount || '') && displayed===amount && button && !button.disabled;
    });
    if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
    // WebKit can expose the new DOM text before its updated font/layout has

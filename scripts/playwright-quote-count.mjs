@@ -18,3 +18,13 @@ export async function setQuoteCount(page, field, target) {
   }
   if (current !== target) throw Error(`Could not set ${field} to ${target}`);
 }
+
+/** Native selects start empty. The redesigned counters start at one passenger and zero bags. */
+export async function checkQuoteCountDefaults(page) {
+  for (const [field, initial] of [['passengers', '1'], ['suitcases', '0']]) {
+    const control = page.locator('#quote-section-' + field);
+    const value = await control.evaluate(el => ({tag: el.tagName, value: el.value}));
+    const expected = value.tag === 'OUTPUT' ? initial : '';
+    if (value.value !== expected) throw Error(field + ' has unexpected default ' + value.value);
+  }
+}
