@@ -2,7 +2,7 @@
  * Website side of the email promo codes (Worker routes in workers/addresses/src/promo-handlers.ts).
  */
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
-import type { PublicPromoConfig } from "../../shared/promo-code";
+import { isWelcomeVideoMode, type PublicPromoConfig } from "../../shared/promo-code";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
 
@@ -15,6 +15,7 @@ const DISABLED: PublicPromoConfig = {
   minimumVehicleFareGbp: 100,
   validityDays: 30,
   popupEnabled: false,
+  welcomeVideoMode: "off",
   popupDelaySeconds: 20,
   blackoutDates: [],
 };
@@ -27,13 +28,20 @@ export function fetchPromoConfig(): Promise<PublicPromoConfig> {
   if (!configPromise) {
     configPromise = fetch(`${WORKER_BASE}/promo/config`, { headers: { Accept: "application/json" } })
       .then((r) => (r.ok ? r.json() : null))
-      .then((payload) => {
+      .then((payload): PublicPromoConfig => {
         const config = payload?.config as Partial<PublicPromoConfig> | undefined;
-        if (!config || config.enabled !== true) return DISABLED;
+        if (!config) return DISABLED;
+        // During a rolling deploy, an older Worker only exposes the two promo switches.
+        const legacyMode = config.enabled === true && config.popupEnabled === true ? "with-promo" : "off";
+        const welcomeVideoMode = isWelcomeVideoMode(config.welcomeVideoMode) ? config.welcomeVideoMode : legacyMode;
+        if (config.enabled !== true) {
+          return { ...DISABLED, welcomeVideoMode: welcomeVideoMode === "video-only" ? "video-only" : "off" };
+        }
         return {
           ...DISABLED,
           ...config,
           enabled: true,
+          welcomeVideoMode,
           blackoutDates: Array.isArray(config.blackoutDates) ? config.blackoutDates : [],
         } as PublicPromoConfig;
       })

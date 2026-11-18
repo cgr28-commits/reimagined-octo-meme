@@ -16,6 +16,7 @@ import {
   type PromoCampaign,
   type PromoCodeRow,
   type PromoSettings,
+  type WelcomeVideoMode,
 } from "../../shared/promo-code";
 
 const WORKER_BASE = resolveWorkerBaseUrl();
@@ -118,6 +119,8 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [form, setForm] = useState({ enabled: true, popupEnabled: true, discountPercent: "10", minimumVehicleFareGbp: "100", validityDays: "30", popupDelaySeconds: "20" });
+  const [videoMode, setVideoMode] = useState<WelcomeVideoMode>("off");
+  const [videoMessage, setVideoMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [busyCode, setBusyCode] = useState("");
@@ -134,6 +137,7 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
       if (status) params.set("status", status);
       const result = await ownerFetch<Overview>(ownerKey, `/owner/promo${params.size ? `?${params}` : ""}`);
       setData(result);
+      setVideoMode(result.settings.welcomeVideoMode ?? "with-promo");
       setForm({
         enabled: result.settings.enabled,
         popupEnabled: result.settings.popupEnabled,
@@ -161,6 +165,21 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
     // Search runs on submit / filter change, not on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, status]);
+
+  async function saveVideoMode() {
+    setSaving(true);
+    setVideoMessage("");
+    try {
+      const result = await ownerFetch<{ settings: PromoSettings }>(ownerKey, "/owner/promo/settings", { welcomeVideoMode: videoMode });
+      if (result.settings.welcomeVideoMode !== videoMode) throw new Error("The video setting could not be saved.");
+      setData((previous) => previous ? { ...previous, settings: result.settings } : previous);
+      setVideoMessage("Video setting saved.");
+    } catch (err) {
+      setVideoMessage(err instanceof Error ? err.message : "Could not save the video setting.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function saveSettings() {
     setSaving(true);
@@ -249,6 +268,21 @@ export default function OwnerPromoCodesPanel({ ownerKey }: { ownerKey: string })
           </button>
         </div>
         {error ? <p className="mt-3 text-sm text-red-300" role="alert">{error}</p> : null}
+        {data?.settings.welcomeVideoMode && (
+          <div className="my-4 rounded-xl border border-white/15 p-3">
+            <label className="block text-sm font-semibold text-white" htmlFor="welcome-video-mode">Christmas welcome video</label>
+            <p className="mt-1 text-sm text-white/70">Shows once per visitor on desktop, mobile and tablet during the Christmas campaign.</p>
+            <select id="welcome-video-mode" className={inputClass} value={videoMode} disabled={saving || loading}
+              onChange={(e) => { setVideoMode(e.target.value as WelcomeVideoMode); setVideoMessage(""); }}>
+              <option value="off">Off</option>
+              <option value="video-only">Video only — go straight to the quote</option>
+              <option value="with-promo">Video with discount — when the promo pop-up is on</option>
+            </select>
+            <button type="button" onClick={() => void saveVideoMode()} disabled={saving || loading || videoMode === data.settings.welcomeVideoMode}
+              className="btn-primary mt-3 min-h-11 rounded-xl px-5 text-sm disabled:opacity-50">Save video setting</button>
+            <p role="status" className="mt-1 text-sm text-white/80">{videoMessage}</p>
+          </div>
+        )}
         {stats ? (
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Tile label="Code requests" value={String(stats.requests)} hint={`${stats.uniqueRequesters} different emails`} />

@@ -555,7 +555,7 @@ async function main() {
     await check("public config hides nothing personal and reflects the owner switch", async () => {
       const res = await call("/promo/config");
       const json = (await res.json()) as { config: Record<string, unknown> };
-      assert.deepEqual(Object.keys(json.config).sort(), ["blackoutDates", "discountPercentLabel", "discountRate", "enabled", "minimumVehicleFareGbp", "popupDelaySeconds", "popupEnabled", "validityDays"]);
+      assert.deepEqual(Object.keys(json.config).sort(), ["blackoutDates", "discountPercentLabel", "discountRate", "enabled", "minimumVehicleFareGbp", "popupDelaySeconds", "popupEnabled", "validityDays", "welcomeVideoMode"]);
       assert.equal(json.config.enabled, true);
     });
 
@@ -668,11 +668,22 @@ async function main() {
       await call("/owner/promo/settings", { blackoutDates: DEFAULT_PROMO_SETTINGS.blackoutDates }, auth);
       const off = await call("/owner/promo/settings", { enabled: false }, auth);
       assert.equal(off.status, 200);
-      const cfg = (await (await call("/promo/config")).json()) as { config: { enabled: boolean } };
-      assert.equal(cfg.config.enabled, false);
+      const publicConfig = async () => ((await (await call("/promo/config")).json()) as { config: ReturnType<typeof publicPromoConfig> }).config;
+      assert.equal((await publicConfig()).welcomeVideoMode, "off", "legacy setting follows the disabled promo");
+      assert.equal((await call("/owner/promo/settings", { welcomeVideoMode: "video-only" }, auth)).status, 200);
+      const videoOnly = await publicConfig();
+      assert.equal(videoOnly.enabled, false);
+      assert.equal(videoOnly.popupEnabled, false);
+      assert.equal(videoOnly.welcomeVideoMode, "video-only");
+      assert.equal((await call("/owner/promo/settings", { welcomeVideoMode: "invalid" }, auth)).status, 400);
       const refused = await call("/promo/request", { email: "late@example.com" }, {}, "192.0.2.220");
       assert.equal(refused.status, 409, "switched off: no new codes");
       await call("/owner/promo/settings", { enabled: true }, auth);
+      assert.equal((await publicConfig()).welcomeVideoMode, "video-only", "enabling codes cannot add an offer to the video");
+      await call("/owner/promo/settings", { welcomeVideoMode: "off" }, auth);
+      const videoOff = await publicConfig();
+      assert.equal(videoOff.enabled, true);
+      assert.equal(videoOff.welcomeVideoMode, "off");
       const fanCode = (routeSql.prepare("SELECT code FROM promo_codes WHERE email = 'fan@example.com'").get() as { code: string }).code;
       assert.equal((await call("/owner/promo/deactivate", { code: fanCode }, auth)).status, 200);
       assert.equal((await call("/owner/promo/deactivate", { code: fanCode }, auth)).status, 409);

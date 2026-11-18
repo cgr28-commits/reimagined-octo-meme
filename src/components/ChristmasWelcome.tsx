@@ -1,20 +1,8 @@
 "use client";
 
 /**
- * Christmas welcome pop-up (owner brief, 17 Nov 2026).
- *
- * First visit during the campaign: the 8-second Google Flow video plays muted (sound button
- * available), then the Christmas offer is revealed. The offer IS the existing 10% email promo
- * code — same form, same rules (minimum fare, excluded dates, one per customer). Nothing here
- * changes prices or creates a discount.
- *
- * Shown once per browser, only after the cookie choice and once the page has finished loading,
- * never on booking / payment / account / saved-quote pages (same list as the promo pop-up),
- * never while the customer is typing in the quote tool or part-way through booking.
- * Skip / close / Escape at any moment. While it runs, the 20-second promo pop-up stays away.
- *
- * Switches: CHRISTMAS_WELCOME (dates, on/off) in src/lib/seasonal.ts, and the promo
- * "pop-up" switch in the Owner Dashboard (off = this doesn't appear either).
+ * Once per visitor during the seasonal window, after cookie choice and outside booking.
+ * Video-only leads to the quote. The optional offer uses the existing email promotion.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -133,8 +121,7 @@ export default function ChristmasWelcome() {
       triedRef.current = true;
       const c = await fetchPromoConfig();
       if (cancelled) return;
-      // Owner Dashboard pop-up switch off → no welcome pop-up either.
-      if (!c.enabled || !c.popupEnabled) return;
+      if (c.welcomeVideoMode === "off") return;
       if (bookingInProgress()) return;
       setConfig(c);
       setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -163,7 +150,7 @@ export default function ChristmasWelcome() {
   const today = mounted ? londonDateKey(new Date()) : "";
   const exclusion = config ? christmasExclusion(config) : null;
   // The code can still be used on a journey before the Christmas exclusion starts.
-  const offerUsable = Boolean(config?.enabled) && (!exclusion || today < exclusion.from);
+  const offerUsable = config?.welcomeVideoMode === "with-promo" && config.enabled && (!exclusion || today < exclusion.from);
   const lastJourneyDay = exclusion ? addDays(exclusion.from, -1) : null;
 
   const nextAfterVideo = useCallback(() => {
@@ -439,7 +426,7 @@ export default function ChristmasWelcome() {
               Your journey, taken care of.
             </h2>
             <p className="cw-sub mx-auto mt-3 max-w-md text-[0.98rem] leading-relaxed">
-              {promoAlreadySignedUp(offerId) && offerUsable
+              {offerUsable && promoAlreadySignedUp(offerId)
                 ? "Your code is on its way — enter it when you book. Get your fixed airport fare now."
                 : "Fixed prices, flight monitoring and a pre-booked driver waiting for you."}
             </p>
