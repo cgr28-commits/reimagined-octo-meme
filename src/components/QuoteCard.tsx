@@ -3503,6 +3503,8 @@ function QuoteCard({
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     journeyFareParts.nightWeekendSurchargeGbp,
+    currentServerFareParts?.dublinTollsGbp,
+    liveQuote?.dublinTollsGbp,
     airportAccessQuote.airportAccessChargeGbp,
     airportAccessQuote.outboundAirportAccessChargeGbp,
     airportAccessQuote.returnAirportAccessChargeGbp,

@@ -53,6 +53,8 @@ export type QuickQuoteCalculateResult =
       premiumApplied: boolean;
       returnJourney: boolean;
       journeyFareGbp?: number;
+      /** Dublin toll allowance included in the journey fare; never discounted. */
+      dublinTollsGbp?: number;
       nightWeekendSurchargeGbp?: number;
       nightWeekendSurchargeLabel?: string;
       nightWeekendSurchargeExplanation?: string;
@@ -239,6 +241,9 @@ async function calculateServerQuoteOnce(
     returnJourney: payload.returnJourney === true,
     ...(typeof payload.journeyFareGbp === "number"
       ? { journeyFareGbp: Number(payload.journeyFareGbp) }
+      : {}),
+    ...(typeof payload.dublinTollsGbp === "number"
+      ? { dublinTollsGbp: Number(payload.dublinTollsGbp) }
       : {}),
     ...(typeof payload.nightWeekendSurchargeGbp === "number"
       ? { nightWeekendSurchargeGbp: Number(payload.nightWeekendSurchargeGbp) }
