@@ -116,6 +116,7 @@ export default async function TownHubPage({ params }: Props) {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading={page.h1}
+          headingSubject={page.town.name}
           intro={`Door-to-door airport taxis from ${page.town.name} to Belfast International, Belfast City and Dublin Airport. Fixed price before you pay.`}
         />
         {/* Photo hidden on phones so the quote form is on the first screen. */}

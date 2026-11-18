@@ -35,7 +35,12 @@ export default function LongDistanceTransfersPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={LONG_DISTANCE_PAGE_TITLE} navId="long-distance" intro={firstSentence(LONG_DISTANCE_INTRO)} />
+        <HeroSlideshow
+          heading={LONG_DISTANCE_PAGE_TITLE}
+          headingSubject="Long-Distance Transfers"
+          navId="long-distance"
+          intro={firstSentence(LONG_DISTANCE_INTRO)}
+        />
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Link

@@ -59,7 +59,12 @@ export default function NorthernIrelandAirportTransfersPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={NI_TRANSFERS_H1} navId="ni-airport-transfers" intro={firstSentence(NI_TRANSFERS_INTRO)} />
+        <HeroSlideshow
+          heading={NI_TRANSFERS_H1}
+          headingSubject="Northern Ireland"
+          navId="ni-airport-transfers"
+          intro={firstSentence(NI_TRANSFERS_INTRO)}
+        />
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <Link

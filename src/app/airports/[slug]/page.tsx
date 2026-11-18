@@ -104,6 +104,7 @@ export default async function AirportTransferPage({ params }: Props) {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading={page.title}
+          headingSubject={page.title.includes(page.name) ? page.name : page.shortName}
           intro={`Pre-booked, fixed-price transfers to and from ${page.shortName}. ${page.durationNote}`}
           journey={{ airportCode: page.code, direction: "to-airport" }}
         />

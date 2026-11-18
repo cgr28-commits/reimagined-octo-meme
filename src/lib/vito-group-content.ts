@@ -9,6 +9,7 @@ export type VitoPageContent = {
   slug: string;
   path: string;
   h1: string;
+  headingSubject: string;
   seoTitle: string;
   description: string;
   eyebrow: string;
@@ -43,6 +44,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     slug: "7-seater-airport-transfers-belfast",
     path: "/transfers/7-seater-airport-transfers-belfast/",
     h1: "7-Seater Airport Transfers Belfast",
+    headingSubject: "7-Seater",
     seoTitle: "7-Seater Airport Transfers Belfast",
     description:
       "Private 7-seater taxi transfers from Belfast for up to seven passengers. Fixed fares for Belfast International, Belfast City Airport and Dublin Airport. Book online.",
@@ -102,6 +104,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     slug: "belfast-to-dublin-airport-7-seater",
     path: "/transfers/belfast-to-dublin-airport-7-seater/",
     h1: "Belfast to Dublin Airport 7-Seater Transfers",
+    headingSubject: "7-Seater",
     seoTitle: "Belfast to Dublin Airport 7-Seater Transfers",
     description:
       "Book a Belfast to Dublin Airport 7-seater for up to seven passengers. The quote shows the fixed fare, including the usual Dublin toll allowance.",
@@ -166,6 +169,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     slug: "hen-party-transport-belfast",
     path: "/transfers/hen-party-transport-belfast/",
     h1: "Hen Party Transport Belfast",
+    headingSubject: "Hen Party",
     seoTitle: "Hen Party Transport Belfast",
     description:
       "Hen party transport in Belfast for up to seven passengers in a private 7-seater. Airport, hotel and venue transfers with the fare confirmed before you book.",
@@ -226,6 +230,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     slug: "stag-party-transport-belfast",
     path: "/transfers/stag-party-transport-belfast/",
     h1: "Stag Party Transport Belfast",
+    headingSubject: "Stag Party",
     seoTitle: "Stag Party Transport Belfast",
     description:
       "Stag party transfers in Belfast for up to seven passengers in a private 7-seater. Airports, hotels and events, with the fixed fare shown before you book.",
@@ -290,6 +295,7 @@ export const VITO_GROUP_PAGES: readonly VitoPageContent[] = [
     slug: "private-group-transfers-belfast",
     path: "/transfers/private-group-transfers-belfast/",
     h1: "Private Group Transfers Belfast",
+    headingSubject: "Private Group Transfers",
     seoTitle: "Private Group Transfers Belfast",
     description:
       "Private group transfers in Belfast for up to seven passengers in a private 7-seater. Airports, weddings, concerts and events, with a fixed fare from the online quote.",

@@ -70,6 +70,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
             Nothing is pre-filled — customers pick the cruise terminal or their own address. */}
         <HeroSlideshow
           heading={CRUISE_TERMINAL_H1}
+          headingSubject="Belfast Cruise Terminal"
           intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal — airports, hotels and onward journeys."
           journey={{
             bookingIntroduction:
