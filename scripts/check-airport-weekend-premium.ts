@@ -248,9 +248,9 @@ console.log(
   `OK  7. A2A weekday £${a2aWeekday.amount}; weekend £${a2aWeekend.amount} (+10%)`,
 );
 
-// The automatic 5% return discount was retired (Nov 2026): a return is two full journeys.
-assert.equal(getReturnJourneyFare(100), 200);
-assert.equal(getWebsiteReturnJourneyFare(100), 200);
+// A standard website return discounts both booked vehicle fares.
+assert.equal(getReturnJourneyFare(100), 190);
+assert.equal(getWebsiteReturnJourneyFare(100), 190);
 assert.equal(
   resolvePersonalQuoteCheckoutAmount({
     agreedAmount: standardWebsiteAmount,
@@ -267,7 +267,7 @@ assert.equal(
   }),
   Math.round((standardWebsiteAmount - 10) * 2 * 100) / 100,
 );
-console.log("OK  8–9. Return = two full journeys (5% return discount retired)");
+console.log("OK  8–9. Standard returns save 5% on both legs");
 
 const payment = fs.readFileSync(path.join(root, "workers/addresses/src/index.ts"), "utf8");
 assert.match(payment, /never use client standardWebsiteAmount for SumUp amount/);
@@ -275,8 +275,7 @@ assert.match(payment, /amount = resolved\.amount/);
 console.log("OK  10. SumUp remains Worker/KV-authoritative");
 
 const data = fs.readFileSync(path.join(root, "src/lib/data.ts"), "utf8");
-assert.doesNotMatch(data, /5% discount applies to the combined fare/, "retired 5% return discount is no longer advertised");
 assert.match(data, /confirmed securely by card/);
-console.log("OK  Homepage FAQ no longer offers the retired 5% return discount; card payment still stated");
+console.log("OK  Homepage FAQ describes secure card payment");
 
 console.log("\nAll airport Night & Weekend Surcharge parity checks passed.");

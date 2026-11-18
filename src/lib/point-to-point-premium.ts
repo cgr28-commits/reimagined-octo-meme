@@ -235,7 +235,7 @@ export function applyTripPremium(
     premiumAmount += returnFare * rateFor(schedule.returnDate, schedule.returnTime);
   }
 
-  const vehicleJourneyTotal = outboundFare + returnFare + premiumAmount;
+  const vehicleJourneyTotal = outboundFare + (schedule.returnJourney ? returnFare : 0) + premiumAmount;
   const total = schedule.returnJourney
     ? applyReturnJourneyDiscount(vehicleJourneyTotal, returnRate)
     : vehicleJourneyTotal;
