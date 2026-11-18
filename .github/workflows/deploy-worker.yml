@@ -6,6 +6,7 @@ on:
     paths:
       - "workers/addresses/**"
       - "shared/**"
+      - "src/lib/point-to-point-premium.ts"
       - "scripts/ensure-alias-worker.mjs"
       - "scripts/sync-worker-shared.mjs"
       - ".github/workflows/deploy-worker.yml"
