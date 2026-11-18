@@ -170,25 +170,26 @@ export default function OwnerBookingCalendar({
 
   const { from, to } = useMemo(() => rangeForView(view, anchor), [view, anchor]);
 
+  const loadVersion = useRef(0);
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
     setError(null);
     try {
       const [jobsResponse, paid] = await Promise.all([
         fetchDriverJobs(ownerKey, { scope: "range", from, to }),
         fetchOwnerPaidBookings(ownerKey, {
-          mode: "upcoming",
-          pastDays: 90,
-          futureDays: 90,
-          limit: 200,
+          mode: "range", from, to, limit: 400,
         }),
       ]);
+      if (version !== loadVersion.current) return;
       setJobs(jobsResponse.jobs);
       setBookings(paid);
     } catch (err) {
+      if (version !== loadVersion.current) return;
       setError(err instanceof Error ? err.message : "Could not load booking calendar");
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [ownerKey, from, to]);
 
@@ -354,7 +355,7 @@ export default function OwnerBookingCalendar({
 
       {loading ? (
         <p className="mt-6 text-sm text-white/60">Loading calendar…</p>
-      ) : view === "day" ? (
+      ) : error ? null : view === "day" ? (
         <div className="mt-4 space-y-3">
           {dayEntries.length === 0 ? (
             <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-6 text-sm text-white/55">

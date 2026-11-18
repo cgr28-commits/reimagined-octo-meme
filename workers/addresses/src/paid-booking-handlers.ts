@@ -16,6 +16,7 @@ import type { LogPaidBookingCalendarFn } from "./finalize-paid-checkout";
 import {
   getPaidBookingRecord,
   listUpcomingPaidBookings,
+  listPaidBookingsForTripRange,
   listRecentPaidBookings,
   listPaidBookingsCreatedSince,
   paidBookingStoreConfigured,
@@ -234,12 +235,25 @@ export async function handlePaidBookingsListRequest(
   const pastDays = Number(url.searchParams.get("pastDays") || "2");
   const futureDays = Number(url.searchParams.get("futureDays") || "90");
 
+  const from = url.searchParams.get("from") ?? "";
+  const to = url.searchParams.get("to") ?? "";
   let bookings: PaidBookingRecord[] = [];
   if (paymentReferenceFilter) {
     const record = await getPaidBookingRecord(store, paymentReferenceFilter);
     if (record && !isOwnerOperationalTestBooking(record)) {
       bookings = [record];
     }
+  } else if (mode === "range") {
+    // The month grid includes adjacent weeks, at most 42 days in total.
+    const validDay = (day: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+      const date = new Date(day + "T12:00:00Z");
+      return Number.isFinite(date.getTime()) && date.toISOString().startsWith(day);
+    };
+    if (!validDay(from) || !validDay(to) || to < from || Date.parse(to) - Date.parse(from) > 41 * 86400000) {
+      return jsonResponse({ error: "Choose a calendar range of 1 to 42 days." }, 400, origin);
+    }
+    bookings = await listPaidBookingsForTripRange(store, from, to, { limit: Number.isFinite(limit) ? limit : 100 });
   } else if (mode === "recent" || mode === "created") {
     // Upcoming Jobs default: journey/pickup date (not payment-created date).
     bookings = await listRecentPaidBookings(store, { days, limit });
@@ -257,8 +271,8 @@ export async function handlePaidBookingsListRequest(
     const today = londonYmdNow();
     const past = Number.isFinite(pastDays) ? pastDays : 2;
     const future = Number.isFinite(futureDays) ? futureDays : 90;
-    const fromDate = addDaysYmd(today, -past);
-    const toDate = addDaysYmd(today, future);
+    const fromDate = mode === "range" ? from : addDaysYmd(today, -past);
+    const toDate = mode === "range" ? to : addDaysYmd(today, future);
     const trackJobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
     const byRef = new Map(bookings.map((b) => [b.paymentReference, b]));
 
@@ -337,6 +351,7 @@ export async function handlePaidBookingsListRequest(
         linkedJobs = await findTrackingJobsByPaymentReference(
           store,
           booking.paymentReference.trim(),
+          mode === "range" ? [booking.tripDate, booking.returnDate ?? ""] : undefined,
         );
         if (!job) {
           job =

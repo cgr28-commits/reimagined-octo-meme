@@ -3,6 +3,10 @@
  * Run: npx tsx scripts/check-owner-booking-calendar.ts
  */
 import assert from "node:assert/strict";
+import test from "node:test";
+import { handlePaidBookingsListRequest } from "../workers/addresses/src/paid-booking-handlers";
+import { paidBookingRefKey, paidBookingTripDayIndexKey } from "../shared/paid-booking-record";
+import { expandOwnerPaidBookingLegs, selectJobsForDate } from "../shared/owner-dashboard-ops";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -206,4 +210,37 @@ console.log("\n=== 4. View ranges + dashboard wiring ===");
   console.log("OK  dashboard order + range API + Google Calendar preserved");
 }
 
-console.log("\nAll owner booking calendar checks passed.");
+test("a future paid booking without a tracking job appears in both selected-date views", async () => {
+  const day = "2030-05-21";
+  const ref = "calendar-range-fixture";
+  const records = new Map<string, unknown>([
+    [paidBookingTripDayIndexKey(day), [ref]],
+    [paidBookingRefKey(ref), {
+      paymentReference: ref, checkoutId: "fixture", status: "confirmed",
+      tripDate: day, tripTime: "21:30", returnJourney: false,
+      createdAt: "2026-11-18T18:00:00Z", pickupLabel: "Belfast", dropoffLabel: "Dublin",
+      customerName: "Fixture", amount: 200, amountRefunded: 0, currency: "GBP",
+    }],
+  ]);
+  const env = {
+    OWNER_ACCESS_KEY: "offline-test",
+    TRACKING_STORE: { get: async (key: string) => records.get(key) ?? null } as unknown as KVNamespace,
+  };
+  async function query(from: string, to: string) {
+    return handlePaidBookingsListRequest(new Request(
+      `https://example.test/paid-bookings?mode=range&from=${from}&to=${to}`,
+      { headers: { "X-Owner-Key": env.OWNER_ACCESS_KEY } },
+    ), env, null);
+  }
+  for (const view of ["day", "week", "month"] as const) {
+    const { from, to } = rangeForView(view, day);
+    const response = await query(from, to);
+    assert.equal(response.status, 200);
+    const { bookings } = await response.json() as { bookings: OwnerPaidBookingSummary[] };
+    assert.deepEqual(bookings.map(b => b.paymentReference), [ref]);
+    assert.equal(selectJobsForDate(bookings.flatMap(expandOwnerPaidBookingLegs), day).length, 1);
+    assert.equal(mergeCalendarEntries([], bookings)[0]?.tripTime, "21:30");
+  }
+  assert.equal((await query("2030-02-30", "2030-03-01")).status, 400);
+  assert.equal((await query("2030-01-01", day)).status, 400);
+});

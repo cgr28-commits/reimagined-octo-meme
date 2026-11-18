@@ -219,7 +219,9 @@ export async function fetchOwnerPaidBookings(
   options?: {
     days?: number;
     limit?: number;
-    mode?: "upcoming" | "recent";
+    mode?: "upcoming" | "recent" | "range";
+    from?: string;
+    to?: string;
     pastDays?: number;
     futureDays?: number;
     paymentReference?: string;
@@ -237,6 +239,10 @@ export async function fetchOwnerPaidBookings(
     pastDays: String(pastDays),
     futureDays: String(futureDays),
   });
+  if (mode === "range") {
+    params.set("from", options?.from ?? "");
+    params.set("to", options?.to ?? "");
+  }
   if (options?.paymentReference?.trim()) {
     params.set("paymentReference", options.paymentReference.trim());
   }
