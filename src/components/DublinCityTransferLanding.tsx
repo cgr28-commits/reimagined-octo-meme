@@ -82,6 +82,7 @@ export default function DublinCityTransferLanding({
   direction = "belfast-to-dublin",
 }: Props = {}) {
   const fromDublin = direction === "dublin-to-belfast";
+  const headingSubject = path === CHRISTMAS_PATH ? "Christmas & New Year" : "Dublin City";
   const heroImage: CreditedPhoto = page.hero ?? hero;
   const schemas = [
     getBreadcrumbJsonLd([
@@ -147,7 +148,7 @@ export default function DublinCityTransferLanding({
           />
         ) : (
           <HeroSlideshow
-            heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" highlight="Dublin City" fromAirportHighlight="Belfast" />}
+            heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" highlight={headingSubject} fromAirportHighlight="Belfast" />}
             intro={firstSentence(page.intro)}
             introFromAirport="Fixed-price private taxi from Dublin city to anywhere in Belfast, door to door from your hotel, home or office."
             introFromValue="dublin"
