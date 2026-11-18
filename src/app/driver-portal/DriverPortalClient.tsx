@@ -211,25 +211,25 @@ function ApplyForm({ token, onApplied }: { token: string; onApplied: (session: s
       }}
     >
       <p style={{ margin: 0, fontSize: 15, color: "#33445C", lineHeight: 1.5 }}>
-        Add the contact and vehicle details we use to offer you jobs and send your details to customers.
+        Add your contact details and vehicle registration. Make, model and colour are optional; we need the registration before you can accept a job.
       </p>
       <Field label="Mobile">
         <input style={inputStyle} type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="tel" required />
       </Field>
       <Field label="Vehicle make">
-        <input style={inputStyle} value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} required />
+        <input style={inputStyle} value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} />
       </Field>
       <Field label="Vehicle model">
-        <input style={inputStyle} value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} required />
+        <input style={inputStyle} value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} />
       </Field>
       <Field label="Vehicle colour">
-        <input style={inputStyle} value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} required />
+        <input style={inputStyle} value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} />
       </Field>
       <Field label="Vehicle registration">
         <input style={inputStyle} value={vehicleReg} onChange={(e) => setVehicleReg(e.target.value.toUpperCase())} autoCapitalize="characters" required />
       </Field>
       {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
-      <button type="submit" className={styles.emeraldButton} disabled={busy || !mobile.trim() || !vehicleMake.trim() || !vehicleModel.trim() || !vehicleColour.trim() || !vehicleReg.trim()}>
+      <button type="submit" className={styles.emeraldButton} disabled={busy || !mobile.trim() || !vehicleReg.trim()}>
         {busy ? "Sending…" : "Send application"}
       </button>
     </form>

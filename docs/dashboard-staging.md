@@ -60,7 +60,7 @@ Without those secrets the workflow skips the deploy with a warning — nothing f
   vehicle make/model/colour and registration. The owner can copy complete saved profiles from the existing
   vehicle roster into Drivers; imported profiles are approved and initially available for offers. Incomplete
   profiles and duplicate emails are skipped and reported.
-- Driver: apply with mobile and vehicle make/model/colour/registration, Available / Unavailable,
+- Driver: apply with mobile and vehicle registration; make, model and colour are optional. Registration is needed before accepting a job. Available / Unavailable,
   Contact office (Call when the support number is set; otherwise Message the office), sign out.
 - Suspend / decline / remove signs the driver out everywhere and cancels unused links.
 - The support number is never on the website or in the audit log, is only returned to approved signed-in

@@ -264,8 +264,7 @@ export function missingForApproval(docs: DocumentRow[], today: string): Document
 function completeSavedProfile(profile: DriverVehicleProfile): boolean {
   return Boolean(
     profile.profileKey.trim() && profile.displayName.trim() && profile.email.trim() &&
-    profile.mobile?.trim() && profile.make.trim() && profile.model.trim() && profile.colour.trim() &&
-    profile.registration.trim(),
+    profile.mobile?.trim() && profile.registration.trim(),
   );
 }
 
@@ -475,7 +474,7 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
         .bind(key)
         .first<{ id: string; status: DriverStatus }>();
       const at = ctx.now().toISOString();
-      const vehicleSummary = `${profile.colour.trim()} ${profile.make.trim()} ${profile.model.trim()}`.trim();
+      const vehicleSummary = [profile.colour, profile.make, profile.model].map((part) => part.trim()).filter(Boolean).join(" ");
       if (current) {
         if (current.status === "removed") {
           skipped += 1;
@@ -719,10 +718,10 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
     const vehicleModel = text(body.vehicleModel, 80);
     const vehicleColour = text(body.vehicleColour, 40);
     const vehicleReg = text(body.vehicleReg, 12).toUpperCase();
-    if (!vehicleMake || !vehicleModel || !vehicleColour || !vehicleReg) {
-      throw new HttpError(400, "Enter your vehicle make, model, colour and registration.");
+    if (!vehicleReg) {
+      throw new HttpError(400, "Enter your vehicle registration before applying.");
     }
-    const vehicleSummary = `${vehicleColour} ${vehicleMake} ${vehicleModel}`;
+    const vehicleSummary = [vehicleColour, vehicleMake, vehicleModel].filter(Boolean).join(" ");
     await claimLink(ctx, link.tokenHash);
     const session = await createSessionStatements(ctx, driver.id);
     await db.batch([
