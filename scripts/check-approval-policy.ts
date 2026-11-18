@@ -49,22 +49,23 @@ assert.equal(d.windowMinutes, 5);
 assert.equal(d.deadlineAt, "2026-11-12T12:05:00.000Z");
 console.log("ok 4 90 minutes ahead → 5-minute approval");
 
-// 5. Overnight 24h ahead → manual, clock starts 07:00, 30 minutes.
-d = manual(decide("2026-11-12T23:30:00Z", 24));
+// 5. Overnight submission for a later UK date follows the normal 12h+ auto rule.
+assert.equal(decide("2026-11-12T23:30:00Z", 24).mode, "auto");
+assert.equal(decide("2026-11-13T03:00:00Z", 30).mode, "auto");
+console.log("ok 5 overnight submission for a later date → automatic");
+
+// 6. Overnight same-day pickup remains manual even when it is 12h+ away.
+d = manual(decide("2026-11-13T03:00:00Z", 13));
 assert.equal(d.overnight, true);
 assert.equal(d.windowMinutes, 30);
 assert.equal(d.clockStartsAt, "2026-11-13T07:00:00.000Z");
 assert.equal(d.deadlineAt, "2026-11-13T07:30:00.000Z");
-// After midnight too.
-d = manual(decide("2026-11-13T03:00:00Z", 30));
-assert.equal(d.deadlineAt, "2026-11-13T07:30:00.000Z");
-console.log("ok 5 overnight 24h ahead → manual, answer from 07:00");
+console.log("ok 6 overnight same-day pickup → 30-minute approval from 07:00");
 
-// 6. Overnight 5h ahead (03:00 → 08:00) → 30 minutes from 07:00.
+// An overnight same-day pickup under 12h is still manual by the normal lead-time tier.
 d = manual(decide("2026-11-13T03:00:00Z", 5));
 assert.equal(d.windowMinutes, 30);
 assert.equal(d.deadlineAt, "2026-11-13T07:30:00.000Z");
-console.log("ok 6 overnight 5h ahead → 30-minute approval");
 
 // 7. Overnight 90 minutes → 5 minutes; 06:00 → 07:30 pickup gives 07:05.
 d = manual(decide("2026-11-13T06:00:00Z", 1.5));
