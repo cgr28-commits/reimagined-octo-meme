@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EVENTS_HUB_PATH, EVENTS_HUB_PUBLIC_ENABLED } from "@/lib/bespoke-public";
 import GoogleReviewsBadge from "./GoogleReviewsBadge";
+import HubHeadingText from "./HubHeadingText";
 import FromAirportText from "./FromAirportText";
 import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
 import HeroBenefitsRow from "./HeroBenefitsRow";
@@ -26,6 +27,8 @@ export type QuoteHeroJourney = {
 type Props = {
   /** Landing pages: the page's own H1 text. Omit for the homepage heading. */
   heading?: ReactNode;
+  /** Exact place or service to accent in a plain text landing-page heading. */
+  headingSubject?: string;
   /** Landing pages: the page's own short introduction. Omit for the homepage wording. */
   intro?: string;
   /** Town-to-airport landing pages: intro shown instead when opened with ?from=airport. */
@@ -93,7 +96,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -127,7 +130,11 @@ export default function HeroSlideshow({ heading, intro, introFromAirport, introF
         <div id="homepage-booking-intro" className="homepage-hero-copy order-1 min-w-0 text-center md:order-2 lg:order-1 lg:pt-2">
           <h1 {...(navId ? { "data-site-nav-heading": navId, tabIndex: -1 } : {})} className="font-sans text-balance text-[1.5625rem] font-semibold leading-[1.15] tracking-tight text-white md:text-[2.7rem] md:leading-[1.08] lg:text-[2.9rem] xl:text-[3.15rem] xl:leading-[1.06]">
             {heading ? (
-              <span className="text-white">{heading}</span>
+              <span className="text-white">
+                {typeof heading === "string" && headingSubject
+                  ? <HubHeadingText text={heading} subject={headingSubject} />
+                  : heading}
+              </span>
             ) : (
               <>
                 <span className="text-white">Belfast &amp; Dublin <span data-hero-green className="text-emerald">Airport Transfers</span></span>{" "}

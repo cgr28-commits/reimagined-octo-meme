@@ -28,7 +28,7 @@ export default function DerryTransferLanding() {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         {/* Google Ads "Derry to Belfast" landings open with ?from=derry: same page, heading the other way round. */}
         <HeroSlideshow
-          heading={<FromAirportText text={page.title} fromAirportText="Derry to Belfast Taxi & Private Transfer" fromValue="derry" />}
+          heading={<FromAirportText text={page.title} fromAirportText="Derry to Belfast Taxi & Private Transfer" fromValue="derry" highlight="Derry" fromAirportHighlight="Belfast" />}
           intro={firstSentence(page.intro)}
           introFromAirport="Pre-booked private taxi from Derry~Londonderry to Belfast, door to door from your home, hotel or office."
           introFromValue="derry"

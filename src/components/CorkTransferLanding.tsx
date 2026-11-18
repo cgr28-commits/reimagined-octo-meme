@@ -39,7 +39,11 @@ export default function CorkTransferLanding({ direction }: { direction: CorkTran
       `}</style>
       <main className={`${LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} cork-transfer-page cork-transfer-${direction}`}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={page.title} intro={firstSentence(page.intro)} />
+        <HeroSlideshow
+          heading={page.title}
+          headingSubject={direction === "belfast-to-cork" ? "Cork" : "Belfast"}
+          intro={firstSentence(page.intro)}
+        />
         <LandingHeroMedia baseName={hero.base} alt={hero.alt} />
         <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Long-distance transfers", href: "/long-distance-transfers/" }, { name: page.title }]} />

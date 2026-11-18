@@ -32,6 +32,7 @@ export default function AirportsIndexPage() {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading="Airport transfers"
+          headingSubject="Airport"
           navId="airports-index"
           intro="Fixed-price transfers to and from Belfast International, Belfast City and Dublin Airport."
         />

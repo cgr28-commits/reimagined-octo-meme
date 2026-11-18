@@ -50,6 +50,7 @@ export default function VitoGroupLanding({ page }: { page: VitoPageContent }) {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading={page.h1}
+          headingSubject={page.headingSubject}
           intro={firstSentence(page.intro)}
           journey={{ airportCode: page.airportCode, direction: page.direction, preferMinibus: true }}
         />

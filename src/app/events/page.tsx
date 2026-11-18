@@ -85,7 +85,8 @@ export default async function BelfastEventsHubPage() {
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} data-belfast-events-hub>
         {/* The page's own quote tool first: tapping an event below fills in its venue. */}
         <HeroSlideshow
-          heading={<>Taxis to <span className="text-emerald">Events &amp; Concerts</span></>}
+          heading="Taxis to Events & Concerts"
+          headingSubject="Events & Concerts"
           intro="Fixed-price taxi to concerts, sport and shows in Belfast and Dublin — and home afterwards. Pick an event below and we'll fill in the venue."
           navId="events"
           quoteCardTitle="Events & Concerts"

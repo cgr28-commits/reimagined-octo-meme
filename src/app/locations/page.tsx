@@ -52,7 +52,12 @@ export default function LocationsPage() {
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
-        <HeroSlideshow heading={LOCATIONS_HUB_H1} navId="locations" intro={firstSentence(LOCATIONS_HUB_INTRO)} />
+        <HeroSlideshow
+          heading={LOCATIONS_HUB_H1}
+          headingSubject="Locations"
+          navId="locations"
+          intro={firstSentence(LOCATIONS_HUB_INTRO)}
+        />
         <div className="relative overflow-hidden">
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <LandingBreadcrumbs

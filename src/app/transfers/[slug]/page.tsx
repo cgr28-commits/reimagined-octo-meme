@@ -220,11 +220,11 @@ export default async function TransferRoutePage({ params }: Props) {
               <FromAirportText
                 text={page.h1}
                 fromAirportText={`${page.airport.name} to ${page.town.name} Taxi`}
-                highlight={identity?.headingHighlight?.toAirport}
-                fromAirportHighlight={identity?.headingHighlight?.fromAirport}
+                highlight={identity?.headingHighlight?.toAirport ?? (page.h1.includes(page.airport.name) ? page.airport.name : page.airport.shortName)}
+                fromAirportHighlight={identity?.headingHighlight?.fromAirport ?? page.town.name}
               />
             ) : (
-              <FromAirportText text={page.h1} highlight={identity?.headingHighlight?.fromAirport} />
+              <FromAirportText text={page.h1} highlight={identity?.headingHighlight?.fromAirport ?? page.town.name} />
             )
           }
           intro={quoteFirstLede ?? firstSentence(page.intro)}

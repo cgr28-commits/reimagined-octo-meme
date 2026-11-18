@@ -98,6 +98,7 @@ export default function GolfTransfersPage() {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading={GOLF_TRANSFERS_H1}
+          headingSubject="Golf Transfers"
           intro="Private, pre-booked transfers from the airport to your hotel and the first tee, with a fixed fare agreed before you book."
           journey={{ businessClassAnyRoute: true }}
         />

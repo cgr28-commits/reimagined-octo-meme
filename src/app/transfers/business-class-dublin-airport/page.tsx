@@ -104,6 +104,7 @@ export default function BusinessClassDublinAirportPage() {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         <HeroSlideshow
           heading={BUSINESS_CLASS_DUBLIN_H1}
+          headingSubject="Business Class"
           intro="Travel in a premium executive car with luggage assistance, complimentary bottled water and a fixed fare confirmed before booking."
           journey={{ airportCode: "DUB", direction: "to-airport" }}
         />

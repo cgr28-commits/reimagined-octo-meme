@@ -81,6 +81,7 @@ export default function GrandCentralStationPage() {
       {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
       <HeroSlideshow
         heading="Belfast Grand Central Station Taxi Transfers"
+        headingSubject="Belfast Grand Central Station"
         intro="Pre-book a private taxi to or from Belfast Grand Central Station. Fixed price before you pay."
         journey={{ bookingIntroduction: "Pre-book your transfer to or from Belfast Grand Central Station in just a few clicks." }}
       />

@@ -1,5 +1,6 @@
 "use client";
 
+import HubHeadingText from "./HubHeadingText";
 import { useEffect, useState } from "react";
 
 /** True when the page was opened with ?from=<value> (default "airport"; Google Ads direction landings). */
@@ -35,13 +36,5 @@ export default function FromAirportText({
   }, [fromAirportText, fromValue]);
   const shown = swap && fromAirportText ? fromAirportText : text;
   const green = swap && fromAirportText ? fromAirportHighlight : highlight;
-  const at = green ? shown.indexOf(green) : -1;
-  if (!green || at < 0) return <>{shown}</>;
-  return (
-    <>
-      {shown.slice(0, at)}
-      <span className="text-emerald">{green}</span>
-      {shown.slice(at + green.length)}
-    </>
-  );
+  return green ? <HubHeadingText text={shown} subject={green} /> : <>{shown}</>;
 }

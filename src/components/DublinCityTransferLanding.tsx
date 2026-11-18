@@ -82,6 +82,7 @@ export default function DublinCityTransferLanding({
   direction = "belfast-to-dublin",
 }: Props = {}) {
   const fromDublin = direction === "dublin-to-belfast";
+  const headingSubject = path === CHRISTMAS_PATH ? "Christmas & New Year" : "Dublin City";
   const heroImage: CreditedPhoto = page.hero ?? hero;
   const schemas = [
     getBreadcrumbJsonLd([
@@ -139,10 +140,15 @@ export default function DublinCityTransferLanding({
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
         {/* Google Ads "Dublin to Belfast" landings open with ?from=dublin: same page, heading the other way round. */}
         {fromDublin ? (
-          <HeroSlideshow heading={page.h1} intro={firstSentence(page.intro)} quoteCardTitle="Get Your Fixed Price" />
+          <HeroSlideshow
+            heading={page.h1}
+            headingSubject="Belfast"
+            intro={firstSentence(page.intro)}
+            quoteCardTitle="Get Your Fixed Price"
+          />
         ) : (
           <HeroSlideshow
-            heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" />}
+            heading={<FromAirportText text={page.h1} fromAirportText="Dublin City to Belfast Taxi" fromValue="dublin" highlight={headingSubject} fromAirportHighlight="Belfast" />}
             intro={firstSentence(page.intro)}
             introFromAirport="Fixed-price private taxi from Dublin city to anywhere in Belfast, door to door from your hotel, home or office."
             introFromValue="dublin"

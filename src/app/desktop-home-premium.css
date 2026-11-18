@@ -402,3 +402,11 @@
   }
 }
 }
+
+/* Page and town names use the homepage headline green on every quote hub. */
+@layer base {
+  .homepage-hero #homepage-booking-intro h1 span[data-hub-subject] {
+    color: var(--matni-green-bright, #45d704) !important;
+    -webkit-text-fill-color: currentColor !important;
+  }
+}
