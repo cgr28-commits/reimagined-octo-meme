@@ -160,9 +160,8 @@ export function getReturnJourneyFare(
  *
  * Order (do not invert):
  * 1. One-way base journey fare for each leg (Estate uplift already in `oneWayFare`)
- * 2. If return: 5% off the combined BASE journey total only
- * 3. +10% Night & Weekend Surcharge on each qualifying leg, from the
- *    ORIGINAL undiscounted base fare (never from the post-5% amount)
+ * 2. Add any qualifying time premiums to each leg's vehicle fare
+ * 3. If return: 5% off the combined vehicle journey total, including premiums
  *
  * Airport/barrier/Express charges are added later and never enter this function.
  */
@@ -236,10 +235,10 @@ export function applyTripPremium(
     premiumAmount += returnFare * rateFor(schedule.returnDate, schedule.returnTime);
   }
 
-  const discountedBase = schedule.returnJourney
-    ? applyReturnJourneyDiscount(outboundFare + returnFare, returnRate)
-    : outboundFare;
-  const total = discountedBase + premiumAmount;
+  const vehicleJourneyTotal = outboundFare + returnFare + premiumAmount;
+  const total = schedule.returnJourney
+    ? applyReturnJourneyDiscount(vehicleJourneyTotal, returnRate)
+    : vehicleJourneyTotal;
 
   return {
     total,

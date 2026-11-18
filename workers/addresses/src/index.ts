@@ -3000,6 +3000,7 @@ async function handlePaymentRequest(
       preserveBfsMinimumPence?: boolean;
       amountGbp: number;
       journeyFareGbp: number;
+      dublinTollsGbp?: number;
       airportFixedCostsGbp: number;
       nightWeekendSurchargeGbp?: number;
       outboundOneWayBeforeAccessGbp?: number;
@@ -3088,6 +3089,7 @@ async function handlePaymentRequest(
         amountGbp: receiptClaims.transferAmountGbp,
           preserveBfsMinimumPence: Boolean(receiptClaims.preserveBfsMinimumPence),
         journeyFareGbp: receiptClaims.journeyFareGbp,
+        dublinTollsGbp: (dublinTolls?.outboundGbp ?? 0) + (booking.returnJourney ? dublinTolls?.returnGbp ?? 0 : 0),
         airportFixedCostsGbp: receiptClaims.airportFixedCostsGbp,
         nightWeekendSurchargeGbp: receiptClaims.nightWeekendSurchargeGbp,
       };
@@ -3120,6 +3122,7 @@ async function handlePaymentRequest(
                     (a2aQuote.amount - (a2aQuote.airportFixedCostsGbp ?? 0)) * 100,
                   ) / 100,
                 ),
+          dublinTollsGbp: (dublinTolls?.outboundGbp ?? 0) + (booking.returnJourney ? dublinTolls?.returnGbp ?? 0 : 0),
           airportFixedCostsGbp:
             typeof a2aQuote.airportFixedCostsGbp === "number"
               ? Math.round(a2aQuote.airportFixedCostsGbp * 100) / 100
@@ -3180,6 +3183,9 @@ async function handlePaymentRequest(
           amountGbp: requote.amount,
           preserveBfsMinimumPence: Boolean(requote.preserveBfsMinimumPence),
           journeyFareGbp,
+          dublinTollsGbp: typeof requote.dublinTollsGbp === "number"
+            ? requote.dublinTollsGbp
+            : (dublinTolls?.outboundGbp ?? 0) + (booking.returnJourney ? dublinTolls?.returnGbp ?? 0 : 0),
           airportFixedCostsGbp: requote.airportFixedCostsGbp ?? 0,
           nightWeekendSurchargeGbp: requote.nightWeekendSurchargeGbp ?? 0,
           outboundOneWayBeforeAccessGbp: requote.outboundOneWayBeforeAccessGbp,
@@ -3506,6 +3512,7 @@ async function handlePaymentRequest(
     const breakdown = composeWebsiteFareBreakdown({
       preserveFixedFarePence,
       journeyFareBeforeAirportAccessGbp: journeyFareGbp,
+      dublinTollsGbp: authoritativeQuote.dublinTollsGbp ?? 0,
       airportFixedCostsGbp,
       nightWeekendSurchargeGbp: authoritativeQuote.nightWeekendSurchargeGbp ?? 0,
       airportAccessChargeGbp: quotedAccess.airportAccessChargeGbp,

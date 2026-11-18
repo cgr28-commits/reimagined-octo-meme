@@ -741,12 +741,10 @@ export function calculatePointToPointQuote(
 
   const tollOut = Math.max(0, roundGbp(Number(options.tollAllowance?.outboundGbp) || 0));
   const tollBack = returnJourney ? Math.max(0, roundGbp(Number(options.tollAllowance?.returnGbp) || 0)) : 0;
-  // Tolls are never surcharged. On a return they sit inside the base the 5%
-  // applies to, so the customer's "return discount" line stays exact.
+  // Tolls are never surcharged or discounted. The return discount applies to
+  // the vehicle journey fare only.
   // With no tolls fares are byte-identical.
-  const tollsInFare = returnJourney
-    ? (tollOut + tollBack) * (1 - (engine.returnDiscountRate ?? 0))
-    : tollOut;
+  const tollsInFare = tollOut + tollBack;
   const journeyFareGbp = roundGbp(premium.total + tollsInFare);
   const nightWeekendSurchargeGbp = roundGbp(premium.premiumAmount);
 

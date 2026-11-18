@@ -2737,6 +2737,7 @@ function QuoteCard({
               nightWeekendSurchargeLabel: alternate.nightWeekendSurchargeLabel,
               nightWeekendSurchargeExplanation: alternate.nightWeekendSurchargeExplanation,
               journeyFareGbp: Math.round(alternate.journeyFareGbp * 100) / 100,
+              ...(typeof alternate.dublinTollsGbp === "number" ? { dublinTollsGbp: alternate.dublinTollsGbp } : {}),
               airportFixedCostsGbp:
                 typeof alternate.airportFixedCostsGbp === "number"
                   ? Math.round(alternate.airportFixedCostsGbp * 100) / 100
@@ -2846,6 +2847,7 @@ function QuoteCard({
           nightWeekendSurchargeLabel: result.nightWeekendSurchargeLabel,
           nightWeekendSurchargeExplanation: result.nightWeekendSurchargeExplanation,
           journeyFareGbp: Math.round(result.journeyFareGbp * 100) / 100,
+          ...(typeof result.dublinTollsGbp === "number" ? { dublinTollsGbp: result.dublinTollsGbp } : {}),
           airportFixedCostsGbp:
             typeof result.airportFixedCostsGbp === "number"
               ? Math.round(result.airportFixedCostsGbp * 100) / 100
@@ -3454,6 +3456,7 @@ function QuoteCard({
     return buildOpenWebsiteFareBreakdown({
       preserveFixedFarePence: (currentServerFareParts?.preserveBfsMinimumPence ?? liveQuote?.preserveBfsMinimumPence ?? false) || postcodeFareHasPence({ enabled: publicPricing.postcodePricingEnabled, rules: publicPricing.postcodeRules, context: { address: isFromAirport ? dropoffAddress : pickupAddress, airportCode: effectiveAirportCode, fromAirport: isFromAirport }, vehicle: quoteVehicle, estateSupplement: publicPricing.estate.upliftGbp, returnJourney }),
       journeyFareBeforeAirportAccessGbp: journeyFareParts.journeyFareGbp,
+      dublinTollsGbp: currentServerFareParts?.dublinTollsGbp ?? liveQuote?.dublinTollsGbp ?? 0,
       airportFixedCostsGbp: journeyFareParts.airportFixedCostsGbp,
       nightWeekendSurchargeGbp: journeyFareParts.nightWeekendSurchargeGbp ?? 0,
       nightWeekendSurchargeLabel: configuredSurchargeLabel,
@@ -3462,6 +3465,7 @@ function QuoteCard({
       outboundAirportAccessChargeGbp: airportAccessQuote.outboundAirportAccessChargeGbp,
       returnAirportAccessChargeGbp: airportAccessQuote.returnAirportAccessChargeGbp,
       returnJourney,
+      returnDiscountRate: publicPricing.returnDiscount?.rate,
       ...(applyReturnOffer
         ? { returnOfferDiscountRate: RETURN_OFFER_CONFIG.discountRate }
         : {}),
@@ -3499,6 +3503,8 @@ function QuoteCard({
     journeyFareParts.journeyFareGbp,
     journeyFareParts.airportFixedCostsGbp,
     journeyFareParts.nightWeekendSurchargeGbp,
+    currentServerFareParts?.dublinTollsGbp,
+    liveQuote?.dublinTollsGbp,
     airportAccessQuote.airportAccessChargeGbp,
     airportAccessQuote.outboundAirportAccessChargeGbp,
     airportAccessQuote.returnAirportAccessChargeGbp,
@@ -10241,7 +10247,7 @@ function QuoteCard({
                       setJourneyMode("return");
                     }}
                   >
-                    Return
+                    <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
                   </button>
                 </div>
                 {scheduleUpFront ? renderQuoteScheduleFields("quote", true) : null}
@@ -10814,7 +10820,7 @@ function QuoteCard({
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
-              Return
+              <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
             </button>
           </div>
           {journeyMode == null && (

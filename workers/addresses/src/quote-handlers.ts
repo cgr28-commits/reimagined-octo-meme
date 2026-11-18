@@ -863,8 +863,8 @@ export async function handleQuoteCalculateRequest(
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,
   };
-  // Toll allowance is folded into the customer's single fare; only the owner sees it itemised.
-  delete quoteBody.dublinTollsGbp;
+  // This amount is metadata for accurate discount breakdowns; tolls remain folded
+  // into the customer's single fare and are never discounted.
   const corridorSaloonFareGbp =
     typeof quoteBody.corridorSaloonFareGbp === "number" ? quoteBody.corridorSaloonFareGbp : null;
   delete quoteBody.corridorSaloonFareGbp;
