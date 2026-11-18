@@ -50,9 +50,8 @@ export function isChristmasVideoLive(
 }
 
 /**
- * Christmas welcome pop-up (owner, 17 Nov 2026): video → 10% offer (the existing email promo
- * code) → quote tool, once per visitor. Same date rules as above. Also off whenever the promo
- * pop-up switch is off in the Owner Dashboard. Never changes the promo code's own dates/rules.
+ * Campaign window for the welcome video. The dashboard controls whether visitors
+ * see the video on its own, see it with the email promotion, or skip it entirely.
  */
 export const CHRISTMAS_WELCOME = {
   enabled: true,

@@ -37,6 +37,12 @@ export type PromoCampaign = {
   endsAt: string;
 };
 
+export type WelcomeVideoMode = "off" | "video-only" | "with-promo";
+
+export function isWelcomeVideoMode(value: unknown): value is WelcomeVideoMode {
+  return value === "off" || value === "video-only" || value === "with-promo";
+}
+
 export type PromoSettings = {
   /** Master switch: off = no new codes, the code field is hidden and existing codes are refused. */
   enabled: boolean;
@@ -46,6 +52,7 @@ export type PromoSettings = {
   validityDays: number;
   /** Desktop pop-up (20 s / exit intent). The mobile banner and quote banner follow `enabled`. */
   popupEnabled: boolean;
+  welcomeVideoMode: WelcomeVideoMode;
   popupDelaySeconds: number;
   /** Journey dates excluded from promo codes (owner dashboard). Applies to every leg. */
   blackoutDates: PromoBlackoutRange[];
@@ -60,6 +67,7 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
   minimumVehicleFareGbp: 100,
   validityDays: 30,
   popupEnabled: true,
+  welcomeVideoMode: "with-promo",
   popupDelaySeconds: 20,
   // Owner, 16 Nov 2026: no promo codes for journeys 14 December – 5 January, or on the
   // Garth Brooks nights at Boucher Road (Fri 21 – Sun 23 May 2027).
@@ -245,6 +253,7 @@ export function normalizePromoSettings(input: unknown, fallback: PromoSettings =
     minimumVehicleFareGbp:
       Math.round(num(raw.minimumVehicleFareGbp, PROMO_LIMITS.minMinimumFareGbp, PROMO_LIMITS.maxMinimumFareGbp, fallback.minimumVehicleFareGbp) * 100) / 100,
     validityDays: Math.round(num(raw.validityDays, PROMO_LIMITS.minValidityDays, PROMO_LIMITS.maxValidityDays, fallback.validityDays)),
+    welcomeVideoMode: isWelcomeVideoMode(raw.welcomeVideoMode) ? raw.welcomeVideoMode : fallback.welcomeVideoMode,
     popupEnabled: typeof raw.popupEnabled === "boolean" ? raw.popupEnabled : fallback.popupEnabled,
     popupDelaySeconds: Math.round(
       num(raw.popupDelaySeconds, PROMO_LIMITS.minPopupDelaySeconds, PROMO_LIMITS.maxPopupDelaySeconds, fallback.popupDelaySeconds),
@@ -263,6 +272,10 @@ export function validatePromoSettingsInput(input: Record<string, unknown>): { ok
   if ("enabled" in input) {
     if (typeof input.enabled !== "boolean") return { ok: false, error: "Promotion on/off must be true or false." };
     out.enabled = input.enabled;
+  }
+  if ("welcomeVideoMode" in input) {
+    if (!isWelcomeVideoMode(input.welcomeVideoMode)) return { ok: false, error: "Choose a valid welcome video setting." };
+    out.welcomeVideoMode = input.welcomeVideoMode;
   }
   if ("popupEnabled" in input) {
     if (typeof input.popupEnabled !== "boolean") return { ok: false, error: "Pop-up on/off must be true or false." };
@@ -384,6 +397,7 @@ export type PublicPromoConfig = {
   minimumVehicleFareGbp: number;
   validityDays: number;
   popupEnabled: boolean;
+  welcomeVideoMode: WelcomeVideoMode;
   popupDelaySeconds: number;
   /** Excluded journey dates (shown to customers when they apply a code). */
   blackoutDates: PromoBlackoutRange[];
@@ -402,6 +416,9 @@ export function publicPromoConfig(settings: PromoSettings, now: Date = new Date(
     minimumVehicleFareGbp: settings.minimumVehicleFareGbp,
     validityDays: settings.validityDays,
     popupEnabled: settings.enabled && settings.popupEnabled,
+    welcomeVideoMode: settings.welcomeVideoMode === "with-promo" && !(settings.enabled && settings.popupEnabled)
+      ? "off"
+      : settings.welcomeVideoMode,
     popupDelaySeconds: settings.popupDelaySeconds,
     blackoutDates: settings.blackoutDates ?? [],
   };

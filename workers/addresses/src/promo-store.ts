@@ -83,18 +83,24 @@ export async function savePromoSettings(
   now: Date,
   actor = "owner",
 ): Promise<PromoSettings> {
-  const current = await getPromoSettings(db);
-  const { updatedAt: _ignored, ...rest } = { ...current, ...patch };
-  const next = normalizePromoSettings(rest);
+  const initial = normalizePromoSettings(patch);
+  // A video-only save and a discount edit can arrive from separate dashboard tabs.
+  // Apply just the submitted top-level fields in a single write, including JSON null.
+  const keys = (Object.keys(patch) as (keyof PromoSettings)[]).filter((key) => key !== "updatedAt");
+  if (!keys.length) return getPromoSettings(db);
+  const assignments = keys.map(() => "?, json(?)").join(", ");
+  const values = keys.flatMap((key) => [`$.${key}`, JSON.stringify(initial[key])]);
   const iso = now.toISOString();
-  await db
+  const row = await db
     .prepare(
       "INSERT INTO promo_settings (id, json, updated_at, updated_by) VALUES (1, ?, ?, ?) " +
-        "ON CONFLICT(id) DO UPDATE SET json = excluded.json, updated_at = excluded.updated_at, updated_by = excluded.updated_by",
+        `ON CONFLICT(id) DO UPDATE SET json = json_set(promo_settings.json, ${assignments}), ` +
+        "updated_at = excluded.updated_at, updated_by = excluded.updated_by RETURNING json",
     )
-    .bind(JSON.stringify(next), iso, actor)
-    .run();
-  return { ...next, updatedAt: iso };
+    .bind(JSON.stringify(initial), iso, actor, ...values)
+    .first<{ json: string }>();
+  if (!row) throw new Error("Promo settings could not be saved");
+  return { ...normalizePromoSettings(JSON.parse(row.json)), updatedAt: iso };
 }
 
 /* ------------------------------------------------------------------ requests */
