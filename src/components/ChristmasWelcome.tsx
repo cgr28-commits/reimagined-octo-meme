@@ -83,7 +83,7 @@ export default function ChristmasWelcome() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("video");
   const [config, setConfig] = useState<PublicPromoConfig | null>(null);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -91,6 +91,7 @@ export default function ChristmasWelcome() {
   const restoreFocus = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const manualPlayback = useRef(false);
   const stepRef = useRef<Step>("video");
   stepRef.current = step;
   const excluded = promoExcludedPath(pathname);
@@ -172,7 +173,6 @@ export default function ChristmasWelcome() {
     window.setTimeout(() => restoreFocus.current?.focus?.({ preventScroll: true }), 0);
   }, []);
 
-  // Start the video muted (allowed on iPhone / Android / desktop). Reduced motion: wait for a tap.
   useEffect(() => {
     if (!open || step !== "video") return;
     const video = videoRef.current;
@@ -181,9 +181,33 @@ export default function ChristmasWelcome() {
       setNeedsTap(true);
       return;
     }
-    video.muted = true;
-    const attempt = video.play();
-    if (attempt && typeof attempt.catch === "function") attempt.catch(() => setNeedsTap(true));
+
+    let active = true;
+    const canRetry = () => active && videoRef.current === video && !manualPlayback.current;
+    async function startPlayback(player: HTMLVideoElement) {
+      try {
+        await player.play();
+      } catch (error) {
+        if (!canRetry()) return;
+        if (error instanceof DOMException && error.name === "NotAllowedError") {
+          player.muted = true;
+          setMuted(true);
+          try {
+            await player.play();
+            return;
+          } catch {
+            if (!canRetry()) return;
+            // Both autoplay attempts failed. The visitor's Play tap can now start with sound.
+            player.muted = false;
+            setMuted(false);
+          }
+        }
+        setNeedsTap(true);
+      }
+    }
+
+    void startPlayback(video);
+    return () => { active = false; };
   }, [open, step, reducedMotion]);
 
   // Page behind doesn't scroll; Escape closes; Tab stays inside.
@@ -234,14 +258,19 @@ export default function ChristmasWelcome() {
   const toggleSound = () => {
     const video = videoRef.current;
     if (!video) return;
+    manualPlayback.current = true;
     video.muted = !video.muted;
     setMuted(video.muted);
     if (!video.muted) trackChristmasVideo("popup_sound_on");
-    if (video.paused) void video.play().catch(() => setNeedsTap(true));
+    if (video.paused) {
+      setNeedsTap(false);
+      void video.play().catch(() => setNeedsTap(true));
+    }
   };
   const tapToPlay = () => {
     const video = videoRef.current;
     if (!video) return;
+    manualPlayback.current = true;
     setNeedsTap(false);
     void video.play().catch(() => setNeedsTap(true));
   };
@@ -283,7 +312,7 @@ export default function ChristmasWelcome() {
                 className="absolute inset-0 h-full w-full object-cover"
                 poster={withBasePath(`${VIDEO_DIR}/christmas-homecoming-poster.jpg`)}
                 preload="auto"
-                muted
+                muted={muted}
                 playsInline
                 width={1920}
                 height={1080}
