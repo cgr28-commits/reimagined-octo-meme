@@ -330,6 +330,7 @@ function BookQuoteInner() {
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim(),
       mobileNumber: mobileNumber.trim(),
+      ...journey.diaryRoute,
       tripLabel: quickQuoteTripLabel({ eventName: journey.eventName, childSeatRequired }),
       pickupLabel: journey.pickupAddress,
       dropoffLabel: journey.dropoffAddress,

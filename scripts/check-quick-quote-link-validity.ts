@@ -43,6 +43,8 @@ async function createLink(t: TestContext, validityMode: "none" | "2h") {
       validityMode, priceSource: "owner-manual", manualTransferFare: 45,
       pickupAddress: "Belfast City Hall", dropoffAddress: "Belfast International Airport",
       outboundDate: "2030-03-01", outboundTime: "12:00", returnJourney: false,
+      pickupLat: 54.5965, pickupLng: -5.9301, dropoffLat: 54.6575, dropoffLng: -6.2158,
+      routeMetrics: { distanceKm: 30, durationMinutes: 35 },
       passengers: 1, suitcases: 1,
     }),
   }), env, origin);
@@ -58,6 +60,10 @@ async function createLink(t: TestContext, validityMode: "none" | "2h") {
 
   const stored = JSON.parse(entry.value);
   assert.equal(stored.status, "open");
+  assert.deepEqual(stored.journey.diaryRoute, {
+    pickupLat: 54.5965, pickupLng: -5.9301, dropoffLat: 54.6575, dropoffLng: -6.2158,
+    routeDistanceKm: 30, routeDurationMinutes: 35,
+  });
   return { env, now, clock, id, entry, stored };
 }
 

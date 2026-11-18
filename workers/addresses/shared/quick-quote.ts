@@ -69,6 +69,15 @@ export type QuickQuoteStatus =
   | "cancelled";
 
 export type QuickQuoteJourney = {
+  /** Selected route carried into the paid booking for diary and return matching. */
+  diaryRoute?: {
+    pickupLat?: number;
+    pickupLng?: number;
+    dropoffLat?: number;
+    dropoffLng?: number;
+    routeDurationMinutes?: number;
+    routeDistanceKm?: number;
+  };
   pickupAddress: string;
   dropoffAddress: string;
   airportCode?: QuickQuoteAirportCode | null;

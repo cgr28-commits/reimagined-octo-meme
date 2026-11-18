@@ -9,7 +9,7 @@ import {
   normalizeEmptyRunSettings,
   type EmptyRunRequest,
 } from "../shared/empty-run-pricing";
-import { evaluateSmartAvailability, type SmartOccupiedJob } from "../shared/smart-conflict";
+import { coordsFromPlaceLabel, evaluateSmartAvailability, occupiedJobsFromPaidBooking, type SmartOccupiedJob } from "../shared/smart-conflict";
 import { DEFAULT_SMART_OPS_CONFIG } from "../shared/smart-ops-config";
 
 const BASE = { lat: 54.66598, lng: -5.97026 }; // Glengormley
@@ -161,6 +161,31 @@ assert.equal(nextDayOffer.tripTime, "00:15");
 assert.equal(overnightQuote(nextDayOffer.tripDate, nextDayOffer.tripTime).fare?.amountGbp, nextDayOffer.estimatedAmountGbp);
 assert.equal(overnightQuote("2027-05-21", "22:00", false).reason, "EMPTY_RUN_NO_MATCH");
 assert.equal(overnightQuote("2027-05-23", "00:15").reason, "EMPTY_RUN_NO_MATCH");
+
+// Historic street-address bookings may have neither map pins nor a stored ETA.
+const cityJobs = occupiedJobsFromPaidBooking({
+  id: "city-return", tripDate: fridayParent.tripDate, tripTime: "21:30",
+  pickupLabel: "City Hall, Belfast", dropoffLabel: "Example Street, Dublin, Ireland",
+  vehicle: fridayParent.vehicle,
+});
+const cityReturn = { ...dublinToBelfast, pickupLabel: "Dublin, Ireland", airportCode: null,
+  pickup: null, fromAirport: false, tripDate: fridayParent.tripDate, tripTime: "22:00" };
+const citySlotAvailable = (tripDate: string, tripTime: string) => evaluateSmartAvailability({
+  requested: { ...cityReturn, tripDate, tripTime }, occupied: cityJobs,
+  config: DEFAULT_SMART_OPS_CONFIG, now: NOW,
+}).available;
+const cityQuote = (tripDate: string, tripTime: string) => evaluateEmptyRunDiscount({
+  request: { ...cityReturn, tripDate, tripTime }, occupied: cityJobs, base: BASE,
+  settings: on, fare: standardFare, now: NOW, isTimeAvailable: citySlotAvailable,
+});
+assert.equal(citySlotAvailable(cityReturn.tripDate, "22:00"), false);
+const cityOffer = cityQuote(cityReturn.tripDate, "22:00").offer;
+assert.ok(cityOffer);
+assert.equal(cityOffer.tripDate, "2027-05-22");
+assert.ok(citySlotAvailable(cityOffer.tripDate, cityOffer.tripTime));
+assert.equal(cityQuote(cityOffer.tripDate, cityOffer.tripTime).fare?.amountGbp, cityOffer.estimatedAmountGbp);
+assert.equal(coordsFromPlaceLabel("Example Street, Skerries, Co. Dublin, Ireland"), null);
+assert.deepEqual(coordsFromPlaceLabel("Dublin Road, Belfast"), coordsFromPlaceLabel("Belfast"));
 
 // Cancelled parent → no discount.
 assert.equal(run(req("14:00"), on, [{ ...sundayDublinPickup, cancelled: true }]).reason, "EMPTY_RUN_NO_MATCH");
