@@ -116,6 +116,35 @@ const postRun = evaluateEmptyRunDiscount({ request: dublinToBelfast, fare, occup
 assert.equal(postRun.applied, true, JSON.stringify(postRun));
 assert.equal(postRun.parentJobId, outboundToDublin.id);
 
+// Old bookings may only have route endpoints. The diary estimates their drive.
+const overnightParent = { ...outboundToDublin, tripTime: "01:00", durationMinutes: 0 };
+const standardFare = { amountGbp: 274, journeyFareGbp: 265, airportFixedCostsGbp: 9, nightWeekendSurchargeGbp: 0 };
+function reverseQuote(time: string, available = (_date: string, _time: string) => true) {
+  return evaluateEmptyRunDiscount({
+    request: { ...dublinToBelfast, tripTime: time }, occupied: [overnightParent],
+    base: BASE, settings: on, now: NOW, fare: standardFare, isTimeAvailable: available,
+  });
+}
+assert.equal(reverseQuote("05:00").fare?.amountGbp, 208);
+assert.equal(reverseQuote("05:00").fare?.airportFixedCostsGbp, 9);
+assert.equal(reverseQuote("05:00").savingGbp, 66);
+const nearReturn = reverseQuote("06:30");
+assert.equal(nearReturn.applied, false);
+assert.equal(nearReturn.offer?.direction, "earlier");
+assert.equal(nearReturn.offer?.estimatedAmountGbp, 208);
+assert.equal(reverseQuote(nearReturn.offer!.tripTime).fare?.amountGbp, 208);
+assert.equal(reverseQuote("05:00", () => false).reason, "EMPTY_RUN_NO_MATCH");
+
+const diaryAvailable = (tripDate: string, tripTime: string) => evaluateSmartAvailability({
+  requested: { ...dublinToBelfast, tripDate, tripTime, isFromAirport: true },
+  occupied: [overnightParent], config: DEFAULT_SMART_OPS_CONFIG, now: NOW,
+}).available;
+assert.equal(reverseQuote("05:30", diaryAvailable).fare?.amountGbp, 208);
+assert.equal(reverseQuote("05:00", diaryAvailable).offer?.tripTime, "05:30");
+const reverseAlternative = reverseQuote("06:30", diaryAvailable).offer;
+assert.ok(reverseAlternative);
+assert.equal(reverseQuote(reverseAlternative.tripTime, diaryAvailable).fare?.amountGbp, 208);
+
 // Cancelled parent → no discount.
 assert.equal(run(req("14:00"), on, [{ ...sundayDublinPickup, cancelled: true }]).reason, "EMPTY_RUN_NO_MATCH");
 // Cheap fare already at/below the floor → no discount.

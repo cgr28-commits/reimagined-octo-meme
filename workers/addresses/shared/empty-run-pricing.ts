@@ -20,6 +20,7 @@
 
 import {
   coordsFromAirportHint,
+  estimateDurationMinutes,
   roadMilesEstimate,
   type SmartCoords,
   type SmartOccupiedJob,
@@ -239,7 +240,7 @@ export function matchEmptyRun(input: {
     // Fill the outbound positioning leg: base → passenger → confirmed pickup.
     const prePickup = routePosition(reqPickup, base, jobPickup);
     const preDrop = routePosition(reqDropoff, base, jobPickup);
-    const preAligned = prePickup.progress >= -0.12 && prePickup.progress < preDrop.progress &&
+    const preAligned = preDistance >= settings.minParentDistanceMiles && prePickup.progress >= -0.12 && prePickup.progress < preDrop.progress &&
       preDrop.progress >= 0.05 && preDrop.progress <= 1.12 &&
       prePickup.deviationMiles <= settings.maxPickupFromBaseMiles &&
       preDrop.deviationMiles <= settings.maxDropoffFromParentMiles;
@@ -254,49 +255,45 @@ export function matchEmptyRun(input: {
     // the confirmed drop-off, then travel toward base along the same corridor.
     const postPickup = routePosition(reqPickup, jobDropoff, base);
     const postDrop = routePosition(reqDropoff, jobDropoff, base);
-    const postAligned = roadMilesEstimate(reqPickup, jobDropoff) <= settings.maxDropoffFromParentMiles &&
+    const postAligned = postDistance >= settings.minParentDistanceMiles && roadMilesEstimate(reqPickup, jobDropoff) <= settings.maxDropoffFromParentMiles &&
       postPickup.progress >= -0.12 && postPickup.progress < postDrop.progress &&
       postDrop.progress >= 0.05 && postDrop.progress <= 1.12 &&
       postDrop.deviationMiles <= settings.maxPickupFromBaseMiles;
     const jobAirportWait = job.isFromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
-    const jobEndMs = jobStart.getTime() + (Math.max(1, job.durationMinutes) + jobAirportWait) * 60_000;
-    const requestAirportWait = request.fromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
-    const afterJobMinutes = (reqStart.getTime() + requestAirportWait * 60_000 - jobEndMs) / 60_000;
+    const jobEndMs = jobStart.getTime() + (estimateDurationMinutes(job) + jobAirportWait) * 60_000;
+    const afterJobMinutes = (reqStart.getTime() + airportWaitMinutes * 60_000 - jobEndMs) / 60_000;
     if (postAligned && afterJobMinutes >= 0 && afterJobMinutes <= settings.maxIdleMinutes && available(request.tripDate, request.tripTime)) {
       if (!fit || afterJobMinutes < fit.idle) fit = { job, idle: afterJobMinutes, direction: "from_parent" };
       continue;
     }
-    // Only pre-pickup trips receive alternative-time suggestions.
-    if (!preAligned) continue;
-    // Qualifying pickup window for this job, in quarter hours inside it.
-    const latestStart = Math.floor((jobStart.getTime() - settings.arrivalBufferMinutes * 60_000 - durationMs) / QUARTER_MS) * QUARTER_MS;
-    const earliestStart = Math.ceil((jobStart.getTime() - settings.maxIdleMinutes * 60_000 - durationMs) / QUARTER_MS) * QUARTER_MS;
-    if (latestStart < earliestStart) continue;
-    // Walk from the end of the window nearest the asked time to the other end;
-    // take the first time that is bookable.
-    const askedMs = reqStart.getTime();
-    const candidates: number[] = [];
-    if (askedMs >= latestStart) {
-      for (let t = latestStart; t >= earliestStart; t -= QUARTER_MS) candidates.push(t);
-    } else if (askedMs <= earliestStart) {
-      for (let t = earliestStart; t <= latestStart; t += QUARTER_MS) candidates.push(t);
-    } else {
-      // Asked time is inside the window but not bookable: try nearest times either side.
-      for (let k = 1; k <= 24; k += 1) {
-        const before = Math.floor(askedMs / QUARTER_MS) * QUARTER_MS - (k - 1) * QUARTER_MS;
-        const after = Math.ceil(askedMs / QUARTER_MS) * QUARTER_MS + k * QUARTER_MS;
-        if (before >= earliestStart && before !== askedMs) candidates.push(before);
-        if (after <= latestStart) candidates.push(after);
-      }
+    // Offer the nearest bookable quarter hour on either aligned empty leg.
+    // At airports the customer enters flight arrival, before the included wait.
+    const windows: { first: number; last: number }[] = [];
+    if (preAligned) {
+      windows.push({
+        first: jobStart.getTime() - settings.maxIdleMinutes * 60_000 - durationMs,
+        last: jobStart.getTime() - settings.arrivalBufferMinutes * 60_000 - durationMs,
+      });
     }
-    for (const startMs of candidates) {
-      if (startMs < earliestAllowedMs) continue;
-      const suggested = londonParts(startMs);
-      if (suggested.date !== request.tripDate) continue;
-      if (!available(suggested.date, suggested.time)) continue;
-      const shift = Math.abs(startMs - askedMs);
-      if (!move || shift < move.shift) move = { job, startMs, shift };
-      break;
+    if (postAligned) {
+      const first = jobEndMs - airportWaitMinutes * 60_000;
+      windows.push({ first, last: first + settings.maxIdleMinutes * 60_000 });
+    }
+    const askedMs = reqStart.getTime();
+    for (const { first, last } of windows) {
+      const candidates: number[] = [];
+      for (let t = Math.ceil(Math.max(first, earliestAllowedMs) / QUARTER_MS) * QUARTER_MS; t <= last; t += QUARTER_MS) {
+        if (t !== askedMs) candidates.push(t);
+      }
+      candidates.sort((a, b) => Math.abs(a - askedMs) - Math.abs(b - askedMs));
+      for (const startMs of candidates) {
+        const shift = Math.abs(startMs - askedMs);
+        if (move && shift >= move.shift) break;
+        const suggested = londonParts(startMs);
+        if (suggested.date !== request.tripDate || !available(suggested.date, suggested.time)) continue;
+        move = { job, startMs, shift };
+        break;
+      }
     }
   }
   if (fit) return { kind: "fits", job: fit.job, direction: fit.direction };
