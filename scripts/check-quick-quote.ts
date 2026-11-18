@@ -421,9 +421,11 @@ assert.match(quoteHandlers, /calculateAuthoritativeWebsiteQuote/);
   const plain = qq.buildQuickQuoteWhatsAppReply({ amountLabel: "£40.00", bookingUrl: "https://example.test/q" });
   assert.doesNotMatch(plain, /held until|journey to/);
   const upcoming = ev.upcomingKnownEvents(new Date("2026-11-12T12:00:00Z"));
-  assert.equal(upcoming.length, 2);
-  assert.match(upcoming[0]!.label, /Fri 21 May 2027/);
-  assert.equal(ev.upcomingKnownEvents(new Date("2027-05-23T00:00:00Z")).length, 0);
+  const concertDates = (events: typeof upcoming) => events
+    .filter(event => event.label.includes("Garth Brooks")).map(event => event.date);
+  assert.deepEqual(concertDates(upcoming), ["2027-05-21", "2027-05-22", "2027-05-23"]);
+  assert.deepEqual(concertDates(ev.upcomingKnownEvents(new Date("2027-05-23T00:00:00Z"))), ["2027-05-23"]);
+  assert.deepEqual(concertDates(ev.upcomingKnownEvents(new Date("2027-05-24T00:00:00Z"))), []);
   console.log("OK  2-hour links and event names");
 }
 

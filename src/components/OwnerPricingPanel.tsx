@@ -1311,10 +1311,9 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Return pricing</h3>
-        <p className="mt-2 text-sm text-white/75" data-return-discount-retired>
-          The automatic 5% Return Booking Discount has been switched off and replaced by the 10% email
-          promo code (Promo Codes &amp; Email Marketing). Return journeys are priced as two full journeys.
-          Quotes issued before the change keep the price the customer was given.
+        <p className="mt-2 text-sm text-white/75">
+          The return booking discount is {formatPercentFromRate(draft.returnDiscount.rate)} on both vehicle fares,
+          including qualifying premiums. Airport access charges and tolls are added separately.
         </p>
       </section>
 

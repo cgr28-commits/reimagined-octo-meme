@@ -660,6 +660,9 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
             <span className="text-emerald" aria-hidden>{pastOpen ? "▲" : "▼"}</span>
           </button>
         ) : null}
+        </>
+      )}
+      {!loading && (
         <details className="mt-8 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
           <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-white/80">
             Quote stats &amp; booking journey
@@ -719,7 +722,6 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
           </> : <p className="mt-3 text-sm text-white/60">Booking journey data is unavailable.</p>}
         </div>
         </details>
-        </>
       )}
     </section>
   );

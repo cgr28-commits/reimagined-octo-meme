@@ -171,8 +171,8 @@ async function main() {
     "",
   ].join("\n");
 
-  mkdirSync("/opt/cursor/artifacts", { recursive: true });
-  writeFileSync("/opt/cursor/artifacts/fonio-journey-test-report.md", report);
+  mkdirSync("test-results/voice", { recursive: true });
+  writeFileSync("test-results/voice/fonio-journey-test-report.md", report);
   writeFileSync("docs/fonio-journey-test-report.md", report);
   console.log("Wrote docs/fonio-journey-test-report.md");
   console.log("check-voice-journey: OK");

@@ -48,7 +48,7 @@ async function main() {
   const all = await listMarketingSubscribers(store);
   assert.equal(all.length, 4);
   const csv = marketingSubscribersCsv(all);
-  assert.match(csv, /^Email,Name,Opted in,Source,Consent version,Status,Unsubscribed\r\n/);
+  assert.match(csv, /^Email,Name,Opted in,Source,Consent version,Consent wording,Status,Unsubscribed\r\n/);
   assert.match(csv, /sarah@example\.com,Sarah Jones,/);
   assert.match(csv, /gone@example\.com,.*Unsubscribed/);
 

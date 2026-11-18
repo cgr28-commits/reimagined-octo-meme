@@ -14,7 +14,7 @@ const heading = new Element(), action = new Element(), header = new Element();
 heading.getBoundingClientRect = () => { measurements++; return { top: 1000 - y, bottom: 1020 - y }; };
 action.getBoundingClientRect = () => ({ top: 1700 + actionShift - y, bottom: 1756 + actionShift - y });
 header.getBoundingClientRect = () => ({ top: 0, bottom: 72 });
-const root = { style: { scrollBehavior: "smooth", overflowAnchor: "auto" }, clientHeight: 844, scrollHeight: 5000 };
+const root = { hasAttribute: () => false, style: { scrollBehavior: "smooth", overflowAnchor: "auto" }, clientHeight: 844, scrollHeight: 5000 };
 const win = {
   get scrollY() { return y; }, innerHeight: 844,
   visualViewport: { get height() { return height; }, offsetTop: 0 },

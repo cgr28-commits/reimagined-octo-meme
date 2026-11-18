@@ -812,9 +812,9 @@ async function main() {
     "",
   ].join("\n");
 
-  mkdirSync("/opt/cursor/artifacts", { recursive: true });
+  mkdirSync("test-results/voice", { recursive: true });
   writeFileSync("docs/fonio-e2e-integration-report.md", report);
-  writeFileSync("/opt/cursor/artifacts/fonio-e2e-integration-report.md", report);
+  writeFileSync("test-results/voice/fonio-e2e-integration-report.md", report);
   console.log(`\nScore: ${pass} PASS · ${fail} FAIL · ${blocked} BLOCKED`);
   console.log("Wrote docs/fonio-e2e-integration-report.md");
 
