@@ -30,12 +30,10 @@ function bookingButton(page) {
   : page.locator('#quote-book-now-button:visible');
 }
 async function expectSelectedFare(page, amount) {
- if (frontendVersion === 'old') {
-  await page.getByRole('button', {name: new RegExp('BOOK THIS TRANSFER.*£' + String(amount).replace('.', '[.]') + '$')}).waitFor();
- } else {
-  await page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText('£' + amount, {exact: true}).first().waitFor();
-  await bookingButton(page).waitFor();
- }
+ const legacyFare = page.getByRole('button', {name: new RegExp('BOOK THIS TRANSFER.*£' + String(amount).replace('.', '[.]') + '$')});
+ const vehicleFare = page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText('£' + amount, {exact:true});
+ await legacyFare.or(vehicleFare).filter({visible:true}).first().waitFor();
+ await bookingButton(page).waitFor();
 }
 async function chooseTerminalAccess(page,airport){if(frontendVersion==='new'&&airport!=='DUB')await page.locator('[data-terminal-access] input[value="express"]').check();}
 async function main(){try{
