@@ -10,10 +10,12 @@ Customers can book at any time, and they all go through the same steps: Instant 
 | 07:00–23:00 | 4–12h | Owner approval, 30-minute deadline |
 | 07:00–23:00 | 2–4h | Owner approval, 15-minute deadline |
 | 07:00–23:00 | under 2h | Owner approval, 5-minute deadline |
-| 23:00–07:00 | any | Owner approval (12h or more: 30 minutes; shorter: the tiers above) |
+| 23:00–07:00 | same-day pickup, 12h or more | Owner approval, 30-minute deadline |
+| 23:00–07:00 | later-date pickup, 12h or more | Confirmed automatically after the Stripe payment is verified |
+| Any time | under 12h | Owner approval using the lead-time tiers above |
 
-- Approval time only counts between 07:00 and 23:00. A request sent overnight starts its clock at 07:00. A window that starts at 22:50 gets 10 minutes that evening and the rest from 07:00.
-- A request is never confirmed automatically just because the night has ended.
+- For overnight manual requests, approval time only counts between 07:00 and 23:00. A request submitted overnight starts its clock at 07:00. A window that starts at 22:50 gets 10 minutes that evening and the rest from 07:00.
+- A pending request is never confirmed automatically just because the night has ended.
 - The deadline is never after pickup. If it would be, the request is turned down gracefully and any card authorisation is released.
 - The existing "minimum lead time" setting still rejects pickups that are too close.
 - The source code is in `shared/approval-policy.ts`, tested by `scripts/check-approval-policy.ts`.

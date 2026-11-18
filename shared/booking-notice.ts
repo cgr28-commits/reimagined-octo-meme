@@ -7,7 +7,7 @@
 
 import { hoursUntilPickup } from "./refund-ops";
 import { isPickupTooSoonForOwnerOvernight } from "./owner-quiet-hours";
-import { isOvernight } from "./approval-policy";
+import { isOvernightSubmissionForSameDayPickup } from "./approval-policy";
 import { parseLondonLocalDateTime, parseLondonLocalIso, UK_TIME_ZONE } from "./uk-time";
 
 /**
@@ -297,8 +297,8 @@ export function isWithinMinimumBookingNotice(
 ): boolean {
   const hours = hoursUntilPickup(tripDate, tripTime, now);
   if (hours == null) return false;
-  // 24/7 approval policy: every request sent overnight (23:00–07:00 UK) needs owner approval.
-  if (hours > 0 && isOvernight(now)) return true;
+  // An overnight submission forces owner approval only for a pickup on that same UK date.
+  if (hours > 0 && isOvernightSubmissionForSameDayPickup(tripDate, now)) return true;
   return hours < configuredNoticeHours(noticeHours);
 }
 
@@ -322,7 +322,10 @@ export function classifyPickupLeadWindow(
   const notice = configuredNoticeHours(noticeHours);
   const lead = clampShortNoticeLeadHours(leadHours, notice);
   if (hours < lead) return "too_soon";
-  if (hours < notice || isOvernight(now)) {
+  if (
+    hours < notice ||
+    isOvernightSubmissionForSameDayPickup(tripDate, now)
+  ) {
     // Approval can't finish before pickup (e.g. overnight, clock starts 07:00).
     return isPickupTooSoonForOwnerOvernight(tripDate, tripTime, now) ? "too_soon" : "short_notice";
   }
