@@ -1,21 +1,17 @@
 /**
- * Empty Run discount (pre-pickup positioning).
- *
- * When a confirmed job starts far from home (e.g. a Dublin Airport pickup at
- * 17:30 on Sunday), the driver would otherwise drive down empty. A new
- * customer whose journey goes the same way and arrives in time for that
- * pickup fills the empty run, so we can offer them a cheaper fare.
+ * Empty Run discount for empty legs on the Belfast–Dublin corridor.
+ * A customer can fill the approach to a distant confirmed pickup, or the
+ * return toward base after a confirmed drop-off, including stops along route.
  *
  * Pure function. No KV, no network. The Worker loads the settings and the
- * confirmed jobs and calls this. OFF unless the owner switches it on.
+ * confirmed jobs and calls this. Enabled by the owner setting; fail-open if unavailable.
  *
  * Rules
  * - One-way only, same diary (owner car ↔ owner car, Business Class ↔ Business Class).
- * - Customer pickup within `maxPickupFromBaseMiles` of home (the empty run starts at home).
- * - Customer drop-off within `maxDropoffFromParentMiles` of the confirmed job's pickup.
- * - Confirmed job's pickup at least `minParentDistanceMiles` from home (long empty runs only).
- * - Customer must arrive between `maxIdleMinutes` and `arrivalBufferMinutes`
- *   before the confirmed pickup.
+ * - Customer route must align with the base↔confirmed-job corridor; route stops
+ *   are allowed within the configured corridor tolerances.
+ * - A confirmed job endpoint is at least `minParentDistanceMiles` from home.
+ * - Approach trips arrive before the job; return trips start after it finishes.
  * - Discount applies to the journey fare only (incl. any surcharge). Airport
  *   fees stay full. Total never goes below `minFareGbp`; if the normal fare is
  *   already at or below the floor there is no discount.
@@ -151,7 +147,7 @@ function isCancelled(job: SmartOccupiedJob): boolean {
 }
 
 export type EmptyRunMatch =
-  | { kind: "fits"; job: SmartOccupiedJob }
+  | { kind: "fits"; job: SmartOccupiedJob; direction?: "to_parent" | "from_parent" }
   | {
       kind: "move_time";
       job: SmartOccupiedJob;
@@ -177,6 +173,20 @@ function londonParts(ms: number): { date: string; time: string } {
 
 const QUARTER_MS = 15 * 60_000;
 
+function routePosition(point: SmartCoords, start: SmartCoords, end: SmartCoords): { progress: number; deviationMiles: number } {
+  const dx = (end.lng - start.lng) * 54.6;
+  const dy = (end.lat - start.lat) * 69;
+  const px = (point.lng - start.lng) * 54.6;
+  const py = (point.lat - start.lat) * 69;
+  const length2 = dx * dx + dy * dy;
+  const progress = length2 > 0.001 ? (px * dx + py * dy) / length2 : 0;
+  const t = Math.max(0, Math.min(1, progress));
+  const projected = { lat: start.lat + t * (end.lat - start.lat), lng: start.lng + t * (end.lng - start.lng) };
+  // The route engine's road-mile estimate is straight-line distance × 1.48.
+  const deviationMiles = roadMilesEstimate(point, projected) / 1.48;
+  return { progress, deviationMiles };
+}
+
 /**
  * Find the confirmed job whose empty run this request fills.
  * "fits": the requested time works. "move_time": same route would work at
@@ -196,7 +206,6 @@ export function matchEmptyRun(input: {
   const reqDropoff = pointFor(request.dropoff, request.dropoffLabel, request.fromAirport ? null : request.airportCode);
   const reqStart = parseLondonLocalDateTime(request.tripDate, request.tripTime);
   if (!reqPickup || !reqDropoff || !reqStart || !(request.durationMinutes > 0)) return null;
-  if (roadMilesEstimate(base, reqPickup) > settings.maxPickupFromBaseMiles) return null;
   // Airport pickups: the time is the flight landing time and up to 60 minutes'
   // free waiting is included, so plan for leaving the airport an hour later.
   const airportWaitMinutes = request.fromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
@@ -213,23 +222,52 @@ export function matchEmptyRun(input: {
     }
   };
 
-  let fit: { job: SmartOccupiedJob; idle: number } | null = null;
+  let fit: { job: SmartOccupiedJob; idle: number; direction: "to_parent" | "from_parent" } | null = null;
   let move: { job: SmartOccupiedJob; startMs: number; shift: number } | null = null;
   for (const job of input.occupied) {
     if (isCancelled(job)) continue;
     if (occupiedJobResource(job) !== reqResource) continue;
     const jobPickup = pointFor(job.pickup, job.pickupLabel, job.isFromAirport ? job.airportCode : null);
+    const jobDropoff = pointFor(job.dropoff, job.dropoffLabel, job.isFromAirport ? null : job.airportCode);
     const jobStart = parseLondonLocalDateTime(job.tripDate, job.tripTime);
-    if (!jobPickup || !jobStart) continue;
+    if (!jobPickup || !jobDropoff || !jobStart) continue;
     if (job.tripDate !== request.tripDate) continue;
-    if (roadMilesEstimate(base, jobPickup) < settings.minParentDistanceMiles) continue;
-    if (roadMilesEstimate(reqDropoff, jobPickup) > settings.maxDropoffFromParentMiles) continue;
+    const preDistance = roadMilesEstimate(base, jobPickup);
+    const postDistance = roadMilesEstimate(base, jobDropoff);
+    if (Math.max(preDistance, postDistance) < settings.minParentDistanceMiles) continue;
+
+    // Fill the outbound positioning leg: base → passenger → confirmed pickup.
+    const prePickup = routePosition(reqPickup, base, jobPickup);
+    const preDrop = routePosition(reqDropoff, base, jobPickup);
+    const preAligned = prePickup.progress >= -0.12 && prePickup.progress < preDrop.progress &&
+      preDrop.progress >= 0.05 && preDrop.progress <= 1.12 &&
+      prePickup.deviationMiles <= settings.maxPickupFromBaseMiles &&
+      preDrop.deviationMiles <= settings.maxDropoffFromParentMiles;
     const idleMinutes = (jobStart.getTime() - arrivalMs) / 60_000;
-    const askedFits = idleMinutes >= settings.arrivalBufferMinutes && idleMinutes <= settings.maxIdleMinutes;
+    const askedFits = preAligned && idleMinutes >= settings.arrivalBufferMinutes && idleMinutes <= settings.maxIdleMinutes;
     if (askedFits && available(request.tripDate, request.tripTime)) {
-      if (!fit || idleMinutes < fit.idle) fit = { job, idle: idleMinutes };
+      if (!fit || idleMinutes < fit.idle) fit = { job, idle: idleMinutes, direction: "to_parent" };
       continue;
     }
+
+    // Fill the return leg after a Belfast → Dublin job: passenger pickup near
+    // the confirmed drop-off, then travel toward base along the same corridor.
+    const postPickup = routePosition(reqPickup, jobDropoff, base);
+    const postDrop = routePosition(reqDropoff, jobDropoff, base);
+    const postAligned = roadMilesEstimate(reqPickup, jobDropoff) <= settings.maxDropoffFromParentMiles &&
+      postPickup.progress >= -0.12 && postPickup.progress < postDrop.progress &&
+      postDrop.progress >= 0.05 && postDrop.progress <= 1.12 &&
+      postDrop.deviationMiles <= settings.maxPickupFromBaseMiles;
+    const jobAirportWait = job.isFromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
+    const jobEndMs = jobStart.getTime() + (Math.max(1, job.durationMinutes) + jobAirportWait) * 60_000;
+    const requestAirportWait = request.fromAirport ? AIRPORT_PICKUP_WAIT_MINUTES : 0;
+    const afterJobMinutes = (reqStart.getTime() + requestAirportWait * 60_000 - jobEndMs) / 60_000;
+    if (postAligned && afterJobMinutes >= 0 && afterJobMinutes <= settings.maxIdleMinutes && available(request.tripDate, request.tripTime)) {
+      if (!fit || afterJobMinutes < fit.idle) fit = { job, idle: afterJobMinutes, direction: "from_parent" };
+      continue;
+    }
+    // Only pre-pickup trips receive alternative-time suggestions.
+    if (!preAligned) continue;
     // Qualifying pickup window for this job, in quarter hours inside it.
     const latestStart = Math.floor((jobStart.getTime() - settings.arrivalBufferMinutes * 60_000 - durationMs) / QUARTER_MS) * QUARTER_MS;
     const earliestStart = Math.ceil((jobStart.getTime() - settings.maxIdleMinutes * 60_000 - durationMs) / QUARTER_MS) * QUARTER_MS;
@@ -261,7 +299,7 @@ export function matchEmptyRun(input: {
       break;
     }
   }
-  if (fit) return { kind: "fits", job: fit.job };
+  if (fit) return { kind: "fits", job: fit.job, direction: fit.direction };
   if (move) {
     const suggested = londonParts(move.startMs);
     return {

@@ -748,8 +748,8 @@ export async function handleQuoteCalculateRequest(
     }
   }
 
-  // Empty Run: cheaper fare when this journey fills the empty drive to a
-  // confirmed far-away pickup. Owner switch, OFF by default, fail-open.
+  // Empty Run: cheaper fare when this journey fills a confirmed empty
+  // Belfast–Dublin corridor leg in either direction. Owner switch, fail-open.
   let emptyRun: Awaited<ReturnType<typeof evaluateEmptyRunSafely>> = null;
   // Airport-to-airport one-ways count too (e.g. Belfast City → Dublin Airport).
   if (result.ok && !ownerMode) {

@@ -59,9 +59,9 @@ function EmptyRunSwitch({ ownerKey }: { ownerKey: string }) {
         <div>
           <p className="text-sm font-bold text-white">Empty Run discount</p>
           <p className="mt-1 text-xs leading-snug text-white/70">
-            When you have a confirmed pickup far from home (e.g. Dublin Airport), customers going that way
-            before it get up to {settings?.maxDiscountPercent ?? 25}% off (never below £{settings?.minFareGbp ?? 185}).
-            Customers asking for a time that doesn&apos;t fit see their normal price plus a cheaper time to switch to.
+            When a confirmed job leaves an empty Belfast–Dublin corridor leg, eligible one-way journeys
+            toward the pickup or back toward base can get up to {settings?.maxDiscountPercent ?? 25}% off
+            (never below £{settings?.minFareGbp ?? 185}). Airport fees stay full price.
           </p>
         </div>
         <button
@@ -225,10 +225,9 @@ export default function OwnerEmptyLegsPanel({ ownerKey }: OwnerEmptyLegsPanelPro
       <div className="rounded-2xl border border-amber-200/25 bg-amber-100/10 p-4">
         <p className="text-sm font-bold text-amber-100">Table below: read-only preview (the Empty Run switch above is the only live discount)</p>
         <p className="mt-2 text-sm text-white/75">
-          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. Simulation only: max discount{" "}
-          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.maxDiscountPercent}%, Belfast–Dublin journey floor £
-          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.minAcceptableFareGbp}. Post-drop-off and pre-pickup are both
-          listed; only post-drop-off can be priced. Airport fees and Estate stay unchanged with no stacking. Live Smart Return stays locked OFF.
+          {EMPTY_LEGS_PREVIEW_ASSUMPTIONS.label}. The table remains a simulation; the Empty Run switch above
+          controls live corridor offers in both directions. Live offers use the switch&apos;s discount and fare floor.
+          Airport fees and Estate stay unchanged; offers do not stack with the 5% same-booking return discount.
         </p>
         <p className="mt-2 text-xs text-white/55">
           Contribution = discounted revenue − incremental costs (detour + passenger airport fees).
