@@ -2,17 +2,14 @@
 
 /**
  * Driver portal — individual accounts (Stage 1) and jobs (Stage 2, see DriverJobs).
- * Sign in with a single-use link from the office, apply, add documents, set availability,
+ * Sign in with a single-use link from the office, apply, set availability,
  * answer offers, run jobs and contact the office. Earnings arrive in a later stage.
  */
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "@/components/owner-mobile/OwnerMobile.module.css";
 import {
-  DOCUMENT_OPTIONS,
   MESSAGE_OPTIONS,
   DriverAccountsError,
-  documentStateLabel,
-  documentStateTone,
   driverAccount,
   readDriverSession,
   storeDriverSession,
@@ -188,10 +185,10 @@ function SignedOut({ message }: { message?: string }) {
 
 function ApplyForm({ token, onApplied }: { token: string; onApplied: (session: string) => void }) {
   const [mobile, setMobile] = useState("");
-  const [operatorName, setOperatorName] = useState("");
-  const [operatorLicenceNumber, setOperatorLicenceNumber] = useState("");
-  const [vehicleSummary, setVehicleSummary] = useState("");
-  const [confirm, setConfirm] = useState(false);
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleColour, setVehicleColour] = useState("");
+  const [vehicleReg, setVehicleReg] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -204,7 +201,7 @@ function ApplyForm({ token, onApplied }: { token: string; onApplied: (session: s
         setBusy(true);
         setError("");
         try {
-          const res = await driverAccount.acceptInvite({ token, mobile, operatorName, operatorLicenceNumber, vehicleSummary, confirmOwnOperatorLicence: confirm });
+          const res = await driverAccount.acceptInvite({ token, mobile, vehicleMake, vehicleModel, vehicleColour, vehicleReg });
           onApplied(res.sessionToken);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Could not send your application.");
@@ -214,25 +211,25 @@ function ApplyForm({ token, onApplied }: { token: string; onApplied: (session: s
       }}
     >
       <p style={{ margin: 0, fontSize: 15, color: "#33445C", lineHeight: 1.5 }}>
-        Partner drivers work under their own taxi operator licence. Add your details, then your documents for the office to check.
+        Add the contact and vehicle details we use to offer you jobs and send your details to customers.
       </p>
       <Field label="Mobile">
-        <input style={inputStyle} type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="tel" />
+        <input style={inputStyle} type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} autoComplete="tel" required />
       </Field>
-      <Field label="Operator name" hint="As it appears on your operator licence">
-        <input style={inputStyle} value={operatorName} onChange={(e) => setOperatorName(e.target.value)} required />
+      <Field label="Vehicle make">
+        <input style={inputStyle} value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} required />
       </Field>
-      <Field label="Operator licence number">
-        <input style={inputStyle} value={operatorLicenceNumber} onChange={(e) => setOperatorLicenceNumber(e.target.value)} required />
+      <Field label="Vehicle model">
+        <input style={inputStyle} value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} required />
       </Field>
-      <Field label="Vehicle (optional)" hint="e.g. Skoda Superb, 4 passengers">
-        <input style={inputStyle} value={vehicleSummary} onChange={(e) => setVehicleSummary(e.target.value)} />
+      <Field label="Vehicle colour">
+        <input style={inputStyle} value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} required />
       </Field>
-      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, color: "#071C38", fontWeight: 600 }}>
-        <input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} style={{ width: 22, height: 22, marginTop: 1 }} />I hold my own valid taxi operator licence and hire &amp; reward insurance.
-      </label>
+      <Field label="Vehicle registration">
+        <input style={inputStyle} value={vehicleReg} onChange={(e) => setVehicleReg(e.target.value.toUpperCase())} autoCapitalize="characters" required />
+      </Field>
       {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
-      <button type="submit" className={styles.emeraldButton} disabled={busy || !confirm || !operatorName.trim() || !operatorLicenceNumber.trim()}>
+      <button type="submit" className={styles.emeraldButton} disabled={busy || !mobile.trim() || !vehicleMake.trim() || !vehicleModel.trim() || !vehicleColour.trim() || !vehicleReg.trim()}>
         {busy ? "Sending…" : "Send application"}
       </button>
     </form>
@@ -256,8 +253,6 @@ function Home({
   const approved = d.status === "approved";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [addingDoc, setAddingDoc] = useState(false);
-  const attention = me.summary.filter((s) => s.required && s.state !== "valid");
   const [tab, setTab] = useState<"jobs" | "account">("jobs");
   const showAccount = !approved || tab === "account";
 
@@ -281,7 +276,7 @@ function Home({
         <div className={styles.segmented} role="tablist" aria-label="Jobs or account">
           {(["jobs", "account"] as const).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className={`${styles.segment} ${tab === t ? styles.segmentActive : ""}`} onClick={() => setTab(t)} data-portal-tab={t}>
-              {t === "jobs" ? "Jobs" : `Account${attention.length ? ` · ${attention.length}` : ""}`}
+              {t === "jobs" ? "Jobs" : "Account"}
             </button>
           ))}
         </div>
@@ -289,7 +284,7 @@ function Home({
       {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
       {!approved ? (
         <div className={`${styles.notice} ${styles.amber}`}>
-          Your application is with the office. Add your documents below — you&apos;ll be able to go available once you&apos;re approved.
+          Your details are with the office. You&apos;ll be able to go available once your account is approved.
         </div>
       ) : (
         <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 12 }}>
@@ -318,11 +313,6 @@ function Home({
 
       {approved && tab === "jobs" ? (
         <>
-          {attention.length ? (
-            <div className={`${styles.notice} ${styles.amber}`}>
-              {attention.length} document{attention.length === 1 ? "" : "s"} need sorting before you can take new work. See Account.
-            </div>
-          ) : null}
           <DriverJobs session={session} onToast={onToast} />
           <ContactOffice me={me} session={session} onToast={onToast} />
         </>
@@ -330,53 +320,8 @@ function Home({
 
       {showAccount ? (
       <>
-      <section className={styles.card} style={{ overflow: "hidden" }}>
-        <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
-          Documents{attention.length ? ` · ${attention.length} to sort` : ""}
-        </h2>
-        {me.summary.map((item) => {
-          const doc = me.documents.find((x) => x.kind === item.kind && x.status === "rejected");
-          return (
-            <div key={item.kind} className={styles.row} style={{ cursor: "default" }}>
-              <span className={styles.rowBody}>
-                <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
-                  {item.label}
-                </span>
-                {item.required ? null : <span className={styles.rowDetail}>Optional</span>}
-                {item.state === "rejected" && doc?.reviewNote ? (
-                  <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
-                    {doc.reviewNote}
-                  </span>
-                ) : null}
-              </span>
-              <span className={`${styles.chip} ${styles[documentStateTone(item.state)]}`}>{documentStateLabel(item.state, item.expiresOn)}</span>
-            </div>
-          );
-        })}
-        <div style={{ padding: 16 }}>
-          {addingDoc ? (
-            <AddDocument
-              session={session}
-              onDone={async (added) => {
-                setAddingDoc(false);
-                if (added) {
-                  onToast("Sent to the office to check");
-                  await onChanged();
-                }
-              }}
-            />
-          ) : (
-            <button type="button" className={styles.secondaryButton} style={{ width: "100%" }} onClick={() => setAddingDoc(true)}>
-              Add or renew a document
-            </button>
-          )}
-        </div>
-      </section>
-
       <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 8 }}>
         <h2 className={styles.sectionTitle}>Profile</h2>
-        <Row label="Operator" value={d.operatorName || "—"} />
-        <Row label="Operator licence" value={d.operatorLicenceNumber || "—"} />
         <Row label="Vehicle" value={d.vehicleSummary || "—"} />
         {approved ? <Row label="Registration" value={d.vehicleReg || "Not added yet"} /> : null}
         <Row label="Mobile" value={d.mobile || "—"} />
@@ -503,56 +448,5 @@ function ContactOffice({ me, session, onToast }: { me: DriverMe; session: string
       )}
       <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>For an emergency on the road, call 999 first.</p>
     </section>
-  );
-}
-
-function AddDocument({ session, onDone }: { session: string; onDone: (added: boolean) => void }) {
-  const [kind, setKind] = useState(DOCUMENT_OPTIONS[0].kind);
-  const [reference, setReference] = useState("");
-  const [expiresOn, setExpiresOn] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <Field label="Document">
-        <select style={inputStyle} value={kind} onChange={(e) => setKind(e.target.value)}>
-          {DOCUMENT_OPTIONS.map((o) => (
-            <option key={o.kind} value={o.kind}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Licence or policy number">
-        <input style={inputStyle} value={reference} onChange={(e) => setReference(e.target.value)} />
-      </Field>
-      <Field label="Expiry date">
-        <input style={inputStyle} type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
-      </Field>
-      <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Photo upload is coming. For now, show the original to the office.</p>
-      {error ? <div className={`${styles.notice} ${styles.red}`}>{error}</div> : null}
-      <button
-        type="button"
-        className={styles.primaryButton}
-        disabled={busy || !expiresOn}
-        onClick={async () => {
-          setBusy(true);
-          setError("");
-          try {
-            await driverAccount.submitDocument(session, { kind, reference, expiresOn });
-            onDone(true);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : "Could not add the document.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        Send to the office
-      </button>
-      <button type="button" className={styles.secondaryButton} onClick={() => onDone(false)}>
-        Cancel
-      </button>
-    </div>
   );
 }
