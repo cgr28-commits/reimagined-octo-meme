@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 15305)
-Total output lines: 1371
-
 /**
  * Driver accounts and jobs.
  *
@@ -8,10 +5,9 @@ Total output lines: 1371
  * reinstate / remove, availability flag, single-use sign-in links, individual sessions,
  * Contact Office message fallback, private driver-support number, permanent audit log.
  *
- * Out of scope (later stages): jobs, offers, money, notifications, file uploads.
- *
  * Only active when the Worker has a DRIVER_DB (D1) binding.
  */
+
 import { listSavedDriverVehicleProfiles } from "./driver-vehicle-store";
 import type { DriverVehicleProfile } from "../shared/driver-vehicle";
 
@@ -514,7 +510,456 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
     const docs = (await db.prepare("SELECT * FROM driver_documents WHERE status <> 'superseded'").all<DocumentRow>()).results ?? [];
     const unread = (await db
       .prepare(
-        "SELECT driver_id, COUNT(*) AS n, SUM(CASE WHEN priority = 'urgent' AND handled_at IS NULL THEN 1 ELSE 0 END) AS urgent FROM driver_offi…5305 tokens truncated…t_items SET status = ?, status_note = ?, status_detail = ?, status_at = ? WHERE id = ? AND status = ?")
+        "SELECT driver_id, COUNT(*) AS n, SUM(CASE WHEN priority = 'urgent' AND handled_at IS NULL THEN 1 ELSE 0 END) AS urgent FROM driver_office_messages WHERE read_at IS NULL OR (priority = 'urgent' AND handled_at IS NULL) GROUP BY driver_id",
+      )
+      .all<{ driver_id: string; n: number; urgent: number }>()).results ?? [];
+    const unreadBy = new Map(unread.map((r) => [r.driver_id, { n: Number(r.n), urgent: Number(r.urgent ?? 0) }]));
+    const rows = drivers.map((d) => {
+      const mine = docs.filter((doc) => doc.driver_id === d.id);
+      const counts = unreadBy.get(d.id) ?? { n: 0, urgent: 0 };
+      return {
+        ...ownerDriverView(d),
+        documents: documentSummary(mine, today),
+        attention: attentionFor(d, mine, today),
+        unreadMessages: counts.n,
+        urgentMessages: counts.urgent,
+        canReceiveOffers: canReceiveOffers(d, mine, today),
+      };
+    });
+    // Urgent reports first, then unread messages, then anything needing attention.
+    const rank = (r: (typeof rows)[number]) => (r.urgentMessages ? 0 : r.unreadMessages ? 1 : r.attention.length ? 2 : 3);
+    rows.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    return json({ ok: true, drivers: rows, alerts: await openAlerts(db) }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/summary" && request.method === "GET") {
+    const urgent = (await db
+      .prepare(
+        "SELECT m.id, m.driver_id, d.name AS driver_name, m.category, m.body, m.created_at FROM driver_office_messages m JOIN drivers d ON d.id = m.driver_id WHERE m.priority = 'urgent' AND m.handled_at IS NULL AND d.status <> 'removed' ORDER BY m.created_at DESC LIMIT 20",
+      )
+      .all<{ id: string; driver_id: string; driver_name: string; category: string; body: string; created_at: string }>()).results ?? [];
+    const unread = await db
+      .prepare("SELECT COUNT(*) AS n FROM driver_office_messages m JOIN drivers d ON d.id = m.driver_id WHERE m.read_at IS NULL AND d.status <> 'removed'")
+      .first<{ n: number }>();
+    return json(
+      {
+        ok: true,
+        unreadMessages: Number(unread?.n ?? 0),
+        urgent: urgent.map((m) => ({
+          id: m.id,
+          driverId: m.driver_id,
+          driverName: m.driver_name,
+          category: m.category,
+          categoryLabel: categoryLabel(m.category),
+          body: m.body,
+          createdAt: m.created_at,
+        })),
+        alerts: await openAlerts(db),
+      },
+      200,
+      cors,
+    );
+  }
+
+  if (path === "/owner/driver-accounts/detail" && request.method === "GET") {
+    const id = text(url.searchParams.get("id"), 64);
+    const driver = await getDriver(db, id);
+    if (!driver) throw new HttpError(404, "Driver not found.");
+    const docs = await getDocuments(db, id);
+    const audit = (await db
+      .prepare("SELECT seq, at, actor_type, action, detail FROM audit_log WHERE driver_id = ? ORDER BY seq DESC LIMIT 100")
+      .bind(id)
+      .all<{ seq: number; at: string; actor_type: string; action: string; detail: string }>()).results ?? [];
+    const messages = (await db
+      .prepare(
+        "SELECT id, body, created_at, read_at, priority, category, handled_at FROM driver_office_messages WHERE driver_id = ? ORDER BY CASE WHEN priority = 'urgent' AND handled_at IS NULL THEN 0 ELSE 1 END, created_at DESC LIMIT 50",
+      )
+      .bind(id)
+      .all<{ id: string; body: string; created_at: string; read_at: string | null; priority: string; category: string; handled_at: string | null }>()).results ?? [];
+    return json(
+      {
+        ok: true,
+        driver: ownerDriverView(driver),
+        documents: docs.map((d) => publicDocument(d, today)),
+        summary: documentSummary(docs, today),
+        attention: attentionFor(driver, docs, today),
+        missingForApproval: missingForApproval(docs, today),
+        audit: audit.map((a) => ({ ...a, detail: safeParse(a.detail) })),
+        messages: messages.map((m) => ({
+          id: m.id,
+          body: m.body,
+          createdAt: m.created_at,
+          readAt: m.read_at,
+          urgent: m.priority === "urgent",
+          category: m.category,
+          categoryLabel: categoryLabel(m.category),
+          handledAt: m.handled_at,
+        })),
+        canReceiveOffers: canReceiveOffers(driver, docs, today),
+        alerts: (await openAlerts(db)).filter((a) => a.driverId === id),
+      },
+      200,
+      cors,
+    );
+  }
+
+  if (path === "/owner/driver-accounts/invite" && request.method === "POST") {
+    const body = await readJson(request);
+    const name = text(body.name, 80);
+    const email = text(body.email, 120).toLowerCase();
+    const mobileRaw = text(body.mobile, 30);
+    const mobile = mobileRaw ? normaliseUkPhone(mobileRaw) : "";
+    if (!name) throw new HttpError(400, "Enter the driver's name.");
+    if (!isEmail(email)) throw new HttpError(400, "Enter a valid email address.");
+    if (mobileRaw && !mobile) throw new HttpError(400, "Enter a valid UK mobile number.");
+    const existing = await db
+      .prepare("SELECT id FROM drivers WHERE lower(email) = ? AND status <> 'removed'")
+      .bind(email)
+      .first<{ id: string }>();
+    if (existing) throw new HttpError(409, "A driver with this email already exists.", { driverId: existing.id });
+    const id = newId("drv");
+    const token = ctx.token("dinv_");
+    const expires = new Date(ctx.now().getTime() + INVITE_TTL_MS).toISOString();
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO drivers (id, name, email, mobile, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'invited', ?, ?)",
+        )
+        .bind(id, name, email, mobile, at, at),
+      db
+        .prepare("INSERT INTO driver_links (token_hash, driver_id, purpose, created_at, expires_at) VALUES (?, ?, 'invite', ?, ?)")
+        .bind(await hashToken(token), id, at, expires),
+      auditStatement(db, at, "owner", "owner", "driver.invited", id, { name, email }),
+    ]);
+    // Stage 1 sends nothing: the owner copies the link and shares it personally.
+    return json({ ok: true, driverId: id, inviteToken: token, expiresAt: expires }, 201, cors);
+  }
+
+  if (path === "/owner/driver-accounts/sign-in-link" && request.method === "POST") {
+    const body = await readJson(request);
+    const driver = await getDriver(db, text(body.driverId, 64));
+    if (!driver) throw new HttpError(404, "Driver not found.");
+    if (driver.status !== "approved" && driver.status !== "applied") {
+      throw new HttpError(409, `A ${driver.status} driver cannot sign in.`);
+    }
+    const token = ctx.token("dsig_");
+    const expires = new Date(ctx.now().getTime() + SIGN_IN_TTL_MS).toISOString();
+    await db.batch([
+      // Only the newest sign-in link works.
+      db
+        .prepare("UPDATE driver_links SET used_at = ? WHERE driver_id = ? AND purpose = 'sign_in' AND used_at IS NULL")
+        .bind(at, driver.id),
+      db
+        .prepare("INSERT INTO driver_links (token_hash, driver_id, purpose, created_at, expires_at) VALUES (?, ?, 'sign_in', ?, ?)")
+        .bind(await hashToken(token), driver.id, at, expires),
+      auditStatement(db, at, "owner", "owner", "driver.sign_in_link_created", driver.id),
+    ]);
+    return json({ ok: true, signInToken: token, expiresAt: expires }, 201, cors);
+  }
+
+  if (path === "/owner/driver-accounts/status" && request.method === "POST") {
+    const body = await readJson(request);
+    const action = text(body.action, 20);
+    const reason = text(body.reason, 300);
+    const driver = await getDriver(db, text(body.driverId, 64));
+    if (!driver) throw new HttpError(404, "Driver not found.");
+    return json(await changeStatus(ctx, driver, action, reason), 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/document-review" && request.method === "POST") {
+    const body = await readJson(request);
+    const decision = text(body.decision, 10);
+    const note = text(body.note, 300);
+    if (decision !== "accept" && decision !== "reject") throw new HttpError(400, "Choose accept or reject.");
+    if (decision === "reject" && !note) throw new HttpError(400, "Give a reason so the driver knows what to fix.");
+    const doc = await db
+      .prepare("SELECT * FROM driver_documents WHERE id = ?")
+      .bind(text(body.documentId, 64))
+      .first<DocumentRow>();
+    if (!doc) throw new HttpError(404, "Document not found.");
+    if (doc.status !== "pending") throw new HttpError(409, "This document has already been reviewed.");
+    if (decision === "accept" && daysBetween(today, doc.expires_on) < 0) {
+      throw new HttpError(409, "This document has expired and cannot be accepted.");
+    }
+    const statements = [
+      db
+        .prepare("UPDATE driver_documents SET status = ?, review_note = ?, reviewed_at = ? WHERE id = ? AND status = 'pending'")
+        .bind(decision === "accept" ? "accepted" : "rejected", note, at, doc.id),
+      auditStatement(db, at, "owner", "owner", `document.${decision === "accept" ? "accepted" : "rejected"}`, doc.driver_id, {
+        documentId: doc.id,
+        kind: doc.kind,
+        expiresOn: doc.expires_on,
+        note,
+      }),
+    ];
+    if (decision === "accept") {
+      statements.unshift(
+        db
+          .prepare(
+            "UPDATE driver_documents SET status = 'superseded' WHERE driver_id = ? AND kind = ? AND id <> ? AND status IN ('accepted','pending','rejected')",
+          )
+          .bind(doc.driver_id, doc.kind, doc.id),
+      );
+    }
+    await db.batch(statements);
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/messages/read" && request.method === "POST") {
+    const body = await readJson(request);
+    const driverId = text(body.driverId, 64);
+    await db
+      .prepare("UPDATE driver_office_messages SET read_at = ? WHERE driver_id = ? AND read_at IS NULL")
+      .bind(at, driverId)
+      .run();
+    // Urgent reports stay at the top until marked handled.
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/messages/handled" && request.method === "POST") {
+    const body = await readJson(request);
+    const messageId = text(body.messageId, 64);
+    const msg = await db
+      .prepare("SELECT id, driver_id, priority, handled_at FROM driver_office_messages WHERE id = ?")
+      .bind(messageId)
+      .first<{ id: string; driver_id: string; priority: string; handled_at: string | null }>();
+    if (!msg) throw new HttpError(404, "Message not found.");
+    if (msg.handled_at) return json({ ok: true }, 200, cors);
+    await db.batch([
+      db.prepare("UPDATE driver_office_messages SET handled_at = ?, read_at = COALESCE(read_at, ?) WHERE id = ?").bind(at, at, msg.id),
+      auditStatement(db, at, "owner", "owner", "message.handled", msg.driver_id, { messageId: msg.id, priority: msg.priority }),
+    ]);
+    // Stage 2: handling the report also closes its repeating owner alert (if that table exists).
+    try {
+      await db
+        .prepare("UPDATE escalations SET closed_at = ?, close_note = 'Report marked handled', acknowledged_at = COALESCE(acknowledged_at, ?), next_notify_at = NULL WHERE source_type = 'message' AND source_id = ? AND closed_at IS NULL")
+        .bind(at, at, msg.id)
+        .run();
+    } catch {
+      /* Stage 1 database without the Stage 2 tables */
+    }
+    return json({ ok: true }, 200, cors);
+  }
+
+  // Only an alert with no listed bookings (the booking check itself failed) can be closed as a whole,
+  // and only with a recorded reason. Alerts that list bookings close when every booking is resolved.
+  if (path === "/owner/driver-accounts/alerts/resolve" && request.method === "POST") {
+    const body = await readJson(request);
+    const alertId = text(body.alertId, 64);
+    const note = text(body.note, 300);
+    const alert = await db
+      .prepare("SELECT id, driver_id, kind, resolved_at FROM owner_alerts WHERE id = ?")
+      .bind(alertId)
+      .first<{ id: string; driver_id: string | null; kind: string; resolved_at: string | null }>();
+    if (!alert) throw new HttpError(404, "Alert not found.");
+    if (alert.resolved_at) return json({ ok: true }, 200, cors);
+    const items = await db.prepare("SELECT COUNT(*) AS n FROM owner_alert_items WHERE alert_id = ?").bind(alert.id).first<{ n: number }>();
+    if (Number(items?.n ?? 0) > 0) {
+      throw new HttpError(409, "Resolve each booking on this alert. It closes when every booking is resolved.");
+    }
+    if (note.length < 5) throw new HttpError(400, "Say what you checked. The reason is kept in the audit log.");
+    await db.batch([
+      db.prepare("UPDATE owner_alerts SET resolved_at = ?, resolution_note = ? WHERE id = ? AND resolved_at IS NULL").bind(at, note, alert.id),
+      auditStatement(db, at, "owner", "owner", "alert.acknowledged", alert.driver_id, { alertId: alert.id, kind: alert.kind, reason: note }),
+    ]);
+    return json({ ok: true }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/alerts/item" && request.method === "POST") {
+    const body = await readJson(request);
+    return json(await updateReviewItem(ctx, text(body.itemId, 64), text(body.status, 30), text(body.note, 300)), 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/audit" && request.method === "GET") {
+    const rows = (await db
+      .prepare("SELECT seq, at, actor_type, actor_id, action, driver_id, detail FROM audit_log ORDER BY seq DESC LIMIT 200")
+      .all<Record<string, unknown> & { detail: string }>()).results ?? [];
+    return json({ ok: true, audit: rows.map((r) => ({ ...r, detail: safeParse(r.detail) })) }, 200, cors);
+  }
+
+  if (path === "/owner/driver-accounts/support-contact") {
+    if (request.method === "GET") {
+      return json({ ok: true, phone: await getSetting(db, "driver_support_phone") }, 200, cors);
+    }
+    if (request.method === "POST") {
+      const body = await readJson(request);
+      const raw = text(body.phone, 30);
+      const phone = raw ? normaliseUkPhone(raw) : "";
+      if (raw && !phone) throw new HttpError(400, "Enter a valid UK phone number.");
+      if (phone === AI_RECEPTIONIST_DIGITS) {
+        throw new HttpError(400, "That is the customer AI receptionist line. Use a separate driver-support number.");
+      }
+      const statements = [
+        phone
+          ? db
+              .prepare(
+                "INSERT INTO owner_settings (key, value, updated_at) VALUES ('driver_support_phone', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+              )
+              .bind(phone, at)
+          : db.prepare("DELETE FROM owner_settings WHERE key = 'driver_support_phone'"),
+        // The number itself is not written to the audit log.
+        auditStatement(db, at, "owner", "owner", phone ? "settings.driver_support_set" : "settings.driver_support_cleared", null),
+      ];
+      await db.batch(statements);
+      return json({ ok: true, phone }, 200, cors);
+    }
+  }
+
+  throw new HttpError(404, "Not found.");
+}
+
+export function categoryLabel(category: string): string {
+  return (MESSAGE_CATEGORIES as Record<string, { label: string }>)[category]?.label ?? "Message";
+}
+
+type AlertRow = { id: string; kind: string; driver_id: string | null; title: string; detail: string; created_at: string };
+
+type ItemRow = {
+  id: string;
+  alert_id: string;
+  booking_reference: string;
+  leg: "outbound" | "return";
+  trip_date: string;
+  trip_time: string;
+  pickup: string;
+  customer_name: string;
+  match_method: "driver_id" | "contact";
+  original_driver_id: string;
+  original_driver_name: string;
+  original_assignment: string;
+  suspension_reason: string;
+  status: ReviewItemStatus;
+  status_note: string;
+  status_detail: string;
+  status_at: string | null;
+  created_at: string;
+};
+
+function itemView(r: ItemRow) {
+  return {
+    id: r.id,
+    reference: r.booking_reference,
+    leg: r.leg,
+    tripDate: r.trip_date,
+    tripTime: r.trip_time,
+    pickup: r.pickup,
+    customerName: r.customer_name,
+    matchMethod: r.match_method,
+    originalDriverId: r.original_driver_id,
+    originalDriverName: r.original_driver_name,
+    originalAssignment: safeParse(r.original_assignment),
+    suspensionReason: r.suspension_reason,
+    status: r.status,
+    statusNote: r.status_note,
+    statusDetail: safeParse(r.status_detail),
+    statusAt: r.status_at,
+  };
+}
+
+async function openAlerts(db: D1Like) {
+  const rows = (await db
+    .prepare("SELECT id, kind, driver_id, title, detail, created_at FROM owner_alerts WHERE resolved_at IS NULL ORDER BY created_at DESC LIMIT 50")
+    .all<AlertRow>()).results ?? [];
+  const out = [];
+  for (const r of rows) {
+    const items = (await db
+      .prepare("SELECT * FROM owner_alert_items WHERE alert_id = ? ORDER BY trip_date, trip_time")
+      .bind(r.id)
+      .all<ItemRow>()).results ?? [];
+    out.push({
+      id: r.id,
+      kind: r.kind,
+      driverId: r.driver_id,
+      title: r.title,
+      detail: safeParse(r.detail),
+      createdAt: r.created_at,
+      items: items.map(itemView),
+      unresolved: items.filter((i) => i.status === "needs_replacement").length,
+    });
+  }
+  return out;
+}
+
+const ITEM_STATUS_LABEL: Record<ReviewItemStatus, string> = {
+  needs_replacement: "Needs replacement",
+  replacement_confirmed: "Replacement confirmed",
+  cancelled: "Cancelled",
+  acknowledged: "Acknowledged",
+};
+
+/**
+ * Record what happened to one affected booking. Never changes the booking itself:
+ * "replacement confirmed" and "cancelled" are only accepted once the booking shows it.
+ */
+async function updateReviewItem(ctx: Ctx, itemId: string, status: string, note: string) {
+  const { db } = ctx;
+  const at = ctx.now().toISOString();
+  if (!(REVIEW_ITEM_STATUSES as readonly string[]).includes(status)) throw new HttpError(400, "Choose a status.");
+  const next = status as ReviewItemStatus;
+  const item = await db.prepare("SELECT * FROM owner_alert_items WHERE id = ?").bind(itemId).first<ItemRow>();
+  if (!item) throw new HttpError(404, "Booking not found on this alert.");
+  const alert = await db
+    .prepare("SELECT id, resolved_at FROM owner_alerts WHERE id = ?")
+    .bind(item.alert_id)
+    .first<{ id: string; resolved_at: string | null }>();
+  if (!alert) throw new HttpError(404, "Alert not found.");
+  if (item.status === next) return { ok: true, status: next, alertResolved: Boolean(alert.resolved_at) };
+  if (alert.resolved_at && next === "needs_replacement") {
+    throw new HttpError(409, "This alert is closed. Raise the booking again from its own page.");
+  }
+
+  let detail: Record<string, unknown> = {};
+  if (next === "acknowledged" || next === "needs_replacement") {
+    if (note.length < 5) throw new HttpError(400, "Give a reason. It is kept with the booking in the audit log.");
+  }
+  if (next === "replacement_confirmed" || next === "cancelled") {
+    if (!ctx.checkBookingAssignment) {
+      throw new HttpError(409, "Can't check the booking right now. Use Acknowledge with a reason instead.");
+    }
+    const driver = await getDriver(db, item.original_driver_id);
+    const check = await ctx.checkBookingAssignment(item.booking_reference, {
+      id: item.original_driver_id,
+      name: item.original_driver_name,
+      email: driver?.email ?? "",
+      mobile: driver?.mobile ?? "",
+    });
+    // Stage 2: a live portal job for this exact journey is the authority on who has it now.
+    try {
+      const live = await db
+        .prepare("SELECT j.driver_id, d.name FROM driver_jobs j JOIN drivers d ON d.id = j.driver_id WHERE j.booking_reference = ? AND j.leg = ? AND j.status IN ('confirmed','on_the_way','arrived')")
+        .bind(item.booking_reference, item.leg)
+        .first<{ driver_id: string; name: string }>();
+      if (live) {
+        check.assignedToThisDriver = live.driver_id === item.original_driver_id;
+        check.otherDriver = check.assignedToThisDriver ? "" : live.name;
+      } else if (check.found) {
+        const released = await db
+          .prepare("SELECT 1 AS x FROM driver_jobs WHERE booking_reference = ? AND leg = ? AND driver_id = ? AND status = 'released'")
+          .bind(item.booking_reference, item.leg, item.original_driver_id)
+          .first<{ x: number }>();
+        // Released in the portal and nobody else has it yet: not this driver's, and no replacement.
+        if (released) { check.assignedToThisDriver = false; check.otherDriver = ""; }
+      }
+    } catch {
+      /* Stage 1 database without the Stage 2 tables */
+    }
+    if (!check.found) throw new HttpError(409, "That booking can't be found. Use Acknowledge with a reason instead.");
+    if (next === "cancelled" && !check.cancelled) {
+      throw new HttpError(409, "The booking isn't cancelled. Cancel it from the booking first — nothing is cancelled automatically.");
+    }
+    if (next === "replacement_confirmed") {
+      if (check.cancelled) throw new HttpError(409, "The booking is cancelled. Choose Cancelled instead.");
+      if (check.assignedToThisDriver) {
+        throw new HttpError(409, `The booking is still assigned to ${item.original_driver_name}. Assign the new driver from the booking first.`);
+      }
+      if (!check.otherDriver) throw new HttpError(409, "No new driver is assigned on the booking yet. Assign one from the booking first.");
+    }
+    detail = { verified: true, otherDriver: check.otherDriver, cancelled: check.cancelled };
+  }
+
+  const statements = [
+    db
+      .prepare("UPDATE owner_alert_items SET status = ?, status_note = ?, status_detail = ?, status_at = ? WHERE id = ? AND status = ?")
       .bind(next, note, JSON.stringify(detail), at, item.id, item.status),
     auditStatement(db, at, "owner", "owner", "booking_review.updated", item.original_driver_id, {
       alertId: item.alert_id,
