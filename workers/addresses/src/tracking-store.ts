@@ -475,6 +475,7 @@ export async function listTrackingJobsForRecentDays(
 export async function findTrackingJobsByPaymentReference(
   store: KVNamespace,
   paymentReference: string,
+  tripDays?: string[],
 ): Promise<TrackingJobRecord[]> {
   const trimmed = paymentReference.trim();
   if (!trimmed) {
@@ -494,10 +495,16 @@ export async function findTrackingJobsByPaymentReference(
     return fromIndex;
   }
 
-  const today = londonDateString(new Date());
-  const fromDate = shiftDateString(today, -PAYMENT_REF_SEARCH_DAYS_BACK);
-  const toDate = shiftDateString(today, PAYMENT_REF_SEARCH_DAYS_AHEAD);
-  const jobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
+  let jobs: TrackingJobRecord[];
+  if (tripDays) {
+    const dates = [...new Set(tripDays.filter(day => /^\d{4}-\d{2}-\d{2}$/.test(day)))];
+    jobs = (await Promise.all(dates.map(day => listTrackingJobsForDate(store, day)))).flat();
+  } else {
+    const today = londonDateString(new Date());
+    const fromDate = shiftDateString(today, -PAYMENT_REF_SEARCH_DAYS_BACK);
+    const toDate = shiftDateString(today, PAYMENT_REF_SEARCH_DAYS_AHEAD);
+    jobs = await listTrackingJobsForDateRange(store, fromDate, toDate);
+  }
   const matches = jobs.filter((job) => job.paymentReference?.trim() === trimmed);
 
   for (const match of matches) {

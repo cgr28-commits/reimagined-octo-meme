@@ -2,7 +2,7 @@
 import { matchServedAirportCode } from "../../shared/served-airports";
 import { isExecutiveVehicle } from "../../shared/executive-vehicle";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   assignedDriverDisplay,
   formatDisplayTripDate,
@@ -117,13 +117,6 @@ type OwnerPaidBookingsPanelProps = {
   /** "Quote again": open Personal Quotes with this customer's details filled in. */
   onQuoteAgain?: (booking: OwnerPaidBookingSummary) => void;
 };
-
-function ymdDayDelta(from: string, to: string): number {
-  const start = Date.parse(`${from}T12:00:00Z`);
-  const end = Date.parse(`${to}T12:00:00Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
-  return Math.round((end - start) / 86_400_000);
-}
 
 function formatJobsDayTitle(date: string): string {
   const parsed = new Date(`${date}T12:00:00Z`);
@@ -590,30 +583,17 @@ export default function OwnerPaidBookingsPanel({
   const activeDate =
     selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) ? selectedDate : todayYmd;
 
+  const loadVersion = useRef(0);
   const load = useCallback(async () => {
     if (mode === "past") return;
+    const version = ++loadVersion.current;
     setLoading(true);
     setError("");
     try {
-      const today = londonYmd();
-      const range =
-        mode === "admin"
-          ? { pastDays: 0, futureDays: 120 }
-          : activeDate < today
-            ? {
-                pastDays: Math.min(OWNER_JOBS_PAST_CAP_DAYS, ymdDayDelta(activeDate, today)),
-                futureDays: 1,
-              }
-            : activeDate > today
-              ? { pastDays: 0, futureDays: Math.min(180, Math.max(1, ymdDayDelta(today, activeDate))) }
-              : { pastDays: 0, futureDays: 1 };
       const [nextBookings, nextPending, nextJobs] = await Promise.all([
-        fetchOwnerPaidBookings(ownerKey, {
-          mode: "upcoming",
-          pastDays: range.pastDays,
-          futureDays: range.futureDays,
-          limit: 250,
-        }),
+        fetchOwnerPaidBookings(ownerKey, mode === "day"
+          ? { mode: "range", from: activeDate, to: activeDate, limit: 400 }
+          : { mode: "upcoming", pastDays: 0, futureDays: 120, limit: 250 }),
         mode === "admin"
           ? fetchOwnerPendingCheckouts(ownerKey, { limit: 40 }).catch(
               () => [] as OwnerPendingCheckoutSummary[],
@@ -621,6 +601,7 @@ export default function OwnerPaidBookingsPanel({
           : Promise.resolve([] as OwnerPendingCheckoutSummary[]),
         fetchOwnerBookingJobs(ownerKey).catch(() => [] as BookingJobRecord[]),
       ]);
+      if (version !== loadVersion.current) return;
       setBookings(nextBookings);
       setPending(nextPending);
       setBookingJobs(nextJobs);
@@ -631,12 +612,12 @@ export default function OwnerPaidBookingsPanel({
           futureDays: 1,
           limit: 250,
         });
-        setPastBookings(past);
+        if (version === loadVersion.current) setPastBookings(past);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load paid bookings");
+      if (version === loadVersion.current) setError(err instanceof Error ? err.message : "Failed to load paid bookings");
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [ownerKey, pastDaysLoaded, mode, activeDate]);
 
@@ -2519,12 +2500,9 @@ export default function OwnerPaidBookingsPanel({
           </div>
           {loading ? (
             <p className="mt-3 text-sm text-white/60">Loading jobs…</p>
-          ) : dayLegs.length === 0 ? (
+          ) : error && dayLegs.length === 0 ? null : dayLegs.length === 0 ? (
             <p className="mt-3 text-sm text-white/60">
               {showingToday ? "No jobs scheduled for today." : "No jobs scheduled for this day."}
-              {activeDate < todayYmd && ymdDayDelta(activeDate, todayYmd) > OWNER_JOBS_PAST_CAP_DAYS
-                ? " Open Past Jobs and search the booking reference for anything older than 120 days."
-                : ""}
             </p>
           ) : (
             <ul className="mt-3 space-y-3">
