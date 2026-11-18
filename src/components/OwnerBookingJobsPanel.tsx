@@ -662,7 +662,7 @@ export default function OwnerBookingJobsPanel({ ownerKey }: OwnerBookingJobsPane
         ) : null}
         </>
       )}
-      {!loading && (
+      {(loadedAt || !loading) && (
         <details className="mt-8 rounded-xl border border-white/10 bg-navy/40 px-4 py-3">
           <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-white/80">
             Quote stats &amp; booking journey

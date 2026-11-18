@@ -23,7 +23,6 @@ try {
       if (!sessionStorage.getItem("matni:preview-pricing-settings")) sessionStorage.setItem("matni:preview-pricing-settings", JSON.stringify(settings));
     }, settings);
     await page.goto("http://127.0.0.1:3000/owner/pricing-preview/", { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "Decline all", exact: true }).click();
     const add = page.locator("[data-add-long-distance-tiers]");
     await add.waitFor();
     await add.click();
