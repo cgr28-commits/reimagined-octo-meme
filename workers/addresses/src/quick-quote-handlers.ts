@@ -5,6 +5,7 @@
  * Discretionary discounts are applied AFTER the transfer fare and stored separately.
  */
 
+import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { corsHeaders } from "../shared/google-places";
 import { mainQuoteRequestBody, priceWithMainQuoteTool, type MainQuoteEnv } from "./main-quote-pricing";
 import {
@@ -169,7 +170,22 @@ function parseJourney(
     return { error: "Luggage count is required." };
   }
 
+  const metrics = parseClientRouteMetrics(body.routeMetrics);
+  const diaryRoute: NonNullable<QuickQuoteJourney["diaryRoute"]> = {};
+  for (const end of ["pickup", "dropoff"] as const) {
+    const lat = body[`${end}Lat`];
+    const lng = body[`${end}Lng`];
+    if (typeof lat === "number" && Math.abs(lat) <= 90 && typeof lng === "number" && Math.abs(lng) <= 180) {
+      diaryRoute[`${end}Lat`] = lat;
+      diaryRoute[`${end}Lng`] = lng;
+    }
+  }
+  if (metrics) {
+    diaryRoute.routeDurationMinutes = metrics.durationMinutes;
+    diaryRoute.routeDistanceKm = metrics.distanceKm;
+  }
   return {
+    ...(Object.keys(diaryRoute).length ? { diaryRoute } : {}),
     pickupAddress,
     dropoffAddress,
     airportCode,

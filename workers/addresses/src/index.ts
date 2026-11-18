@@ -2686,6 +2686,7 @@ async function handlePaymentRequest(
 
     booking = {
       ...booking,
+      ...j.diaryRoute,
       pickupLabel: j.pickupAddress,
       dropoffLabel: j.dropoffAddress,
       returnJourney: Boolean(j.returnJourney),

@@ -172,6 +172,7 @@ const UNKNOWN_LOCATION_REPOSITION_MINUTES = 45;
 
 /** Town / city centres used only for owner positioning — not customer fare quotes. */
 export const POSITIONING_PLACE_COORDS: Record<string, SmartCoords> = {
+  dublin_centre: { lat: 53.347, lng: -6.26 },
   belfast_centre: { lat: 54.5964, lng: -5.9302 },
   larne: { lat: 54.851, lng: -5.811 },
   bangor: { lat: 54.653, lng: -5.669 },
@@ -188,6 +189,12 @@ export function coordsFromPlaceLabel(label?: string | null): SmartCoords | null 
   if (!value) return null;
   if (coordsFromAirportHint(value)) return coordsFromAirportHint(value);
   const hay = value.toLowerCase();
+  // Older paid quotes may contain only a street address. Match the city as
+  // a locality, so "Dublin Road, Belfast" and "Co. Dublin" stay distinct.
+  const localities = hay.split(",").map((part) => part.trim());
+  if (localities.some((part) => /^(?:dublin(?: city(?: cent(?:re|er))?| [12])?)$/.test(part))) {
+    return POSITIONING_PLACE_COORDS.dublin_centre;
+  }
   if (/larne/.test(hay)) return POSITIONING_PLACE_COORDS.larne;
   if (/bangor/.test(hay)) return POSITIONING_PLACE_COORDS.bangor;
   if (/lisburn/.test(hay)) return POSITIONING_PLACE_COORDS.lisburn;

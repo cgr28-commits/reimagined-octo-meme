@@ -19,7 +19,7 @@
  */
 
 import {
-  coordsFromAirportHint,
+  resolveSmartOpsPoint,
   estimateDurationMinutes,
   roadMilesEstimate,
   type SmartCoords,
@@ -136,7 +136,7 @@ export type EmptyRunDecision = {
 
 function pointFor(coords: SmartCoords | null | undefined, label?: string | null, code?: string | null): SmartCoords | null {
   if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) return coords;
-  return coordsFromAirportHint(label, code);
+  return resolveSmartOpsPoint(null, label, code);
 }
 
 function round2(n: number): number {
