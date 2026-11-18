@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AddressInput from "@/components/AddressInput";
 import { ownerFareBreakdownLines, type OwnerFareBreakdown } from "@/lib/owner-fare-breakdown";
 import ExpressDropOffSelector from "@/components/ExpressDropOffSelector";
@@ -179,6 +179,7 @@ export default function QuickQuoteOwnerClient() {
   const [expressDropOffSelected, setExpressDropOffSelected] = useState(true);
   const [expressRemovalAck, setExpressRemovalAck] = useState(false);
   const [expressAckRequired, setExpressAckRequired] = useState(false);
+  const linkRevision = useRef(0);
   const [bookingUrl, setBookingUrl] = useState("");
   const [whatsappReply, setWhatsappReply] = useState("");
   const [flightTimeHint, setFlightTimeHint] = useState("");
@@ -258,6 +259,12 @@ export default function QuickQuoteOwnerClient() {
     return true;
   }, [draft, pickupPlace, dropoffPlace]);
 
+  function clearBookingLink() {
+    linkRevision.current += 1;
+    setBookingUrl("");
+    setWhatsappReply("");
+  }
+
   function clearQuoteOutputs() {
     setFareAmount(null);
     setFareLabel("");
@@ -265,8 +272,7 @@ export default function QuickQuoteOwnerClient() {
     setOwnerFareBreakdown(null);
     setLastRouteMetrics(null);
     setVehicleType("");
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearBookingLink();
   }
 
   function resetDiscount() {
@@ -278,6 +284,11 @@ export default function QuickQuoteOwnerClient() {
   function resetPriceSource() {
     setPriceSource("website-pricing-engine");
     setManualTransferFareInput("");
+  }
+
+  function invalidateLinkForValidityChange() {
+    clearBookingLink();
+    setNotice(calculatedFareAmount == null ? "" : "Generate a new booking link to use this time limit.");
   }
 
   function resetValidity() {
@@ -318,8 +329,7 @@ export default function QuickQuoteOwnerClient() {
           ? "Estate Car"
           : "Standard Saloon",
     );
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearBookingLink();
     setNotice("Manual transfer price applied — generate the booking link when ready.");
   }
 
@@ -344,8 +354,7 @@ export default function QuickQuoteOwnerClient() {
     setDiscountType(type);
     setDiscountValue(value);
     setCustomDiscountInput("");
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearBookingLink();
     if (calculatedFareAmount != null) {
       const next = applyQuickQuoteManualDiscount(calculatedFareAmount, type, value);
       const composed = composeFareWithExpressDropOff({
@@ -589,8 +598,7 @@ export default function QuickQuoteOwnerClient() {
   async function calculate() {
     setError("");
     setNotice("");
-    setBookingUrl("");
-    setWhatsappReply("");
+    clearBookingLink();
     if (!canCalculate) {
       setError("Fill all required journey fields first (including return date/time when return).");
       return;
@@ -726,6 +734,8 @@ export default function QuickQuoteOwnerClient() {
   }
 
   async function generateLink() {
+    clearBookingLink();
+    const revision = linkRevision.current;
     setError("");
     setNotice("");
     if (!ownerKey) {
@@ -821,6 +831,7 @@ export default function QuickQuoteOwnerClient() {
         dropoffLng: dropoffPlace.lng ?? undefined,
         routeMetrics: routeMetrics ?? undefined,
       });
+      if (revision !== linkRevision.current) return;
       setBookingUrl(created.bookingUrl);
       setWhatsappReply(created.whatsappReply);
       setCalculatedFareAmount(
@@ -838,7 +849,9 @@ export default function QuickQuoteOwnerClient() {
       }
       setNotice("Booking link ready — Copy WhatsApp Reply.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create booking link");
+      if (revision === linkRevision.current) {
+        setError(err instanceof Error ? err.message : "Could not create booking link");
+      }
     } finally {
       setBusy(false);
     }
@@ -1369,7 +1382,11 @@ export default function QuickQuoteOwnerClient() {
             <button
               key={mode}
               type="button"
-              onClick={() => setValidityMode(mode)}
+              onClick={() => {
+                if (mode === validityMode) return;
+                setValidityMode(mode);
+                invalidateLinkForValidityChange();
+              }}
               className={`min-h-10 rounded-xl border px-3 text-sm ${
                 validityMode === mode
                   ? "border-emerald text-emerald"
@@ -1386,7 +1403,10 @@ export default function QuickQuoteOwnerClient() {
             min={1}
             max={365}
             value={customValidityDays}
-            onChange={(e) => setCustomValidityDays(e.target.value)}
+            onChange={(e) => {
+              setCustomValidityDays(e.target.value);
+              invalidateLinkForValidityChange();
+            }}
             placeholder="1–365 days"
             className={fieldClass}
           />
@@ -1447,8 +1467,7 @@ export default function QuickQuoteOwnerClient() {
               onSelectedChange={(selected) => {
                 setExpressDropOffSelected(selected);
                 setExpressAckRequired(false);
-                setBookingUrl("");
-                setWhatsappReply("");
+                clearBookingLink();
                 if (calculatedFareAmount != null) {
                   const next = applyQuickQuoteManualDiscount(
                     calculatedFareAmount,
@@ -1606,7 +1625,7 @@ export default function QuickQuoteOwnerClient() {
         </button>
         <button
           type="button"
-          disabled={!whatsappReply}
+          disabled={busy || !whatsappReply}
           onClick={() => void copyReply()}
           className="min-h-12 w-full max-w-full rounded-xl border border-white/20 px-4 text-base font-semibold text-white disabled:opacity-40"
         >
