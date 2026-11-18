@@ -532,6 +532,14 @@
    (owner, 17 Nov 2026). The tablet wording and layout stay as they are. */
 @media (min-width: 768px) and (max-width: 1199.98px) {
 @layer base {
+  /* Keep the visible counter circles compact while giving each a centred 44px tap area. */
+  html:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-d2-stepper-btn]::after {
+    inset: 50% auto auto 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
   html:root:root:root:root:root:root:root:root[data-mobile-d3] [data-reviews-compact] {
     display: inline-flex !important;
     align-items: center;
