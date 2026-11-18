@@ -381,53 +381,53 @@ export default function OwnerCancelRefundModal({
 
   return (
     <div
-      className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 p-4"
+      className="mt-3 rounded-xl border border-red-200 bg-white text-slate-900 p-4"
       data-owner-refund-form="ordered"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-red-100">Cancel / Refund</p>
+        <p className="text-sm font-semibold text-red-900">Cancel / Refund</p>
         <button
           type="button"
           disabled={busy}
           onClick={onClose}
-          className="text-xs font-semibold text-red-100/70 underline disabled:opacity-60"
+          className="text-xs font-semibold text-red-800 underline disabled:opacity-60"
         >
           Close
         </button>
       </div>
 
-      <dl className="mt-3 grid gap-2 text-sm text-red-100/90 sm:grid-cols-2">
+      <dl className="mt-3 grid gap-2 text-sm text-slate-900 sm:grid-cols-2">
         <div>
-          <dt className="text-red-100/55">Booking reference</dt>
+          <dt className="text-slate-700">Booking reference</dt>
           <dd className="break-all font-semibold">{booking.paymentReference}</dd>
         </div>
         <div>
-          <dt className="text-red-100/55">Customer</dt>
+          <dt className="text-slate-700">Customer</dt>
           <dd>{booking.customerName}</dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="text-red-100/55">Journey</dt>
+          <dt className="text-slate-700">Journey</dt>
           <dd>
             {booking.pickupLabel} → {booking.dropoffLabel}
           </dd>
         </div>
         <div>
-          <dt className="text-red-100/55">Pickup</dt>
+          <dt className="text-slate-700">Pickup</dt>
           <dd>
             {formatDisplayTripDate(booking.tripDate)} · {booking.tripTime || "—"}
             {within24h ? (
-              <span className="ml-2 text-xs text-amber-200">(within 24 hours)</span>
+              <span className="ml-2 text-xs text-amber-900">(within 24 hours)</span>
             ) : null}
           </dd>
         </div>
         <div>
-          <dt className="text-red-100/55">Status</dt>
+          <dt className="text-slate-700">Status</dt>
           <dd className="uppercase tracking-wider">{booking.status}</dd>
         </div>
       </dl>
 
       <div
-        className="mt-3 rounded-lg border border-white/10 bg-navy/40 px-3 py-2 text-sm text-red-50"
+        className="mt-3 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900"
         data-refund-balance-summary="true"
       >
         <p>Original payment: £{paid.toFixed(2)}</p>
@@ -437,18 +437,18 @@ export default function OwnerCancelRefundModal({
 
       {isReturnCheckout ? (
         <div
-          className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-50"
+          className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
           data-refund-return-scope="true"
         >
           <p className="font-semibold">This is one checkout for outbound and return.</p>
-          <p className="mt-1 text-amber-50/85">
+          <p className="mt-1 text-amber-900">
             {openedFromLeg === "return"
               ? "You opened this from the return journey card. The paid total on that card is the combined booking, not the return fare alone."
               : openedFromLeg === "outbound"
                 ? "You opened this from the outbound journey card. The paid total on that card is the combined booking, not the outbound fare alone."
                 : "The paid total is the combined outbound + return checkout, not one leg."}
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-amber-50/80">
+          <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-amber-900">
             <li>Full remaining refund + cancel closes both journeys and refunds £{remaining.toFixed(2)} (if still refundable).</li>
             <li>A typed partial with “booking stays active” can refund part of the checkout and leave outbound and return booked.</li>
             <li>A typed partial + cancel still cancels the whole booking, including the other leg.</li>
@@ -456,14 +456,14 @@ export default function OwnerCancelRefundModal({
             <li>There is no automatic “refund this leg only” amount from the job card.</li>
           </ul>
           {validatedSplit ? (
-            <p className="mt-2 text-xs text-amber-50/80">
+            <p className="mt-2 text-xs text-amber-900">
               Recorded split (guidance only): outbound £
               {legSplit.outboundAllocatedFareGbp!.toFixed(2)} · return £
               {legSplit.returnAllocatedFareGbp!.toFixed(2)}. Use a button below only to fill the
               amount field — it does not submit a refund.
             </p>
           ) : (
-            <p className="mt-2 text-xs text-amber-50/80">
+            <p className="mt-2 text-xs text-amber-900">
               No validated outbound/return split is stored. Do not assume a 50/50 split on a
               discounted return. Type the amount you intend to refund.
             </p>
@@ -473,7 +473,7 @@ export default function OwnerCancelRefundModal({
 
       {fullyRefunded ? (
         <p
-          className="mt-3 rounded-xl border border-emerald/40 bg-emerald/15 px-3 py-2 text-sm font-bold uppercase tracking-wide text-emerald"
+          className="mt-3 rounded-xl border border-green-300 bg-green-50 px-3 py-2 text-sm font-bold uppercase tracking-wide text-green-900"
           data-fully-refunded="true"
         >
           Fully refunded
@@ -481,7 +481,7 @@ export default function OwnerCancelRefundModal({
       ) : null}
 
       <fieldset className="mt-4 space-y-2" disabled={busy}>
-        <legend className="text-xs font-semibold uppercase tracking-wider text-red-100/55">
+        <legend className="text-xs font-semibold uppercase tracking-wider text-slate-700">
           Action
         </legend>
         {ACTION_OPTIONS.filter((option) => {
@@ -498,7 +498,7 @@ export default function OwnerCancelRefundModal({
         }).map((option) => (
           <label
             key={option.id}
-            className="flex cursor-pointer items-start gap-2 rounded-lg border border-red-400/20 bg-navy/40 px-3 py-2"
+            className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-300 has-[:checked]:border-green-700 has-[:checked]:bg-green-50 bg-slate-50 px-3 py-2"
           >
             <input
               type="radio"
@@ -509,8 +509,8 @@ export default function OwnerCancelRefundModal({
               className="mt-1"
             />
             <span>
-              <span className="block text-sm font-semibold text-red-50">{option.label}</span>
-              <span className="block text-xs text-red-100/60">{option.hint}</span>
+              <span className="block text-sm font-semibold text-slate-900">{option.label}</span>
+              <span className="block text-xs text-slate-700">{option.hint}</span>
             </span>
           </label>
         ))}
@@ -518,10 +518,10 @@ export default function OwnerCancelRefundModal({
 
       {actionChoice === "full_refund_choice" && !fullyRefunded ? (
         <fieldset className="mt-3 space-y-2">
-          <legend className="text-xs font-semibold uppercase tracking-wider text-red-100/55">
+          <legend className="text-xs font-semibold uppercase tracking-wider text-slate-700">
             Also cancel booking?
           </legend>
-          <label className="flex items-center gap-2 text-sm text-red-50">
+          <label className="flex items-center gap-2 text-sm text-slate-900">
             <input
               type="radio"
               checked={fullRefundAlsoCancel}
@@ -530,7 +530,7 @@ export default function OwnerCancelRefundModal({
             />
             Yes — cancel booking (calendar + tracking)
           </label>
-          <label className="flex items-center gap-2 text-sm text-red-50">
+          <label className="flex items-center gap-2 text-sm text-slate-900">
             <input
               type="radio"
               checked={!fullRefundAlsoCancel}
@@ -545,7 +545,7 @@ export default function OwnerCancelRefundModal({
       {/* Order: amount → reason → notes → owner key → confirm → one submit */}
       {needsPartialAmount && !fullyRefunded ? (
         <div className="mt-3 space-y-2" data-refund-amount-block="true">
-          <label className="block text-sm text-red-50">
+          <label className="block text-sm text-slate-900">
             Refund amount (GBP)
             <input
               type="number"
@@ -555,7 +555,7 @@ export default function OwnerCancelRefundModal({
               value={partialAmount}
               disabled={busy}
               onChange={(event) => setPartialAmount(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+              className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
               placeholder={`e.g. 0.50 — max £${remaining.toFixed(2)}`}
               inputMode="decimal"
               data-refund-amount-input="true"
@@ -566,7 +566,7 @@ export default function OwnerCancelRefundModal({
               type="button"
               disabled={busy || remaining < 0.01}
               onClick={() => setPartialAmount(remainingBalanceFillValue(remaining))}
-              className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+              className="min-h-9 rounded-lg border border-slate-400 px-3 py-1.5 text-xs font-semibold text-slate-900 disabled:opacity-60"
               data-refund-fill-remaining="true"
             >
               Use remaining balance (£{remaining.toFixed(2)})
@@ -581,7 +581,7 @@ export default function OwnerCancelRefundModal({
                       remainingBalanceFillValue(legSplit.outboundAllocatedFareGbp ?? 0),
                     )
                   }
-                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  className="min-h-9 rounded-lg border border-slate-400 px-3 py-1.5 text-xs font-semibold text-slate-900 disabled:opacity-60"
                   data-refund-fill-outbound="true"
                 >
                   Fill outbound £{legSplit.outboundAllocatedFareGbp!.toFixed(2)}
@@ -594,7 +594,7 @@ export default function OwnerCancelRefundModal({
                       remainingBalanceFillValue(legSplit.returnAllocatedFareGbp ?? 0),
                     )
                   }
-                  className="min-h-9 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/85 disabled:opacity-60"
+                  className="min-h-9 rounded-lg border border-slate-400 px-3 py-1.5 text-xs font-semibold text-slate-900 disabled:opacity-60"
                   data-refund-fill-return="true"
                 >
                   Fill return £{legSplit.returnAllocatedFareGbp!.toFixed(2)}
@@ -602,13 +602,13 @@ export default function OwnerCancelRefundModal({
               </>
             ) : null}
           </div>
-          <p className="text-[11px] text-red-100/50">
+          <p className="text-[11px] text-slate-700">
             Fills the Amount field only — does not submit a refund.
           </p>
         </div>
       ) : null}
 
-      <label className="mt-3 block text-sm text-red-50">
+      <label className="mt-3 block text-sm text-slate-900">
         Reason
         <select
           value={reasonCategory}
@@ -616,7 +616,7 @@ export default function OwnerCancelRefundModal({
           onChange={(event) =>
             setReasonCategory(event.target.value as RefundReasonCategory)
           }
-          className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+          className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
           data-refund-reason="true"
         >
           {REFUND_REASON_UI_CATEGORIES.map((category) => (
@@ -627,24 +627,24 @@ export default function OwnerCancelRefundModal({
         </select>
       </label>
 
-      <label className="mt-3 block text-sm text-red-50">
+      <label className="mt-3 block text-sm text-slate-900">
         Owner notes (internal){notesNeeded ? " — required" : " — optional"}
         <textarea
           value={ownerNotes}
           disabled={busy}
           onChange={(event) => setOwnerNotes(event.target.value)}
           rows={3}
-          className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+          className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
           placeholder="Example: Customer called 19/08/26. Agreed £15 goodwill refund due to delayed pickup."
           data-refund-owner-notes="true"
         />
       </label>
-      <p className="mt-1 text-[11px] text-red-100/50">
+      <p className="mt-1 text-[11px] text-slate-700">
         Saved on this refund operation only. Never shown in customer emails.
       </p>
 
       {resolved.cancelBooking ? (
-        <label className="mt-3 block text-sm text-red-50">
+        <label className="mt-3 block text-sm text-slate-900">
           Cancellation received (when the customer told you)
           <input
             type="datetime-local"
@@ -652,28 +652,28 @@ export default function OwnerCancelRefundModal({
             max={toDateTimeLocal(new Date())}
             disabled={busy}
             onChange={(event) => setCancellationReceived(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+            className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
             data-refund-cancellation-received="true"
           />
-          <span className="mt-1 block text-[11px] text-red-100/50">
+          <span className="mt-1 block text-[11px] text-slate-700">
             Shown in the customer&apos;s email and used for the 24-hour rule.
           </span>
         </label>
       ) : null}
 
-      <label className="mt-3 block text-sm text-red-50">
+      <label className="mt-3 block text-sm text-slate-900">
         Customer-facing reason (optional)
         <input
           type="text"
           value={customerFacingReason}
           disabled={busy}
           onChange={(event) => setCustomerFacingReason(event.target.value)}
-          className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+          className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
           placeholder="Shown in customer email if provided"
         />
       </label>
 
-      <label className="mt-3 block text-sm text-red-50">
+      <label className="mt-3 block text-sm text-slate-900">
         Re-enter OWNER_ACCESS_KEY
         <input
           type="password"
@@ -681,14 +681,14 @@ export default function OwnerCancelRefundModal({
           value={confirmOwnerKey}
           disabled={busy}
           onChange={(event) => setConfirmOwnerKey(event.target.value)}
-          className="mt-1 w-full rounded-lg border border-white/15 bg-navy px-3 py-2 text-white"
+          className="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-900"
           placeholder="Final authorisation before money moves"
           data-refund-owner-key="true"
         />
       </label>
 
-      <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3">
-        <p className="text-sm font-semibold text-amber-100">
+      <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3">
+        <p className="text-sm font-semibold text-amber-950">
           {resolved.refundAmount > 0
             ? `You are about to refund £${resolved.refundAmount.toFixed(2)} to the original payment method for ${booking.paymentReference}.`
             : `Cancel booking ${booking.paymentReference} without a SumUp refund?`}
@@ -700,7 +700,7 @@ export default function OwnerCancelRefundModal({
                 ? " The journey will remain booked."
                 : ""}
         </p>
-        <label className="mt-2 flex items-start gap-2 text-sm text-amber-50">
+        <label className="mt-2 flex items-start gap-2 text-sm text-amber-950">
           <input
             type="checkbox"
             checked={finalConfirm}
@@ -718,7 +718,7 @@ export default function OwnerCancelRefundModal({
           type="button"
           disabled={busy}
           onClick={onClose}
-          className="min-h-11 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 disabled:opacity-60"
+          className="min-h-11 rounded-xl border border-slate-400 px-4 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-600 disabled:opacity-60"
         >
           Back
         </button>
@@ -728,7 +728,7 @@ export default function OwnerCancelRefundModal({
           data-owner-refund-submit="true"
           disabled={!canSubmit}
           onClick={() => void submit()}
-          className="min-h-11 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+          className="min-h-11 rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {submitLabel}
         </button>
