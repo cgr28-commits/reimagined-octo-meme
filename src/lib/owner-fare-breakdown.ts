@@ -262,9 +262,10 @@ export function buildOwnerFareBreakdown(input: {
   const returnRate = input.returnJourney ? engine.returnDiscountRate ?? 0 : 0;
   const baseTotal = legs.reduce((s, l) => s + l.legVehicleFareGbp, 0);
   const tollsBeforeDiscount = legs.reduce((s, l) => s + l.dublinTolls.totalGbp, 0);
-  // Engine: the 5% applies to vehicle fares + Dublin tolls (never to surcharges or airport fixed costs).
-  const returnDiscount = roundGbp((baseTotal + tollsBeforeDiscount) * returnRate);
+  // The 5% applies to vehicle fares only. Dublin tolls, surcharges and airport
+  // fixed costs are charged in full.
   const surcharges = roundGbp(legs.reduce((s, l) => s + l.surchargeGbp, 0));
+  const returnDiscount = roundGbp((baseTotal + surcharges) * returnRate);
   const componentFixed = roundGbp(legs.reduce((s, l) => s + l.airportFixed.totalGbp, 0));
   const fixedTotal =
     typeof input.airportFixedCostsGbp === "number" && Number.isFinite(input.airportFixedCostsGbp)
@@ -272,7 +273,7 @@ export function buildOwnerFareBreakdown(input: {
       : componentFixed;
 
   const dublinTolls = roundGbp(legs.reduce((s, l) => s + l.dublinTolls.totalGbp, 0));
-  const explained = roundGbp(baseTotal - returnDiscount + surcharges + fixedTotal + dublinTolls);
+  const explained = roundGbp(baseTotal + surcharges - returnDiscount + fixedTotal + dublinTolls);
   const finalAmount = roundGbp(input.finalAmountGbp);
   const residual = roundGbp(finalAmount - explained);
   const otherAdjustments: OwnerFareBreakdown["otherAdjustments"] = [];

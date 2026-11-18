@@ -1,4 +1,4 @@
-import { RETURN_BOOKING_DISCOUNT_RETIRED, returnDiscountRateForRecord } from "../shared/return-journey-discount";
+import { RETURN_BOOKING_DISCOUNT_RETIRED, RETURN_JOURNEY_DISCOUNT_RATE, returnDiscountRateForRecord } from "../shared/return-journey-discount";
 /**
  * Owner pricing settings + lightweight audit history (KV).
  * Public Minibus never fails open. Corrupt payloads fall back to approved defaults.
@@ -66,14 +66,15 @@ function attachProfitability(
   };
 }
 
-/**
- * The automatic 5% return-booking discount is retired (owner, Nov 2026 — replaced by email
- * promo codes). Whatever rate an older saved pricing record holds, live pricing uses 0%.
- * Legacy saved quotes / Personal Quotes put their own rate back (see savedQuotePricingFor).
- */
+/** Restore the standard discount in pricing records saved while the offer was retired. */
 export function retireReturnBookingDiscount<T extends { returnDiscount: { rate: number } }>(settings: T): T {
-  if (!RETURN_BOOKING_DISCOUNT_RETIRED) return settings;
-  return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+  if (RETURN_BOOKING_DISCOUNT_RETIRED) {
+    return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+  }
+  if (settings.returnDiscount.rate === 0 && RETURN_JOURNEY_DISCOUNT_RATE > 0) {
+    return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: RETURN_JOURNEY_DISCOUNT_RATE } };
+  }
+  return settings;
 }
 
 /** A saved quote made before the retirement is re-priced with the 5% it was quoted with. */

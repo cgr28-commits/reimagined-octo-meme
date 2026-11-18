@@ -410,7 +410,7 @@ export default function QuoteProgressiveRoute({
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
-              Return
+              <span className="inline-flex items-center justify-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
             </button>
           </div>
           {journeyMode == null && (

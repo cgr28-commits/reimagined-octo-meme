@@ -11,19 +11,11 @@ import rates from "./return-journey-discount-rate.json";
 
 export const RETURN_JOURNEY_DISCOUNT_RATE = Number(rates.returnJourneyDiscountRate);
 
-/**
- * The automatic 5% return-booking discount was retired on the owner's instruction (Nov 2026)
- * and replaced by email promo codes (shared/promo-code.ts). The live rate above is now 0.
- * This legacy rate is used ONLY to honour prices already agreed before the change: Personal
- * Quotes and saved quotes created before it carry no `returnDiscountRate` stamp.
- */
+/** Preserve existing discounted quotes created before an owner changes the configured rate. */
 export const LEGACY_RETURN_JOURNEY_DISCOUNT_RATE = 0.05;
 
-/**
- * True while the retired discount must stay switched off, whatever an older stored owner
- * pricing setting says. Set to false (and restore the JSON rate) to bring it back.
- */
-export const RETURN_BOOKING_DISCOUNT_RETIRED = true;
+/** Automatic return discount is enabled at the configured public rate. */
+export const RETURN_BOOKING_DISCOUNT_RETIRED = false;
 
 /** Rate for a record created before/after the retirement (missing stamp = legacy price). */
 export function returnDiscountRateForRecord(record: { returnDiscountRate?: number | null } | null | undefined): number {

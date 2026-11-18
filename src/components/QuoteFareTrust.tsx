@@ -17,6 +17,7 @@ import {
 
 export function buildOpenWebsiteFareBreakdown(input: {
   journeyFareBeforeAirportAccessGbp: number;
+  dublinTollsGbp?: number;
   airportFixedCostsGbp?: number;
   airportAccessChargeGbp?: number;
   outboundAirportAccessChargeGbp?: number;
@@ -37,6 +38,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
   return composeWebsiteFareBreakdown({
     preserveFixedFarePence: input.preserveFixedFarePence,
     journeyFareBeforeAirportAccessGbp: input.journeyFareBeforeAirportAccessGbp,
+    dublinTollsGbp: input.dublinTollsGbp ?? 0,
     airportFixedCostsGbp: input.airportFixedCostsGbp ?? 0,
     airportAccessChargeGbp: input.airportAccessChargeGbp ?? 0,
     outboundAirportAccessChargeGbp: input.outboundAirportAccessChargeGbp ?? 0,
@@ -45,6 +47,7 @@ export function buildOpenWebsiteFareBreakdown(input: {
     nightWeekendSurchargeLabel: input.nightWeekendSurchargeLabel,
     nightWeekendSurchargeExplanation: input.nightWeekendSurchargeExplanation,
     returnJourney: Boolean(input.returnJourney),
+    returnDiscountRate: input.returnDiscountRate,
     ...(input.promoCode ? { promoCode: input.promoCode } : {}),
     ...(typeof input.returnOfferDiscountRate === "number"
       ? { returnOfferDiscountRate: input.returnOfferDiscountRate }

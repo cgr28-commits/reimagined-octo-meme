@@ -457,6 +457,7 @@ export default function HomepageQuoteFields({
             }`}
           >
             <span className="text-sm font-semibold">Return</span>
+            <span className="mt-1 rounded-full bg-emerald px-2 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">Save 5%</span>
           </button>
         </div>
       </div>
@@ -555,7 +556,7 @@ export default function HomepageQuoteFields({
             One way
           </button>
           <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
-            Return
+            <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
           </button>
         </div>
       ) : null}
