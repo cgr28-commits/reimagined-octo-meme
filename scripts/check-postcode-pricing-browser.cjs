@@ -24,6 +24,19 @@ globalThis.fetch=async(input,init)=>{
  throw new Error('Blocked unexpected external request in isolated browser test: '+url);
 };
 function instantFare(total,airport){return frontendVersion==='new'?total-(airport==='BFS'?5:airport==='BHD'?4:0):total;}
+function bookingButton(page) {
+ return frontendVersion === 'old'
+  ? page.getByRole('button', {name: /BOOK THIS TRANSFER/i})
+  : page.locator('#quote-book-now-button:visible');
+}
+async function expectSelectedFare(page, amount) {
+ if (frontendVersion === 'old') {
+  await page.getByRole('button', {name: new RegExp('BOOK THIS TRANSFER.*£' + String(amount).replace('.', '[.]') + '$')}).waitFor();
+ } else {
+  await page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText('£' + amount, {exact: true}).first().waitFor();
+  await bookingButton(page).waitFor();
+ }
+}
 async function chooseTerminalAccess(page,airport){if(frontendVersion==='new'&&airport!=='DUB')await page.locator('[data-terminal-access] input[value="express"]').check();}
 async function main(){try{
  historical=await require('./postcode-legacy-harness.cjs').startLegacyHarness(root);
@@ -70,9 +83,9 @@ async function main(){try{
   for(const [airport,saloon,estate] of [['BHD',35,45],['BFS',55,65],['DUB',245,255]]){
    await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
    await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
-   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(saloon,airport)+'$')}).waitFor();
-   await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).waitFor();
-   await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
+   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await expectSelectedFare(page,instantFare(saloon,airport));
+   await page.locator('[data-vehicle-category="estate"]').click();await expectSelectedFare(page,instantFare(estate,airport));
+   await bookingButton(page).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
   }
   console.log('OK real '+front+' frontend / '+back+' Worker: all three airports Saloon/Estate unchanged through booking form, legacy v205 config not migrated');
  }
@@ -124,9 +137,9 @@ async function main(){try{
   await page.goto(url+'?mode=quote&to='+airport);await page.locator('#quote-section-passengers').waitFor();
   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
   await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();
-  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(saloon,airport)+'$')}).waitFor();
-  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).waitFor();
-  await page.getByRole('button',{name:new RegExp('BOOK THIS TRANSFER.*£'+instantFare(estate,airport)+'$')}).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
+  await expectSelectedFare(page,instantFare(saloon,airport));
+  await page.locator('[data-vehicle-category="estate"]').click();await expectSelectedFare(page,instantFare(estate,airport));
+  await bookingButton(page).click();await page.getByPlaceholder('John Smith').waitFor();await chooseTerminalAccess(page,airport);
   assert.match(await page.locator('body').innerText(),new RegExp('£'+estate));
   console.log('OK '+width+'px '+airport+': saved rules → Worker quote → final £'+saloon+' Saloon / £'+estate+' Estate including airport charges → booking details');
   }
@@ -134,8 +147,8 @@ async function main(){try{
   await new Promise(r=>setTimeout(r,10500)); // Existing public quote settings cache; no product cache changes.
   await page.goto(url+'?mode=quote&to=DUB');await page.locator('#quote-section-passengers').waitFor();
   await page.evaluate(date=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:2,suitcases:1,returnJourney:false,tripDate:date,tripTime:'12:00'}})),date);
-  await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£245\.45$/}).waitFor();
-  await page.locator('[data-vehicle-category="estate"]').click();await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£255\.45$/}).waitFor();
+  await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();await expectSelectedFare(page,245.45);
+  await page.locator('[data-vehicle-category="estate"]').click();await expectSelectedFare(page,255.45);
   console.log('OK '+width+'px explicitly configured pence fare: fixed £245.45 / £255.45 shown exactly, ordinary whole-pound rounding unaffected');
   await page.goto(url);await page.getByRole('button',{name:'Load inactive workbook drafts',exact:true}).waitFor();
   await page.getByRole('button',{name:'Load inactive workbook drafts',exact:true}).click();

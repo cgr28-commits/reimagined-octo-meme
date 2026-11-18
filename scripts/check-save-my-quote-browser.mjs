@@ -42,8 +42,8 @@ try {
   const reject=page.getByRole('button',{name:'Decline all',exact:true});await reject.click();
   await page.getByText('£130', { exact: true }).filter({visible:true}).first().waitFor();
   const journeyDetails = width < 768
-    ? ['2 passengers', '1 suitcase', 'Wed 1 Dec, 12:00', 'Return Sun 5 Dec, 12:00']
-    : ['2 passengers · 1 suitcase', 'Wed, 1 Dec 2027 · 12:00', 'Return Sun, 5 Dec 2027 · flight lands 12:00'];
+    ? ['2 passengers', '1 suitcase', /Wed,? 1 Dec(?: 2027)?[, ·]+12:00/i, /Return Sun,? 5 Dec(?: 2027)?[, ·]+(?:flight lands )?12:00/i]
+    : ['2 passengers · 1 suitcase', /Wed,? 1 Dec 2027[, ·]+12:00/i, /Return Sun,? 5 Dec 2027[, ·]+flight lands 12:00/i];
   for (const detail of journeyDetails) {
     await page.getByText(detail, {exact:true}).filter({visible:true}).first().waitFor();
   }
