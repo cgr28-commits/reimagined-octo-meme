@@ -145,6 +145,23 @@ const reverseAlternative = reverseQuote("06:30", diaryAvailable).offer;
 assert.ok(reverseAlternative);
 assert.equal(reverseQuote(reverseAlternative.tripTime, diaryAvailable).fare?.amountGbp, 208);
 
+// A late Friday drop-off can fill a Saturday return after midnight.
+const fridayParent = { ...outboundToDublin, tripDate: "2027-05-21", tripTime: "21:30", durationMinutes: 165 };
+const overnightQuote = (tripDate: string, tripTime: string, available = true) =>
+  evaluateEmptyRunDiscount({
+    request: { ...dublinToBelfast, fromAirport: false, tripDate, tripTime },
+    occupied: [fridayParent], base: BASE, settings: on, now: NOW, fare: standardFare,
+    isTimeAvailable: () => available,
+  });
+const nextDayOffer = overnightQuote("2027-05-21", "22:00").offer;
+assert.ok(nextDayOffer);
+assert.equal(nextDayOffer.direction, "later");
+assert.equal(nextDayOffer.tripDate, "2027-05-22");
+assert.equal(nextDayOffer.tripTime, "00:15");
+assert.equal(overnightQuote(nextDayOffer.tripDate, nextDayOffer.tripTime).fare?.amountGbp, nextDayOffer.estimatedAmountGbp);
+assert.equal(overnightQuote("2027-05-21", "22:00", false).reason, "EMPTY_RUN_NO_MATCH");
+assert.equal(overnightQuote("2027-05-23", "00:15").reason, "EMPTY_RUN_NO_MATCH");
+
 // Cancelled parent → no discount.
 assert.equal(run(req("14:00"), on, [{ ...sundayDublinPickup, cancelled: true }]).reason, "EMPTY_RUN_NO_MATCH");
 // Cheap fare already at/below the floor → no discount.

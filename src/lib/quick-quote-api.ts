@@ -73,7 +73,7 @@ export type QuickQuoteCalculateResult =
       /** Empty Run: this fare already includes the discount. */
       emptyRunSavingGbp?: number;
       emptyRunNormalAmountGbp?: number;
-      /** Empty Run: a cheaper pickup time the same day (estimate; re-quote at that time). */
+      /** Empty Run: a cheaper pickup time (estimate; re-quote at that time). */
       emptyRunOffer?: EmptyRunTimeOfferPublic;
       /** Owner-only itemised fare breakdown (present only for owner-key requests). */
       ownerFareBreakdown?: OwnerFareBreakdown;

@@ -9546,13 +9546,14 @@ function QuoteCard({
     const offer = parts.emptyRunOffer;
     if (!offer) return null;
     const clock = formatCustomerClock(offer.tripTime) || offer.tripTime;
+    const pickup = offer.tripDate === tripDate ? clock : `${formatD3ChipDate(offer.tripDate)} at ${clock}`;
     return (
       <div
         data-empty-run-offer
         className="mb-3 mt-1 rounded-2xl border-2 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-slate-900"
       >
         <p className="text-base font-extrabold text-emerald-800">
-          Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} at {clock}
+          Save {gbp(offer.estimatedSavingGbp)} if you can travel {offer.direction} {offer.tripDate === tripDate ? "at" : "on"} {pickup}
         </p>
         <p className="mt-0.5 text-slate-800">
           Our car is already heading that way, so a {clock} pickup is about {gbp(offer.estimatedAmountGbp)}.
@@ -9564,7 +9565,7 @@ function QuoteCard({
           disabled={selectingAlternativeTime != null}
           onClick={() => void handleSelectAvailabilityAlternative({ tripDate: offer.tripDate, tripTime: offer.tripTime })}
         >
-          {selectingAlternativeTime === offer.tripTime ? "Updating…" : `Switch to ${clock}`}
+          {selectingAlternativeTime === offer.tripTime ? "Updating…" : `Switch to ${pickup}`}
         </button>
       </div>
     );
