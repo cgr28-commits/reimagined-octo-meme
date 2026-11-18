@@ -26,6 +26,7 @@ import {
   type SmartOccupiedJob,
 } from "./smart-conflict";
 import { occupiedJobResource, availabilityResourceForVehicle } from "./availability-resource";
+import { addDaysYmd } from "./upcoming-jobs";
 import { parseLondonLocalDateTime } from "./uk-time";
 
 export const EMPTY_RUN_CONFIG_KEY = "smart-ops:empty-run:v1";
@@ -114,7 +115,7 @@ export type EmptyRunReason =
   | "EMPTY_RUN_AT_FLOOR"
   | "EMPTY_RUN_OFFER_OTHER_TIME";
 
-/** Cheaper pickup time on the same day. Estimate: re-quote at that time for the real price. */
+/** Cheaper pickup time. Estimate: re-quote at that time for the real price. */
 export type EmptyRunTimeOffer = {
   tripDate: string;
   tripTime: string;
@@ -191,7 +192,7 @@ function routePosition(point: SmartCoords, start: SmartCoords, end: SmartCoords)
 /**
  * Find the confirmed job whose empty run this request fills.
  * "fits": the requested time works. "move_time": same route would work at
- * another pickup time on the same day (e.g. asked 16:00, 13:30 qualifies).
+ * another pickup time (e.g. asked 16:00, 13:30 qualifies).
  */
 export function matchEmptyRun(input: {
   request: EmptyRunRequest;
@@ -223,6 +224,8 @@ export function matchEmptyRun(input: {
     }
   };
 
+  const previousDay = addDaysYmd(request.tripDate, -1);
+  const nextDay = addDaysYmd(request.tripDate, 1);
   let fit: { job: SmartOccupiedJob; idle: number; direction: "to_parent" | "from_parent" } | null = null;
   let move: { job: SmartOccupiedJob; startMs: number; shift: number } | null = null;
   for (const job of input.occupied) {
@@ -232,7 +235,8 @@ export function matchEmptyRun(input: {
     const jobDropoff = pointFor(job.dropoff, job.dropoffLabel, job.isFromAirport ? null : job.airportCode);
     const jobStart = parseLondonLocalDateTime(job.tripDate, job.tripTime);
     if (!jobPickup || !jobDropoff || !jobStart) continue;
-    if (job.tripDate !== request.tripDate) continue;
+    const sameDay = job.tripDate === request.tripDate;
+    if (!sameDay && job.tripDate !== previousDay) continue;
     const preDistance = roadMilesEstimate(base, jobPickup);
     const postDistance = roadMilesEstimate(base, jobDropoff);
     if (Math.max(preDistance, postDistance) < settings.minParentDistanceMiles) continue;
@@ -240,7 +244,7 @@ export function matchEmptyRun(input: {
     // Fill the outbound positioning leg: base → passenger → confirmed pickup.
     const prePickup = routePosition(reqPickup, base, jobPickup);
     const preDrop = routePosition(reqDropoff, base, jobPickup);
-    const preAligned = preDistance >= settings.minParentDistanceMiles && prePickup.progress >= -0.12 && prePickup.progress < preDrop.progress &&
+    const preAligned = sameDay && preDistance >= settings.minParentDistanceMiles && prePickup.progress >= -0.12 && prePickup.progress < preDrop.progress &&
       preDrop.progress >= 0.05 && preDrop.progress <= 1.12 &&
       prePickup.deviationMiles <= settings.maxPickupFromBaseMiles &&
       preDrop.deviationMiles <= settings.maxDropoffFromParentMiles;
@@ -277,7 +281,8 @@ export function matchEmptyRun(input: {
     }
     if (postAligned) {
       const first = jobEndMs - airportWaitMinutes * 60_000;
-      windows.push({ first, last: first + settings.maxIdleMinutes * 60_000 });
+      const last = first + settings.maxIdleMinutes * 60_000;
+      if (sameDay || londonParts(last).date >= request.tripDate) windows.push({ first, last });
     }
     const askedMs = reqStart.getTime();
     for (const { first, last } of windows) {
@@ -290,7 +295,9 @@ export function matchEmptyRun(input: {
         const shift = Math.abs(startMs - askedMs);
         if (move && shift >= move.shift) break;
         const suggested = londonParts(startMs);
-        if (suggested.date !== request.tripDate || !available(suggested.date, suggested.time)) continue;
+        const overnightReturn = postAligned && sameDay && suggested.date === nextDay;
+        if (suggested.date !== request.tripDate && !overnightReturn) continue;
+        if (!available(suggested.date, suggested.time)) continue;
         move = { job, startMs, shift };
         break;
       }

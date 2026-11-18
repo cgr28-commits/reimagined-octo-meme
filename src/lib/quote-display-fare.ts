@@ -34,7 +34,7 @@ export type ServerFarePartyParts = {
   /** Empty Run discount already in amountGbp. */
   emptyRunSavingGbp?: number;
   emptyRunNormalAmountGbp?: number;
-  /** Cheaper pickup time the same day. */
+  /** Cheaper pickup time. */
   emptyRunOffer?: {
     tripDate: string;
     tripTime: string;
