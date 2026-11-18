@@ -1,3 +1,4 @@
+import { specialFareLabel } from "../../../src/lib/point-to-point-premium";
 /**
  * POST /quote/calculate — server-authoritative website fare.
  * Uses the SAME pricing engine as the public quote tool (no second algorithm).
@@ -572,6 +573,7 @@ export async function handleQuoteCalculateRequest(
   }
 
   const schedule = {
+    endpoints: { pickup: pickupAddress, dropoff: dropoffAddress },
     outboundDate: String(body.outboundDate ?? ""),
     outboundTime: String(body.outboundTime ?? ""),
     returnDate: String(body.returnDate ?? "") || undefined,
@@ -858,7 +860,7 @@ export async function handleQuoteCalculateRequest(
       ? { emptyRunSavingGbp: emptyRun.savingGbp, emptyRunNormalAmountGbp: emptyRun.normalAmountGbp }
       : {}),
     ...(emptyRun?.offer ? { emptyRunOffer: emptyRun.offer } : {}),
-    nightWeekendSurchargeLabel: nightWeekendSurchargeLabel(pricing, [schedule.outboundDate, schedule.returnDate]),
+    nightWeekendSurchargeLabel: specialFareLabel(schedule, pricing) ?? nightWeekendSurchargeLabel(pricing, [schedule.outboundDate, schedule.returnDate]),
     nightWeekendSurchargeExplanation: nightWeekendSurchargeExplanation(pricing),
     vehicleChoice: resolved.vehicleChoice,
     diagnostics,

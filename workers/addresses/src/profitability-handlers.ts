@@ -115,6 +115,7 @@ export async function handleOwnerProfitabilityTestRequest(
   const pricing = await loadOwnerPricingOrDefault(env);
   const addressAirport = resolvePaymentAirportContextFromAddresses(pickupAddress, dropoffAddress);
   const schedule = {
+    endpoints: { pickup: pickupAddress, dropoff: dropoffAddress },
     outboundDate: String(body.outboundDate ?? ""),
     outboundTime: String(body.outboundTime ?? ""),
     returnDate: String(body.returnDate ?? "") || undefined,

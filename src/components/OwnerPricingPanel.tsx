@@ -9,6 +9,7 @@ import {
   MAX_BUSINESS_CLASS_INSTANT_FROM_MILES,
 } from "../../shared/owner-pricing-config";
 
+import { defaultSpecialDateFares, type SpecialDateFare } from "../../shared/special-date-fares";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BANK_HOLIDAY_BEHAVIOUR_NOTE,
@@ -680,6 +681,11 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
+  const specialRules = draft.specialDateFares ?? defaultSpecialDateFares();
+  function editSpecialRule(index: number, change: Partial<SpecialDateFare>) {
+    update("specialDateFares", specialRules.map((rule, i) => i === index ? { ...rule, ...change } : rule));
+  }
+
   const persist = async (mode: "save" | "restore") => {
     if (mode === "save" && !validation.ok) return;
     setSaving(true);
@@ -1313,6 +1319,42 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Events &amp; special dates</h3>
+        <p className="mt-2 text-sm text-white/70">Each leg uses its local pickup time. Only the highest applicable percentage is added to the vehicle fare.</p>
+        {specialRules.map((rule, index) => (
+          <fieldset key={index} className="my-4 rounded-xl border border-white/15 p-3">
+            <legend className="px-1 text-sm font-semibold text-white">{rule.name || "New event"}</legend>
+            <label className={labelClass}><input type="checkbox" checked={rule.enabled}
+              onChange={e => editSpecialRule(index, { enabled: e.target.checked })} /> Enable rule</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={labelClass}>Event name<input className={fieldClass} value={rule.name} maxLength={80}
+                onChange={e => editSpecialRule(index, { name: e.target.value })} /></label>
+              <label className={labelClass}>Apply to<select className={fieldClass} value={rule.direction}
+                onChange={e => editSpecialRule(index, { direction: e.target.value as SpecialDateFare["direction"] })}>
+                <option value="to">Drop-offs at the venue</option><option value="from">Pickups at the venue</option>
+                <option value="either">Pickups and drop-offs at the venue</option><option value="all">All journeys</option>
+              </select></label>
+              {rule.direction !== "all" && <label className={labelClass}>Venue or road in the address
+                <input className={fieldClass} value={rule.venue} maxLength={150} onChange={e => editSpecialRule(index, { venue: e.target.value })} /></label>}
+              {(["start", "end"] as const).map(key => <label key={key} className={labelClass}>
+                {key === "start" ? "Starts" : "Ends"} (local time)
+                <input className={fieldClass} type="datetime-local" value={rule[key]} onChange={e => editSpecialRule(index, { [key]: e.target.value })} />
+              </label>)}
+              <PercentField label="Fare increase" value={Number((rule.rate * 100).toFixed(2))}
+                onChange={value => editSpecialRule(index, { rate: value / 100 })} />
+            </div>
+            <label className={labelClass}><input type="checkbox" checked={rule.annual}
+              onChange={e => editSpecialRule(index, { annual: e.target.checked })} /> Repeat every year</label>
+            <p className="my-2 text-sm text-white/70">With this rule, a £100 vehicle fare is £{(100 + rule.rate * 100).toFixed(2)} before fees and discounts.</p>
+            <button type="button" className="text-sm text-white underline" onClick={() => update("specialDateFares", specialRules.filter((_, i) => i !== index))}>Remove rule</button>
+          </fieldset>
+        ))}
+        <button type="button" className="rounded-lg border border-emerald px-3 py-2 text-white"
+          onClick={() => update("specialDateFares", [...specialRules, { name: "", venue: "", direction: "to",
+            start: "", end: "", rate: 0, annual: false, enabled: true }])}>Add event or special date</button>
+      </section>
+
+      <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">
           Evening / Night / Weekend / Bank Holiday
         </h3>
@@ -1358,7 +1400,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-white/55">Applies every year to pickups between these dates (inclusive, Europe/London). The highest applicable Christmas, Evening, Night or Weekend percentage applies once per leg.</p>
+          <p className="mt-2 text-xs text-white/55">Applies every year to pickups between these dates (inclusive, Europe/London). The highest applicable percentage applies once per leg.</p>
         </div>
         <div className="mt-4" data-evening-pricing>
           <div className="flex items-center justify-between gap-3">

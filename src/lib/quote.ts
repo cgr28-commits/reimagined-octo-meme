@@ -26,6 +26,7 @@ import {
 } from "../../shared/owner-pricing-config";
 import {
   applyTripPremium,
+  legSchedule,
   AIRPORT_TRIP_PREMIUM_RATE,
   getReturnJourneyFare,
   isTripPremiumDateTime,
@@ -220,11 +221,7 @@ function withOneWayBeforeAccess(
 ): QuoteResult {
   const outbound = applyTripPremium(
     oneWayJourneyGbp,
-    {
-      outboundDate: schedule.outboundDate,
-      outboundTime: schedule.outboundTime,
-      returnJourney: false,
-    },
+    legSchedule(schedule, false),
     premiumRate,
     { pricing },
   );
@@ -237,11 +234,7 @@ function withOneWayBeforeAccess(
   if (!returnJourney) return next;
   const inbound = applyTripPremium(
     returnOneWayJourneyGbp ?? oneWayJourneyGbp,
-    {
-      outboundDate: schedule.returnDate,
-      outboundTime: schedule.returnTime,
-      returnJourney: false,
-    },
+    legSchedule(schedule, true),
     premiumRate,
     { pricing },
   );
@@ -691,6 +684,7 @@ export function calculatePointToPointQuote(
     return null;
   }
 
+  schedule = { ...schedule, endpoints: schedule.endpoints ?? { pickup, dropoff } };
   const pickupArea = matchAreaFromAddress(pickup);
   const dropoffArea = matchAreaFromAddress(dropoff);
 
@@ -903,8 +897,9 @@ export function calculateQuote(
     (postcode.inbound == null ? positioningCharge : 0);
   const pricedSchedule = {
     ...schedule,
-    ...(postcode.outbound != null ? { outboundDate: undefined, outboundTime: undefined } : {}),
-    ...(postcode.inbound != null ? { returnDate: undefined, returnTime: undefined } : {}),
+    endpoints: schedule.endpoints ?? (fromAirport ? { pickup: airportCode, dropoff: address } : { pickup: address, dropoff: airportCode }),
+    outboundFixedPostcode: postcode.outbound != null,
+    returnFixedPostcode: postcode.inbound != null,
   };
   const premium = applyTripPremium(
     outboundFare,
@@ -1009,6 +1004,8 @@ export function calculateAirportToAirportQuote(
   if (!pickupCode || !dropoffCode || pickupCode === dropoffCode || !pickup || !dropoff) {
     return null;
   }
+
+  schedule = { ...schedule, endpoints: { pickup, dropoff } };
 
   // Dublin anti-undercut: never price DUB legs via A2A or the other NI airport scheme.
   if (pickupCode === "DUB" || dropoffCode === "DUB") {

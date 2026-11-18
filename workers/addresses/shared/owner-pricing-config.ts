@@ -1,3 +1,4 @@
+import { defaultSpecialDateFares, validateSpecialDateFares, type SpecialDateFare } from "./special-date-fares";
 import { DEFAULT_TERMINAL_ACCESS_FEES } from "./terminal-access-config";
 import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
 import { validatePostcodeRules, postcodePricingIsEnabled, postcodeRuleApproved, type PostcodePricingRule } from "./postcode-pricing";
@@ -92,10 +93,10 @@ export const PRICE_CHANGED_MESSAGE = "The price for this journey has been update
 
 export const SURCHARGE_STACKING_RULE = "highest_applicable" as const;
 export const SURCHARGE_STACKING_EXPLANATION =
-  "When more than one premium period applies, the highest applicable surcharge is used. Christmas, Evening, Night and Weekend are not added together.";
+  "When more than one premium period applies, the highest applicable surcharge is used. This includes event and special date pricing.";
 
 export const BANK_HOLIDAY_BEHAVIOUR_NOTE =
-  "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless it also falls inside enabled Evening or Night hours.";
+  "Daytime bank holidays are not an extra surcharge. There is no separate Bank Holiday calendar. Saturday and Sunday already qualify as Weekend. A weekday bank-holiday daytime journey is charged at the standard weekday rate unless another enabled premium applies.";
 
 export const MINIBUS_LUGGAGE_DECISION_NOTE =
   "When public 7 Seater Minibus is ON, the public selector allows 0–7 large bags and 1–7 passengers. 5–7 passengers and 5–7 large bags require 7 Seater Minibus; Saloon/Estate keep their existing 1–4 passenger and 0–2 / 3–4 suitcase rules. 7 passengers + 7 large bags is accepted as a Minibus quote only — physical fit of every 7-seat vehicle for that combination has not been validated and is not treated as a Request Quote rule.";
@@ -172,6 +173,7 @@ export type OwnerPricingSettings = {
     rate: number;
   };
   evening?: { enabled: boolean; surchargeRate: number; startMinutes: number; endMinutes: number };
+  specialDateFares?: SpecialDateFare[];
   christmas?: { enabled: boolean; surchargeRate: number; startMonthDay: string; endMonthDay: string };
   night: {
     enabled: boolean;
@@ -247,6 +249,7 @@ export type PublicOwnerPricingConfig = {
   returnDiscount: OwnerPricingSettings["returnDiscount"];
   dublinAirportFareAdjustment: OwnerPricingSettings["dublinAirportFareAdjustment"];
   evening?: OwnerPricingSettings["evening"];
+  specialDateFares?: SpecialDateFare[];
   christmas?: OwnerPricingSettings["christmas"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
@@ -343,6 +346,7 @@ export function defaultOwnerPricingSettings(
       rate: DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
     evening: { ...DEFAULT_EVENING_PRICING },
+    specialDateFares: defaultSpecialDateFares(),
     christmas: { ...DEFAULT_CHRISTMAS_PRICING },
     night: {
       enabled: true,
@@ -398,6 +402,9 @@ export function validateOwnerPricingInput(
     };
   }
   const input = raw as Record<string, unknown>;
+  const specialDateFares = input.specialDateFares === undefined ? defaultSpecialDateFares() : input.specialDateFares;
+  const specialDateError = validateSpecialDateFares(specialDateFares);
+  if (specialDateError) reject(errors, "specialDateFares", specialDateError);
   const postcodes = validatePostcodeRules(input.postcodeRules);
   if (input.postcodePricingEnabled != null && typeof input.postcodePricingEnabled !== "boolean") errors.push({ field: "postcodePricingEnabled", message: "Postcode pricing switch must be on or off." });
   for (const message of postcodes.errors) errors.push({ field: "postcodeRules", message });
@@ -763,6 +770,7 @@ export function validateOwnerPricingInput(
         startMinutes: eveningStart ?? DEFAULT_EVENING_PRICING.startMinutes,
         endMinutes: eveningEnd ?? DEFAULT_EVENING_PRICING.endMinutes,
       },
+      specialDateFares: specialDateFares as SpecialDateFare[],
       christmas: {
         enabled: christmasRaw.enabled === true,
         surchargeRate: christmasRate ?? DEFAULT_CHRISTMAS_PRICING.surchargeRate,
@@ -858,6 +866,7 @@ export function toPublicOwnerPricingConfig(
         DEFAULT_DUBLIN_AIRPORT_FARE_ADJUSTMENT_RATE,
     },
     evening: settings.evening ?? { ...DEFAULT_EVENING_PRICING },
+    specialDateFares: settings.specialDateFares ?? defaultSpecialDateFares(),
     christmas: settings.christmas ?? { ...DEFAULT_CHRISTMAS_PRICING },
     night: settings.night,
     weekend: settings.weekend,
@@ -997,6 +1006,10 @@ export function describeOwnerPricingValue(path: string, settings: OwnerPricingSe
       return formatMinutesAsTime(settings.evening?.startMinutes ?? DEFAULT_EVENING_PRICING.startMinutes);
     case "evening.endMinutes":
       return formatMinutesAsTime(settings.evening?.endMinutes ?? DEFAULT_EVENING_PRICING.endMinutes);
+    case "specialDateFares":
+      return (settings.specialDateFares ?? defaultSpecialDateFares()).map(r =>
+        `${r.name} (${r.enabled ? "on" : "off"}), ${formatPercentFromRate(r.rate)}, ${r.direction} ${r.venue}, ${r.start} – ${r.end}${r.annual ? " annually" : ""}`
+      ).join(" / ");
     case "christmas.enabled":
       return settings.christmas?.enabled ? "ON" : "OFF";
     case "christmas.surchargeRate":
@@ -1061,6 +1074,7 @@ const DIFF_PATHS = [
   "evening.surchargeRate",
   "evening.startMinutes",
   "evening.endMinutes",
+  "specialDateFares",
   "christmas.enabled",
   "christmas.surchargeRate",
   "christmas.startMonthDay",
@@ -1109,6 +1123,7 @@ const DIFF_LABELS: Record<(typeof DIFF_PATHS)[number], string> = {
   "evening.surchargeRate": "Evening surcharge",
   "evening.startMinutes": "Evening starts",
   "evening.endMinutes": "Evening ends",
+  "specialDateFares": "Events and special dates",
   "christmas.enabled": "Christmas pricing",
   "christmas.surchargeRate": "Christmas surcharge",
   "christmas.startMonthDay": "Christmas starts",
@@ -1385,6 +1400,9 @@ export function nightWeekendSurchargeExplanation(
   if (options.eveningEnabled) periods.push(`A ${formatPercentFromRate(options.eveningRate)} Evening surcharge applies between ${formatMinutesAsTime(options.eveningStartMinutes)} and ${formatMinutesAsTime(options.eveningEndMinutes)}.`);
   if (options.nightEnabled) periods.push(`A ${nightPct} Night surcharge applies between ${start} and ${end}.`);
   if (options.weekendEnabled) periods.push(`A ${weekendPct} Weekend surcharge applies all day ${weekendDays}.`);
+  if ((settings?.specialDateFares ?? defaultSpecialDateFares()).some(rule => rule.enabled && rule.rate > 0)) {
+    periods.push("Event and special date fares apply on qualifying journeys.");
+  }
   return `${periods.join(" ")} Times are Europe/London. When periods overlap, only the highest surcharge applies to each leg’s base vehicle fare; fixed airport charges are excluded.`;
 }
 

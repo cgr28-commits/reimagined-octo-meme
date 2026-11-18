@@ -303,6 +303,7 @@ export function calculateAuthoritativeWebsiteQuote(
   }
   const schedule = {
     ...buildSchedule(input),
+    endpoints: { pickup, dropoff: input.dropoffAddress ?? undefined },
     returnJourney,
   };
   const airportCode = input.airportCode ?? null;

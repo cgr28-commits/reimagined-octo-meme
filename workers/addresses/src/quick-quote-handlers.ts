@@ -680,12 +680,12 @@ export function rescaleFareForSchedule(
   fare: number,
   journey: Pick<QuickQuoteJourney, "outboundDate" | "outboundTime" | "returnJourney" | "returnDate" | "returnTime">,
   next: QuickQuoteSchedule,
-  rateFor: (date: string, time: string) => number,
+  rateFor: (date: string, time: string, returning: boolean) => number,
 ): number {
   const legs = (s: { outboundDate: string; outboundTime: string; returnDate?: string; returnTime?: string }) => {
-    const out = 1 + rateFor(s.outboundDate, s.outboundTime);
+    const out = 1 + rateFor(s.outboundDate, s.outboundTime, false);
     if (!journey.returnJourney) return out;
-    const ret = s.returnDate && s.returnTime ? 1 + rateFor(s.returnDate, s.returnTime) : 1;
+    const ret = s.returnDate && s.returnTime ? 1 + rateFor(s.returnDate, s.returnTime, true) : 1;
     return out + ret;
   };
   const before = legs(journey);
@@ -731,8 +731,10 @@ export async function rescheduleQuickQuote(
       typeof record.calculatedAmount === "number" && Number.isFinite(record.calculatedAmount)
         ? quickQuoteCalculatedAmount(record)
         : quickQuoteTransferFareGbp(record);
-    calculated = rescaleFareForSchedule(base, j, next, (date, time) =>
-      tripSurchargeRate(date, time, pricing),
+    calculated = rescaleFareForSchedule(base, j, next, (date, time, returning) =>
+      tripSurchargeRate(date, time, pricing, returning
+        ? { pickup: j.dropoffAddress, dropoff: j.pickupAddress }
+        : { pickup: j.pickupAddress, dropoff: j.dropoffAddress }),
     );
   }
   const discounted = applyQuickQuoteManualDiscount(calculated, record.discountType ?? "none", record.discountValue ?? 0);

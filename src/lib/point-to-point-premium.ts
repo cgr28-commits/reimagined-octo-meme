@@ -1,3 +1,4 @@
+import { defaultSpecialDateFares, matchingSpecialDateFare, type FareEndpoints } from "../../shared/special-date-fares";
 import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
 import {
@@ -33,6 +34,9 @@ export const AIRPORT_TRIP_PREMIUM_RATE = PRICING_CONFIG.airportTripPremiumRate;
 export const POINT_TO_POINT_PREMIUM_RATE = TRIP_PREMIUM_RATE;
 
 export type TripSchedule = {
+  endpoints?: FareEndpoints;
+  outboundFixedPostcode?: boolean;
+  returnFixedPostcode?: boolean;
   outboundDate?: string;
   outboundTime?: string;
   returnDate?: string;
@@ -63,76 +67,61 @@ export function isTripPremiumDateTime(
   time: string,
   pricing?: OwnerPricingEngineInput | null,
 ): boolean {
-  const parsed = parseLocalDateTime(date, time);
-  if (!parsed) {
-    return false;
-  }
-
-  const options = pricing ? ownerPricingEngineOptions(pricing) : null;
-  const rules = options
-    ? {
-        christmasEnabled: options.christmasEnabled,
-        christmasStartMonthDay: options.christmasStartMonthDay,
-        christmasEndMonthDay: options.christmasEndMonthDay,
-        eveningEnabled: options.eveningEnabled,
-        eveningStartMinutes: options.eveningStartMinutes,
-        eveningEndMinutes: options.eveningEndMinutes,
-        nightEnabled: options.nightEnabled,
-        nightStartMinutes: options.nightStartMinutes,
-        nightEndMinutes: options.nightEndMinutes,
-        weekendEnabled: options.weekendEnabled,
-        weekendDays: options.weekendDays,
-      }
-    : defaultPremiumWindowRules();
-
-  return (
-    surchargeRateForDateTime({
-      day: parsed.day,
-      minutes: parsed.minutes,
-      date,
-      christmasRate: options?.christmasRate ?? 0,
-      eveningRate: options?.eveningRate ?? 0,
-      nightRate: options?.nightRate ?? TRIP_PREMIUM_RATE,
-      weekendRate: options?.weekendRate ?? TRIP_PREMIUM_RATE,
-      rules,
-    }) > 0
-  );
+  return tripSurchargeRate(date, time, pricing) > 0;
 }
 
-/** Surcharge rate (e.g. 0.1) for a pickup date/time under the owner's settings; 0 outside every window. */
+/** Highest applicable rate per leg. Fixed postcode fares only take special date rules. */
 export function tripSurchargeRate(
   date: string,
   time: string,
   pricing?: OwnerPricingEngineInput | null,
+  endpoints: FareEndpoints = {},
+  fixedPostcode = false,
+  fallbackRate = TRIP_PREMIUM_RATE,
 ): number {
   const parsed = parseLocalDateTime(date, time);
   if (!parsed) return 0;
+  const special = matchingSpecialDateFare(pricing?.specialDateFares ?? defaultSpecialDateFares(), date, time, endpoints);
+  if (fixedPostcode) return special?.rate ?? 0;
   const options = pricing ? ownerPricingEngineOptions(pricing) : null;
-  const rules = options
-    ? {
-        christmasEnabled: options.christmasEnabled,
-        christmasStartMonthDay: options.christmasStartMonthDay,
-        christmasEndMonthDay: options.christmasEndMonthDay,
-        eveningEnabled: options.eveningEnabled,
-        eveningStartMinutes: options.eveningStartMinutes,
-        eveningEndMinutes: options.eveningEndMinutes,
-        nightEnabled: options.nightEnabled,
-        nightStartMinutes: options.nightStartMinutes,
-        nightEndMinutes: options.nightEndMinutes,
-        weekendEnabled: options.weekendEnabled,
-        weekendDays: options.weekendDays,
-      }
-    : defaultPremiumWindowRules();
-  return surchargeRateForDateTime({
-    day: parsed.day,
-    minutes: parsed.minutes,
-    date,
+  const regular = surchargeRateForDateTime({
+    ...parsed, date,
     christmasRate: options?.christmasRate ?? 0,
     eveningRate: options?.eveningRate ?? 0,
-    nightRate: options?.nightRate ?? TRIP_PREMIUM_RATE,
-    weekendRate: options?.weekendRate ?? TRIP_PREMIUM_RATE,
-    rules,
+    nightRate: options?.nightRate ?? fallbackRate,
+    weekendRate: options?.weekendRate ?? fallbackRate,
+    rules: options ?? defaultPremiumWindowRules(),
   });
+  return Math.max(regular, special?.rate ?? 0);
+}
+
+export function legSchedule(schedule: TripSchedule, returning: boolean): TripSchedule {
+  const endpoints = schedule.endpoints;
+  return {
+    outboundDate: returning ? schedule.returnDate : schedule.outboundDate,
+    outboundTime: returning ? schedule.returnTime : schedule.outboundTime,
+    outboundFixedPostcode: returning ? schedule.returnFixedPostcode : schedule.outboundFixedPostcode,
+    endpoints: returning ? { pickup: endpoints?.dropoff, dropoff: endpoints?.pickup } : endpoints,
+    returnJourney: false,
+  };
+}
+
+export function specialFareLabel(schedule: TripSchedule, pricing?: OwnerPricingEngineInput | null): string | undefined {
+  const rules = pricing?.specialDateFares ?? defaultSpecialDateFares();
+  const labels = new Set<string>();
+  let hasSpecial = false;
+  for (const returning of schedule.returnJourney ? [false, true] : [false]) {
+    const leg = legSchedule(schedule, returning);
+    const date = leg.outboundDate ?? "";
+    const time = leg.outboundTime ?? "";
+    const match = matchingSpecialDateFare(rules, date, time, leg.endpoints ?? {});
+    const rate = tripSurchargeRate(date, time, pricing, leg.endpoints, leg.outboundFixedPostcode);
+    if (rate && match?.rate === rate) {
+      hasSpecial = true;
+      labels.add(`${match.name} ${Number((rate * 100).toFixed(2))}% surcharge`);
+    } else if (rate) labels.add("Time surcharge");
+  }
+  return hasSpecial ? [...labels].join(" / ") : undefined;
 }
 
 /** @deprecated Use isTripPremiumDateTime */
@@ -187,38 +176,10 @@ export function applyTripPremium(
     options?.returnDiscountRate ??
     pricingOptions?.returnDiscountRate ??
     RETURN_JOURNEY_DISCOUNT_RATE;
-  const nightRate = pricingOptions?.nightRate ?? premiumRate;
-  const weekendRate = pricingOptions?.weekendRate ?? premiumRate;
-  const rules = pricingOptions
-    ? {
-        christmasEnabled: pricingOptions.christmasEnabled,
-        christmasStartMonthDay: pricingOptions.christmasStartMonthDay,
-        christmasEndMonthDay: pricingOptions.christmasEndMonthDay,
-        eveningEnabled: pricingOptions.eveningEnabled,
-        eveningStartMinutes: pricingOptions.eveningStartMinutes,
-        eveningEndMinutes: pricingOptions.eveningEndMinutes,
-        nightEnabled: pricingOptions.nightEnabled,
-        nightStartMinutes: pricingOptions.nightStartMinutes,
-        nightEndMinutes: pricingOptions.nightEndMinutes,
-        weekendEnabled: pricingOptions.weekendEnabled,
-        weekendDays: pricingOptions.weekendDays,
-      }
-    : defaultPremiumWindowRules();
-
-  const rateFor = (date?: string, time?: string): number => {
-    if (!date || !time) return 0;
-    const parsed = parseLocalDateTime(date, time);
-    if (!parsed) return 0;
-    return surchargeRateForDateTime({
-      day: parsed.day,
-      minutes: parsed.minutes,
-      date,
-      christmasRate: pricingOptions?.christmasRate ?? 0,
-      eveningRate: pricingOptions?.eveningRate ?? 0,
-      nightRate,
-      weekendRate,
-      rules,
-    });
+  const rateForLeg = (returning: boolean): number => {
+    const leg = legSchedule(schedule, returning);
+    return tripSurchargeRate(leg.outboundDate ?? "", leg.outboundTime ?? "", options?.pricing,
+      leg.endpoints, leg.outboundFixedPostcode, premiumRate);
   };
 
   const outboundFare = oneWayFare;
@@ -229,10 +190,10 @@ export function applyTripPremium(
 
   let premiumAmount = 0;
   if (schedule.outboundDate && schedule.outboundTime) {
-    premiumAmount += outboundFare * rateFor(schedule.outboundDate, schedule.outboundTime);
+    premiumAmount += outboundFare * rateForLeg(false);
   }
   if (schedule.returnJourney && schedule.returnDate && schedule.returnTime) {
-    premiumAmount += returnFare * rateFor(schedule.returnDate, schedule.returnTime);
+    premiumAmount += returnFare * rateForLeg(true);
   }
 
   const vehicleJourneyTotal = outboundFare + (schedule.returnJourney ? returnFare : 0) + premiumAmount;
