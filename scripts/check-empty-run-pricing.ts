@@ -86,6 +86,36 @@ assert.equal(run(req("14:00", { returnJourney: true })).reason, "EMPTY_RUN_RETUR
 assert.equal(run(req("14:00", { tripDate: "2026-11-16" })).reason, "EMPTY_RUN_NO_MATCH");
 assert.equal(run(req("14:00", { pickupLabel: "Derry", pickup: { lat: 54.9966, lng: -7.3086 } })).reason, "EMPTY_RUN_NO_MATCH");
 assert.equal(run(req("14:00", { vehicle: "Executive Saloon (1–4 passengers)" })).reason, "EMPTY_RUN_NO_MATCH");
+// Mid-corridor passenger journeys can fill part of a Belfast → Dublin approach.
+const NEWRY = { lat: 54.178, lng: -6.3375 };
+const newryToDublin = req("14:30", { pickupLabel: "Newry", pickup: NEWRY, durationMinutes: 90 });
+assert.equal(run(newryToDublin).applied, true);
+
+// A Belfast → Dublin parent also creates a return leg after its drop-off.
+const outboundToDublin: SmartOccupiedJob = {
+  ...sundayDublinPickup,
+  id: "MAT-BELFAST-DUBLIN",
+  pickupLabel: "Belfast City Hall",
+  dropoffLabel: "Dublin Airport",
+  pickup: BELFAST_CITY,
+  dropoff: DUBLIN_AIRPORT,
+  tripTime: "10:00",
+  durationMinutes: 120,
+  airportCode: "DUB",
+  isFromAirport: false,
+};
+const dublinToBelfast = req("12:30", {
+  pickupLabel: "Dublin Airport",
+  dropoffLabel: "Belfast City Hall",
+  pickup: DUBLIN_AIRPORT,
+  dropoff: BELFAST_CITY,
+  fromAirport: true,
+  durationMinutes: 120,
+});
+const postRun = evaluateEmptyRunDiscount({ request: dublinToBelfast, fare, occupied: [outboundToDublin], base: BASE, settings: on, now: NOW });
+assert.equal(postRun.applied, true, JSON.stringify(postRun));
+assert.equal(postRun.parentJobId, outboundToDublin.id);
+
 // Cancelled parent → no discount.
 assert.equal(run(req("14:00"), on, [{ ...sundayDublinPickup, cancelled: true }]).reason, "EMPTY_RUN_NO_MATCH");
 // Cheap fare already at/below the floor → no discount.
