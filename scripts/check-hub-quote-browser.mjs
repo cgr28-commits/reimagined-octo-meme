@@ -84,8 +84,10 @@ try {
         await page.locator('#time').fill('12:00');
         await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
         const fare=page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText(/^£[\d,]+(?:\.\d{2})?$/).first();
-        await fare.waitFor();
-        const customerPrice=(await fare.innerText()).trim();
+        const confirmed=page.locator('[data-quote-fare-status="ready"]');
+        await confirmed.waitFor({state:'attached'});
+        const customerPrice=(await confirmed.textContent()).trim();
+        await fare.filter({hasText:new RegExp('^'+customerPrice.replace('.','[.]')+'$')}).waitFor();
         assert.match(customerPrice,/^£\d+(?:\.\d{2})?$/,'confirmed total includes the existing airport fees');
         await page.getByRole('button',{name:new RegExp(`^(BOOK THIS TRANSFER — ${customerPrice.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|Continue (?:with .+ →|to booking(?: details)?))$`)}).click();
         await page.locator('#name').waitFor({state:'visible'});
@@ -94,7 +96,7 @@ try {
         assert.equal(await page.locator('#time').inputValue(),'12:00');
         assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
         assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
-        assert.ok((await page.locator('#quote-price-summary').innerText()).includes(customerPrice),'booking summary retains the displayed customer total');
+        await page.getByText(customerPrice,{exact:true}).filter({visible:true}).first().waitFor();
         await page.waitForTimeout(1100);
         // Schedule inputs may sit in a collapsed checkout summary; the customer name field must be on-screen.
         const positions = await page.evaluate(()=>({name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));

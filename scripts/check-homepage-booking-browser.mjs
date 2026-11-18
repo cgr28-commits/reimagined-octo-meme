@@ -294,13 +294,13 @@ try {
       // Desktop (1200px+): a normal click, so Playwright waits until the row itself can take it.
       if (width >= 1200) { await suggestion.evaluate(el=>el.scrollIntoView({block:'nearest'})); await page.waitForTimeout(300); await suggestion.click(); }
       else await suggestion.click({force:true});
-      await page.waitForFunction((id)=>document.getElementById(id)?.value === 'Dublin Airport, Ireland',field);
-      assert.equal(await page.locator(`#${field}`).inputValue(),'Dublin Airport, Ireland');
+      await page.waitForFunction((id)=>document.getElementById(id)?.value.includes('Dublin Airport Terminal 2'),field);
+      assert.match(await input.inputValue(),/^Dublin Airport Terminal 2(?:, Co\. Dublin, Ireland)?$/);
       await page.keyboard.press('Escape');
     }
     await page.locator('#pickup').scrollIntoViewIfNeeded();
     await page.screenshot({path:`${output}/${width}-dublin-airport-fields.png`});
-    pass(`${width}px: airport suggestion resolving to Dublin, Ireland displays Dublin Airport, Ireland in pickup and drop-off`);
+    pass(`${width}px: selected Dublin Airport terminal is preserved in pickup and drop-off`);
     await context.close();
   }
 } finally {
