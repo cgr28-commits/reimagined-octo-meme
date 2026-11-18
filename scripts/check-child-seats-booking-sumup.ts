@@ -194,10 +194,10 @@ console.log("\n=== QuoteCard booking-details wiring ===");
   assert.match(card, /setChildSeats\(normalizeChildSeats\(draft\.childSeats\)\)/);
   assert.match(card, /setChildSeatNotes\(draft\.childSeatNotes\?\.trim\(\) \|\| ""\)/);
   assert.match(card, /childSeats,\s*childSeatNotes: childSeats > 0 \? childSeatNotes\.trim\(\) : ""/);
-  assert.match(card, /childSeats,\s*childSeatNotes: childSeats > 0 \? childSeatNotes\.trim\(\) : undefined/);
+  assert.match(card, /childSeats: bookingChildSeats,\s*childSeatNotes: bookingChildSeats > 0 \? childSeatNotes\.trim\(\) : undefined/);
   assert.match(card, /setChildSeats\(0\)/);
   assert.match(card, /QUOTE_REQUIRED_FIELD_MESSAGES\.childSeatNotes/);
-  assert.match(card, /childSeats > 0 && !childSeatNotes\.trim\(\)/);
+  assert.match(card, /bookingChildSeats > 0 && !childSeatNotes\.trim\(\)/);
   assert.equal(
     QUOTE_REQUIRED_FIELD_MESSAGES.childSeatNotes,
     "Please tell us each child’s age and whether you need a child seat or booster seat.",

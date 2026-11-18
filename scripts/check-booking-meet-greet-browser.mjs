@@ -1,3 +1,4 @@
+import { setQuoteCount } from "./playwright-quote-count.mjs";
 /** Static-export conversion checks. Every non-static request is intercepted; no live writes. */
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -65,7 +66,7 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  const page=await context.newPage();
  page.setDefaultTimeout(15000);
  await page.goto(`${url}/?previewJourney=bfs`);
- await page.getByRole('button',{name:'Reject optional',exact:true}).click();
+ await page.getByRole('button',{name:'Decline all',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
  if(collection) {
   for(const [id,text] of [['pickup','Belfast International'],['dropoff','Belfast City Hall']]) {
@@ -74,8 +75,8 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
    await page.locator(`[id="${listbox}"]`).getByRole('button').filter({hasText:text}).first().click();
   }
  }
- await page.locator('#quote-section-passengers').selectOption('2');
- await page.locator('#quote-section-suitcases').selectOption('1');
+ await setQuoteCount(page, 'passengers', 2);
+ await setQuoteCount(page, 'suitcases', 1);
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();

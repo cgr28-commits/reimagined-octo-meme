@@ -239,9 +239,9 @@ check("completed return + one qualifying leg only surcharges that leg", () => {
     cityBfsMetrics,
   );
   assert.ok(neither && sundayReturn);
-  // Two full journeys (the automatic 5% return discount was retired, Nov 2026).
-  assert.equal(neither.amount, 90);
-  assert.equal(sundayReturn.amount, 94.5);
+  // Both vehicle legs and the qualifying Sunday premium receive 5% off.
+  assert.equal(neither.amount, 85.5);
+  assert.equal(sundayReturn.amount, 89.78);
   assert.equal(sundayReturn.nightWeekendSurchargeGbp, 4.5);
 });
 

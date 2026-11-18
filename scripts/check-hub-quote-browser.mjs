@@ -1,3 +1,4 @@
+import { setQuoteCount } from "./playwright-quote-count.mjs";
 /** Isolated hub/transfer quote regression; external services are mocked. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -67,8 +68,8 @@ try {
         const missing = item.field === 'pickup' ? 'dropoff' : 'pickup';
         await page.locator(`#${missing}`).fill('Belfast City Hall');
         await page.getByRole('button',{name:/Belfast City Hall.*Donegall/}).first().click();
-        await page.locator('#quote-section-passengers').selectOption('2');
-        await page.locator('#quote-section-suitcases').selectOption('0');
+        await setQuoteCount(page, 'passengers', 2);
+        await setQuoteCount(page, 'suitcases', 0);
         // The current flow requires collection details before the fixed fare,
         // on main as well as PR677. Do not wait for a booking CTA with no schedule.
         const date = new Date(Date.now()+5*86400000).toISOString().slice(0,10);

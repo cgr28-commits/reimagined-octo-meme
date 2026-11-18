@@ -26,7 +26,7 @@ async function main(){
    });
    const page=await context.newPage();activePage=page;page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://127.0.0.1:3096/?previewJourney=bfs&previewPax=1&previewBags=1');
-   await page.getByRole('button',{name:'Reject optional',exact:true}).click();
+   await page.getByRole('button',{name:'Decline all',exact:true}).click();
    await page.waitForFunction(()=>document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value);
    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:1,suitcases:1,vehicle:'Standard Saloon (1–4 passengers)',returnJourney:false,tripDate:new Date(Date.now()+10*86400000).toISOString().slice(0,10),tripTime:'12:00'}})));
    await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();
@@ -67,8 +67,8 @@ async function main(){
     return route.fulfill({json:{ok:true,role:'owner',jobs:[],drivers:[],availableDrivers:[],configured:true,entries:[],settings:{}}});
    });
    const page=await context.newPage();activePage=page;await page.goto('http://127.0.0.1:3096/owner/?tab=more');
-   await page.getByRole('button',{name:'Reject optional',exact:true}).click();
-   await page.getByRole('dialog',{name:'Cookie consent'}).waitFor({state:'hidden'});
+   await page.getByRole('button',{name:'Decline all',exact:true}).click();
+   await page.getByRole('dialog',{name:'Your privacy and how we use your data'}).waitFor({state:'hidden'});
    const [statsResponse]=await Promise.all([
     page.waitForResponse(r=>new URL(r.url()).pathname==='/quote-stats',{timeout:10000}),
     page.getByRole('button',{name:'Enquiries',exact:false}).click(),

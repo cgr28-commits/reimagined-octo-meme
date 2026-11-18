@@ -39,7 +39,7 @@ try {
   const page=await context.newPage();page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
   try {
   await page.goto(base+'/quote/#t='+token,{waitUntil:'domcontentloaded'});
-  const reject=page.getByRole('button',{name:'Reject optional',exact:true});await reject.click();
+  const reject=page.getByRole('button',{name:'Decline all',exact:true});await reject.click();
   await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
   assert.equal(await page.locator('#quoteForm [name="passengers"]').first().inputValue(),'2');
   assert.equal(await page.locator('#quoteForm [name="suitcases"]').first().inputValue(),'1');

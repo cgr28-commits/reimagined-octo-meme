@@ -17,7 +17,7 @@ try {
    await context.route('**/*',route=>{const request=route.request();if(new URL(request.url()).origin==='http://127.0.0.1:3194')return route.continue();if(request.method()!=='GET')writes++;return route.abort();});
    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://127.0.0.1:3194/owner/pricing-preview/',{waitUntil:'networkidle'});
-   const consent=page.getByRole('button',{name:'Reject optional',exact:true});if(await consent.isVisible())await consent.click();
+   const consent=page.getByRole('button',{name:'Decline all',exact:true});if(await consent.isVisible())await consent.click();
    const toggle=page.getByRole('checkbox',{name:'Use mileage formula for new quotes'});
    await toggle.waitFor();assert.equal(await toggle.isChecked(),false);assert.equal(await toggle.isEnabled(),true);
    await toggle.scrollIntoViewIfNeeded();await page.screenshot({path:`test-results/dashboard-formula/${name}-${width}-defaults.png`});

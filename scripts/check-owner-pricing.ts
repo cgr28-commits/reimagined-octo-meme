@@ -508,7 +508,7 @@ check("return 5% / 10% / 0% and Night/Weekend 10% / 20% / 0%", () => {
     returnDate: "2026-08-20",
     returnTime: "10:00",
   });
-  assert.equal(Math.round(oneNight.total * 100) / 100, 88);
+  assert.equal(Math.round(oneNight.total * 100) / 100, 87.78);
 
   const both = applyTripPremium(44, {
     outboundDate: "2026-08-22",
@@ -517,7 +517,7 @@ check("return 5% / 10% / 0% and Night/Weekend 10% / 20% / 0%", () => {
     returnDate: "2026-08-23",
     returnTime: "10:00",
   });
-  assert.equal(Math.round(both.total * 100) / 100, 92.4);
+  assert.equal(Math.round(both.total * 100) / 100, 91.96);
 
   const night20 = applyTripPremium(
     44,
@@ -562,13 +562,11 @@ check("Night / Weekend boundaries and highest-applicable stacking", () => {
   assert.equal(overlap, 0.2);
 });
 
-check("£100 − 5% + 10% + £6 fixed = £111, not £110.50", () => {
+check("£100 plus a £10 premium qualifies for 5% off before the £6 fee", () => {
   const eligibleBase = 100;
-  const discounted = eligibleBase * (1 - 0.05);
   const surcharge = eligibleBase * 0.1;
-  const total = Math.round((discounted + surcharge + 6) * 100) / 100;
-  assert.equal(total, 111);
-  assert.notEqual(Math.round((eligibleBase * 0.95 * 1.1 + 6) * 100) / 100, 111);
+  const total = Math.round(((eligibleBase + surcharge) * 0.95 + 6) * 100) / 100;
+  assert.equal(total, 110.5);
   const engine = applyTripPremium(50, {
     outboundDate: "2026-08-22",
     outboundTime: "10:00",
@@ -576,7 +574,7 @@ check("£100 − 5% + 10% + £6 fixed = £111, not £110.50", () => {
     returnDate: "2026-08-23",
     returnTime: "10:00",
   });
-  assert.equal(Math.round((engine.total + 6) * 100) / 100, 111);
+  assert.equal(Math.round((engine.total + 6) * 100) / 100, total);
 });
 
 console.log("\n=== 5. Minibus order and fixed charges ===");

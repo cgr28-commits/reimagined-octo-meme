@@ -1,3 +1,4 @@
+import { setQuoteCount } from "./playwright-quote-count.mjs";
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
@@ -34,8 +35,8 @@ try {
     const page=await context.newPage();
     await page.goto(`${base}/?previewJourney=bfs&previewDestination=${destination}`);
     await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
-    await page.locator('#quote-section-passengers').selectOption('2');
-    await page.locator('#quote-section-suitcases').selectOption('0');
+    await setQuoteCount(page, 'passengers', 2);
+    await setQuoteCount(page, 'suitcases', 0);
     await page.getByRole('button',{name:'Get My Fixed Price →',exact:true}).last().click();
     await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(),/£[\d,]+/);
