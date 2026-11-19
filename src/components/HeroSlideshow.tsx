@@ -38,6 +38,7 @@ type Props = {
   /** The ?from= value that switches to introFromAirport (default "airport"). */
   introFromValue?: string;
   journey?: QuoteHeroJourney;
+  eventChoices?: ReactNode;
   /** Marks the H1 as the menu's scroll/focus target for this page. */
   navId?: string;
   /** Saved-quote link: the quote to restore into the tool. */
@@ -98,7 +99,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -191,6 +192,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
             bookingIntroduction={journey?.bookingIntroduction}
             initialEventTransfer={journey?.eventTransfer}
             initialEvent={journey?.event}
+            eventChoices={eventChoices}
             initialAirportCode={journey?.airportCode ?? ""}
             initialDirection={journey?.direction ?? "to-airport"}
             initialAddressHint={journey?.addressHint ?? ""}
