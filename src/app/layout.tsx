@@ -6,6 +6,7 @@ import "./seasonal-christmas.css";
 import "./mobile-home-mockup.css";
 import "./desktop-home-premium.css";
 import "./tablet-d3-brand.css";
+import "./airport-page-hero.css";
 import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";
 import CookieConsent from "@/components/CookieConsent";

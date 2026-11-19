@@ -7,6 +7,7 @@ import EmergeDiscoveryPromo from "@/components/EmergeDiscoveryPromo";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingHeroMedia from "@/components/LandingHeroMedia";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
+import { AIRPORT_PAGE_HERO } from "@/lib/airport-page-hero";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
@@ -107,9 +108,11 @@ export default async function AirportTransferPage({ params }: Props) {
           headingSubject={page.title.includes(page.name) ? page.name : page.shortName}
           intro={`Pre-booked, fixed-price transfers to and from ${page.shortName}. ${page.durationNote}`}
           journey={{ airportCode: page.code, direction: "to-airport" }}
+          airportPhoto={AIRPORT_PAGE_HERO[page.code]}
         />
+        {/* Below 1200px the hero above shows this airport's photo, so this one is hidden and not downloaded. */}
         <div data-d2-airport-photo data-d2-badge={`${page.code} · ${D2_AIRPORT_PLACE[page.code] ?? page.shortName}`}>
-          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
+          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" loadFromMinWidth={1200} />
         </div>
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">

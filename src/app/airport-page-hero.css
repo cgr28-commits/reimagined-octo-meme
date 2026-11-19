@@ -1,0 +1,95 @@
+/*
+ * Airport guide pages (/airports/*), Design 3 only (owner, 19 Nov 2026).
+ * Phones: compact photo banner above the heading. Tablets: photo behind the heading on the
+ * right, faded into the navy hero, quote form and heading in their usual places.
+ * Laptops 1200px+ are unchanged (the photo is never downloaded there).
+ * Markup: src/components/AirportPageHeroPhoto.tsx. Hidden once quote results or checkout show.
+ */
+
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) > [data-airport-hero] {
+    display: block;
+    pointer-events: none;
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* The airport photo below the hero repeats this one, so it is hidden (and not downloaded) here. */
+  html[data-mobile-d3] main > [data-d2-airport-photo] {
+    display: none;
+  }
+}
+
+/* ---------- Phones: banner ---------- */
+@media (max-width: 767.98px) {
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
+    position: relative;
+    z-index: 1;
+    margin: 0 1rem 0.75rem;
+    /* 120px on short phones (667px tall), 160px on tall ones (844px+), keeping the price button in view. */
+    height: clamp(120px, calc(22.6vh - 31px), 160px);
+    height: clamp(120px, calc(22.6svh - 31px), 160px);
+    border-radius: 1rem;
+    overflow: hidden;
+    background: #0a2445;
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(0deg, rgba(1, 25, 48, 0.7) 0%, rgba(1, 25, 48, 0) 55%);
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] [data-airport-hero-badge] {
+    position: absolute;
+    left: 0.75rem;
+    bottom: 0.65rem;
+    z-index: 1;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(1, 25, 48, 0.78);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+}
+
+/* ---------- Tablets: homepage-style photo hero ---------- */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
+    position: absolute;
+    top: 4.5rem;
+    right: 0;
+    z-index: 0;
+    width: 64%;
+    aspect-ratio: 3 / 2;
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, #000 55%),
+      linear-gradient(0deg, transparent 0%, #000 40%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0%, #000 55%),
+      linear-gradient(0deg, transparent 0%, #000 40%, #000 88%, transparent 100%);
+    mask-composite: intersect;
+  }
+  /* Evening grade so the heading stays readable over daytime photos. */
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(1, 25, 48, 0.42);
+  }
+  html[data-mobile-d3] main > section.homepage-hero:has(> [data-airport-hero]) #homepage-booking-intro :is(h1, p) {
+    text-shadow: 0 1px 10px rgba(1, 24, 52, 0.85);
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] [data-airport-hero-badge] {
+    display: none;
+  }
+  html[data-mobile-d3] main > section.homepage-hero:has(> [data-airport-hero]) > .homepage-hero-layout {
+    z-index: 1;
+  }
+}
