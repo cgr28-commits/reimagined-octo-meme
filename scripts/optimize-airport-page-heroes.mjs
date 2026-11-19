@@ -3,8 +3,8 @@
  * (Design 3, up to 1199px). Desktop keeps its existing images.
  * Run: node scripts/optimize-airport-page-heroes.mjs
  *
- * Third-party originals are fetched from Wikimedia Commons into a temp folder and are not
- * committed or published; only the cropped, resized outputs are. Credits live in
+ * Owner-supplied originals live in design/airport-page-heroes/ (not published). Commons originals
+ * are fetched into a temp folder and are not committed; only the cropped, resized outputs are. Credits live in
  * public/images/hero/IMAGE-LICENSE.md and src/app/photo-credits/page.tsx.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -33,20 +33,21 @@ const VARIANTS = [
 const PHOTOS = [
   {
     output: "airport-page-bfs",
-    source: { commons: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/BFS_airport_terminal_%28Image_copyright_Andrew_McCarron%29.jpg/1920px-BFS_airport_terminal_%28Image_copyright_Andrew_McCarron%29.jpg", cacheName: "airport-page-bfs" },
-    focus: { phone: [0.3, 0.45, 1.45], tablet: [0.42, 0.5] },
+    // Owner-supplied sunset photo (19 Nov 2026).
+    source: { local: "design/airport-page-heroes/bfs-owner.jpg" },
+    focus: { phone: [0.4, 0.5], tablet: [0.42, 0.5] },
   },
   {
     output: "airport-page-bhd",
-    source: { commons: "https://upload.wikimedia.org/wikipedia/commons/2/2e/Entrance_to_George_Best_Belfast_City_Airport_-_geograph.org.uk_-_3145806.jpg", cacheName: "airport-page-bhd" },
-    focus: { phone: [0.62, 0.5, 1.15], tablet: [0.62, 0.55] },
+    // Owner-supplied sunset photo (19 Nov 2026).
+    source: { local: "design/airport-page-heroes/bhd-owner.jpg" },
+    focus: { phone: [0.5, 0.42], tablet: [0.5, 0.45] },
   },
   {
     output: "airport-page-dub",
-    source: { local: "public/images/hero/dublin.jpg" },
-    // Phones (owner brief, 19 Nov 2026: warm sunset tones): CC0 sunset photo by Skullical, 13 Sep 2026.
-    phoneSource: { commons: "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/ff/Airport_in_Dublin.jpg/1920px-Airport_in_Dublin.jpg", cacheName: "airport-page-dub-sunset" },
-    focus: { phone: [0.6, 0.5], tablet: [0.5, 0.5] },
+    // Owner-supplied sunset photo of Terminal 2 (19 Nov 2026).
+    source: { local: "design/airport-page-heroes/dub-owner.jpg" },
+    focus: { phone: [0.62, 0.5], tablet: [0.55, 0.5] },
   },
   {
     output: "airport-page-ldy",

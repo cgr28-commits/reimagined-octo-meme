@@ -99,16 +99,14 @@ console.log("=== Homepage phone layout shared; desktop card unchanged ===");
 console.log("=== Credits ===");
 {
   const credits = read("src/app/photo-credits/page.tsx");
-  for (const source of [
-    "BFS_airport_terminal_(Image_copyright_Andrew_McCarron).jpg",
-    "Entrance_to_George_Best_Belfast_City_Airport_-_geograph.org.uk_-_3145806.jpg",
-    "File:CODA.jpg",
-    "Dublin_Airport_Terminal_2_-_2024-05-18.jpg",
-    "File:Airport_in_Dublin.jpg",
-  ]) {
+  // BFS, BHD and DUB use owner-supplied images (no third-party credit); Derry is from Commons.
+  for (const source of ["File:CODA.jpg", "Dublin_Airport_Terminal_2_-_2024-05-18.jpg"]) {
     assert.ok(credits.includes(source), `photo-credits missing ${source}`);
   }
-  console.log("OK  /photo-credits/ lists every airport photograph");
+  for (const owner of ["bfs", "bhd", "dub"]) {
+    assert.ok(existsSync(join(root, `design/airport-page-heroes/${owner}-owner.jpg`)), `missing ${owner} original`);
+  }
+  console.log("OK  /photo-credits/ lists the Commons photographs; owner originals are kept");
 }
 
 console.log("\nAll airport page hero checks passed.");
