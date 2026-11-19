@@ -418,10 +418,12 @@ check("Eligible parties still show a choosable 7-seater on quote results", () =>
   assert.equal(chosenMinibus.ok && chosenMinibus.vehicleType, MINIBUS_VEHICLE);
   if (saloon.ok && estate.ok && chosenMinibus.ok) {
     assert.equal(estate.amount - saloon.amount, UNIVERSAL_ESTATE_PREMIUM_GBP);
-    assert.equal(
-      chosenMinibus.amount,
-      minibusBaseFareFromSaloon(saloon.amount, onPricing).minibusQuotedGbp,
+    // The Belfast International minimum applies only to saloons and estates.
+    const mileageSaloon = calculateAuthoritativeWebsiteQuote(
+      quoteInput({ pricing: { ...onPricing, bfsMinimumSaloonFareGbp: 0 } }),
     );
+    assert.ok(mileageSaloon.ok);
+    assert.equal(chosenMinibus.amount, minibusBaseFareFromSaloon(mileageSaloon.amount, onPricing).minibusQuotedGbp);
   }
 
   for (const overrides of [

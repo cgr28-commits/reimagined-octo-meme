@@ -1,3 +1,4 @@
+import { eventFareShareLabel } from "../shared/event-fare-share";
 import { normalizeDerryCorridor } from "../shared/corridor-fares";
 import { getBookingSettings } from "./booking-settings-store";
 import { sendWebQuoteLinkWhatsApp, tripWhen, whatsAppRecipient, type WhatsAppTemplateEnv } from "./whatsapp-templates";
@@ -179,6 +180,7 @@ function parseJourney(raw: unknown): SavedQuoteJourneySnapshot | null {
         ? j.isFromAirport
         : String(j.tripDirection ?? j.journeyDirection ?? "").includes("from"),
     journeyType: asOptionalString(j.journeyType),
+    ...(j.eventTransfer === true ? { eventTransfer: true } : {}),
     optionalMeetGreetSelected: j.optionalMeetGreetSelected === true,
     terminalAccessChoices: parseTerminalAccessChoices(j.terminalAccessChoices),
     outboundAirportAccessChoice: j.outboundAirportAccessChoice === "express" ? "express" : j.outboundAirportAccessChoice === "meet-greet" ? "meet-greet" : "free",
@@ -411,6 +413,7 @@ export function savedQuoteQuickQuoteBody(
     airportCode: journey.airportCode ?? null,
     fromAirport: typeof journey.isFromAirport === "boolean" ? journey.isFromAirport : null,
     journeyMode: journey.returnJourney ? "return" : "one-way",
+    ...(journey.eventTransfer ? { eventTransfer: true } : {}),
     outboundDate: journey.tripDate,
     outboundTime: journey.tripTime,
     returnDate: journey.returnJourney ? journey.returnDate ?? "" : "",
@@ -711,12 +714,13 @@ export async function handleCreateSavedQuote(
     if (!held) {
       whatsappUnavailableReason = "no_held_price";
     } else {
+      const fareShare = eventFareShareLabel(held.amount, record.journey);
       const sent = await sendWebQuoteLinkWhatsApp(env as unknown as WhatsAppTemplateEnv, {
         savedQuoteToken: record.token,
         mobile: whatsAppTo,
         journeyLabel: `${shortPlaceLabel(record.journey.pickupLabel)} to ${shortPlaceLabel(record.journey.dropoffLabel)}${record.journey.returnJourney ? " (return)" : ""}`,
         whenLabel: tripWhen(record.journey.tripDate, record.journey.tripTime),
-        amountLabel: held.amountLabel,
+        amountLabel: fareShare ? `${held.amountLabel} (${fareShare})` : held.amountLabel,
         heldUntilLabel: held.heldUntilLabel,
       });
       whatsappSent = sent.sent;

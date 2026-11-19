@@ -7,6 +7,7 @@ import {
 } from "../shared/pricing-preview-isolation";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 import { previewPostcodeRule } from "./postcode-preview";
+import { calendarVenuePickups } from "./belfast-events-handlers";
 import {
   getOwnerPricingSettings,
   listOwnerPricingAudit,
@@ -40,11 +41,16 @@ export function isPublicPricingConfigPath(pathname: string): boolean {
 
 export async function loadOwnerPricingOrDefault(env?: {
   TRACKING_STORE?: KVNamespace;
+  EVENTS_HUB_PUBLIC?: string;
+  BESPOKE_QUOTES_ENABLED?: string;
 }) {
   if (!env?.TRACKING_STORE) {
     return ownerPricingDefaults();
   }
-  return getOwnerPricingSettings(env.TRACKING_STORE);
+  const settings = getOwnerPricingSettings(env.TRACKING_STORE);
+  if (env.EVENTS_HUB_PUBLIC !== "1" && env.BESPOKE_QUOTES_ENABLED !== "1") return settings;
+  const [stored, eventVenuePickups] = await Promise.all([settings, calendarVenuePickups(env.TRACKING_STORE)]);
+  return { ...stored, eventVenuePickups };
 }
 
 export async function handlePublicGetPricingConfig(

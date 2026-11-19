@@ -10,6 +10,7 @@ import {
 } from "../../shared/owner-pricing-config";
 
 import { defaultSpecialDateFares, type SpecialDateFare } from "../../shared/special-date-fares";
+import { EVENT_VENUE_PICKUP_RATE } from "../../shared/event-venue-pickups";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BANK_HOLIDAY_BEHAVIOUR_NOTE,
@@ -1319,6 +1320,7 @@ export default function OwnerPricingPanel({ ownerKey, isolated = false, aboveMob
 
       <section className="rounded-2xl border border-white/10 bg-navy/50 p-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald">Events &amp; special dates</h3>
+        <p className="mt-2 text-sm text-white/80">Published events add {formatPercentFromRate(EVENT_VENUE_PICKUP_RATE)} for collections at the named venue or designated pickup point. To set a different rate or window, choose “Pickups at the venue” and enter the same place name.</p>
         <p className="mt-2 text-sm text-white/70">Each leg uses its local pickup time. Only the highest applicable percentage is added to the vehicle fare.</p>
         {specialRules.map((rule, index) => (
           <fieldset key={index} className="my-4 rounded-xl border border-white/15 p-3">

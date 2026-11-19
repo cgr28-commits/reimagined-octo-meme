@@ -63,6 +63,8 @@ function QuickPickChips({ placement, onPick, chosenPlaceIds = [] }: { placement:
 }
 
 type HomepageQuoteFieldsProps = {
+  eventTransfer: boolean;
+  onEventTransferChange: (selected: boolean) => void;
   /**
    * Homepage only (owner, 14 Nov 2026): neutral card title plus one-tap airport quick picks,
    * so the homepage serves every journey type (route pages handle route-specific searches).
@@ -350,6 +352,8 @@ export default function HomepageQuoteFields({
   suitcases,
   onPassengersChange,
   onSuitcasesChange,
+  eventTransfer,
+  onEventTransferChange,
   passengersError,
   suitcasesError,
   publicMinibusEnabled,
@@ -654,6 +658,15 @@ export default function HomepageQuoteFields({
             <span>My Airport Taxi NI has confirmed space for my full party and all suitcases.</span>
           </label>
         </div>
+      ) : null}
+      {quoteFormActive && (passengers ?? 0) >= 2 ? (
+        <label data-event-transfer-choice className="col-span-full flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold">
+          <input type="checkbox" checked={eventTransfer} onChange={(e) => onEventTransferChange(e.target.checked)}
+            className="h-4 w-4 shrink-0 accent-emerald" />
+          <span>Travelling for a concert or event
+            <small className="block text-xs font-normal">Show the cost per person, including hotel pickups and drop-offs.</small>
+          </span>
+        </label>
       ) : null}
       <p id="homepage-quote-requirements" role="status" className={design2 ? "sr-only" : "text-xs leading-snug text-white/75"}>
         {!publicMinibusEnabled && ((passengers ?? 0) > 4 || (suitcases ?? 0) > 4)

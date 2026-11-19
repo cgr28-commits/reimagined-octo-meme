@@ -92,7 +92,7 @@ export const EVENTS_HUB_INSTANT_INTRO =
 export const EVENT_INSTANT_STEPS = [
   {
     title: "Get your fixed price",
-    body: "Enter your pickup and the venue in our quote tool and see your fixed price straight away.",
+    body: "Enter where you want us to collect you and where you're going. Your hotel can be the pickup or drop-off.",
   },
   {
     title: "Book and pay securely",
@@ -100,7 +100,7 @@ export const EVENT_INSTANT_STEPS = [
   },
   {
     title: "We take you there and back",
-    body: "Add a return journey for the ride home. We agree a pickup point near the venue with you before the day.",
+    body: "Add a return for the day you're heading home. If we're collecting you after the show, we'll agree a meeting point near the venue.",
   },
 ] as const;
 
@@ -113,7 +113,7 @@ export const EVENT_INSTANT_FAQS = [
   {
     question: "How much does an event transfer cost?",
     answer:
-      "Enter your pickup and the venue in our quote tool for an instant fixed price. The price you see is the price you pay.",
+      "Enter your pickup, drop-off and passenger count for a fixed price for the car. For collections at the venue or its designated pickup point, your quote includes any event pickup surcharge. Groups of two or more can also see the cost per person.",
   },
   {
     question: "Do you cover Dublin events from Northern Ireland?",
@@ -123,7 +123,7 @@ export const EVENT_INSTANT_FAQS = [
   {
     question: "My event isn't listed. Can I still book?",
     answer:
-      "Yes. We list the biggest events by hand, so not everything appears. Just enter the venue in our quote tool, or message us on WhatsApp.",
+      "Yes. Enter your pickup and drop-off in the quote tool, or message us on WhatsApp. You can book even if you're staying at a hotel and travelling the day before the event.",
   },
   {
     question: "Do you sell event tickets?",

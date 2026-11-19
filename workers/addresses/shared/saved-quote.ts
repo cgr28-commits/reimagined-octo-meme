@@ -29,6 +29,7 @@ export type SavedQuoteStatus = "saved" | "booked" | "expired";
  * is held (see SavedQuoteHeldPrice); otherwise the fare is recalculated before booking.
  */
 export type SavedQuoteJourneySnapshot = {
+  eventTransfer?: boolean;
   pickupLabel: string;
   dropoffLabel: string;
   pickupPlaceId?: string;

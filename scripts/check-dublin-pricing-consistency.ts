@@ -21,6 +21,7 @@ import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
 import { resolveSumUpChargeAmountGbp } from "../shared/open-website-payment-fares";
 import { rawUniversalSaloonJourneyFareGbp } from "../shared/universal-distance-pricing";
 import { roundCustomerPayableGbp } from "../shared/gbp";
+import { eventFareShareLabel } from "../shared/event-fare-share";
 import {
   portTunnelCrossingEur,
   resolveDublinTollAllowance,
@@ -92,6 +93,7 @@ function checkoutAmount(r: ReturnType<typeof quote>) {
   const breakdown = composeWebsiteFareBreakdown({
     journeyFareBeforeAirportAccessGbp: r.journeyFareGbp ?? 0,
     airportFixedCostsGbp: r.airportFixedCostsGbp ?? 0,
+    dublinTollsGbp: r.dublinTollsGbp ?? 0,
     nightWeekendSurchargeGbp: r.nightWeekendSurchargeGbp ?? 0,
     returnJourney: r.returnJourney,
   });
@@ -239,12 +241,13 @@ check("Weekend surcharge (when switched on) applies to the fare, not to tolls or
 });
 
 // ── 5. Return / Estate / access ───────────────────────────────────────────
-check("Return Dublin city: 5% off base (incl. tolls), checkout matches quote", () => {
+check("Belfast to Dublin hotel return: group shares the checkout total with the 5% fare discount and full tolls", () => {
   const tolls = q2Tolls("2027-04-18", "10:00", { returnJourney: true, returnDate: "2027-04-21", returnTime: "15:00" });
   const r = quote({ pickupAddress: CROWNE, dropoffAddress: GRAFTON, returnJourney: true, outboundDate: "2027-04-18", outboundTime: "10:00", returnDate: "2027-04-21", returnTime: "15:00", routeMetrics: Q2_METRICS, positioningChargeGbp: 21, tollAllowance: tolls });
-  const expected = Math.round(((273 + tolls.outboundGbp) + (273 + tolls.returnGbp)) * 0.95 * 100) / 100;
+  const expected = Math.round((273 * 2 * 0.95 + tolls.outboundGbp + tolls.returnGbp) * 100) / 100;
   assert.equal(r.amount, expected);
   assert.equal(checkoutAmount(r), roundCustomerPayableGbp(r.amount));
+  assert.equal(eventFareShareLabel(checkoutAmount(r), { eventTransfer: true, passengers: 4 }), "£134.75 each for 4 sharing");
 });
 
 check("Return Dublin Airport: 5% off journey only, DUB fixed costs undiscounted", () => {

@@ -2706,7 +2706,7 @@ async function handlePaymentRequest(
       expressDropOffFee: checkoutPricing.persisted.expressDropOffFee,
       expressDropOffAirport: checkoutPricing.persisted.expressDropOffAirport,
       // From the stored quote (event name + child seat), not the browser's label.
-      tripLabel: quickQuoteTripLabel({ eventName: j.eventName, childSeatRequired: j.childSeatRequired }),
+      tripLabel: quickQuoteTripLabel(j),
     };
 
     const quickQuoteClosed = await blockedOwnerNoAvailabilityResponse(env, origin, booking);

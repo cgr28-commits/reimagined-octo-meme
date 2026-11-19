@@ -5,6 +5,7 @@
  * Discretionary discounts are applied AFTER the transfer fare and stored separately.
  */
 
+import { eventFareShareLabel } from "../shared/event-fare-share";
 import { parseClientRouteMetrics } from "./parse-route-metrics";
 import { corsHeaders } from "../shared/google-places";
 import { mainQuoteRequestBody, priceWithMainQuoteTool, type MainQuoteEnv } from "./main-quote-pricing";
@@ -200,6 +201,7 @@ function parseJourney(
     flightNumber: String(body.flightNumber ?? "").trim() || undefined,
     returnFlightNumber: String(body.returnFlightNumber ?? "").trim() || undefined,
     ...(cleanQuickQuoteEventName(body.eventName) ? { eventName: cleanQuickQuoteEventName(body.eventName) } : {}),
+    ...(body.eventTransfer === true ? { eventTransfer: true } : {}),
     vehicleChoice,
   };
 }
@@ -285,6 +287,7 @@ export async function createPricedQuickQuote(
   const shortHold = record.expiresAt != null && Date.parse(record.expiresAt) - Date.now() <= 12 * 60 * 60 * 1000;
   const whatsappReply = buildQuickQuoteWhatsAppReply({
     amountLabel: record.quotedAmountLabel,
+    fareShare: eventFareShareLabel(record.quotedAmount, record.journey),
     bookingUrl,
     eventName: record.journey.eventName,
     heldUntil: shortHold ? record.expiresAt : null,

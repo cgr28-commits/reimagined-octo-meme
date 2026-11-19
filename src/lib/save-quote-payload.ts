@@ -31,6 +31,7 @@ export type SaveQuoteLiveQuoteSnapshot = {
 };
 
 export type BuildSaveQuotePayloadInput = {
+  eventTransfer?: boolean;
   liveQuote: SaveQuoteLiveQuoteSnapshot | null;
   canPayNowOnline: boolean;
   isEnquiryOnly: boolean;
@@ -157,6 +158,7 @@ export function buildSaveQuotePayloadFromLiveQuote(
   // Date/time optional at Save Quote — store empty when not set (display as "Not set").
 
   const journey: SavedQuoteJourneySnapshot = {
+    ...(input.eventTransfer ? { eventTransfer: true } : {}),
     pickupLabel,
     dropoffLabel,
     pickupPlaceId: input.pickupPlaceId || undefined,

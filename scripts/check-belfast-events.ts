@@ -16,6 +16,10 @@ import {
   type BelfastEventRecord,
 } from "../shared/belfast-events";
 import { handleBelfastEventsRoute, isBelfastEventsPath } from "../workers/addresses/src/belfast-events-handlers";
+import { handlePublicGetPricingConfig } from "../workers/addresses/src/owner-pricing-handlers";
+import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
+import { saveOwnerPricingSettings } from "../workers/addresses/src/owner-pricing-store";
+import { handleQuoteCalculateRequest } from "../workers/addresses/src/quote-handlers";
 
 const root = join(new URL(".", import.meta.url).pathname, "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
@@ -110,7 +114,10 @@ async function main(): Promise<void> {
   assert.ok(!isBelfastEventsPath("/events/emerge-belfast-taxi"));
   const kv = new Map<string, string>();
   const store = {
-    async get(key: string, type?: string) {
+    async get(key: string | string[], type?: string) {
+      if (Array.isArray(key)) {
+        return new Map(key.map(k => [k, kv.has(k) ? JSON.parse(kv.get(k)!) : null]));
+      }
       const v = kv.get(key) ?? null;
       return v !== null && type === "json" ? JSON.parse(v) : v;
     },
@@ -144,6 +151,9 @@ async function main(): Promise<void> {
   const c1 = await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "create", fields: valid() } });
   assert.equal(c1.status, 201, c1.text);
   const id = c1.json.record.id as string;
+  const publicPickups = async () => (await (await handlePublicGetPricingConfig(env, null)).json() as
+    { config: { eventVenuePickups?: unknown[] } }).config.eventVenuePickups ?? [];
+  assert.equal((await publicPickups()).length, 0);
   assert.equal((await call("/events/public")).json.events.length, 0, "drafts not public");
   assert.equal((await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "create", fields: valid() } })).status, 409, "no duplicate ids");
   // Stale version is refused.
@@ -151,6 +161,7 @@ async function main(): Promise<void> {
   assert.equal(stale.status, 409);
   const p1 = await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "publish", id, expectedVersion: 1 } });
   assert.equal(p1.status, 200, p1.text);
+  assert.equal((await publicPickups()).length, 1, "publishing makes the venue available for pricing");
   const pub1 = await call("/events/public");
   assert.equal(pub1.json.events.length, 1);
   assert.equal(pub1.headers.get("Cache-Control"), "public, max-age=300");
@@ -160,7 +171,35 @@ async function main(): Promise<void> {
   // Cancelled stays listed with its status.
   await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "cancel", id, expectedVersion: 2 } });
   assert.equal((await call("/events/public")).json.events[0].status, "cancelled");
+  assert.equal((await publicPickups()).length, 0, "cancelling removes the calendar pickup rule");
   assert.ok(![...kv.keys()].some((k) => !k.startsWith("bevt:")), "only the bevt: KV prefix is used");
+
+  // Reopening restores pickup pricing. Run the quote endpoint after checking event storage isolation.
+  const reopened = await call("/owner/belfast-events/action", { method: "POST", owner: OWNER, body: { action: "publish", id, expectedVersion: 3 } });
+  assert.equal(reopened.status, 200);
+  await saveOwnerPricingSettings(store, { ...defaultOwnerPricingSettings(), specialDateFares: [] });
+  const fare = async (address: string) => {
+    const response = await handleQuoteCalculateRequest(new Request("https://worker.example/quote/calculate", {
+      method: "POST", body: JSON.stringify({ pickupAddress: address, dropoffAddress: "Dublin Airport",
+        vehicleType: "Standard Saloon (1–4 passengers)", passengers: 4, suitcases: 0, returnJourney: false,
+        outboundDate: day(10), outboundTime: "20:00", routeMetrics: { distanceKm: 160, durationMinutes: 105 } }),
+    }), null, env);
+    const result = await response.json() as { amount: number; airportFixedCostsGbp: number; nightWeekendSurchargeLabel: string };
+    assert.equal(response.status, 200, JSON.stringify(result));
+    return result;
+  };
+  const arenaFare = await fare("The O2 Belfast, Titanic Quarter, Belfast BT3");
+  const hotelFare = await fare("Hotel beside The O2 Belfast, Titanic Quarter, Belfast BT3");
+  assert.match(arenaFare.nightWeekendSurchargeLabel, /venue pickup 25% surcharge/);
+  assert.ok(arenaFare.amount > hotelFare.amount);
+  assert.equal(arenaFare.airportFixedCostsGbp, hotelFare.airportFixedCostsGbp);
+  const missingReturnTime = await handleQuoteCalculateRequest(new Request("https://worker.example/quote/calculate", {
+    method: "POST", body: JSON.stringify({ pickupAddress: "Dublin Airport", dropoffAddress: "The O2 Belfast, Belfast",
+      vehicleType: "Standard Saloon (1–4 passengers)", passengers: 2, suitcases: 0, returnJourney: true,
+      outboundDate: day(9), outboundTime: "12:00", returnDate: day(10), routeMetrics: { distanceKm: 160, durationMinutes: 105 } }),
+  }), null, env);
+  assert.equal(missingReturnTime.status, 422);
+  assert.equal((await missingReturnTime.json() as { reason: string }).reason, "event_pickup_schedule_required");
 
   console.log("=== Events page on; request forms stay off until approved ===");
   const flag = read("src/lib/bespoke-public.ts");
@@ -228,12 +267,22 @@ async function main(): Promise<void> {
   for (const line of block.split("\n").filter((l) => /\{/.test(l) && !/^\s*@/.test(l))) {
     assert.match(line, /data-bespoke-request-form/, `form styles are scoped to the request forms: ${line.trim().slice(0, 60)}`);
   }
-  // The shared components and the airport calculator are byte-for-byte what main has.
+  // The shared quote form can display event details. Pricing and the underlying
+  // address and schedule controls stay independent of the events feature.
   const { execFileSync } = await import("node:child_process");
   let changed = "";
   try {
     const base = execFileSync("git", ["merge-base", "HEAD", "origin/main"], { cwd: root, encoding: "utf8" }).trim();
-    changed = execFileSync("git", ["diff", "--name-only", base, "--", "src/components/AddressInput.tsx", "src/components/D3TimePicker.tsx", "src/components/QuoteCard.tsx", "src/components/QuoteScheduleFields.tsx", "src/components/HomepageQuoteFields.tsx", "src/lib/google-maps.ts", "src/lib/addresses-api.ts"], { cwd: root, encoding: "utf8" }).trim();
+    const pricingAndInputFiles = [
+      "src/components/AddressInput.tsx",
+      "src/components/D3TimePicker.tsx",
+      "src/components/QuoteScheduleFields.tsx",
+      "src/lib/google-maps.ts",
+      "src/lib/addresses-api.ts",
+      "src/lib/quote.ts",
+      "workers/addresses/src/main-quote-pricing.ts",
+    ];
+    changed = execFileSync("git", ["diff", "--name-only", base, "--", ...pricingAndInputFiles], { cwd: root, encoding: "utf8" }).trim();
   } catch {
     changed = ""; // no git / no origin/main (e.g. shallow CI checkout): skip
   }

@@ -45,6 +45,7 @@ type Draft = {
   venueId: string;
   venueName: string;
   venueArea: string;
+  pickupPoint: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -61,6 +62,7 @@ const EMPTY: Draft = {
   venueId: BELFAST_VENUES[0].id,
   venueName: "",
   venueArea: "",
+  pickupPoint: "",
   date: "",
   startTime: "",
   endTime: "",
@@ -78,6 +80,7 @@ function toDraft(r: BelfastEventRecord): Draft {
     venueId: r.venueId,
     venueName: r.venueId === BELFAST_VENUE_OTHER ? r.venueName : "",
     venueArea: r.venueId === BELFAST_VENUE_OTHER ? r.venueArea : "",
+    pickupPoint: r.pickupPoint ?? "",
     date: r.date,
     startTime: r.startTime ?? "",
     endTime: r.endTime ?? "",
@@ -246,12 +249,12 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
               {err("category")}
             </label>
             <label className={labelClass}>
-              Venue (Belfast only)
+              Venue in Belfast or Dublin
               <select className={fieldClass} value={draft.venueId} onChange={(e) => set("venueId", e.target.value)}>
                 {BELFAST_VENUES.map((v) => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
-                <option value={BELFAST_VENUE_OTHER}>Other Belfast venue…</option>
+                <option value={BELFAST_VENUE_OTHER}>Other venue…</option>
               </select>
               {err("venueId")}
             </label>
@@ -264,7 +267,7 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
                 {err("venueName")}
               </label>
               <label className={labelClass}>
-                Venue address with Belfast postcode
+                Venue address with Belfast postcode or Dublin district
                 <input className={fieldClass} value={draft.venueArea} maxLength={160} placeholder="e.g. Ormeau Road, Belfast BT7" onChange={(e) => set("venueArea", e.target.value)} />
                 {err("venueArea")}
               </label>
@@ -287,6 +290,12 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
               {err("endTime")}
             </label>
           </div>
+          <label className={labelClass}>
+            Designated pickup point (optional)
+            <input className={fieldClass} value={draft.pickupPoint} maxLength={120} onChange={(e) => set("pickupPoint", e.target.value)} />
+            <span className="mt-1 block text-xs text-white/65">Use the address customers will select. For a gate or entrance, include its venue or street, for example Main Entrance, Croke Park, Dublin 3.</span>
+            {err("pickupPoint")}
+          </label>
           <label className={labelClass}>
             Summary for customers (your own words, up to 400 characters)
             <textarea className={`${fieldClass} min-h-28`} value={draft.summary} maxLength={400} onChange={(e) => set("summary", e.target.value)} required />

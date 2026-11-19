@@ -1265,7 +1265,7 @@ export function sendWebQuoteLinkWhatsApp(
         bodyParams: [
           templateParam(input.journeyLabel, 200),
           templateParam(input.whenLabel, 60),
-          templateParam(input.amountLabel, 20),
+          templateParam(input.amountLabel, 90),
           templateParam(input.heldUntilLabel, 60),
         ],
         urlButtonParam: input.savedQuoteToken,

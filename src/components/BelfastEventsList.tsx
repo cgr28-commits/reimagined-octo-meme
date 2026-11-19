@@ -167,6 +167,7 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
                       </p>
                     ) : null}
                     <p className="mt-3 text-sm leading-relaxed text-white/65">{e.summary}</p>
+                    {open && e.pickupPoint ? <p className="mt-2 text-sm text-white/80">Pickup point · {e.pickupPoint}</p> : null}
                   </div>
                 </article>
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
@@ -213,7 +214,7 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
   );
 }
 
-/** Scrolls to the page's quote tool and fills the drop-off with the event's venue (picked place). */
+/** Offers the venue and show date as defaults in the event quote form. */
 function EventQuoteButton({ event }: { event: BelfastEventPublic }) {
   const [busy, setBusy] = useState(false);
   async function onClick() {
@@ -223,17 +224,17 @@ function EventQuoteButton({ event }: { event: BelfastEventPublic }) {
     quote?.scrollIntoView({ behavior: "smooth", block: "start" });
     const place = await resolveEventVenuePlace(event.venueName, event.venueArea);
     setBusy(false);
+    window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place, tripDate: event.date } }));
     if (place) {
-      window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place, tripDate: event.date } }));
       // Next step for the customer: their pickup address.
       window.setTimeout(() => {
         const pickup = quote?.querySelector<HTMLInputElement>("input[placeholder^='Pickup address']");
         if (pickup && !pickup.value.trim()) pickup.focus({ preventScroll: true });
       }, 400);
     } else {
-      // Lookup unavailable: let the customer type the venue themselves.
+      // A destination can still be entered when venue lookup is unavailable.
       const dropoff = quote?.querySelector<HTMLInputElement>("input[placeholder^='Destination address']");
-      dropoff?.focus({ preventScroll: true });
+      if (dropoff && !dropoff.value.trim()) dropoff.focus({ preventScroll: true });
     }
   }
   return (

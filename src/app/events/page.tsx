@@ -83,14 +83,14 @@ export default async function BelfastEventsHubPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS} data-belfast-events-hub>
-        {/* The page's own quote tool first: tapping an event below fills in its venue. */}
+        {/* The quote form offers the venue when a customer selects an event below. */}
         <HeroSlideshow
           heading="Taxis to Events & Concerts"
           headingSubject="Events & Concerts"
-          intro="Fixed-price taxi to concerts, sport and shows in Belfast and Dublin — and home afterwards. Pick an event below and we'll fill in the venue."
+          intro="Fixed-price taxis to concerts, sport and shows in Belfast and Dublin. Pick an event to fill in the venue, or enter your hotel as the pickup or drop-off."
           navId="events"
           quoteCardTitle="Events & Concerts"
-          journey={{ bookingIntroduction: "Book your event transfer in just a few clicks." }}
+          journey={{ eventTransfer: true, bookingIntroduction: "Book your event transfer in just a few clicks." }}
         />
         <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Events" }]} />
@@ -148,7 +148,7 @@ export default async function BelfastEventsHubPage() {
                 </Link>
               ) : (
                 <a href="#quote" className="font-semibold text-emerald underline">
-                  Get a fixed price for any venue
+                  Get a fixed price for your journey
                 </a>
               )}
               . We don&apos;t sell tickets; please buy them from the official seller.

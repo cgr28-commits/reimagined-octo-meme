@@ -33,6 +33,7 @@ import { CANCELLATION_POLICY_VERSION } from "../../../shared/refund-ops";
 import { getPaymentBookingBlockers } from "../../../shared/paid-booking-gate";
 import ExpressDropOffChoice from "@/components/ExpressDropOffChoice";
 import { formatQuickQuoteAmount, quickQuoteTripLabel } from "../../../shared/quick-quote";
+import { eventFareShareLabel } from "../../../shared/event-fare-share";
 import {
   canProceedWithoutExpressDropOff,
   composeFareWithExpressDropOff,
@@ -331,7 +332,7 @@ function BookQuoteInner() {
       customerEmail: customerEmail.trim(),
       mobileNumber: mobileNumber.trim(),
       ...journey.diaryRoute,
-      tripLabel: quickQuoteTripLabel({ eventName: journey.eventName, childSeatRequired }),
+      tripLabel: quickQuoteTripLabel({ ...journey, childSeatRequired }),
       pickupLabel: journey.pickupAddress,
       dropoffLabel: journey.dropoffAddress,
       returnJourney: Boolean(journey.returnJourney),
@@ -552,6 +553,7 @@ function BookQuoteInner() {
   }
 
   if (!quote || !journey) return null;
+  const fareShare = repricing || scheduleDiffers ? null : eventFareShareLabel(displayPricing?.totalGbp ?? quote.quotedAmount, journey);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-lg space-y-5">
@@ -562,6 +564,7 @@ function BookQuoteInner() {
             ? formatQuickQuoteAmount(displayPricing.totalGbp)
             : quote.quotedAmountLabel}
         </p>
+        {fareShare ? <p data-event-fare-share className="mt-1 text-sm font-semibold text-white">{fareShare}</p> : null}
         {repricing ? (
           <p className="mt-2 text-sm text-white/70" role="status">Updating the price for your new pickup time…</p>
         ) : priceUpdatedFrom ? (

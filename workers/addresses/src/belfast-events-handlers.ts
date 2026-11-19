@@ -10,7 +10,7 @@
  *
  * Storage: TRACKING_STORE (KV) under the new prefix "bevt:" only. Only the owner
  * writes, so a version check is enough to warn about two devices editing the
- * same event. Nothing here touches quotes, payments or bookings.
+ * same event. Published venues also supply the collection points used in the fare calculation.
  */
 import { corsHeaders } from "../shared/google-places";
 import {
@@ -18,11 +18,13 @@ import {
   applyBelfastEventAction,
   createBelfastEvent,
   sortBelfastEvents,
+  todayInLondon,
   toBelfastEventPublic,
   type BelfastEventAction,
   type BelfastEventPublic,
   type BelfastEventRecord,
 } from "../shared/belfast-events";
+import { publishedVenuePickup, type EventVenuePickup } from "../shared/event-venue-pickups";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
 
 export type BelfastEventsEnv = DriverAuthEnv & {
@@ -52,16 +54,55 @@ function eventKey(id: string): string {
   return `${KEY_PREFIX}${id}`;
 }
 
+async function readEventBatch(store: KVNamespace, names: string[]) {
+  try {
+    const records = await store.get<BelfastEventRecord>(names, "json");
+    return [...records.values()];
+  } catch (error) {
+    // The local Wrangler KV implementation predates bulk reads.
+    if (!(error instanceof Error) || !/GET_BULK.*405/.test(error.message)) throw error;
+    return Promise.all(names.map(name => store.get<BelfastEventRecord>(name, "json")));
+  }
+}
+
 export async function listBelfastEventRecords(store: KVNamespace): Promise<BelfastEventRecord[]> {
   const records: BelfastEventRecord[] = [];
   let cursor: string | undefined;
   do {
     const page = await store.list({ prefix: KEY_PREFIX, cursor, limit: 1000 });
-    const loaded = await Promise.all(page.keys.map((k) => store.get<BelfastEventRecord>(k.name, "json")));
-    for (const record of loaded) if (record && typeof record.id === "string") records.push(record);
+    const names = page.keys.map(key => key.name);
+    for (let i = 0; i < names.length; i += 100) {
+      const loaded = await readEventBatch(store, names.slice(i, i + 100));
+      for (const record of loaded) {
+        if (record && typeof record.id === "string") records.push(record);
+      }
+    }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor && records.length < MAX_EVENTS);
   return sortBelfastEvents(records);
+}
+
+const pickupCache = new WeakMap<KVNamespace, { until: number; pending: Promise<EventVenuePickup[]> }>();
+
+export function calendarVenuePickups(store: KVNamespace): Promise<EventVenuePickup[]> {
+  const now = Date.now();
+  const cached = pickupCache.get(store);
+  if (cached && now < cached.until) return cached.pending;
+  const today = todayInLondon(new Date(now));
+  const pending = listBelfastEventRecords(store).then(records => {
+    const pickups: EventVenuePickup[] = [];
+    for (const record of records) {
+      const pickup = publishedVenuePickup(record, today);
+      if (pickup) pickups.push(pickup);
+    }
+    return pickups;
+  }).catch(() => {
+    // Without a verified published venue the ordinary fare still works.
+    console.warn("Unable to load event venue pickup fares");
+    return [];
+  });
+  pickupCache.set(store, { until: now + 60_000, pending });
+  return pending;
 }
 
 export async function getBelfastEvent(store: KVNamespace, id: string): Promise<BelfastEventRecord | null> {
@@ -153,6 +194,7 @@ export async function handleBelfastEventsRoute(
     const result = applyBelfastEventAction(current, typed, now);
     if (!result.ok) return respond(result, 400, origin);
     await store.put(eventKey(result.record.id), JSON.stringify(result.record));
+    pickupCache.delete(store);
     return respond({ ok: true, record: result.record }, 200, origin);
   }
 
