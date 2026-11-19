@@ -52,8 +52,8 @@ console.log("=== Only the four airport guide pages use it ===");
 console.log("=== Desktop never downloads it; hero keeps its default elsewhere ===");
 {
   const photo = read("src/components/AirportPageHeroPhoto.tsx");
-  assert.match(photo, /max-width: 767\.98px/);
-  assert.match(photo, /max-width: 1199\.98px/);
+  assert.match(photo, /"\(max-width: 767\.98px\) and \(min-height: 700px\)"/);
+  assert.match(photo, /"\(min-width: 768px\) and \(max-width: 1199\.98px\)"/);
   assert.match(photo, /src=\{TRANSPARENT_PIXEL\}/);
   assert.match(photo, /alt=""/);
 
@@ -66,8 +66,13 @@ console.log("=== Desktop never downloads it; hero keeps its default elsewhere ==
     assert.match(block, /max-width: (767|1199)\.98px/, `unexpected media query: ${block}`);
   }
   assert.match(css, /:not\(:has\(\[data-quote-results\], \[data-checkout-aside\]\)\)/);
+  assert.match(
+    css,
+    /@media \(max-width: 767\.98px\) and \(max-height: 699\.98px\) \{\s*html\[data-mobile-d3\] main > section\.homepage-hero > \[data-airport-hero\] \{\s*display: none !important;/,
+    "short phones (under 700px tall) hide the banner",
+  );
   assert.match(read("src/app/layout.tsx"), /import "\.\/airport-page-hero\.css";/);
-  console.log("OK  phones/tablets only; hidden once results or checkout show");
+  console.log("OK  phones/tablets only; not on short phones; hidden once results or checkout show");
 }
 
 console.log("=== Credits ===");

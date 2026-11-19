@@ -29,7 +29,7 @@
     position: relative;
     z-index: 1;
     margin: 0 1rem 0.75rem;
-    /* 120px on short phones (667px tall), 160px on tall ones (844px+), keeping the price button in view. */
+    /* About 127px at 700px tall, 160px on tall phones (844px+), keeping the price button in view. */
     height: clamp(120px, calc(22.6vh - 31px), 160px);
     height: clamp(120px, calc(22.6svh - 31px), 160px);
     border-radius: 1rem;
@@ -55,6 +55,13 @@
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.4;
+  }
+}
+
+/* Short phones (under 700px tall, e.g. 375×667): no banner, so the price button stays above the fold. */
+@media (max-width: 767.98px) and (max-height: 699.98px) {
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
+    display: none !important;
   }
 }
 
