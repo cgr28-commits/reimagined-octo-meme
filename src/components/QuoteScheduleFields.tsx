@@ -169,7 +169,6 @@ export default function QuoteScheduleFields({
               className={quoteDateTimeInputClass()}
             />
           </div>
-          {outboundDemandVenue && <p id="trip-date-demand" className="mt-1 inline-block rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">High demand at {outboundDemandVenue}</p>}
         </div>
         <div className="min-w-0 max-w-full">
           <label htmlFor="time" className="form-label">
@@ -217,10 +216,15 @@ export default function QuoteScheduleFields({
             ) : null}
           </div>
         </div>
+        {outboundDemandVenue ? (
+          <p id="trip-date-demand" className="col-span-2 mt-0 w-full rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">
+            High demand at {outboundDemandVenue}
+          </p>
+        ) : null}
         <p
           id="trip-date-error"
           role={tripDateError ? "alert" : undefined}
-          className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}
+          className={`col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}
         >
           {tripDateError || (homepageInline ? null : "\u00a0")}
         </p>
@@ -260,7 +264,6 @@ export default function QuoteScheduleFields({
                 className={quoteDateTimeInputClass()}
               />
             </div>
-            {returnDemandVenue && <p id="return-date-demand" className="mt-1 inline-block rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">High demand at {returnDemandVenue}</p>}
           </div>
           <div className="min-w-0 max-w-full">
             <label htmlFor="returnTime" className="form-label">
@@ -306,7 +309,12 @@ export default function QuoteScheduleFields({
               ) : null}
             </div>
           </div>
-          <p className={`sm:col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>
+          {returnDemandVenue ? (
+            <p id="return-date-demand" className="col-span-2 mt-0 w-full rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">
+              High demand at {returnDemandVenue}
+            </p>
+          ) : null}
+          <p className={`col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>
             {returnDateError || (homepageInline ? null : "\u00a0")}
           </p>
         </div>

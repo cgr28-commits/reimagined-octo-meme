@@ -74,7 +74,7 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
     const latest = beginEventVenueLookup();
     setChosenId(event.id);
     setBusyId(event.id);
-    setStatus(`Finding ${event.venueName}…`);
+    setStatus(`Finding ${event.venueName}`);
     prefillEventQuote({
       pickup: null,
       dropoff: null,
@@ -88,7 +88,8 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
     setBusyId("");
     if (place) {
       prefillEventQuote({ dropoff: place });
-      setStatus(`${event.venueName} added as your drop-off. Enter your pickup address.`);
+      // Keep success for screen readers only — a visible line shifts the quote fields.
+      setStatus(`${event.venueName} added as your drop-off`);
       window.setTimeout(() => {
         const pickup = document
           .getElementById("quote")
@@ -96,7 +97,7 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
         if (pickup && !pickup.value.trim()) pickup.focus({ preventScroll: true });
       }, 250);
     } else {
-      setStatus(`Enter ${event.venueName} in the drop-off box and select the venue.`);
+      setStatus(`Enter ${event.venueName} in the drop-off box and select the venue`);
     }
   }
 
@@ -104,15 +105,15 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
 
   return (
     <div className="mb-3 min-w-0" data-popular-events>
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-[#071c38]/70">
+        Popular
+      </p>
       <div
         role="group"
         aria-label="Quick pick a popular event"
         data-popular-event-picks
-        className="flex flex-wrap items-center gap-1.5 pt-0.5"
+        className="flex flex-wrap items-center gap-1.5"
       >
-        <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.06em] text-[#071c38]/70">
-          Popular
-        </span>
         {shows.map((show) => {
           const chosen = chosenId === show.event.id;
           return (
@@ -125,10 +126,10 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
               aria-pressed={chosen}
               aria-busy={busyId === show.event.id}
               onClick={() => void pick(show)}
-              className={`inline-flex min-h-9 shrink-0 items-center justify-center rounded-[10px] border px-3 text-[13px] font-semibold disabled:opacity-60 ${
+              className={`box-border inline-flex h-9 shrink-0 items-center justify-center rounded-[10px] border border-[#071c38]/15 px-3 text-[13px] font-semibold leading-none disabled:opacity-60 ${
                 chosen
-                  ? "border-[#187742] bg-[#ecfdf3] text-[#14532d]"
-                  : "border-[#071c38]/15 bg-white text-[#071c38]"
+                  ? "bg-[#ecfdf3] text-[#14532d] ring-2 ring-inset ring-[#187742]"
+                  : "bg-white text-[#071c38]"
               }`}
             >
               {busyId === show.event.id ? "Finding…" : show.chip}
@@ -136,7 +137,7 @@ export default function PopularEventPicker({ initialEvents }: { initialEvents: B
           );
         })}
       </div>
-      <p role="status" className="mt-1.5 min-h-4 text-xs text-[#334155]">
+      <p role="status" aria-live="polite" className="sr-only">
         {status}
       </p>
     </div>

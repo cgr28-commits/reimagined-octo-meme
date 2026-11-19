@@ -289,8 +289,9 @@ async function main(): Promise<void> {
   const scheduleFields = read("src/components/QuoteScheduleFields.tsx");
   assert.match(scheduleFields, /id="date"[\s\S]*?type="date"[\s\S]*?onTripDateChange/, "the outbound date remains editable");
   assert.match(scheduleFields, /id="returnDate"[\s\S]*?type="date"[\s\S]*?onReturnDateChange/, "the return date remains editable");
-  assert.match(scheduleFields, /outboundDemandVenue && <p id="trip-date-demand"/);
-  assert.match(scheduleFields, /returnDemandVenue && <p id="return-date-demand"/);
+  assert.match(scheduleFields, /id="trip-date-demand"/);
+  assert.match(scheduleFields, /id="return-date-demand"/);
+  assert.match(scheduleFields, /col-span-2[\s\S]*?trip-date-demand|trip-date-demand[\s\S]*?col-span-2/, "high-demand notice sits under both date and time");
   // The date fields can display a venue notice; the airport calculator, map and time picker stay independent.
   const { execFileSync } = await import("node:child_process");
   let changed = "";
