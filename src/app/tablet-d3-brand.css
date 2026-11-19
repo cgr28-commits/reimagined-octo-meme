@@ -1,0 +1,134 @@
+/*
+ * Tablet Design 3 brand (768px–1199.98px): the approved phone greens, CTA gradient and filled
+ * WhatsApp header button from mobile-home-mockup.css, colour only — no phone layout or spacing.
+ *
+ * Phones (≤767.98px) and desktop (≥1200px, where data-mobile-d3 is removed) never match.
+ * Christmas decorations are not touched here. The floating WhatsApp QR launcher is hidden in this
+ * band only; phones never render it and desktop keeps it.
+ *
+ * Rules live in the brand-override layer, declared first in globals.css: its !important
+ * declarations beat the base-layer Design 3 stacks, so selectors stay short. Anything without
+ * !important in this layer would lose, which is why every declaration carries it.
+ */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+@layer brand-override {
+  [data-mobile-d3] {
+    --matni-green: #2fc30a !important;
+    --matni-green-bright: #45d704 !important;
+    --matni-green-tint: #e8fde1 !important;
+    --matni-green-panel: #f3fcef !important;
+    --matni-green-panel-border: #cdeec2 !important;
+    --matni-cta: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%) !important;
+    --matni-cta-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08) !important;
+    --pm-green: #2fc30a !important;
+    --pm-green-bright: #45d704 !important;
+  }
+
+  /* Header WhatsApp: same filled button as phones; link and tracking unchanged. */
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick] {
+    width: 2.75rem !important;
+    min-width: 2.75rem !important;
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0.75rem !important;
+    background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 14px -6px rgba(32, 196, 3, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  }
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick] :is(svg, path) {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+  }
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:hover {
+    filter: brightness(1.05) !important;
+  }
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:active {
+    filter: brightness(0.95) !important;
+    transform: scale(0.97) !important;
+  }
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:focus-visible {
+    outline: 3px solid #071c38 !important;
+    outline-offset: 3px !important;
+  }
+
+  /* Owner decision: the fixed header button is the only WhatsApp entry on tablet. */
+  [data-mobile-d3] :is([data-matni-whatsapp-qr-launcher], [data-matni-whatsapp-qr-panel]) {
+    display: none !important;
+  }
+
+  [data-mobile-d3] [data-hero-green],
+  [data-mobile-d3] #homepage-booking-intro h1 > span + span {
+    color: #45d704 !important;
+    -webkit-text-fill-color: #45d704 !important;
+  }
+
+  /* Primary booking actions. Secondary and outline buttons keep their own styles. */
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, [data-d2-sticky] #quote-book-now-button, :is(#quote, .quote-flow) .btn-pay, .quote-result-card .btn-primary, [data-quote-result-main-action] .btn-primary):not(:disabled) {
+    border: 0 !important;
+    background: var(--matni-cta) !important;
+    background-color: #08a201 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35) !important;
+    box-shadow: var(--matni-cta-shadow) !important;
+  }
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled) * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):hover {
+    filter: brightness(1.05) !important;
+  }
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):active {
+    filter: brightness(0.97) !important;
+    transform: translateY(1px) !important;
+  }
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):focus-visible {
+    outline: 3px solid #071c38 !important;
+    outline-offset: 3px !important;
+  }
+  [data-mobile-d3] button[data-get-fixed-price]:disabled {
+    background: #e2e8f0 !important;
+    color: #334155 !important;
+    -webkit-text-fill-color: #334155 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Selected states and icons on the white quote card. */
+  [data-mobile-d3] #quote :is([data-gps-location], [data-schedule-control] > svg) {
+    color: #2fc30a !important;
+  }
+  [data-mobile-d3] #quote [data-d2-stepper-btn="plus"]:not(:disabled) {
+    border-color: #2fc30a !important;
+    background: #2fc30a !important;
+    color: #071c38 !important;
+  }
+  [data-mobile-d3] #quote [data-quick-picks] > [data-quick-pick][data-quick-pick-chosen] {
+    border-color: #2fc30a !important;
+    background: #e8fde1 !important;
+    box-shadow: inset 0 0 0 1px #2fc30a, 0 2px 6px -2px rgba(47, 195, 10, 0.35) !important;
+  }
+  [data-mobile-d3] :is(#quote ol[data-mobile-steps] li:is([data-step-state="done"], [data-step-state="current"]) > button > span, #quote li.quote-step-act, ol[data-mobile-steps] li[data-step-state="current"] > span) {
+    border-color: #2fc30a !important;
+    background: #2fc30a !important;
+  }
+  [data-mobile-d3] .quote-flow :is([data-d2-segment] > button[aria-pressed="true"], [role="group"][aria-label="Journey type"] > button.bg-emerald) {
+    box-shadow: inset 0 0 0 2px #2fc30a !important;
+  }
+
+  /* Contact and Manage Booking: phone green on their primary buttons. */
+  [data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) {
+    background-color: #2fc30a !important;
+  }
+  [data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) {
+    background-color: #28ad08 !important;
+  }
+}
+}

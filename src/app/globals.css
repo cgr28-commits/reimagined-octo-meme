@@ -1,3 +1,6 @@
+/* Declared before Tailwind's layers so its !important brand overrides (tablet-d3-brand.css)
+   win over the base-layer stacks without :root:root… selector chains. */
+@layer brand-override;
 @import "tailwindcss";
 
 /* lg: breakpoint at 1200px: Design 3 (phones and tablets, up to 1199px) keeps its tablet layout
