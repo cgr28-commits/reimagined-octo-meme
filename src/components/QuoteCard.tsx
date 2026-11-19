@@ -151,6 +151,8 @@ import {
   getPublicUnapprovedPriceLabel,
 } from "@/lib/quote";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
+import { eventFareShareLabel } from "../../shared/event-fare-share";
+import { isPublishedPickupPlace } from "../../shared/event-venue-pickups";
 import {
   formatJourneyDistance,
   formatJourneyDuration,
@@ -750,6 +752,7 @@ type BookingDelivery = "whatsapp" | "email";
 
 type QuoteCardProps = {
   restoredQuote?: SavedQuotePublicSummary;
+  initialEventTransfer?: boolean;
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
@@ -864,6 +867,7 @@ function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" })
 
 function QuoteCard({
   restoredQuote,
+  initialEventTransfer = false,
   homepagePolish = false,
   homepageQuickPicks = false,
   quoteCardTitle,
@@ -961,6 +965,7 @@ function QuoteCard({
   const quoteCalculationFingerprintRef = useRef("");
   const [bookingDelivery, setBookingDelivery] = useState<BookingDelivery | null>(null);
   const [quoteStep, setQuoteStep] = useState<1 | 2 | 3>(1);
+  const [eventTransfer, setEventTransfer] = useState(restoredQuote?.journey.eventTransfer ?? initialEventTransfer);
   useEffect(() => {
     if (quoteStep !== 2) return;
     let cancelled = false;
@@ -1047,17 +1052,15 @@ function QuoteCard({
   const mobileDesign2 = useMobileDesign2();
   const mobileDesign3 = useMobileDesign3();
   const design2Home = mobileDesign2 && presentation === "homepage";
-  // The date and time only change the price when the evening, night or weekend surcharge is
-  // switched on in the owner dashboard. With none of them on, the quote step does not ask for
-  // them: the customer sees the price first and gives the date and time at the booking step,
-  // where a journey in the Christmas period is re-priced for them to confirm.
+  // A venue collection needs a schedule to distinguish event dates, even with time premiums off.
   const [scheduleUpFrontPreview, setScheduleUpFrontPreview] = useState<boolean | null>(null);
   useEffect(() => {
     setScheduleUpFrontPreview(previewScheduleUpFrontOverride());
   }, []);
-  const scheduleUpFront =
-    scheduleUpFrontPreview ??
-    (publicPricingLoaded ? quoteNeedsScheduleUpFront(publicPricing) : QUOTE_SCHEDULE_UP_FRONT_AT_BUILD);
+  const timePremiumNeedsSchedule = publicPricingLoaded ? quoteNeedsScheduleUpFront(publicPricing) : QUOTE_SCHEDULE_UP_FRONT_AT_BUILD;
+  const venueNeedsSchedule = isPublishedPickupPlace(publicPricing.eventVenuePickups, pickupAddress) ||
+    (journeyMode === "return" && isPublishedPickupPlace(publicPricing.eventVenuePickups, dropoffAddress));
+  const scheduleUpFront = scheduleUpFrontPreview ?? (timePremiumNeedsSchedule || venueNeedsSchedule);
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
@@ -2120,29 +2123,37 @@ function QuoteCard({
   }, [returnOfferToken]);
 
   /**
-   * Events page: "Get a fixed price" on an event fills the drop-off with the venue as an
-   * already-picked Google place (exactly as if the customer chose it from the suggestions).
-   * A ref keeps the listener on the latest handler, so the pickup the customer may already
-   * have chosen is taken into account.
+   * An event supplies a suggested venue and date. A customer can already have chosen
+   * their hotel or a travel day before the show. Only replace our own previous defaults.
    */
+  const previousEventDefaults = useRef<{ placeId?: string; date?: string }>({});
   const prefillDropoffPlaceRef = useRef(handleDropoffPlacesSuggestionSelect);
   prefillDropoffPlaceRef.current = handleDropoffPlacesSuggestionSelect;
   useEffect(() => {
     function handlePlacePrefill(event: Event) {
       if (returnOfferToken) return;
       const detail = (event as CustomEvent<{ dropoff?: SelectedPlace; tripDate?: string }>).detail;
-      const place = detail?.dropoff;
-      if (!place || !isQuoteReadyPlace(place)) return;
-      // The event's date (YYYY-MM-DD) as the pickup date; the customer still picks the time.
-      if (detail.tripDate && /^\d{4}-\d{2}-\d{2}$/.test(detail.tripDate)) setTripDate(detail.tripDate);
+      if (!detail) return;
+      const previous = previousEventDefaults.current;
+      const defaults: typeof previous = {};
+      if (detail.tripDate && /^\d{4}-\d{2}-\d{2}$/.test(detail.tripDate) && (!tripDate || tripDate === previous.date)) {
+        setTripDate(detail.tripDate);
+        defaults.date = detail.tripDate;
+      }
+      const stillUsingSuggestedVenue = Boolean(previous.placeId) && dropoffPlace.placeId === previous.placeId;
+      if (detail.dropoff && isQuoteReadyPlace(detail.dropoff) && (!dropoffAddress.trim() || stillUsingSuggestedVenue)) {
+        prefillDropoffPlaceRef.current(detail.dropoff);
+        defaults.placeId = detail.dropoff.placeId;
+      }
+      previousEventDefaults.current = defaults;
+      setEventTransfer(true);
       setHomepagePriceRequested(false);
       setBookingSent(false);
       setQuoteStep(1);
-      prefillDropoffPlaceRef.current(place);
     }
     window.addEventListener("quote-prefill-place", handlePlacePrefill);
     return () => window.removeEventListener("quote-prefill-place", handlePlacePrefill);
-  }, [returnOfferToken]);
+  }, [dropoffAddress, dropoffPlace.placeId, returnOfferToken, tripDate]);
 
   /**
    * Google Ads "from the airport" landing: a town-to-airport page opened with ?from=airport
@@ -4435,6 +4446,19 @@ function QuoteCard({
     pricingConfirmationRequired,
   ]);
 
+  const routeLabel = isOutOfAreaPickupJourney
+    ? "Out-of-area pickup — manual quote request"
+    : isRoiJourney
+      ? "Republic of Ireland long-distance transfer"
+      : isA2AFlow && journeyKind
+        ? journeyKindLabel(journeyKind)
+        : isAirportTrip
+          ? isFromAirport
+            ? "Airport pickup"
+            : "Airport drop-off"
+          : "Address to address";
+  const tripLabel = eventTransfer ? `${routeLabel} · Concert or event` : routeLabel;
+
   const quoteCalculationFingerprint =
     quoteAnalyticsValue && effectivePassengers != null
       ? JSON.stringify([
@@ -4483,18 +4507,6 @@ function QuoteCard({
       }
     }
 
-    const tripLabel = isOutOfAreaPickupJourney
-      ? "Out-of-area pickup — manual quote request"
-      : isRoiJourney
-        ? "Republic of Ireland long-distance transfer"
-        : isA2AFlow && journeyKind
-          ? journeyKindLabel(journeyKind)
-          : isAirportTrip
-            ? isFromAirport
-              ? "Airport pickup"
-              : "Airport drop-off"
-            : "Address to address";
-
     // Immediate send; cleanup is a no-op so leaving Step 1 cannot cancel.
     void import("@/lib/ad-fraud-events").then(({ recordAdFraudBehaviour }) => {
       recordAdFraudBehaviour("quote_completed");
@@ -4538,6 +4550,7 @@ function QuoteCard({
     journeyDistanceLabel,
     journeyDurationLabel,
     journeyFareParts.journeyFareGbp,
+    tripLabel,
     liveQuote,
     pickupLabel,
     pricedFare?.totalGbp,
@@ -4723,18 +4736,6 @@ function QuoteCard({
   }
 
   function buildBookingDetails(): BookingDetails {
-    const tripLabel = isOutOfAreaPickupJourney
-      ? "Out-of-area pickup — manual quote request"
-      : isRoiJourney
-        ? "Republic of Ireland long-distance transfer"
-        : isA2AFlow && journeyKind
-          ? journeyKindLabel(journeyKind)
-          : isAirportTrip
-            ? isFromAirport
-              ? "Airport pickup"
-              : "Airport drop-off"
-            : "Address to address";
-
     const estimatedPrice = pricingConfirmationRequired
       ? priceConfirmationLabel
       : liveQuote
@@ -4831,6 +4832,7 @@ function QuoteCard({
     const retTime = scheduleOverride?.returnTime || returnTime;
 
     return buildSaveQuotePayloadFromLiveQuote({
+      eventTransfer,
       liveQuote: liveQuote
         ? {
             amount: (pricedFare?.totalGbp ?? liveQuote.amount) + (bookingMeetGreetActive ? bookingMeetGreetCharge : 0),
@@ -4925,17 +4927,6 @@ function QuoteCard({
     if (!liveQuote || !quoteTransactionId) {
       return;
     }
-    const tripLabel = isOutOfAreaPickupJourney
-      ? "Out-of-area pickup — manual quote request"
-      : isRoiJourney
-        ? "Republic of Ireland long-distance transfer"
-        : isA2AFlow && journeyKind
-          ? journeyKindLabel(journeyKind)
-          : isAirportTrip
-            ? isFromAirport
-              ? "Airport pickup"
-              : "Airport drop-off"
-            : "Address to address";
     const notify = event
       ? (details: Parameters<typeof scheduleQuoteContactAlert>[0]) => recordBookingStage(details, event)
       : (details: Parameters<typeof scheduleQuoteContactAlert>[0]) => {
@@ -5756,6 +5747,8 @@ function QuoteCard({
    * Clears QuoteCard React state + quote persistence only — never touches paid bookings.
    */
   function performStartNewQuote() {
+    setEventTransfer(initialEventTransfer);
+    previousEventDefaults.current = {};
     trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
@@ -9509,6 +9502,7 @@ function QuoteCard({
         desktopPriceLabel={presentation === "homepage" && quoteStep === 1 ? "Your current total" : undefined}
         formattedPrice={authoritativeQuoteFailed ? "Calculating…" : amountLabel}
         priceUpdating={priceUpdating}
+        fareShare={eventFareShare}
         surchargeNote={null}
         depositNote={quoteDepositNote}
         trustBadge={<GoogleReviewsBadge className="!px-2.5 !py-1 !text-xs" />}
@@ -9817,6 +9811,18 @@ function QuoteCard({
       </div>
     );
   }
+
+  // Use the same full vehicle total as the quote bar, including any selected upgrades.
+  const vehicleStepTotal = quoteStep === 1 && quoteResultsReady && paymentAmount != null &&
+    Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
+    ? Math.round((paymentAmount + desktopMeetGreetUpgrades()
+        .filter((upgrade) => upgrade.selected)
+        .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100
+    : null;
+  const eventFareShare = !isVehiclePersonalQuote && !isEnquiryOnly && !isManualQuoteJourney &&
+    !isTownGuidePickup && !authoritativeQuoteFailed && testChargeAmount == null
+    ? eventFareShareLabel(vehicleStepTotal, { eventTransfer, passengers: effectivePassengers })
+    : null;
 
   if (bookingSent) {
     const quoteConversionValue =
@@ -10266,6 +10272,8 @@ function QuoteCard({
               </div>
             ) : presentation === "homepage" ? (
               <HomepageQuoteFields
+                eventTransfer={eventTransfer}
+                onEventTransferChange={setEventTransfer}
                 design2={design2Home}
                 design3={mobileDesign3}
                 homepagePolish={homepagePolish}
@@ -10662,13 +10670,8 @@ function QuoteCard({
                               <span data-d2-sticky-price>
                                 {isVehiclePersonalQuote
                                   ? <strong>On request</strong>
-                                  : paymentAmount != null && Number.isFinite(paymentAmount) && mayPaintNumericFare && !vehicleFareUpdating
-                                    ? <strong>{formatQuote(
-                                        // Includes a Meet & Greet chosen under the vehicles (same sum as the desktop panel).
-                                        Math.round((paymentAmount + desktopMeetGreetUpgrades()
-                                          .filter((upgrade) => upgrade.selected)
-                                          .reduce((sum, upgrade) => sum + upgrade.feeGbp, 0)) * 100) / 100,
-                                      )}</strong>
+                                  : vehicleStepTotal != null
+                                    ? <strong>{formatQuote(vehicleStepTotal)}</strong>
                                     : <strong>…</strong>}
                                 <button
                                   type="button"
@@ -10682,6 +10685,7 @@ function QuoteCard({
                                   Price details
                                 </button>
                               </span>
+                              {eventFareShare ? <small data-event-fare-share className="text-xs font-semibold leading-tight">{eventFareShare}</small> : null}
                             </div>
                             {renderStep1BookButton({ instantTransferLabel: true })}
                           </div>

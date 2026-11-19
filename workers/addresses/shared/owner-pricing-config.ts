@@ -1,4 +1,5 @@
 import { defaultSpecialDateFares, validateSpecialDateFares, type SpecialDateFare } from "./special-date-fares";
+import type { EventVenuePickup } from "./event-venue-pickups";
 import { DEFAULT_TERMINAL_ACCESS_FEES } from "./terminal-access-config";
 import { defaultMeetGreetEmailSettings, type MeetGreetEmailSettings } from "./meet-greet-upgrade";
 import { validatePostcodeRules, postcodePricingIsEnabled, postcodeRuleApproved, type PostcodePricingRule } from "./postcode-pricing";
@@ -174,6 +175,8 @@ export type OwnerPricingSettings = {
   };
   evening?: { enabled: boolean; surchargeRate: number; startMinutes: number; endMinutes: number };
   specialDateFares?: SpecialDateFare[];
+  /** Derived from the published calendar when pricing a journey, never saved by a pricing editor. */
+  eventVenuePickups?: EventVenuePickup[];
   christmas?: { enabled: boolean; surchargeRate: number; startMonthDay: string; endMonthDay: string };
   night: {
     enabled: boolean;
@@ -250,6 +253,7 @@ export type PublicOwnerPricingConfig = {
   dublinAirportFareAdjustment: OwnerPricingSettings["dublinAirportFareAdjustment"];
   evening?: OwnerPricingSettings["evening"];
   specialDateFares?: SpecialDateFare[];
+  eventVenuePickups?: EventVenuePickup[];
   christmas?: OwnerPricingSettings["christmas"];
   night: OwnerPricingSettings["night"];
   weekend: OwnerPricingSettings["weekend"];
@@ -867,6 +871,7 @@ export function toPublicOwnerPricingConfig(
     },
     evening: settings.evening ?? { ...DEFAULT_EVENING_PRICING },
     specialDateFares: settings.specialDateFares ?? defaultSpecialDateFares(),
+    ...(settings.eventVenuePickups?.length ? { eventVenuePickups: settings.eventVenuePickups } : {}),
     christmas: settings.christmas ?? { ...DEFAULT_CHRISTMAS_PRICING },
     night: settings.night,
     weekend: settings.weekend,

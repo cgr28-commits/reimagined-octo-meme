@@ -69,6 +69,7 @@ export type QuickQuoteStatus =
   | "cancelled";
 
 export type QuickQuoteJourney = {
+  eventTransfer?: boolean;
   /** Selected route carried into the paid booking for diary and return matching. */
   diaryRoute?: {
     pickupLat?: number;
@@ -211,8 +212,8 @@ export function cleanQuickQuoteEventName(value: unknown): string | undefined {
 }
 
 /** The booking's "Trip" line (emails, dashboard): the event when there is one. */
-export function quickQuoteTripLabel(journey: { eventName?: string; childSeatRequired?: boolean }): string {
-  const base = journey.eventName ? `${journey.eventName} transfer` : "Airport transfer";
+export function quickQuoteTripLabel(journey: Pick<QuickQuoteJourney, "eventName" | "eventTransfer" | "childSeatRequired">): string {
+  const base = journey.eventName ? `${journey.eventName} transfer` : journey.eventTransfer ? "Event transfer" : "Airport transfer";
   return journey.childSeatRequired ? `${base} · Child seat required` : base;
 }
 
@@ -226,16 +227,17 @@ export function formatQuickQuoteHeldUntil(expiresAt: string): string {
 
 export function buildQuickQuoteWhatsAppReply(input: {
   amountLabel: string;
+  fareShare?: string | null;
   bookingUrl: string;
   eventName?: string;
   /** Set for short holds (a few hours): the customer is told when the price goes. */
   heldUntil?: string | null;
 }): string {
-  const forEvent = input.eventName ? ` to ${input.eventName}` : "";
+  const trip = input.eventName ? `your ${input.eventName} trip` : "this journey";
   const held = input.heldUntil ? `This price is held until ${formatQuickQuoteHeldUntil(input.heldUntil)}.\n\n` : "";
   return (
     `Hi, thanks for contacting My Airport Taxi NI.\n\n` +
-    `Your fixed fare for this journey${forEvent} is ${input.amountLabel}.\n\n` +
+    `Your fixed fare for ${trip} is ${input.amountLabel}.${input.fareShare ? ` ${input.fareShare}.` : ""}\n\n` +
     held +
     `You can review the journey details, confirm your booking and pay securely here:\n\n` +
     `${input.bookingUrl}`

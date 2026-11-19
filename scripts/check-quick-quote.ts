@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { eventFareShareLabel } from "../shared/event-fare-share";
 
 import {
   buildQuickQuoteWhatsAppReply,
@@ -412,11 +413,18 @@ assert.match(quoteHandlers, /calculateAuthoritativeWebsiteQuote/);
   );
   const reply = qq.buildQuickQuoteWhatsAppReply({
     amountLabel: "£180.00",
+    fareShare: eventFareShareLabel(180, { eventName: "Garth Brooks", passengers: 4 }),
     bookingUrl: "https://example.test/q",
     eventName: "Garth Brooks – Boucher Road (Fri 21 May 2027)",
     heldUntil: "2026-11-12T19:45:00.000Z",
   });
-  assert.match(reply, /journey to Garth Brooks – Boucher Road \(Fri 21 May 2027\) is £180\.00/);
+  assert.match(reply, /Garth Brooks – Boucher Road \(Fri 21 May 2027\) trip is £180\.00\. £45 each for 4 sharing/);
+  assert.equal(qq.quickQuoteTripLabel({ eventTransfer: true }), "Event transfer");
+  assert.equal(eventFareShareLabel(120, { eventTransfer: true, passengers: 4 }), "£30 each for 4 sharing");
+  assert.equal(eventFareShareLabel(100, { eventTransfer: true, passengers: 3 }), "About £33.33 each for 3 sharing");
+  assert.equal(eventFareShareLabel(100, { passengers: 4 }), null);
+  assert.equal(eventFareShareLabel(100, { eventTransfer: true, passengers: 1 }), null);
+  assert.equal(eventFareShareLabel(null, { eventTransfer: true, passengers: 3 }), null);
   assert.match(reply, /held until 19:45 on Thu 12 Nov/);
   const plain = qq.buildQuickQuoteWhatsAppReply({ amountLabel: "£40.00", bookingUrl: "https://example.test/q" });
   assert.doesNotMatch(plain, /held until|journey to/);

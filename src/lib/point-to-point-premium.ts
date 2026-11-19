@@ -1,4 +1,5 @@
 import { defaultSpecialDateFares, matchingSpecialDateFare, type FareEndpoints } from "../../shared/special-date-fares";
+import { matchingEventVenuePickup } from "../../shared/event-venue-pickups";
 import { londonWeekday, wallClockMinutes } from "../../shared/uk-time";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../../shared/return-journey-discount";
 import {
@@ -70,6 +71,16 @@ export function isTripPremiumDateTime(
   return tripSurchargeRate(date, time, pricing) > 0;
 }
 
+function specialFareForLeg(
+  date: string, time: string, endpoints: FareEndpoints, pricing?: OwnerPricingEngineInput | null,
+) {
+  const rules = pricing?.specialDateFares ?? defaultSpecialDateFares();
+  const events = pricing?.eventVenuePickups ?? [];
+  const configured = matchingSpecialDateFare(rules, date, time, endpoints, events);
+  const pickup = matchingEventVenuePickup(events, rules, date + "T" + time, endpoints.pickup);
+  return pickup && pickup.rate > (configured?.rate ?? 0) ? pickup : configured;
+}
+
 /** Highest applicable rate per leg. Fixed postcode fares only take special date rules. */
 export function tripSurchargeRate(
   date: string,
@@ -81,7 +92,7 @@ export function tripSurchargeRate(
 ): number {
   const parsed = parseLocalDateTime(date, time);
   if (!parsed) return 0;
-  const special = matchingSpecialDateFare(pricing?.specialDateFares ?? defaultSpecialDateFares(), date, time, endpoints);
+  const special = specialFareForLeg(date, time, endpoints, pricing);
   if (fixedPostcode) return special?.rate ?? 0;
   const options = pricing ? ownerPricingEngineOptions(pricing) : null;
   const regular = surchargeRateForDateTime({
@@ -107,14 +118,13 @@ export function legSchedule(schedule: TripSchedule, returning: boolean): TripSch
 }
 
 export function specialFareLabel(schedule: TripSchedule, pricing?: OwnerPricingEngineInput | null): string | undefined {
-  const rules = pricing?.specialDateFares ?? defaultSpecialDateFares();
   const labels = new Set<string>();
   let hasSpecial = false;
   for (const returning of schedule.returnJourney ? [false, true] : [false]) {
     const leg = legSchedule(schedule, returning);
     const date = leg.outboundDate ?? "";
     const time = leg.outboundTime ?? "";
-    const match = matchingSpecialDateFare(rules, date, time, leg.endpoints ?? {});
+    const match = specialFareForLeg(date, time, leg.endpoints ?? {}, pricing);
     const rate = tripSurchargeRate(date, time, pricing, leg.endpoints, leg.outboundFixedPostcode);
     if (rate && match?.rate === rate) {
       hasSpecial = true;

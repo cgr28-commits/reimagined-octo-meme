@@ -1,15 +1,17 @@
 import type { SaveQuoteResult } from "./saved-quote-api";
+import { eventFareShareLabel } from "../../shared/event-fare-share";
 import { SAVED_QUOTE_ADD_SCHEDULE_COPY, savedQuoteHasSchedule } from "../../shared/saved-quote";
 export function savedQuoteWhatsAppUrl(result: SaveQuoteResult, mobile: boolean): string {
   const j = result.quote.journey;
   const schedule = [j.tripDate, j.tripTime].filter(Boolean).join(" ") || "To be confirmed";
   const returnSchedule = j.returnJourney ? `\nReturn: ${[j.returnDate, j.returnTime].filter(Boolean).join(" ") || "To be confirmed"}` : "";
   const held = result.heldPrice;
+  const fareShare = eventFareShareLabel(held?.amount ?? result.amount, j);
   // Held price: book at exactly that price. Otherwise the saved link restores the journey.
   const priceLines = held
     ? `Fixed price: ${held.amountLabel} (held until ${held.heldUntilLabel})\nQuote reference: ${result.reference}\nBook at this price: ${held.bookingUrl}\nView or change my quote: ${result.quoteUrl}`
     : `Quoted fare: ${result.amountLabel}\nQuote reference: ${result.reference}\nReturn to my quote: ${result.quoteUrl}\n${savedQuoteHasSchedule(j) ? "Fare recalculated before booking." : SAVED_QUOTE_ADD_SCHEDULE_COPY}`;
-  const message = `My Airport Taxi NI\n${j.pickupLabel} → ${j.dropoffLabel}\n${j.returnJourney ? "Return journey" : "One-way journey"}\nPickup: ${schedule}${returnSchedule}\nVehicle: ${j.vehicle}\nPassengers: ${j.passengers} | Suitcases: ${j.suitcases}\n${priceLines}`;
+  const message = `My Airport Taxi NI\n${j.pickupLabel} → ${j.dropoffLabel}\n${j.returnJourney ? "Return journey" : "One-way journey"}\nPickup: ${schedule}${returnSchedule}\nVehicle: ${j.vehicle}\nPassengers: ${j.passengers} | Suitcases: ${j.suitcases}\n${priceLines}${fareShare ? `\n${fareShare}` : ""}`;
   return `${mobile ? "https://wa.me/" : "https://web.whatsapp.com/send"}?text=${encodeURIComponent(message)}`;
 }
 

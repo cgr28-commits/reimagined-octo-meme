@@ -46,7 +46,7 @@ async function main() {
   await updateDepositCashSettings(store,{enabled:true,percent:20,minimumGbp:15});
   assert.equal((await getBookingSettings(store)).saveQuote.popupDelaySeconds,30,'unrelated setting updates preserve Save My Quote');
   await updateSaveQuoteSettings(store,DEFAULT_SAVE_QUOTE_SETTINGS);
-  const res=await create({channel:'email',customerEmail:'save@example.invalid',journey,pricing:{totalAmount:1}});
+  const res=await create({channel:'email',customerEmail:'save@example.invalid',journey:{...journey,eventTransfer:true},pricing:{totalAmount:1}});
   assert.equal(res.status,200,await res.clone().text());
   const saved=await res.json() as any;
   assert.ok(saved.amount>1); assert.equal(saved.quote.journey.vehicle,ESTATE_VEHICLE);
@@ -64,6 +64,8 @@ async function main() {
   assert.match(saved.heldPrice.bookingUrl,/\/book-quote\/\?id=/);
   assert.ok(Math.abs(Date.parse(saved.heldPrice.heldUntil)-Date.parse(saved.expiresAt))<60000,'held until the saved quote expiry (7 days)');
   const qq=JSON.parse(data.get(quickQuoteKey(saved.heldPrice.quickQuoteId))!);
+  assert.equal(saved.quote.journey.eventTransfer,true);
+  assert.equal(qq.journey.eventTransfer,true,'held links retain the event purpose without matching the destination');
   assert.equal(qq.quotedAmount,saved.amount);assert.equal(qq.expiresAt,saved.heldPrice.heldUntil);assert.equal(qq.createdByOwner,false);
   for(const value of [`Book now at ${saved.heldPrice.amountLabel}`,saved.heldPrice.bookingUrl,`is held until ${saved.heldPrice.heldUntilLabel}`,saved.quoteUrl,'Vehicle:','Passengers:','Suitcases:']) assert.ok(String(mail.text).includes(value),value);
   assert.ok(String(mail.html).includes(saved.heldPrice.bookingUrl.replace(/&/g,'&amp;')),'HTML Book now button uses the held link');
@@ -83,6 +85,7 @@ async function main() {
     assert.equal(link.searchParams.has('phone'),false,'customer chooses recipient');
     assert.ok(link.searchParams.get('text')?.includes(saved.reference));
     assert.ok(link.searchParams.get('text')?.includes(saved.heldPrice.bookingUrl),'WhatsApp share uses the held booking link');
+    assert.match(link.searchParams.get('text')!,/each for 2 sharing/);
     assert.doesNotMatch(link.searchParams.get('text')!,/recalculated|surcharge/i);
   }
   const lookup=await handleGetSavedQuote(new Request(origin+'/saved-quotes/by-token?t='+saved.token),env,origin);
@@ -113,7 +116,9 @@ async function main() {
   assert.equal((await requote.json() as any).amount,after.pricing.totalAmount);
   assert.equal(JSON.parse(data.get(savedQuoteTokenKey(saved.token))!).pricing.totalAmount,saved.amount,'original snapshot unchanged');
   const whatsapp=await create({channel:'whatsapp',journey});assert.equal(whatsapp.status,200);assert.equal(sends,2,'WhatsApp does not send email');
-  assert.equal((await whatsapp.json() as any).quote.customerEmail,'');
+  const regularQuote=await whatsapp.json() as any;
+  assert.equal(regularQuote.quote.customerEmail,'');
+  assert.doesNotMatch(new URL(savedQuoteWhatsAppUrl(regularQuote,true)).searchParams.get('text')!,/each for 2 sharing/);
   const cron=await processSavedQuoteReminders(env);assert.equal(cron.firstReminders+cron.finalReminders,0);assert.equal(sends,2);
   failEmail=true;
   const failed=await create({channel:'email',customerEmail:'failure@example.invalid',journey});assert.equal(failed.status,200);

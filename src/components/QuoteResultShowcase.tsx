@@ -27,6 +27,7 @@ type QuoteResultShowcaseProps = {
   /** Desktop (1200px+) only: replaces priceLabel visually; below 1200px the original label shows. */
   desktopPriceLabel?: string;
   formattedPrice: string;
+  fareShare?: string | null;
   hasAirportCollection?: boolean;
   bookButton: ReactNode;
   /** Compact Business Class inclusions, directly under the book button. */
@@ -92,6 +93,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
       priceLabel,
       desktopPriceLabel,
       formattedPrice,
+      fareShare,
       hasAirportCollection = false,
       bookButton,
       businessClassInclusions = null,
@@ -277,6 +279,7 @@ const QuoteResultShowcase = forwardRef<HTMLDivElement, QuoteResultShowcaseProps>
           </>
           )}
         </div>
+        {fareShare ? <p data-event-fare-share className="mt-1 text-sm font-semibold">{fareShare}</p> : null}
         {depositNote ? (
           <button
             type="submit"

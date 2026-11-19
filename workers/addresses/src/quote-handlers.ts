@@ -1,4 +1,6 @@
 import { specialFareLabel } from "../../../src/lib/point-to-point-premium";
+import { isPublishedPickupPlace } from "../shared/event-venue-pickups";
+import { validFareMinute } from "../shared/special-date-fares";
 /**
  * POST /quote/calculate — server-authoritative website fare.
  * Uses the SAME pricing engine as the public quote tool (no second algorithm).
@@ -582,6 +584,13 @@ export async function handleQuoteCalculateRequest(
   };
 
   let result: ReturnType<typeof calculateAuthoritativeWebsiteQuote>;
+  const needsVenueSchedule = (address: string, date?: string, time?: string) =>
+    !validFareMinute(date + "T" + time) && isPublishedPickupPlace(pricing.eventVenuePickups, address);
+  if (needsVenueSchedule(pickupAddress, schedule.outboundDate, schedule.outboundTime) ||
+      (returnJourney && needsVenueSchedule(dropoffAddress, schedule.returnDate, schedule.returnTime))) {
+    return json({ ok: false, reason: "event_pickup_schedule_required",
+      message: "Choose the pickup date and time for your event venue collection to see the fixed fare." }, 422, origin);
+  }
   let appliedPositioningChargeGbp = 0;
   let appliedTollAllowance: DublinTollAllowance | undefined;
   let profitabilityApplied = false;

@@ -116,6 +116,8 @@ export type BelfastEventRecord = {
   venueId: string;
   venueName: string;
   venueArea: string;
+  /** An additional, specifically named place for collecting event passengers. */
+  pickupPoint?: string;
   /** Europe/London YYYY-MM-DD */
   date: string;
   /** Optional Europe/London HH:MM start time. */
@@ -146,6 +148,7 @@ export type BelfastEventPublic = {
   categoryLabel: string;
   venueName: string;
   venueArea: string;
+  pickupPoint?: string;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -236,6 +239,8 @@ export function validateBelfastEventInput(input: BelfastEventInput): BelfastEven
   }
 
   const date = field("date", 10, true, "Date");
+  const pickupPoint = field("pickupPoint", LIMITS.venueName, false, "Designated pickup point");
+  if (/[<>]/.test(pickupPoint)) errors.pickupPoint = "Use the place name as it appears in address search.";
   if (date && !isRealDate(date)) errors.date = "Enter a valid date.";
   const startTime = field("startTime", 5, false, "Start time");
   if (startTime && !TIME.test(startTime)) errors.startTime = "Use HH:MM.";
@@ -268,6 +273,7 @@ export function validateBelfastEventInput(input: BelfastEventInput): BelfastEven
       venueId: listed ? listed.id : BELFAST_VENUE_OTHER,
       venueName,
       venueArea,
+      ...(pickupPoint ? { pickupPoint } : {}),
       date,
       ...(startTime ? { startTime } : {}),
       ...(endTime ? { endTime } : {}),
@@ -326,6 +332,7 @@ export function applyBelfastEventAction(
       if (!v.ok) return { ok: false, error: "Please check the highlighted fields.", errors: v.errors };
       // The id never changes once created, so links and requests keep working.
       const patch: Partial<BelfastEventRecord> = { ...v.value };
+      if ("pickupPoint" in action.fields && !v.value.pickupPoint) patch.pickupPoint = undefined;
       if (!v.value.startTime) patch.startTime = undefined;
       if (!v.value.endTime) patch.endTime = undefined;
       if (!v.value.officialUrl) patch.officialUrl = undefined;
@@ -371,6 +378,7 @@ export function toBelfastEventPublic(record: BelfastEventRecord, now = new Date(
     categoryLabel: BELFAST_EVENT_CATEGORY_SINGULAR[record.category],
     venueName: record.venueName,
     venueArea: record.venueArea,
+    ...(record.pickupPoint ? { pickupPoint: record.pickupPoint } : {}),
     date: record.date,
     ...(record.startTime ? { startTime: record.startTime } : {}),
     ...(record.endTime ? { endTime: record.endTime } : {}),
