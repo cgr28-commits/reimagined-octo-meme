@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const output = 'test-results/city-airport-emails';
-const logo = await fs.readFile('public/logo.png');
+const logo = await fs.readFile('public/logo-email-wide.png');
 const map = await fs.readFile('public/maps/belfast-city-express-pick-up-drop-off.jpg');
 const internationalMap = await fs.readFile('public/maps/belfast-international-pick-up-drop-off.jpg');
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
@@ -12,7 +12,7 @@ try {
   const context = await browser.newContext({viewport:{width:390,height:844},colorScheme});
   await context.route('**/*',route=>{
    const url=route.request().url();
-   if(url.endsWith('/logo.png')) return route.fulfill({contentType:'image/png',body:logo});
+   if(url.endsWith('/logo-email-wide.png')) return route.fulfill({contentType:'image/png',body:logo});
    if(url.endsWith('/belfast-city-express-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:map});
    if(url.endsWith('/belfast-international-pick-up-drop-off.jpg')) return route.fulfill({contentType:'image/jpeg',body:internationalMap});
    return route.abort();
@@ -47,8 +47,12 @@ try {
     assert.ok(!(await page.textContent('body')).includes('07549 815538'));
    }
    if(/class="matni-light\b/.test(html)) {
-    assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(255, 255, 255)');
-    assert.ok(await page.locator('p,h1,h2,td,div').evaluateAll(nodes=>nodes.filter(node=>!node.closest('[data-matni-customer-header]')).every(node=>getComputedStyle(node).color==='rgb(7, 28, 56)')));
+    assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(7, 28, 56)');
+    assert.equal(await page.locator('table[bgcolor="#ffffff"]').first().evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)');
+    const footer=page.locator('.matni-footer');
+    assert.equal(await footer.evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(7, 28, 56)');
+    assert.equal(await footer.locator('p').first().evaluate(node=>getComputedStyle(node).color),'rgb(255, 255, 255)');
+    assert.ok(await page.locator('p,h1,h2,td,div').evaluateAll(nodes=>nodes.filter(node=>!node.closest('[data-matni-customer-header],.matni-footer')).every(node=>getComputedStyle(node).color==='rgb(7, 28, 56)')));
     assert.equal(await page.locator('[data-matni-customer-header]').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(7, 28, 56)');
    }
    await page.screenshot({path:`${output}/${file.replace('.html','')}-${colorScheme}.png`,fullPage:true});

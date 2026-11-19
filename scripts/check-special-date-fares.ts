@@ -64,7 +64,29 @@ const localTrip = (from: string, to: string, when = date, time = "15:00") => ({
 const premium = (from: string, to = hotel) => applyTripPremium(100, localTrip(from, to), undefined, { pricing: eventPricing });
 assert.equal(premium(stadium).total, 125);
 assert.equal(eventFareShareLabel(premium(stadium).total, { eventTransfer: true, passengers: 4 }), "£31.25 each for 4 sharing");
-assert.equal(premium("Gate 7 Collection Point, Dublin").total, 125);
+assert.equal(premium("Gate 7 Collection Point, Croke Park, Dublin 3").total, 125);
+assert.equal(premium("Gate 7 Collection Point, Dublin").total, 100);
+
+const entrance = publishedVenuePickup({ ...listed, pickupPoint: "Main Entrance, Croke Park, Dublin 3" }, date)!;
+const entrancePricing = { ...settings, eventVenuePickups: [entrance] };
+const atEntrance = "Main Entrance, Croke Park, Jones' Road, Dublin 3, Ireland";
+const hotelEntrance = "Main Entrance, Example Hotel, Dublin 2";
+const otherVenueEntrance = "Main Entrance, Aviva Stadium, Dublin 4";
+const airportEntrance = "Main Entrance, Dublin Airport, County Dublin";
+const entranceFare = (address: string) => applyTripPremium(100, localTrip(address, hotel), undefined, { pricing: entrancePricing }).total;
+assert.equal(entranceFare(atEntrance), 125);
+for (const other of [hotelEntrance, otherVenueEntrance, airportEntrance, "Main Entrance, Dublin 3", "Main Entrance, Croke Park Hotel, Dublin 3"]) {
+  assert.equal(entranceFare(other), 100, other);
+}
+for (const pickupPoint of ["Main Entrance, Example Hotel, Dublin 2", "Main Entrance, Dublin Airport, County Dublin"]) {
+  const misconfigured = { ...entrancePricing, eventVenuePickups: [{ ...entrance, pickupPoint }] };
+  assert.equal(tripSurchargeRate(date, "15:00", misconfigured, { pickup: pickupPoint }), 0);
+}
+const unnamedVenue = { ...entrance, venueNames: ["Main Entrance"], pickupPoint: undefined };
+assert.equal(tripSurchargeRate(date, "15:00", { ...settings, eventVenuePickups: [unnamedVenue] }, { pickup: hotelEntrance }), 0);
+const extraPoint = { ...entrance, pickupPoint: "Meeting Point, 12 Sample Road, Dublin 3" };
+assert.equal(tripSurchargeRate(date, "15:00", { ...settings, eventVenuePickups: [extraPoint] }, { pickup: "Meeting Point, 12 Sample Rd, Dublin 3" }), 0.25);
+assert.equal(tripSurchargeRate(date, "15:00", { ...settings, eventVenuePickups: [extraPoint] }, { pickup: "Meeting Point, Another Hotel, 12 Sample Road, Dublin 3" }), 0);
 for (const from of [hotel, "The Croke Park, Dublin", "Croke Park Hotel, Dublin", "Croke Park, Belfast",
     "Other Guesthouse, Croke Park, Dublin", "Croke Park, Dublin Road, Belfast", airport]) {
   assert.equal(premium(from, stadium).total, 100, from);
@@ -87,7 +109,12 @@ const override = { ...eventPricing, specialDateFares: [manual] };
 assert.equal(tripSurchargeRate(date, "15:00", override, { pickup: stadium }), 0);
 assert.equal(tripSurchargeRate(date, "20:00", override, { pickup: stadium }), 0.15);
 assert.equal(tripSurchargeRate(date, "20:00", override, { pickup: "Croke Park Stadium, Dublin" }), 0.15);
-assert.equal(tripSurchargeRate(date, "20:00", override, { pickup: "Gate 7 Collection Point, Dublin" }), 0.25);
+assert.equal(tripSurchargeRate(date, "20:00", override, { pickup: "Gate 7 Collection Point, Croke Park, Dublin 3" }), 0.25);
+for (const venue of ["Main Entrance", entrance.pickupPoint!]) {
+  const overridePoint = { ...entrancePricing, specialDateFares: [{ ...manual, venue }] };
+  assert.equal(tripSurchargeRate(date, "20:00", overridePoint, { pickup: atEntrance }), 0.15);
+  assert.equal(tripSurchargeRate(date, "20:00", overridePoint, { pickup: hotelEntrance }), 0);
+}
 assert.equal(tripSurchargeRate(date, "20:00", override, { pickup: hotel }), 0);
 assert.equal(tripSurchargeRate(date, "20:00", { ...eventPricing, specialDateFares: [
   { ...manual, direction: "all", rate: 0.5 },
