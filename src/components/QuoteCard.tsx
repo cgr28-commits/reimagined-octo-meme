@@ -9393,6 +9393,8 @@ function QuoteCard({
       <SeasonalBookingMessage
         tripDate={tripDate}
         returnDate={returnJourney ? returnDate : undefined}
+        outboundDemandVenue={outboundDemandVenue}
+        returnDemandVenue={returnDemandVenue}
         pickup={pickupAddress}
         dropoff={dropoffAddress}
         needsApproval={isAvailabilityRequest}

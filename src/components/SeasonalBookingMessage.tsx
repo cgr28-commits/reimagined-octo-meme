@@ -9,6 +9,8 @@ type Props = {
   /** Pickup date from the quote form (YYYY-MM-DD). */
   tripDate: string;
   returnDate?: string;
+  outboundDemandVenue?: string;
+  returnDemandVenue?: string;
   pickup?: string;
   dropoff?: string;
   /** Short-notice / request bookings: no "secure your journey today" line. */
@@ -48,9 +50,21 @@ function useCountUp(target: number | null, durationMs = 1400): number | null {
  * Date-specific booking message with "Expected demand for your date" (owner, 15 Nov 2026).
  * Busy dates show a demand bar; everyday dates show the seasonal message only.
  */
-export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, dropoff, needsApproval, placement }: Props) {
-  const message = seasonalBookingMessage(tripDate, { needsApproval });
-  const demand = demandIndicatorFor({ tripDate, returnDate, pickup, dropoff, needsApproval });
+export default function SeasonalBookingMessage({
+  tripDate, returnDate, outboundDemandVenue, returnDemandVenue, pickup, dropoff, needsApproval, placement,
+}: Props) {
+  const returnEventDate = returnDemandVenue && !outboundDemandVenue ? returnDate : undefined;
+  const date = returnEventDate ?? tripDate;
+  const highDemandVenue = outboundDemandVenue ?? returnDemandVenue;
+  const message = seasonalBookingMessage(date, { needsApproval });
+  const demand = demandIndicatorFor({
+    tripDate: date,
+    returnDate: highDemandVenue ? undefined : returnDate,
+    highDemandVenue,
+    pickup,
+    dropoff,
+    needsApproval,
+  });
   const shownPercent = useCountUp(demand?.bookedPercent ?? null);
   if (!message || !demand) return null;
   const showBar = true; // a demand bar on every date (owner, 17 Nov 2026)
@@ -62,7 +76,8 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
   const AMBER_SEASONS = ["bank-holiday", "easter"];
   const RANK = { green: 0, amber: 1, red: 2 } as const;
   const dateTone: "green" | "amber" | "red" =
-    demand.event || RED_SEASONS.includes(demand.season) ? "red" : AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
+    demand.event || RED_SEASONS.includes(demand.season) ? "red" :
+    highDemandVenue || AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
   const pct = demand.bookedPercent;
   const pctTone: "green" | "amber" | "red" = pct === null ? "green" : pct >= 80 ? "red" : pct >= 60 ? "amber" : "green";
   const tone = RANK[pctTone] > RANK[dateTone] ? pctTone : dateTone;
@@ -85,7 +100,7 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
       <p className="text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]">
         {icon ? <span aria-hidden="true">{icon} </span> : null}
         {showBar || soon ? (
-          <span className="whitespace-nowrap">{message.travelDateLabel}</span>
+          <span className="whitespace-nowrap">{returnEventDate && "Return · "}{message.travelDateLabel}</span>
         ) : (
           <>
             Travelling on <span className="whitespace-nowrap">{message.travelDateLabel}</span>?

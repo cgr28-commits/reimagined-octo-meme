@@ -66,6 +66,8 @@ export function demandIndicatorFor(
     pickup?: string;
     dropoff?: string;
     returnDate?: string;
+    /** Published venue matched by the quote form for this date. */
+    highDemandVenue?: string;
     /** Short-notice / request bookings: never say "secure your driver". */
     needsApproval?: boolean;
   },
@@ -79,6 +81,7 @@ export function demandIndicatorFor(
     now,
   );
 
+  const dateBody = input.highDemandVenue ? `High demand at ${input.highDemandVenue} on this date.` : seasonal.body;
   const bookedPercent = bookedPercentFor(input.tripDate);
   if (bookedPercent !== null) {
     const veryHigh = Boolean(event) || bookedPercent >= 80;
@@ -89,7 +92,7 @@ export function demandIndicatorFor(
       bookedPercent,
       body: event
         ? `${event.title} makes this a very busy date. We recommend booking your airport, cruise or event transfer early to avoid disappointment.`
-        : seasonal.body,
+        : dateBody,
       event,
       season,
     };
@@ -107,10 +110,10 @@ export function demandIndicatorFor(
     };
   }
   if (VERY_HIGH_SEASONS.includes(season)) {
-    return { level: "very-high", filledSegments: 4, label: "Very high", bookedPercent: null, body: seasonal.body, event: null, season };
+    return { level: "very-high", filledSegments: 4, label: "Very high", bookedPercent: null, body: dateBody, event: null, season };
   }
-  if (HIGH_SEASONS.includes(season)) {
-    return { level: "high", filledSegments: 3, label: "High", bookedPercent: null, body: seasonal.body, event: null, season };
+  if (input.highDemandVenue || HIGH_SEASONS.includes(season)) {
+    return { level: "high", filledSegments: 3, label: "High", bookedPercent: null, body: dateBody, event: null, season };
   }
   const daysAway = daysBetween(londonToday(now), input.tripDate);
   if (daysAway >= 0 && daysAway <= SOON_WITHIN_DAYS) {

@@ -88,7 +88,7 @@ export default async function BelfastEventsHubPage() {
         <HeroSlideshow
           heading="Taxis to Events & Concerts"
           headingSubject="Events & Concerts"
-          intro="Fixed-price taxis to concerts, sport and shows in Belfast and Dublin. Pick an event to fill in the venue, or enter your hotel as the pickup or drop-off."
+          intro={"Fixed-price taxis to concerts, sport and shows in Belfast and Dublin.\nPick an event to fill in the venue, or enter your hotel as the pickup or drop-off."}
           navId="events"
           quoteCardTitle="Events & Concerts"
           eventChoices={<PopularEventPicker initialEvents={initialEvents} />}
