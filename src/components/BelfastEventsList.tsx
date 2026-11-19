@@ -20,7 +20,7 @@ import {
   type BelfastEventPublic,
 } from "../../shared/belfast-events";
 import { fetchPublicBelfastEvents } from "@/lib/belfast-events-api";
-import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENT_TRANSFER_REQUEST_PATH, FOO_FIGHTERS_EVENT_ID, FOO_FIGHTERS_TRANSFER_PATH } from "@/lib/bespoke-public";
+import { BESPOKE_PUBLIC_PAGES_ENABLED, EVENT_TRANSFER_REQUEST_PATH } from "@/lib/bespoke-public";
 import { bookingHelpWhatsAppUrl } from "@/lib/booking-help-whatsapp";
 import { eventCityForArea, type EventCity } from "../../shared/belfast-events";
 
@@ -175,11 +175,7 @@ export default function BelfastEventsList({ initialEvents }: { initialEvents: Be
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
                   {open && !FORMS ? (
                     <>
-                      {e.id === FOO_FIGHTERS_EVENT_ID ? (
-                        <Link href={FOO_FIGHTERS_TRANSFER_PATH} className="btn-primary inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold">
-                          Belfast &amp; Croke Park taxi quote
-                        </Link>
-                      ) : <EventQuoteButton event={e} />}
+                      <EventQuoteButton event={e} />
                       <a
                         href={bookingHelpWhatsAppUrl(`Hi, I'd like a price for ${e.title} on ${d.full}.`)}
                         target="_blank"

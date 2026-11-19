@@ -131,23 +131,3 @@ export const EVENT_INSTANT_FAQS = [
       "No. We only provide transport. Please buy tickets from the official seller.",
   },
 ] as const;
-
-/** Transport questions for the Foo Fighters concert page. No ticket prices or availability. */
-export function fooFightersTransportFaqs(dateLabel: string) {
-  return [
-    {
-      question: "Do you sell tickets for this concert?",
-      answer:
-        "No. We only provide the taxi. Door times, support acts and whether tickets are on sale are on the official Croke Park page.",
-    },
-    {
-      question: "Can 5 to 7 passengers travel together?",
-      answer:
-        "Send a transfer request and choose 5, 6 or 7 passengers. A 7-seater is subject to availability, and the quotation confirms the vehicle before you pay.",
-    },
-    {
-      question: "What date is the concert?",
-      answer: `The approved listing is ${dateLabel}. Croke Park lists the concert as subject to licence.`,
-    },
-  ];
-}

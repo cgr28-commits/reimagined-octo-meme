@@ -291,7 +291,6 @@ const pages = [
   // NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES=1 (owner-approved launch). Off → the pages 404.
   // Events page on its own (owner approved 15 Nov 2026; mirrors EVENTS_HUB_PUBLIC_ENABLED).
   { path: "/events/", source: "src/app/events/page.tsx" },
-  { path: "/events/foo-fighters-croke-park-taxi/", source: "src/app/events/foo-fighters-croke-park-taxi/page.tsx" },
   ...(BESPOKE_PUBLIC_PAGES_ENABLED
     ? [
         { path: "/events/transfer-request/", source: "src/app/events/transfer-request/page.tsx" },

@@ -1,81 +1,38 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import FooFightersTransfer from "@/components/FooFightersTransfer";
-import { EVENTS_HUB_PUBLIC_ENABLED, FOO_FIGHTERS_EVENT_ID, FOO_FIGHTERS_TRANSFER_PATH } from "@/lib/bespoke-public";
-import { fooFightersTransportFaqs } from "@/lib/belfast-events-content";
-import { loadBuildTimeBelfastEvents } from "@/lib/belfast-events-snapshot";
+import Link from "next/link";
+import { EVENTS_HUB_PATH, FOO_FIGHTERS_TRANSFER_PATH } from "@/lib/bespoke-public";
 import { SITE } from "@/lib/data";
-import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
-import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
-import snapshot from "@/data/belfast-events-snapshot.json";
-import type { BelfastEventPublic } from "../../../../shared/belfast-events";
+import FooFightersEventsRedirect from "@/components/FooFightersEventsRedirect";
 
-const title = "Foo Fighters at Croke Park | Belfast to Dublin Concert Taxi";
+const title = "Foo Fighters concert taxi";
+const description =
+  "Foo Fighters concert taxis use the Events & Concerts quote tool. Pick Foo Fighters to fill in Croke Park and the concert date.";
 
-function concertDateLabel(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Europe/Dublin",
-  }).format(new Date(`${iso}T12:00:00Z`));
-}
+export const metadata: Metadata = {
+  title: { absolute: `${title} | ${SITE.name}` },
+  description,
+  robots: { index: false, follow: true },
+  alternates: { canonical: EVENTS_HUB_PATH },
+  openGraph: { title, description, url: EVENTS_HUB_PATH, type: "website" },
+};
 
-function listedFooEvent(events: BelfastEventPublic[]): BelfastEventPublic | undefined {
-  return events.find((e) => e.id === FOO_FIGHTERS_EVENT_ID) ??
-    (snapshot.events as BelfastEventPublic[]).find((e) => e.id === FOO_FIGHTERS_EVENT_ID);
-}
-
-function pageDescription(dateLabel: string): string {
-  return `Private taxi from the Belfast corridor to Foo Fighters at Croke Park on ${dateLabel}. Fixed car prices online. A 7-seater request is subject to availability. We do not sell tickets.`;
-}
-
-export async function generateMetadata(): Promise<Metadata> {
-  if (!EVENTS_HUB_PUBLIC_ENABLED) {
-    return { title: "Page not found", robots: { index: false, follow: false } };
-  }
-  const event = listedFooEvent(await loadBuildTimeBelfastEvents());
-  const description = pageDescription(event ? concertDateLabel(event.date) : "the listed concert date");
-  return {
-    title: { absolute: `${title} | ${SITE.name}` },
-    description,
-    alternates: { canonical: FOO_FIGHTERS_TRANSFER_PATH },
-    openGraph: { title, description, url: FOO_FIGHTERS_TRANSFER_PATH, type: "website" },
-  };
-}
-
-export default async function FooFightersTransferPage() {
-  if (!EVENTS_HUB_PUBLIC_ENABLED) notFound();
-  const event = listedFooEvent(await loadBuildTimeBelfastEvents());
-  if (!event) notFound();
-  const dateLabel = concertDateLabel(event.date);
-  const description = pageDescription(dateLabel);
-  const breadcrumb = getBreadcrumbJsonLd([
-    { name: "Home", path: "/" }, { name: "Events", path: "/events/" },
-    { name: "Foo Fighters at Croke Park", path: FOO_FIGHTERS_TRANSFER_PATH },
-  ]);
-  // Service + FAQ only. No Event markup: we provide transport, not tickets.
-  const serviceLd = getServiceAreaJsonLd({
-    name: `${SITE.name} — Foo Fighters concert taxi`,
-    description,
-    path: FOO_FIGHTERS_TRANSFER_PATH,
-    areaServed: ["Belfast", "Croke Park"],
-    serviceType: "Private event transfer",
-  });
-  const faqLd = getFaqPageJsonLd(fooFightersTransportFaqs(dateLabel));
+/** Old dedicated quote page — send people to the Events quote tool. */
+export default function FooFightersTransferPage() {
   return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
-      <Header />
-      <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
-        <FooFightersTransfer initialEvent={event} />
-      </main>
-      <Footer />
-    </>
+    <main className="mx-auto flex min-h-[50vh] max-w-xl flex-col justify-center px-5 py-24 text-white">
+      <h1 className="text-2xl font-bold">Foo Fighters concert taxis</h1>
+      <p className="mt-3 text-base leading-relaxed text-white/80">
+        Concert quotes now live on the Events &amp; Concerts page. Use the Foo Fighters box in the quote tool to fill in Croke Park and the concert date.
+      </p>
+      <p className="mt-6">
+        <Link href={EVENTS_HUB_PATH} className="btn-primary inline-flex min-h-12 items-center rounded-full px-5 text-sm font-bold">
+          Open Events &amp; Concerts
+        </Link>
+      </p>
+      <p className="mt-4 text-sm text-white/55">
+        Previous address: <code className="text-white/70">{FOO_FIGHTERS_TRANSFER_PATH}</code>
+      </p>
+      <FooFightersEventsRedirect />
+    </main>
   );
 }

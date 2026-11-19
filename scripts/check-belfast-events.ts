@@ -248,8 +248,7 @@ async function main(): Promise<void> {
     "src/app/business-class-request/page.tsx",
     "src/components/BespokeRequestForm.tsx",
     "src/components/BelfastEventsList.tsx",
-    "src/components/FooFightersTransfer.tsx",
-    "src/app/events/foo-fighters-croke-park-taxi/page.tsx",
+    "src/components/PopularEventPicker.tsx",
   ]
     .map(read)
     .join("\n");
@@ -264,14 +263,14 @@ async function main(): Promise<void> {
   assert.match(form, /BESPOKE_TURNSTILE_ACTION/);
   assert.equal(read("src/lib/bespoke-public.ts").match(/BESPOKE_TURNSTILE_ACTION = "([^"]+)"/)?.[1], "bespoke_quote_request", "Turnstile action matches the Worker");
   assert.ok(!/"@type":\s*"Event"|@type": "Event"/.test(read("src/app/events/page.tsx")), "no Event rich-result markup pointing at our service");
-  const fooPage = read("src/app/events/foo-fighters-croke-park-taxi/page.tsx");
-  const fooBody = read("src/components/FooFightersTransfer.tsx");
-  assert.match(fooPage, /if \(!EVENTS_HUB_PUBLIC_ENABLED\) notFound\(\)/, "concert page uses the events switch");
-  assert.ok(!/"@type":\s*"Event"|@type": "Event"/.test(fooPage + fooBody), "concert page does not use Event rich results");
-  assert.match(fooBody, /BespokeRequestForm/, "concert page reuses the event request form");
-  assert.match(fooBody, /subject to licence/i, "concert page keeps the organiser licence status");
-  assert.match(fooBody, /A 7-seater is subject to availability/, "group transport on the concert page is a request");
-  assert.ok(!/tickets (are |now )?available|sold out|from €/i.test(fooPage + fooBody), "no invented ticket availability or prices");
+  const popular = read("src/components/PopularEventPicker.tsx");
+  assert.match(popular, /data-popular-event-pick/, "popular events use airport-style quick-pick boxes");
+  assert.match(popular, /resolveEventVenuePlace|prefillEventQuote/, "popular events fill the shared Events quote tool");
+  assert.ok(!/type="radio"/.test(popular), "popular events are not radio choices");
+  const fooRedirect = read("src/app/events/foo-fighters-croke-park-taxi/page.tsx");
+  assert.match(fooRedirect, /FooFightersEventsRedirect|EVENTS_HUB_PATH/, "old Foo Fighters page sends people to Events");
+  assert.ok(!/HeroSlideshow|QuoteCard/.test(fooRedirect), "old Foo Fighters page is not a separate quote tool");
+  assert.ok(!/FOO_FIGHTERS_TRANSFER_PATH/.test(read("src/components/BelfastEventsList.tsx")), "event list uses the shared quote button");
   // Address suggestions and Design 3 date/time: reused, never forked.
   assert.match(form, /import AddressInput from "@\/components\/AddressInput"/, "reuses the booking form's address box");
   assert.match(form, /import D3TimePicker from "@\/components\/D3TimePicker"/, "reuses the Design 3 time selector");
