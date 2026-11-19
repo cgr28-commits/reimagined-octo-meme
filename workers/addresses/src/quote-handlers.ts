@@ -225,14 +225,14 @@ async function resolveProtectedQuoteRoute(input: {
   dropoffPlaceId: string | null;
   googlePlacesApiKey?: string;
   getAddressApiKey?: string;
-}): Promise<CachedQuoteRoute | null> {
+}, resolvePaymentRoute = resolveWorkerTripRouteMetricsForPayment): Promise<CachedQuoteRoute | null> {
   const key = quoteRouteReuseKey(input);
   const cached = quoteRouteCache.get(key);
   if (cached && Date.now() - cached.storedAt < QUOTE_ROUTE_REUSE_MS) return cached;
   const existing = quoteRouteInflight.get(key);
   if (existing) return existing;
   const promise = (async () => {
-    const outcome = await resolveWorkerTripRouteMetricsForPayment({
+    const outcome = await resolvePaymentRoute({
       pickupAddress: input.pickupAddress,
       dropoffAddress: input.dropoffAddress,
       pickupPlaceId: input.pickupPlaceId,
@@ -268,6 +268,7 @@ export async function handleQuoteCalculateRequest(
     CUSTOMER_SMART_AVAILABILITY_PREVIEW_ENFORCE?: string;
     QUOTE_RECEIPT_SECRET?: string;
   },
+  resolvePaymentRoute = resolveWorkerTripRouteMetricsForPayment,
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(origin) });
@@ -370,7 +371,7 @@ export async function handleQuoteCalculateRequest(
       dropoffPlaceId,
       googlePlacesApiKey: env?.GOOGLE_PLACES_API_KEY,
       getAddressApiKey: env?.GETADDRESS_API_KEY,
-    });
+    }, resolvePaymentRoute);
     if (resolved) {
       routeMetrics = resolved.metrics;
       routeMetricsSource = "worker";

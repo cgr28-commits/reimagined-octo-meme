@@ -37,6 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           curl --retry 8 --retry-all-errors --retry-delay 3 -fsS "$PREVIEW_API/pricing/public" | python3 -c 'import json,sys; assert json.load(sys.stdin)["config"]["eventVenuePickups"]'
+      - name: Check stadium and hotel quotes using real selected places
+        run: python3 scripts/verify-event-fares-preview.py
       - name: Build website using the dedicated pricing service
         env:
           GITHUB_PAGES: "true"
