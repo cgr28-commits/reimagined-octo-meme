@@ -1,8 +1,9 @@
-import worker from "./index";
-export * from "./index";
+import { corsHeaders } from "../shared/google-places";
+import { handleBelfastEventsRoute } from "./belfast-events-handlers";
+import { handlePublicGetPricingConfig } from "./owner-pricing-handlers";
+import { handleQuoteCalculateRequest, handleQuoteAvailabilityRequest } from "./quote-handlers";
 
-const publicGets = new Set(["/events/public", "/pricing/public", "/addresses", "/geocode", "/saved-quotes/settings", "/google-reviews/summary"]);
-const quotePosts = new Set(["/quote/calculate", "/quote/availability"]);
+const publicLookups = new Set(["/addresses", "/geocode", "/saved-quotes/settings", "/google-reviews/summary"]);
 const stores = new WeakMap();
 
 function readOnlyStore(store) {
@@ -19,20 +20,23 @@ function readOnlyStore(store) {
 }
 
 export default {
-  fetch(request, env) {
-    const path = new URL(request.url).pathname;
-    const method = request.method;
-    if (!(publicGets.has(path) && (method === "GET" || method === "OPTIONS")) &&
-        !(quotePosts.has(path) && (method === "POST" || method === "OPTIONS"))) {
-      return new Response("This preview supports public fare enquiries only.", { status: 404 });
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const origin = request.headers.get("Origin");
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    const pricingEnv = { TRACKING_STORE: readOnlyStore(env.PRICING), EVENTS_HUB_PUBLIC: "1" };
+    if (request.method === "GET") {
+      if (url.pathname === "/events/public") return handleBelfastEventsRoute(request, pricingEnv, origin);
+      if (url.pathname === "/pricing/public") return handlePublicGetPricingConfig(pricingEnv, origin);
+      if (publicLookups.has(url.pathname)) {
+        const publicUrl = "https://reimagined-octo-meme.cgr28.workers.dev" + url.pathname + url.search;
+        return env.PUBLIC_SITE.fetch(new Request(publicUrl, { headers: { Accept: "application/json", ...(origin && { Origin: origin }) } }));
+      }
     }
-    return worker.fetch(request, {
-      TRACKING_STORE: readOnlyStore(env.TRACKING_STORE),
-      EVENTS_HUB_PUBLIC: "1",
-      GOOGLE_PLACES_API_KEY: env.GOOGLE_PLACES_API_KEY,
-      GETADDRESS_API_KEY: env.GETADDRESS_API_KEY,
-      IDEAL_POSTCODES_API_KEY: env.IDEAL_POSTCODES_API_KEY,
-      QUOTE_RECEIPT_SECRET: env.QUOTE_RECEIPT_SECRET,
-    });
+    if (request.method === "POST") {
+      if (url.pathname === "/quote/calculate") return handleQuoteCalculateRequest(request, origin, pricingEnv);
+      if (url.pathname === "/quote/availability") return handleQuoteAvailabilityRequest(request, origin, pricingEnv);
+    }
+    return Response.json({ message: "This preview supports public fare enquiries only." }, { status: 404, headers: corsHeaders(origin) });
   },
 };

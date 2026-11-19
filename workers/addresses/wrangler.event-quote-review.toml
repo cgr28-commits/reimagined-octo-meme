@@ -1,0 +1,12 @@
+name = "matni-event-fares-review"
+main = "src/event-quote-review.mjs"
+compatibility_date = "2025-08-01"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "PRICING"
+id = "53fa3cc2bd46436f90ae19200e599ea1"
+
+[[services]]
+binding = "PUBLIC_SITE"
+service = "reimagined-octo-meme"
