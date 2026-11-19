@@ -204,4 +204,17 @@ check("expected demand levels", () => {
   assert.equal(demandIndicatorFor({ tripDate: "" }, now), null);
 });
 
+check("published venue demand carries through to the quote", () => {
+  const trip = { tripDate: "2027-09-18", pickup: "Croke Park, Dublin", dropoff: "Belfast International Airport" };
+  const now = new Date("2026-11-19T12:00:00Z");
+  const demand = demandIndicatorFor({ ...trip, highDemandVenue: "Croke Park" }, now);
+  assert.equal(demand?.level, "high");
+  assert.equal(demand?.label, "High");
+  assert.equal(demand?.filledSegments, 3);
+  assert.match(demand?.body ?? "", /High demand at Croke Park/);
+  assert.equal(demand?.bookedPercent, null);
+  assert.equal(demandIndicatorFor(trip, now)?.level, "normal");
+  assert.equal(demandIndicatorFor({ ...trip, tripDate: "2026-12-20", highDemandVenue: "Croke Park" }, now)?.label, "80% booked");
+});
+
 console.log(`\n${passed} checks passed`);

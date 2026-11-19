@@ -135,7 +135,7 @@ export default function QuoteScheduleFields({
       </p>
       ) : null}
 
-      <div className={fieldGridClass}>
+      <div className={fieldGridClass} data-schedule-venue={homepageInline && outboundDemandVenue || undefined}>
         <div className="min-w-0 max-w-full">
           <label htmlFor="date" className="form-label">
             {returnJourney ? "Outbound date" : "Pickup date"}
@@ -227,7 +227,7 @@ export default function QuoteScheduleFields({
       </div>
 
       {returnJourney ? (
-        <div className={fieldGridClass}>
+        <div className={fieldGridClass} data-schedule-venue={homepageInline && returnDemandVenue || undefined}>
           <div className="min-w-0 max-w-full">
             <label htmlFor="returnDate" className="form-label">
               Return date

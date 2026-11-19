@@ -623,3 +623,21 @@
   }
 }
 }
+
+/* On phones the labels, controls and venue notice each get their own grid row. */
+@media (max-width: 767.98px) {
+  [data-schedule-venue] > div {
+    display: contents;
+  }
+  [data-schedule-venue] > div > label {
+    grid-row: 1;
+  }
+  [data-schedule-venue] [data-schedule-control] {
+    grid-row: 2;
+  }
+  [data-schedule-venue] > div > p {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+  }
+}
