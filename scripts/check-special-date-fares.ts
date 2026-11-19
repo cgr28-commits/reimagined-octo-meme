@@ -27,7 +27,9 @@ assert.equal(rate("2027-01-02", "12:00"), 0.1);
 assert.equal(rate("2028-01-01", "12:00", "Belfast City Hall"), 0.5);
 const schedule = { endpoints, outboundDate: "2027-05-21", outboundTime: "12:00",
   returnDate: "2027-05-21", returnTime: "20:00", returnJourney: true };
-assert.equal(applyTripPremium(100, schedule, undefined, { pricing: settings }).premiumAmount, 25);
+const concertReturn = applyTripPremium(100, schedule, undefined, { pricing: settings });
+assert.equal(concertReturn.premiumAmount, 25);
+assert.equal(concertReturn.total, 213.75, "5% off £125 into Boucher Road and £100 on the way back");
 assert.equal(specialFareLabel(schedule, settings), "Garth Brooks 25% surcharge");
 assert.equal(applyTripPremium(100, { ...schedule, endpoints: { pickup: venue, dropoff: airport } },
   undefined, { pricing: settings, returnOneWayFare: 80 }).premiumAmount, 20);
