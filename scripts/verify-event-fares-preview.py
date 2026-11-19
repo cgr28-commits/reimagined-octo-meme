@@ -1,6 +1,6 @@
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-import json, sys
+import json, time
 api = 'https://matni-event-fares-review.cgr28.workers.dev'
 origin = 'https://event-fares-review.my-airport-taxi-ni-preview.pages.dev'
 def call(path, data=None):
@@ -30,7 +30,11 @@ def quote(pickup, dropoff, when, isReturn=False):
             'passengers':4,'suitcases':0,'returnJourney':isReturn,'outboundDate':when,'outboundTime':'13:00',
             'routeMetrics':{'distanceKm':166,'durationMinutes':126}, 'quoteProtocol':'optional-terminal-access-v4'}
     if isReturn: body.update(returnDate=date,returnTime='20:30')
-    status,data=call('/quote/calculate',body)
+    for attempt in range(4):
+        status,data=call('/quote/calculate',body)
+        if status != 422 or 'routing_unavailable' not in str(data): break
+        if attempt < 3: time.sleep(2 ** attempt)
+
     assert status==200 and data.get('ok'),(status,data)
     return data
 print('Catalog', len(rules),aviva['name'],date,flush=True)

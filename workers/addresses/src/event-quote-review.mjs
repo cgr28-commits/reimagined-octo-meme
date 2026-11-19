@@ -24,7 +24,7 @@ function readOnlyStore(store) {
 
 // Resolve a selected place via the site's public address service. The provider
 // keys stay with their existing Worker and the preview still measures road mileage.
-function publicRoadRoute(service, journey) {
+async function publicRoadRoute(service, journey) {
   async function lookup(params) {
     const url = new URL("https://reimagined-octo-meme.cgr28.workers.dev/addresses");
     url.search = new URLSearchParams({ airport: "A2A", ...params }).toString();
@@ -36,7 +36,7 @@ function publicRoadRoute(service, journey) {
     if (!Number.isFinite(place?.lat) || !Number.isFinite(place?.lng)) return null;
     return { lat: place.lat, lng: place.lng };
   }
-  return resolveTripRouteMetricsOutcome({
+  const options = {
     ...journey,
     trustClientCoordinates: false,
     resolvePlaceId: async id => ({ point: await coordinates(id) }),
@@ -46,7 +46,10 @@ function publicRoadRoute(service, journey) {
       return id ? coordinates(id) : null;
     },
     fetchRouteMetrics: fetchRoadTripRouteMetrics,
-  });
+  };
+  const first = await resolveTripRouteMetricsOutcome(options);
+  if (first.ok || first.reason === "missing_endpoint") return first;
+  return resolveTripRouteMetricsOutcome(options);
 }
 
 export default {
