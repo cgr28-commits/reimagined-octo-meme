@@ -31,7 +31,7 @@ async function main() {
    // Keep the mock route over 40 miles so Business Class stays offered (gated otherwise).
    if (u.includes('/quote/calculate')) { const q = r.request().postDataJSON(); await new Promise(r => setTimeout(r, 450)); return r.fulfill({ json: { ok: true, amount: 50, journeyFareGbp: 50, airportFixedCostsGbp: 0, nightWeekendSurchargeGbp: 0, vehicleType: q.vehicleType, distanceKm: 70, durationMinutes: 60 } }); }
    if (u.includes('/route/v1/')) return r.fulfill({ json: { code: 'Ok', routes: [{ distance: 70000, duration: 3600, geometry: { coordinates: [] } }] } });
-   if (u.includes('workers.dev')) return r.fulfill({ json: { ok: true, available: true, blocked: false, settings: {} } });
+   if (u.includes('/quote/availability') || u.includes('workers.dev')) return r.fulfill({ json: { ok: true, available: true, blocked: false, settings: {} } });
    return r.abort();
   });
   await context.addInitScript(settings => {
@@ -48,7 +48,7 @@ async function main() {
    window.testBrowserBarHeight = 0;
    if (window.visualViewport) Object.defineProperty(window.visualViewport, 'height', { get: () => innerHeight - window.testBrowserBarHeight });
   }, settings);
-  async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
+  async function quote(width, height, { bars = 0, lateBars = 0, reduced = false, firstTap = null, classic = true, vehicle = 'Standard Saloon (1–4 passengers)' } = {}) {
    // Each case is a fresh customer journey. Replacing the previous document
    // immediately after Start New Quote races its newly visible link prefetches
    // in WebKit (run 39670823766). Isolate pages instead of suppressing errors;
@@ -61,7 +61,7 @@ async function main() {
    });
    await page.setViewportSize({ width, height }); await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
    console.log('BEGIN CASE', JSON.stringify({ engine, width, height, reduced, vehicle, firstTap }));
-   await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1');
+   await page.goto('http://127.0.0.1:3094/?previewJourney=bfs&previewPax=1&previewBags=1' + (classic ? '&mobile=classic' : ''));
    await page.locator('#quote-section-passengers').waitFor();
    await page.evaluate(() => document.fonts.ready);
    await page.waitForFunction(() => document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value && document.querySelector('#quote-section-passengers')?.value === '1');
@@ -71,6 +71,11 @@ async function main() {
    await page.waitForFunction(() => [...document.querySelectorAll('[data-get-fixed-price]')].some(el => !el.disabled));
    const getPriceBox = await getPrice.boundingBox();
    await page.touchscreen.tap(getPriceBox.x + getPriceBox.width / 2, getPriceBox.y + getPriceBox.height / 2);
+   if (!classic) {
+    await page.locator('[data-quote-results="ready"]').waitFor();
+    await checkFloatingPrice(page, width);
+    return;
+   }
    await page.locator('[data-quote-result-card]').waitFor();
    if (lateBars) await page.evaluate(value => setTimeout(() => { window.testBrowserBarHeight = value; }, 650), lateBars);
    await page.waitForTimeout(1900);
@@ -150,7 +155,7 @@ async function main() {
     assert.equal(await page.locator('[data-quote-save]').isDisabled(), manual, 'Unpriced requests cannot be saved as confirmed fares');
     const popups = [
      ['View route', 'dialog', 'View route'],
-     ...(!manual ? [['Email my quote', 'dialog', 'Save My Quote']] : []),
+     ...(!manual ? [['Email my quote', 'dialog', 'Send Me My Quote']] : []),
      ['Start over', 'alertdialog', 'Need a quote for a different journey?'],
      ['Need help? WhatsApp us', 'dialog', 'WhatsApp'],
     ];
@@ -211,6 +216,40 @@ async function main() {
    }
 
    console.log('OK ' + engine + (firstTap ? ' first tap without manual scrolling: ' + firstTap + ' ' : ' result landing ')  + JSON.stringify({ width, height, bars, lateBars, reduced, vehicle, ...m }));
+  }
+  async function checkFloatingPrice(page, width) {
+   const bar = page.getByRole('region', { name: 'Selected vehicle and continue' });
+   const price = bar.locator('[data-d2-sticky-price] strong');
+   await bar.waitFor();
+   for (const [category, expectedPrice, label] of [
+    ['saloon', '£50', 'Saloon'], ['executive', 'On request', 'Business Class'], ['estate', '£50', 'Estate'],
+   ]) {
+    await page.locator(`[data-vehicle-category="${category}"]`).tap();
+    await bar.getByText(expectedPrice, { exact: true }).waitFor();
+    assert.match(await bar.locator('[data-d2-sticky-label]').innerText(), new RegExp(label, 'i'));
+    const save = page.getByRole('button', { name: 'Send me my quote', exact: true });
+    assert.equal(await save.isVisible(), category !== 'executive', 'Only priced vehicles can be saved');
+    const button = bar.locator('#quote-book-now-button');
+    assert.ok(await button.isEnabled());
+    const accessible = await button.evaluate(el => {
+     const box = el.getBoundingClientRect();
+     const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+     return box.top >= 0 && box.bottom <= innerHeight && el.contains(hit);
+    });
+    assert.ok(accessible, `${width}px: floating booking control must stay visible and accept touch`);
+   }
+   await bar.getByRole('button', { name: 'Price details' }).tap();
+   const sheet = page.getByRole('dialog', { name: 'Price details' });
+   await sheet.getByText('Total', { exact: true }).waitFor();
+   assert.equal(await sheet.locator('dd').last().innerText(), await price.innerText());
+   await sheet.getByRole('button', { name: 'Close' }).tap();
+   await sheet.waitFor({ state: 'hidden' });
+   await bar.locator('#quote-book-now-button').tap();
+   await page.locator('#name').waitFor();
+   console.log(`OK ${engine} ${width}px: floating fare, request-only vehicle, breakdown and booking details`);
+  }
+  for (const [width, height] of [[390, 744], [820, 1000]]) {
+   await quote(width, height, { classic: false });
   }
   // Each action must work as the FIRST touch after the automatic reveal.
   // Larger iPhone viewport fits the unchanged stacked list and action row.

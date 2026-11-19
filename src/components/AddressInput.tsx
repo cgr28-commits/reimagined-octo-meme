@@ -172,15 +172,16 @@ export default function AddressInput({
   const houseHintId = useId();
   const showAbove = suggestionsPlacement === "above";
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        window.clearTimeout(debounceRef.current);
-      }
-      suggestionAbortRef.current?.abort();
-      suggestionRequestIdRef.current += 1;
-    };
+  const cancelSuggestionSearch = useCallback(() => {
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    suggestionAbortRef.current?.abort();
+    suggestionRequestIdRef.current += 1;
   }, []);
+
+  useEffect(() => cancelSuggestionSearch, [cancelSuggestionSearch]);
 
   // Keep internal selection in sync with parent-confirmed / restored places.
   useEffect(() => {
@@ -199,31 +200,33 @@ export default function AddressInput({
   }, [confirmedPlace, value]);
 
   useEffect(() => {
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
+    function dismissOutside(event: Event) {
       const target = event.target as Node;
       if (containerRef.current?.contains(target) || suggestionListRef.current?.contains(target)) {
         return;
       }
+      cancelSuggestionSearch();
       setSuggestionsOpen(false);
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("focusin", dismissOutside);
+    document.addEventListener("mousedown", dismissOutside);
+    document.addEventListener("touchstart", dismissOutside);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("focusin", dismissOutside);
+      document.removeEventListener("mousedown", dismissOutside);
+      document.removeEventListener("touchstart", dismissOutside);
     };
-  }, []);
+  }, [cancelSuggestionSearch]);
 
   useEffect(() => {
-    suggestionAbortRef.current?.abort();
-    suggestionRequestIdRef.current += 1;
+    cancelSuggestionSearch();
     setSuggestions([]);
     setSuggestionsOpen(false);
     setNeedsHouseNumber(false);
     setHouseOrBuilding("");
     setLockedPostcode(null);
-  }, [airportCode]);
+  }, [airportCode, cancelSuggestionSearch]);
 
   const requestSuggestions = useCallback(
     (query: string, options?: { autoConfirmExact?: boolean }) => {
@@ -403,10 +406,9 @@ export default function AddressInput({
       setLockedPostcode(null);
     }
 
-    if (debounceRef.current) {
-      window.clearTimeout(debounceRef.current);
-    }
-
+    cancelSuggestionSearch();
+    setSuggestions([]);
+    setSuggestionsOpen(false);
     debounceRef.current = window.setTimeout(() => {
       requestSuggestions(next);
     }, 220);
@@ -438,9 +440,7 @@ export default function AddressInput({
   }
 
   function handleClear() {
-    if (debounceRef.current) {
-      window.clearTimeout(debounceRef.current);
-    }
+    cancelSuggestionSearch();
     selectedPlaceRef.current = null;
     setSuggestions([]);
     setSuggestionsOpen(false);
@@ -472,6 +472,7 @@ export default function AddressInput({
   }
 
   async function handleSelect(prediction: AddressPrediction) {
+    cancelSuggestionSearch();
     setSuggestionsOpen(false);
     setSuggestions([]);
     setNeedsHouseNumber(false);

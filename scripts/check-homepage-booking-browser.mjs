@@ -187,8 +187,10 @@ try {
     await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
     assert.equal(await page.locator('[data-quote-results="ready"]').count(), 0,
       'a past pickup date must not reveal a fare');
-    await page.locator('#date').fill('');
-    await page.locator('#time').fill('');
+    await page.locator('#trip-date-error').filter({hasText: /past/i}).waitFor();
+    // Reset the underlying native controls after the displayed validation error.
+    await page.locator('#date').fill('', {force: true});
+    await page.locator('#time').fill('', {force: true});
     await requestFixedPrice(page);
     await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
     assert.match(await page.locator('[data-quote-results="ready"]').innerText(), /0 suitcases/);
@@ -281,19 +283,16 @@ try {
     await page.waitForFunction(()=> document.getElementById('pickup')?.value.includes('City Hall'));
     for (const field of ['dropoff','pickup']) {
       const input=page.locator(`#${field}`);
-      // Close any leftover address overlay (local served-airports + API listboxes
-      // can stack; the sibling listbox intercepts pointer events otherwise).
-      await page.keyboard.press('Escape');
+      // Switch directly between the two address fields as a customer would.
       await input.click();
       await input.fill('Dublin Airport');
       const listboxId=await input.getAttribute('aria-controls');
       assert.ok(listboxId,`${field} autocomplete must identify its listbox`);
       const suggestion=page.locator(`[id="${listboxId}"]`).getByRole('button',{name:/Dublin Airport Terminal 2/i}).first();
       await suggestion.waitFor({state:'visible'});
-      // force: local "Co. Dublin, Ireland" overlay can still sit above the mock Terminal 2 row.
-      // Desktop (1200px+): a normal click, so Playwright waits until the row itself can take it.
-      if (width >= 1200) { await suggestion.evaluate(el=>el.scrollIntoView({block:'nearest'})); await page.waitForTimeout(300); await suggestion.click(); }
-      else await suggestion.click({force:true});
+      await suggestion.evaluate(el => el.scrollIntoView({block: 'center'}));
+      if (mobile) await suggestion.tap();
+      else await suggestion.click();
       await page.waitForFunction((id)=>document.getElementById(id)?.value.includes('Dublin Airport Terminal 2'),field);
       assert.match(await input.inputValue(),/^Dublin Airport Terminal 2(?:, Co\. Dublin, Ireland)?$/);
       await page.keyboard.press('Escape');

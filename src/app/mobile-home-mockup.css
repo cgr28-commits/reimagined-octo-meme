@@ -476,6 +476,7 @@
     content: "" !important;
     position: absolute !important;
     inset: -6px -2px !important;
+    min-height: 44px !important;
   }
 }
 }
