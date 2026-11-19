@@ -1,132 +1,92 @@
 /*
- * Tablet Design 3 brand polish (768px–1199.98px) — visual only.
- * Matches the approved phone greens/CTAs/WhatsApp from mobile-home-mockup.css
- * without importing phone layout, spacing, logo, or seasonal overrides.
+ * Tablet Design 3 brand (768px–1199.98px): the approved phone greens, CTA gradient and filled
+ * WhatsApp header button from mobile-home-mockup.css, colour only — no phone layout or spacing.
  *
- * Isolation:
- * - Phones (≤767.98px): untouched (this file's media query does not match).
- * - Desktop (≥1200px): untouched (data-mobile-d3 is off; this MQ also ends at 1199.98px).
- * - Christmas lights / Santa hat: not modified here.
+ * Phones (≤767.98px) and desktop (≥1200px, where data-mobile-d3 is removed) never match.
+ * Christmas decorations and the floating WhatsApp QR launcher are not touched here.
  *
- * Owner brief: 19 Nov 2026 tablet vs mobile audit follow-up.
+ * Rules live in the brand-override layer, declared first in globals.css: its !important
+ * declarations beat the base-layer Design 3 stacks, so selectors stay short. Anything without
+ * !important in this layer would lose, which is why every declaration carries it.
  */
 @media (min-width: 768px) and (max-width: 1199.98px) {
-@layer base {
-  /* Shared tokens — colour only; no layout remapping */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] {
-    --matni-green: #2fc30a;
-    --matni-green-bright: #45d704;
-    --matni-green-tint: #e8fde1;
-    --matni-green-panel: #f3fcef;
-    --matni-green-panel-border: #cdeec2;
-    --matni-cta: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%);
+@layer brand-override {
+  [data-mobile-d3] {
+    --matni-green: #2fc30a !important;
+    --matni-green-bright: #45d704 !important;
+    --matni-green-tint: #e8fde1 !important;
+    --matni-green-panel: #f3fcef !important;
+    --matni-green-panel-border: #cdeec2 !important;
+    --matni-cta: linear-gradient(180deg, #2fc908 0%, #19b003 45%, #08a201 62%, #008a01 100%) !important;
     --matni-cta-shadow: 0 12px 22px -12px rgba(0, 138, 1, 0.9), 0 2px 4px rgba(0, 60, 0, 0.18),
-      inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
-    --color-emerald: #2fc30a;
-    --pm-green: #2fc30a;
-    --pm-green-bright: #45d704;
+      inset 0 1px 0 rgba(255, 255, 255, 0.32), inset 0 -2px 0 rgba(0, 0, 0, 0.08) !important;
+    --pm-green: #2fc30a !important;
+    --pm-green-bright: #45d704 !important;
   }
 
-  /* ---------- Header WhatsApp: filled green like phone (destination unchanged) ---------- */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick],
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] {
+  /* Header WhatsApp: same filled button as phones; link and tracking unchanged. */
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick] {
     width: 2.75rem !important;
     min-width: 2.75rem !important;
     height: 2.75rem !important;
     min-height: 2.75rem !important;
     padding: 0 !important;
-    background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
     border: 0 !important;
     border-radius: 0.75rem !important;
+    background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
     color: #ffffff !important;
     box-shadow: 0 6px 14px -6px rgba(32, 196, 3, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] svg path,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] svg,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick] svg path {
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick] :is(svg, path) {
     color: #ffffff !important;
     fill: #ffffff !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick]:hover,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick]:hover {
-    filter: brightness(1.05);
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:hover {
+    filter: brightness(1.05) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick]:active,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick]:active {
-    filter: brightness(0.95);
-    transform: scale(0.97);
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:active {
+    filter: brightness(0.95) !important;
+    transform: scale(0.97) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick]:focus-visible,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-mobile-header-actions] > a[data-matni-whatsapp-quick]:focus-visible {
+  [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:focus-visible {
     outline: 3px solid #071c38 !important;
-    outline-offset: 3px;
+    outline-offset: 3px !important;
   }
 
-  /*
-   * Floating QR launcher duplicates the header WhatsApp on tablet (header is fixed).
-   * Hide launcher + panel in this band only. Desktop ≥1200 keeps the QR FAB (no header WA).
-   */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-matni-whatsapp-qr-launcher],
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-matni-whatsapp-qr-panel] {
-    display: none !important;
-  }
-
-  /* ---------- Hero accent green on navy ---------- */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-hero-green],
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #homepage-booking-intro h1 [data-hero-green],
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #homepage-booking-intro h1 > span + span {
+  [data-mobile-d3] [data-hero-green],
+  [data-mobile-d3] #homepage-booking-intro h1 > span + span {
     color: #45d704 !important;
     -webkit-text-fill-color: #45d704 !important;
   }
 
-  /* ---------- Primary booking CTAs (approved phone gradient, white text) ---------- */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote button[data-get-fixed-price]:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2="journey"] button[data-get-fixed-price]:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-d2] button[data-get-fixed-price]:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero #quote button[data-get-fixed-price]:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is(#quote-book-now-button, .btn-pay):not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-d2-sticky] #quote-book-now-button:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] .quote-flow .btn-pay:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] .quote-result-card .btn-primary:not(:disabled),
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] [data-quote-result-main-action] .btn-primary:not(:disabled) {
+  /* Primary booking actions. Secondary and outline buttons keep their own styles. */
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, [data-d2-sticky] #quote-book-now-button, :is(#quote, .quote-flow) .btn-pay, .quote-result-card .btn-primary, [data-quote-result-main-action] .btn-primary):not(:disabled) {
+    border: 0 !important;
     background: var(--matni-cta) !important;
     background-color: #08a201 !important;
-    border: 0 !important;
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
     font-weight: 800 !important;
-    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35);
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35) !important;
     box-shadow: var(--matni-cta-shadow) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:not(:disabled) *,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote button[data-get-fixed-price]:not(:disabled) *,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is(#quote-book-now-button, .btn-pay):not(:disabled) * {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled) * {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:not(:disabled):hover,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote button[data-get-fixed-price]:not(:disabled):hover,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is(#quote-book-now-button, .btn-pay):not(:disabled):hover {
-    filter: brightness(1.05);
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):hover {
+    filter: brightness(1.05) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:not(:disabled):active,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote button[data-get-fixed-price]:not(:disabled):active,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is(#quote-book-now-button, .btn-pay):not(:disabled):active {
-    filter: brightness(0.97);
-    transform: translateY(1px);
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):active {
+    filter: brightness(0.97) !important;
+    transform: translateY(1px) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:focus-visible,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is(#quote-book-now-button, .btn-pay):focus-visible {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):focus-visible {
     outline: 3px solid #071c38 !important;
-    outline-offset: 3px;
+    outline-offset: 3px !important;
   }
-  /* Disabled: keep readable, not the bright CTA fill */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] button[data-get-fixed-price]:disabled,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote button[data-get-fixed-price]:disabled {
+  [data-mobile-d3] button[data-get-fixed-price]:disabled {
     background: #e2e8f0 !important;
-    background-image: none !important;
     color: #334155 !important;
     -webkit-text-fill-color: #334155 !important;
     box-shadow: none !important;
@@ -135,36 +95,33 @@
     opacity: 1 !important;
   }
 
-  /* Icons / selected accents that should track the approved green */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote :is([data-gps-location], [data-schedule-control] > svg, [data-d2-stepper-btn="plus"]:not(:disabled)) {
+  /* Selected states and icons on the white quote card. */
+  [data-mobile-d3] #quote :is([data-gps-location], [data-schedule-control] > svg) {
     color: #2fc30a !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote [data-d2-stepper-btn="plus"]:not(:disabled) {
-    background: #2fc30a !important;
+  [data-mobile-d3] #quote [data-d2-stepper-btn="plus"]:not(:disabled) {
     border-color: #2fc30a !important;
+    background: #2fc30a !important;
     color: #071c38 !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote [data-quick-picks] > button[data-quick-pick][data-quick-pick-chosen] {
+  [data-mobile-d3] #quote [data-quick-picks] > [data-quick-pick][data-quick-pick-chosen] {
+    border-color: #2fc30a !important;
     background: #e8fde1 !important;
-    border-color: #2fc30a !important;
-    box-shadow: 0 0 0 1px #2fc30a inset, 0 2px 6px -2px rgba(47, 195, 10, 0.35) !important;
+    box-shadow: inset 0 0 0 1px #2fc30a, 0 2px 6px -2px rgba(47, 195, 10, 0.35) !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote ol[data-mobile-steps] li:is([data-step-state="done"], [data-step-state="current"]) > button > span,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] #quote li.quote-step-act,
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] ol[data-mobile-steps] li[data-step-state="current"] > span {
+  [data-mobile-d3] :is(#quote ol[data-mobile-steps] li:is([data-step-state="done"], [data-step-state="current"]) > button > span, #quote li.quote-step-act, ol[data-mobile-steps] li[data-step-state="current"] > span) {
+    border-color: #2fc30a !important;
     background: #2fc30a !important;
-    border-color: #2fc30a !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] .quote-flow [data-d2-segment] > button[aria-pressed="true"],
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] .quote-flow [role="group"][aria-label="Journey type"] > button.bg-emerald {
+  [data-mobile-d3] .quote-flow :is([data-d2-segment] > button[aria-pressed="true"], [role="group"][aria-label="Journey type"] > button.bg-emerald) {
     box-shadow: inset 0 0 0 2px #2fc30a !important;
   }
 
-  /* Standalone customer pages on tablet (contact / manage booking) */
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) {
+  /* Contact and Manage Booking: phone green on their primary buttons. */
+  [data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]) {
     background-color: #2fc30a !important;
   }
-  html:root:root:root:root:root:root:root:root:root[data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) {
+  [data-mobile-d3] main[data-customer-standalone][data-brand-green] :is(.btn-primary, button[class*="bg-emerald"], a[class*="bg-emerald"]):not([class*="bg-emerald/"]):hover:not(:disabled) {
     background-color: #28ad08 !important;
   }
 }
