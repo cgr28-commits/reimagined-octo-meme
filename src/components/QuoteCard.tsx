@@ -7539,8 +7539,6 @@ function QuoteCard({
         minReturnTime={minReturnTime}
         tripDateError={tripDateError}
         returnDateError={returnDateError}
-        outboundDemandVenue={outboundDemandVenue}
-        returnDemandVenue={returnDemandVenue}
         outboundTimeLabel={checkoutTimeLabel("outbound")}
         returnTimeLabel={checkoutTimeLabel("return")}
         tripDateInputRef={tripDateInputRef}

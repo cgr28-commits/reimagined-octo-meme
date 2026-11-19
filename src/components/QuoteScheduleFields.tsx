@@ -57,8 +57,6 @@ export type QuoteScheduleFieldsProps = {
   minReturnTime?: string;
   tripDateError?: string;
   returnDateError?: string;
-  outboundDemandVenue?: string;
-  returnDemandVenue?: string;
   outboundTimeLabel: string;
   returnTimeLabel: string;
   tripDateInputRef?: RefObject<HTMLInputElement | null>;
@@ -89,8 +87,6 @@ export default function QuoteScheduleFields({
   minReturnTime,
   tripDateError = "",
   returnDateError = "",
-  outboundDemandVenue,
-  returnDemandVenue,
   outboundTimeLabel,
   returnTimeLabel,
   tripDateInputRef,
@@ -161,7 +157,7 @@ export default function QuoteScheduleFields({
               min={minTripDate}
               value={tripDate}
               aria-invalid={Boolean(tripDateError)}
-              aria-describedby={[tripDateError && "trip-date-error", outboundDemandVenue && "trip-date-demand"].filter(Boolean).join(" ") || undefined}
+              aria-describedby={tripDateError ? "trip-date-error" : undefined}
               required
               onClick={homepageInline ? openNativePicker : undefined}
               onChange={(e) => onTripDateChange(e.target.value)}
@@ -216,11 +212,6 @@ export default function QuoteScheduleFields({
             ) : null}
           </div>
         </div>
-        {outboundDemandVenue ? (
-          <p id="trip-date-demand" className="col-span-2 mt-0 w-full rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">
-            High demand at {outboundDemandVenue}
-          </p>
-        ) : null}
         <p
           id="trip-date-error"
           role={tripDateError ? "alert" : undefined}
@@ -256,7 +247,6 @@ export default function QuoteScheduleFields({
                 type="date"
                 min={minReturnDate}
                 value={returnDate}
-                aria-describedby={returnDemandVenue ? "return-date-demand" : undefined}
                 required
                 onClick={homepageInline ? openNativePicker : undefined}
                 onChange={(e) => onReturnDateChange(e.target.value)}
@@ -309,11 +299,6 @@ export default function QuoteScheduleFields({
               ) : null}
             </div>
           </div>
-          {returnDemandVenue ? (
-            <p id="return-date-demand" className="col-span-2 mt-0 w-full rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">
-              High demand at {returnDemandVenue}
-            </p>
-          ) : null}
           <p className={`col-span-2 text-xs text-red-400 ${homepageInline ? "min-h-0 sm:min-h-[1.1rem]" : "min-h-[1.1rem]"}`}>
             {returnDateError || (homepageInline ? null : "\u00a0")}
           </p>
