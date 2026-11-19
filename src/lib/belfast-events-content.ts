@@ -37,7 +37,7 @@ export const EVENT_STEPS = [
 
 export const EVENT_GROUP_NOTE = {
   title: "Travelling as a group?",
-  body: `Our cars carry up to 4 passengers. For ${GROUP_VEHICLE_FROM_PASSENGERS}–${EVENT_REQUEST_MAX_PASSENGERS} people you can request our 7-seater. It is subject to availability, and we confirm the vehicle in your quotation before you pay. For larger groups, please call us to talk it through.`,
+  body: `Our cars carry up to 4 passengers. For ${GROUP_VEHICLE_FROM_PASSENGERS}–${EVENT_REQUEST_MAX_PASSENGERS} people you can request a 7-seater. It is subject to availability, and we confirm the vehicle in your quotation before you pay. For larger groups, please call us to talk it through.`,
 } as const;
 
 export const EVENT_FAQS = [
@@ -131,3 +131,23 @@ export const EVENT_INSTANT_FAQS = [
       "No. We only provide transport. Please buy tickets from the official seller.",
   },
 ] as const;
+
+/** Transport questions for the Foo Fighters concert page. No ticket prices or availability. */
+export function fooFightersTransportFaqs(dateLabel: string) {
+  return [
+    {
+      question: "Do you sell tickets for this concert?",
+      answer:
+        "No. We only provide the taxi. Door times, support acts and whether tickets are on sale are on the official Croke Park page.",
+    },
+    {
+      question: "Can 5 to 7 passengers travel together?",
+      answer:
+        "Send a transfer request and choose 5, 6 or 7 passengers. A 7-seater is subject to availability, and the quotation confirms the vehicle before you pay.",
+    },
+    {
+      question: "What date is the concert?",
+      answer: `The approved listing is ${dateLabel}. Croke Park lists the concert as subject to licence.`,
+    },
+  ];
+}

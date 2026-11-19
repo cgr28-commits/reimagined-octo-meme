@@ -4,7 +4,8 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   BELFAST_EVENT_CATEGORIES,
   BELFAST_VENUES,
@@ -21,7 +22,7 @@ import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
 import { saveOwnerPricingSettings } from "../workers/addresses/src/owner-pricing-store";
 import { handleQuoteCalculateRequest } from "../workers/addresses/src/quote-handlers";
 
-const root = join(new URL(".", import.meta.url).pathname, "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
 const day = (n: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date(Date.now() + n * 86400000));
 
@@ -247,6 +248,8 @@ async function main(): Promise<void> {
     "src/app/business-class-request/page.tsx",
     "src/components/BespokeRequestForm.tsx",
     "src/components/BelfastEventsList.tsx",
+    "src/components/FooFightersTransfer.tsx",
+    "src/app/events/foo-fighters-croke-park-taxi/page.tsx",
   ]
     .map(read)
     .join("\n");
@@ -261,6 +264,14 @@ async function main(): Promise<void> {
   assert.match(form, /BESPOKE_TURNSTILE_ACTION/);
   assert.equal(read("src/lib/bespoke-public.ts").match(/BESPOKE_TURNSTILE_ACTION = "([^"]+)"/)?.[1], "bespoke_quote_request", "Turnstile action matches the Worker");
   assert.ok(!/"@type":\s*"Event"|@type": "Event"/.test(read("src/app/events/page.tsx")), "no Event rich-result markup pointing at our service");
+  const fooPage = read("src/app/events/foo-fighters-croke-park-taxi/page.tsx");
+  const fooBody = read("src/components/FooFightersTransfer.tsx");
+  assert.match(fooPage, /if \(!EVENTS_HUB_PUBLIC_ENABLED\) notFound\(\)/, "concert page uses the events switch");
+  assert.ok(!/"@type":\s*"Event"|@type": "Event"/.test(fooPage + fooBody), "concert page does not use Event rich results");
+  assert.match(fooBody, /BespokeRequestForm/, "concert page reuses the event request form");
+  assert.match(fooBody, /subject to licence/i, "concert page keeps the organiser licence status");
+  assert.match(fooBody, /A 7-seater is subject to availability/, "group transport on the concert page is a request");
+  assert.ok(!/tickets (are |now )?available|sold out|from €/i.test(fooPage + fooBody), "no invented ticket availability or prices");
   // Address suggestions and Design 3 date/time: reused, never forked.
   assert.match(form, /import AddressInput from "@\/components\/AddressInput"/, "reuses the booking form's address box");
   assert.match(form, /import D3TimePicker from "@\/components\/D3TimePicker"/, "reuses the Design 3 time selector");
@@ -268,7 +279,7 @@ async function main(): Promise<void> {
   assert.match(form, /pickupPlaceId: placeIds\.pickup/, "chosen Google place id is sent");
   assert.match(form, /destinationPlaceId: placeIds\.destination/);
   assert.ok(!/requireSuggestion/.test(form), "typed addresses still allowed when suggestions are unavailable");
-  const css = read("src/app/globals.css");
+  const css = read("src/app/globals.css").replace(/\r\n/g, "\n");
   const blockStart = css.indexOf("Event / Business Class request forms");
   // Our block is one "@layer base { … }" ending at the first closing brace in column 0.
   const block = css.slice(blockStart, css.indexOf("\n}\n", blockStart) + 2);

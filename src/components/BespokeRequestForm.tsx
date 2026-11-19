@@ -557,7 +557,7 @@ export default function BespokeRequestForm({ category, event = null }: Props) {
           <div className="rounded-xl border border-amber-300/30 bg-amber-400/10 p-4" role="note">
             <p className="text-sm font-semibold text-white">7-seater requested</p>
             <p className="mt-1 text-sm leading-relaxed text-white/75">
-              Groups of {GROUP_VEHICLE_FROM_PASSENGERS}–{EVENT_REQUEST_MAX_PASSENGERS} need our 7-seater, which is subject to
+              Groups of {GROUP_VEHICLE_FROM_PASSENGERS}–{EVENT_REQUEST_MAX_PASSENGERS} can request a 7-seater, which is subject to
               availability. We confirm the vehicle in your quotation before you pay.
             </p>
           </div>
