@@ -8,6 +8,7 @@ export type EventVenuePickup = {
   city: EventCity;
   venueNames: string[];
   pickupPoint?: string;
+  highDemandPickupPercent?: number;
   start: string;
   end: string;
 };
@@ -50,7 +51,11 @@ export function publishedVenuePickup(event: BelfastEventRecord, today: string): 
     end = nextDay.toISOString().slice(0, 10) + "T" + event.endTime;
   }
   if (end.slice(0, 10) < today) return null;
-  return { name: event.title, city: eventCityForArea(event.venueArea), venueNames, pickupPoint, start: event.date + "T00:00", end };
+  return {
+    name: event.title, city: eventCityForArea(event.venueArea), venueNames, pickupPoint,
+    ...(event.highDemandPickupPercent ? { highDemandPickupPercent: event.highDemandPickupPercent } : {}),
+    start: event.date + "T00:00", end,
+  };
 }
 
 function addressParts(value: string): string[] {
@@ -129,14 +134,26 @@ export function isPublishedPickupPlace(events: readonly EventVenuePickup[] | und
   return Boolean(address && events?.some(event => atEventPickup(address, event)));
 }
 
+/** A date notice describes local demand. Only the actual pickup is used to price a leg. */
+export function highDemandVenueOnDate(
+  events: readonly EventVenuePickup[] | undefined, date: string, addresses: readonly string[], eventTitle?: string,
+): string | undefined {
+  if (!date) return;
+  return events?.find(event => event.highDemandPickupPercent && event.start.slice(0, 10) <= date && date <= event.end.slice(0, 10) &&
+    (event.name === eventTitle || addresses.some(address => atEventPickup(address, event))))?.venueNames[0];
+}
+
 export function matchingEventVenuePickup(
   events: readonly EventVenuePickup[], rules: readonly SpecialDateFare[], minute: string, address?: string,
 ): { name: string; rate: number } | undefined {
   if (!address) return;
+  let best: { name: string; rate: number } | undefined;
   for (const event of events) {
     if (minute < event.start || minute > event.end) continue;
     if (!atEventPickup(address, event)) continue;
     if (rules.some(rule => ownerRuleForVenue(rule, event) && pickupAtRulePlace(address, rule, event))) continue;
-    return { name: event.name + " venue pickup", rate: EVENT_VENUE_PICKUP_RATE };
+    const rate = event.highDemandPickupPercent != null ? event.highDemandPickupPercent / 100 : EVENT_VENUE_PICKUP_RATE;
+    if (!best || rate > best.rate) best = { name: event.name + " venue pickup", rate };
   }
+  return best;
 }

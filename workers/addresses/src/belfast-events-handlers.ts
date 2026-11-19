@@ -15,6 +15,7 @@
 import { corsHeaders } from "../shared/google-places";
 import {
   BELFAST_EVENT_ID,
+  BELFAST_EVENT_SCHEMA_VERSION,
   applyBelfastEventAction,
   createBelfastEvent,
   sortBelfastEvents,
@@ -145,7 +146,7 @@ export async function handleBelfastEventsRoute(
     if (!env.TRACKING_STORE) return respond({ error: "Temporarily unavailable" }, 503, origin);
     const events = await listPublicBelfastEvents(env.TRACKING_STORE, now);
     // Short cache: cancellations should show quickly.
-    return respond({ ok: true, events, generatedAt: now.toISOString() }, 200, origin, "public, max-age=300");
+    return respond({ ok: true, events, eventSchemaVersion: BELFAST_EVENT_SCHEMA_VERSION, generatedAt: now.toISOString() }, 200, origin, "public, max-age=300");
   }
 
   // Owner routes

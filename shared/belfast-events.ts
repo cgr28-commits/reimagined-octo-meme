@@ -11,7 +11,7 @@
  * - Owner notes and the source note are private and never in the public view.
  */
 
-export const BELFAST_EVENT_SCHEMA_VERSION = 1;
+export const BELFAST_EVENT_SCHEMA_VERSION = 2;
 
 export const BELFAST_EVENT_CATEGORIES = ["concert", "sport", "theatre", "comedy", "festival", "exhibition"] as const;
 export type BelfastEventCategory = (typeof BELFAST_EVENT_CATEGORIES)[number];
@@ -118,6 +118,7 @@ export type BelfastEventRecord = {
   venueArea: string;
   /** An additional, specifically named place for collecting event passengers. */
   pickupPoint?: string;
+  highDemandPickupPercent?: number;
   /** Europe/London YYYY-MM-DD */
   date: string;
   /** Optional Europe/London HH:MM start time. */
@@ -149,6 +150,7 @@ export type BelfastEventPublic = {
   venueName: string;
   venueArea: string;
   pickupPoint?: string;
+  highDemandPickupPercent?: number;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -241,6 +243,12 @@ export function validateBelfastEventInput(input: BelfastEventInput): BelfastEven
   const date = field("date", 10, true, "Date");
   const pickupPoint = field("pickupPoint", LIMITS.venueName, false, "Designated pickup point");
   if (/[<>]/.test(pickupPoint)) errors.pickupPoint = "Use the place name as it appears in address search.";
+  const percent = input.highDemandPickupPercent;
+  const hasPercent = percent != null && percent !== "";
+  const highDemandPickupPercent = typeof percent === "number" || typeof percent === "string" ? Number(percent) : NaN;
+  if (hasPercent && (!Number.isInteger(highDemandPickupPercent) || highDemandPickupPercent < 1 || highDemandPickupPercent > 100)) {
+    errors.highDemandPickupPercent = "Enter a whole percentage from 1 to 100, or leave this blank.";
+  }
   if (date && !isRealDate(date)) errors.date = "Enter a valid date.";
   const startTime = field("startTime", 5, false, "Start time");
   if (startTime && !TIME.test(startTime)) errors.startTime = "Use HH:MM.";
@@ -274,6 +282,7 @@ export function validateBelfastEventInput(input: BelfastEventInput): BelfastEven
       venueName,
       venueArea,
       ...(pickupPoint ? { pickupPoint } : {}),
+      ...(hasPercent ? { highDemandPickupPercent } : {}),
       date,
       ...(startTime ? { startTime } : {}),
       ...(endTime ? { endTime } : {}),
@@ -333,6 +342,7 @@ export function applyBelfastEventAction(
       // The id never changes once created, so links and requests keep working.
       const patch: Partial<BelfastEventRecord> = { ...v.value };
       if ("pickupPoint" in action.fields && !v.value.pickupPoint) patch.pickupPoint = undefined;
+      if ("highDemandPickupPercent" in action.fields) patch.highDemandPickupPercent = v.value.highDemandPickupPercent;
       if (!v.value.startTime) patch.startTime = undefined;
       if (!v.value.endTime) patch.endTime = undefined;
       if (!v.value.officialUrl) patch.officialUrl = undefined;
@@ -379,6 +389,7 @@ export function toBelfastEventPublic(record: BelfastEventRecord, now = new Date(
     venueName: record.venueName,
     venueArea: record.venueArea,
     ...(record.pickupPoint ? { pickupPoint: record.pickupPoint } : {}),
+    ...(record.status === "published" && record.highDemandPickupPercent ? { highDemandPickupPercent: record.highDemandPickupPercent } : {}),
     date: record.date,
     ...(record.startTime ? { startTime: record.startTime } : {}),
     ...(record.endTime ? { endTime: record.endTime } : {}),

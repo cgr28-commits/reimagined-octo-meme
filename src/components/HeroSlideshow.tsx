@@ -16,6 +16,7 @@ import type { SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 /** Journey details a landing page hands to the quote tool (the homepage passes none). */
 export type QuoteHeroJourney = {
   eventTransfer?: boolean;
+  event?: { title: string; date: string };
   airportCode?: string;
   direction?: "to-airport" | "from-airport";
   addressHint?: string;
@@ -189,6 +190,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
             quoteCardTitle={quoteCardTitle}
             bookingIntroduction={journey?.bookingIntroduction}
             initialEventTransfer={journey?.eventTransfer}
+            initialEvent={journey?.event}
             initialAirportCode={journey?.airportCode ?? ""}
             initialDirection={journey?.direction ?? "to-airport"}
             initialAddressHint={journey?.addressHint ?? ""}
