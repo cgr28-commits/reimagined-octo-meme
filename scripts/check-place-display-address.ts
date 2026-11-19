@@ -51,6 +51,17 @@ check(
   "Belfast City Hospital, 51 Lisburn Rd, Belfast BT9 7AB, UK",
 );
 
+check(
+  "Boucher Road Playing Fields keeps the venue and its street",
+  "Boucher Road Playing Fields", "Boucher Rd, Belfast BT12 6EU, UK",
+  "Boucher Road Playing Fields, Boucher Rd, Belfast BT12 6EU, UK",
+);
+check(
+  "Croke Park Hotel keeps its identity beside the stadium",
+  "Croke Park Hotel", "Croke Park, Dublin 3, Ireland",
+  "Croke Park Hotel, Croke Park, Dublin 3, Ireland",
+);
+
 // Airport — name already in formatted address → no duplication
 check(
   "Belfast International Airport (name already in formatted)",

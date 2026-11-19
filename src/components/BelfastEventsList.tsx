@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { resolveEventVenuePlace } from "@/lib/event-venue-place";
+import { beginEventVenueLookup, prefillEventQuote } from "@/lib/event-quote-prefill";
 import {
   BELFAST_EVENT_CATEGORIES,
   BELFAST_EVENT_CATEGORY_LABELS,
@@ -227,9 +228,12 @@ function EventQuoteButton({ event }: { event: BelfastEventPublic }) {
     setBusy(true);
     const quote = document.getElementById("quote");
     quote?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const latest = beginEventVenueLookup();
+    prefillEventQuote({ pickup: null, dropoff: null, listedId: event.id, eventTitle: event.title, tripDate: event.date, suggestReturnDate: true });
     const place = await resolveEventVenuePlace(event.venueName, event.venueArea);
     setBusy(false);
-    window.dispatchEvent(new CustomEvent("quote-prefill-place", { detail: { dropoff: place, tripDate: event.date } }));
+    if (!latest()) return;
+    if (place) prefillEventQuote({ dropoff: place });
     if (place) {
       // Next step for the customer: their pickup address.
       window.setTimeout(() => {

@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import BelfastEventsList from "@/components/BelfastEventsList";
+import PopularEventPicker from "@/components/PopularEventPicker";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
@@ -90,6 +91,7 @@ export default async function BelfastEventsHubPage() {
           intro="Fixed-price taxis to concerts, sport and shows in Belfast and Dublin. Pick an event to fill in the venue, or enter your hotel as the pickup or drop-off."
           navId="events"
           quoteCardTitle="Events & Concerts"
+          eventChoices={<PopularEventPicker initialEvents={initialEvents} />}
           journey={{ eventTransfer: true, bookingIntroduction: "Book your event transfer in just a few clicks." }}
         />
         <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">

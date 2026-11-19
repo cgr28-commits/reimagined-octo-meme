@@ -18,6 +18,7 @@ import AddressInput from "@/components/AddressInput";
 import HomepageQuoteFields from "@/components/HomepageQuoteFields";
 import QuoteProgressiveRoute from "@/components/QuoteProgressiveRoute";
 import QuoteScheduleFields from "@/components/QuoteScheduleFields";
+import type { EventQuotePrefill } from "@/lib/event-quote-prefill";
 import {
   hasEnteredQuoteSchedule,
   QUOTE_PRICE_WAIT_FOR_DETAILS,
@@ -754,6 +755,7 @@ type QuoteCardProps = {
   restoredQuote?: SavedQuotePublicSummary;
   initialEventTransfer?: boolean;
   initialEvent?: { title: string; date: string };
+  eventChoices?: ReactNode;
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
@@ -870,6 +872,7 @@ function QuoteCard({
   restoredQuote,
   initialEventTransfer = false,
   initialEvent,
+  eventChoices,
   homepagePolish = false,
   homepageQuickPicks = false,
   quoteCardTitle,
@@ -1093,9 +1096,10 @@ function QuoteCard({
   const [tripDate, setTripDate] = useState(initialEvent?.date ?? "");
   const [tripTime, setTripTime] = useState("");
   const [returnDate, setReturnDate] = useState(initialEvent?.date ?? "");
+  const [suggestedEventTitle, setSuggestedEventTitle] = useState(initialEvent?.title);
   const eventAddresses = [pickupAddress, dropoffAddress];
-  const outboundDemandVenue = highDemandVenueOnDate(publicPricing.eventVenuePickups, tripDate, eventAddresses, initialEvent?.title);
-  const returnDemandVenue = returnJourney ? highDemandVenueOnDate(publicPricing.eventVenuePickups, returnDate, eventAddresses, initialEvent?.title) : undefined;
+  const outboundDemandVenue = highDemandVenueOnDate(publicPricing.eventVenuePickups, tripDate, eventAddresses, suggestedEventTitle);
+  const returnDemandVenue = returnJourney ? highDemandVenueOnDate(publicPricing.eventVenuePickups, returnDate, eventAddresses, suggestedEventTitle) : undefined;
   const isEventTrip = eventTransfer || Boolean(outboundDemandVenue || returnDemandVenue);
   const [returnTime, setReturnTime] = useState("");
   const tripDateInputRef = useRef<HTMLInputElement>(null);
@@ -2132,26 +2136,45 @@ function QuoteCard({
    * An event supplies a suggested venue and date. A customer can already have chosen
    * their hotel or a travel day before the show. Only replace our own previous defaults.
    */
-  const previousEventDefaults = useRef<{ placeId?: string; date?: string }>({});
-  const prefillDropoffPlaceRef = useRef(handleDropoffPlacesSuggestionSelect);
-  prefillDropoffPlaceRef.current = handleDropoffPlacesSuggestionSelect;
+  const previousEventDefaults = useRef({ pickup: "", dropoff: "", date: "", returnDate: "" });
+  const eventPlaceHandlers = useRef({ pickup: handlePickupPlacesSuggestionSelect, dropoff: handleDropoffPlacesSuggestionSelect,
+    clearPickup: handlePickupChange, clearDropoff: handleDropoffChange });
+  eventPlaceHandlers.current = { pickup: handlePickupPlacesSuggestionSelect, dropoff: handleDropoffPlacesSuggestionSelect,
+    clearPickup: handlePickupChange, clearDropoff: handleDropoffChange };
   useEffect(() => {
     function handlePlacePrefill(event: Event) {
       if (returnOfferToken) return;
-      const detail = (event as CustomEvent<{ dropoff?: SelectedPlace; tripDate?: string }>).detail;
+      const detail = (event as CustomEvent<EventQuotePrefill>).detail;
       if (!detail) return;
-      const previous = previousEventDefaults.current;
-      const defaults: typeof previous = {};
-      if (detail.tripDate && /^\d{4}-\d{2}-\d{2}$/.test(detail.tripDate) && (!tripDate || tripDate === previous.date)) {
-        setTripDate(detail.tripDate);
-        defaults.date = detail.tripDate;
+      const defaults = previousEventDefaults.current;
+      if (detail.tripDate !== undefined && (detail.tripDate === "" || /^\d{4}-\d{2}-\d{2}$/.test(detail.tripDate))) {
+        if (!tripDate || tripDate === defaults.date) { setTripDate(detail.tripDate); defaults.date = detail.tripDate; }
+        if (detail.suggestReturnDate && (!returnDate || returnDate === defaults.returnDate)) {
+          setReturnDate(detail.tripDate); defaults.returnDate = detail.tripDate;
+        }
       }
-      const stillUsingSuggestedVenue = Boolean(previous.placeId) && dropoffPlace.placeId === previous.placeId;
-      if (detail.dropoff && isQuoteReadyPlace(detail.dropoff) && (!dropoffAddress.trim() || stillUsingSuggestedVenue)) {
-        prefillDropoffPlaceRef.current(detail.dropoff);
-        defaults.placeId = detail.dropoff.placeId;
+      if (detail.eventTitle !== undefined) setSuggestedEventTitle(detail.eventTitle || undefined);
+      for (const side of ["pickup", "dropoff"] as const) {
+        const place = detail[side];
+        if (place === undefined) continue;
+        const current = side === "pickup" ? pickupPlace : dropoffPlace;
+        const address = side === "pickup" ? pickupAddress : dropoffAddress;
+        const isOurDefault = Boolean(defaults[side]) && current.placeId === defaults[side];
+        if (place === null) {
+          if (isOurDefault) {
+            if (side === "pickup") eventPlaceHandlers.current.clearPickup("");
+            else eventPlaceHandlers.current.clearDropoff("");
+          }
+          defaults[side] = "";
+        } else if (isQuoteReadyPlace(place)) {
+          if (address.trim() && !isOurDefault) {
+            if (current.placeId !== place.placeId) detail.onAddressKept?.();
+            continue;
+          }
+          eventPlaceHandlers.current[side](place);
+          defaults[side] = place.placeId;
+        }
       }
-      previousEventDefaults.current = defaults;
       setEventTransfer(true);
       setHomepagePriceRequested(false);
       setBookingSent(false);
@@ -2159,7 +2182,7 @@ function QuoteCard({
     }
     window.addEventListener("quote-prefill-place", handlePlacePrefill);
     return () => window.removeEventListener("quote-prefill-place", handlePlacePrefill);
-  }, [dropoffAddress, dropoffPlace.placeId, returnOfferToken, tripDate]);
+  }, [pickupAddress, dropoffAddress, pickupPlace.placeId, dropoffPlace.placeId, returnOfferToken, tripDate, returnDate]);
 
   /**
    * Google Ads "from the airport" landing: a town-to-airport page opened with ?from=airport
@@ -5754,7 +5777,8 @@ function QuoteCard({
    */
   function performStartNewQuote() {
     setEventTransfer(initialEventTransfer);
-    previousEventDefaults.current = {};
+    setSuggestedEventTitle(initialEvent?.title);
+    previousEventDefaults.current = { pickup: "", dropoff: "", date: "", returnDate: "" };
     trackStartNewQuoteClick(quoteFunnelParams({ cta: "clear_details_start_new_quote" }));
     clearAbandonedQuotePersistence();
     resetRequestQuoteConversion();
@@ -10184,6 +10208,7 @@ function QuoteCard({
         >
           Step 1 — Journey details
         </h2>
+        {eventChoices && <div key={formResetKey} hidden={homepagePriceRequested} data-event-choices>{eventChoices}</div>}
         {isA2AFlow ? (
           <>
             {design2Home && homepagePriceRequested ? (
