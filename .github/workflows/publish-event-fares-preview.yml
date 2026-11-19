@@ -1,0 +1,40 @@
+name: Publish quote service for the event fares preview
+on:
+  push:
+    branches: [preview/event-fare-quote-service]
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install locked Worker dependencies
+        run: npm --prefix workers/addresses ci
+      - name: Prepare public fare preview
+        run: |
+          node scripts/sync-worker-shared.mjs
+          cd workers/addresses
+          ./node_modules/.bin/wrangler versions upload src/event-quote-review.mjs --env preview --dry-run
+      - name: Upload an individually addressable version of the existing preview Worker
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/wrangler versions upload src/event-quote-review.mjs --env preview --tag event-fares 2>&1 | tee "$RUNNER_TEMP/event-fare-version.log"
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          log = (Path(os.environ["RUNNER_TEMP"]) / "event-fare-version.log").read_text()
+          match = re.search(r"https://[a-z0-9]+-reimagined-octo-meme-sa-preview\.cgr28\.workers\.dev", log)
+          if not match:
+              raise SystemExit("The preview Worker URL was missing from the upload output.")
+          base = match.group()
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as result:
+              result.write(f"Event fare preview service: {base}\n")
+          PY
