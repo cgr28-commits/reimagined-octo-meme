@@ -70,6 +70,8 @@ type HomepageQuoteFieldsProps = {
    * so the homepage serves every journey type (route pages handle route-specific searches).
    */
   quickPicks?: boolean;
+  /** Quick picks and their title on the desktop card (1200px+). Defaults to `quickPicks`. */
+  desktopQuickPicks?: boolean;
   /** Page-specific card title (e.g. "Events & Concerts"); shown with a ticket icon. */
   cardTitle?: string;
   /** Fills the empty address field with the chosen airport as an already-picked place. */
@@ -330,6 +332,7 @@ export default function HomepageQuoteFields({
   design2 = false,
   homepagePolish = false,
   quickPicks = false,
+  desktopQuickPicks = quickPicks,
   cardTitle,
   onQuickPickAirport,
   journeyMode,
@@ -424,10 +427,10 @@ export default function HomepageQuoteFields({
         </div>
       ) : (
         /* Desktop (1200px+) card title, same as the phone card (owner, 13 Nov 2026); hidden unless the CSS shows it. */
-        <div className="hidden" data-desktop-card-head aria-hidden={quickPicks || cardTitle ? undefined : true}>
+        <div className="hidden" data-desktop-card-head aria-hidden={desktopQuickPicks || cardTitle ? undefined : true}>
           {/* Plane icon and green "Instant Quote" chip removed (owner, 17 Nov 2026). */}
-          <span data-desktop-card-head-title>{cardTitle ?? (quickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
-          {quickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} chosenPlaceIds={[pickupConfirmedPlace?.placeId, dropoffConfirmedPlace?.placeId]} /> : null}
+          <span data-desktop-card-head-title>{cardTitle ?? (desktopQuickPicks ? "Get Your Fixed Price" : "Get Your Fixed Airport Fare")}</span>
+          {desktopQuickPicks && onQuickPickAirport ? <QuickPickChips placement="head" onPick={onQuickPickAirport} chosenPlaceIds={[pickupConfirmedPlace?.placeId, dropoffConfirmedPlace?.placeId]} /> : null}
         </div>
       )}
       <div className="space-y-1" data-homepage-quote-scroll>

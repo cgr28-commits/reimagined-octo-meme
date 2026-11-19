@@ -54,7 +54,8 @@ type Props = {
   /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
   heroBackground?: { baseName: string; widths: readonly number[] };
   /**
-   * Airport guide pages: phone banner / tablet photo (Design 3, up to 1199px). Replaces the
+   * Airport guide pages (Design 3, up to 1199px): the homepage phone hero with this airport's
+   * photo, airport quick picks in the quote card, and the tablet photo hero. Replaces the
    * background photo above, which is hidden at every width and would only waste a download.
    */
   airportPhoto?: AirportPageHero;
@@ -108,12 +109,13 @@ const HOMEPAGE_INTRO =
  */
 export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, airportPhoto, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
-  // Homepage only: split after the first sentence so phones can show the short version.
+  // Homepage and airport pages: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
-  const introLead = introSplit ? introSplit[1] : introText;
-  const introMore = introSplit ? introSplit[2] : "";
+  const leadSplit = introSplit ?? (airportPhoto && !introFromAirport ? /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText) : null);
+  const introLead = leadSplit ? leadSplit[1] : introText;
+  const introMore = leadSplit ? leadSplit[2] : "";
   return (
-    <section data-desktop-roomy={desktopRoomy ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
+    <section data-desktop-roomy={desktopRoomy ? "" : undefined} data-airport-page={airportPhoto ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
       {airportPhoto ? (
         <AirportPageHeroPhoto {...airportPhoto} />
       ) : (
@@ -198,7 +200,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
           <QuoteCard
             presentation="homepage"
             homepagePolish
-            homepageQuickPicks={homepageQuickPicks}
+            homepageQuickPicks={homepageQuickPicks ? true : airportPhoto ? "phone-tablet" : false}
             quoteCardTitle={quoteCardTitle}
             bookingIntroduction={journey?.bookingIntroduction}
             initialEventTransfer={journey?.eventTransfer}

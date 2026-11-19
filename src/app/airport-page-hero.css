@@ -1,7 +1,8 @@
 /*
  * Airport guide pages (/airports/*), Design 3 only (owner, 19 Nov 2026).
- * Phones: compact photo banner above the heading. Tablets: photo behind the heading on the
- * right, faded into the navy hero, quote form and heading in their usual places.
+ * Phones: the homepage phone design (mobile-home-mockup.css) with this airport's photo behind the
+ * heading. Tablets: photo behind the heading on the right, faded into the navy hero, quote form
+ * and heading in their usual places.
  * Laptops 1200px+ are unchanged (the photo is never downloaded there).
  * Markup: src/components/AirportPageHeroPhoto.tsx. Hidden once quote results or checkout show.
  */
@@ -23,45 +24,43 @@
   }
 }
 
-/* ---------- Phones: banner ---------- */
+/* ---------- Phones: the homepage hero (mobile-home-mockup.css) with this airport's photo ---------- */
 @media (max-width: 767.98px) {
+  /* Same place, shape and navy fades as the homepage photo; it sits behind the heading, so the
+     quote form does not move down. */
   html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
-    position: relative;
-    z-index: 1;
-    margin: 0 1rem 0.75rem;
-    /* About 127px at 700px tall, 160px on tall phones (844px+), keeping the price button in view. */
-    height: clamp(120px, calc(22.6vh - 31px), 160px);
-    height: clamp(120px, calc(22.6svh - 31px), 160px);
-    border-radius: 1rem;
-    overflow: hidden;
-    background: #0a2445;
+    position: absolute;
+    top: 3.75rem;
+    right: 0;
+    z-index: 0;
+    width: 78%;
+    aspect-ratio: 3 / 2;
+    filter: saturate(1.08) contrast(1.04);
   }
   html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero]::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(0deg, rgba(1, 25, 48, 0.7) 0%, rgba(1, 25, 48, 0) 55%);
+    background:
+      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 20%, rgba(1, 25, 48, 0.62) 40%, rgba(1, 25, 48, 0.18) 55%, rgba(1, 25, 48, 0) 64%),
+      linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.6) 14%, rgba(0, 24, 47, 0) 36%),
+      linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 12%);
   }
   html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] [data-airport-hero-badge] {
-    position: absolute;
-    left: 0.75rem;
-    bottom: 0.65rem;
-    z-index: 1;
-    padding: 0.25rem 0.65rem;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 999px;
-    background: rgba(1, 25, 48, 0.78);
-    color: #ffffff;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
+    display: none;
   }
-}
-
-/* Short phones (under 700px tall, e.g. 375×667): no banner, so the price button stays above the fold. */
-@media (max-width: 767.98px) and (max-height: 699.98px) {
-  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
-    display: none !important;
+  /* Homepage heading style; airport headings are longer, so they wrap instead of two fixed lines. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    max-width: 15.5rem;
+    font-size: clamp(1.4rem, 6.6vw, 1.75rem) !important;
+    line-height: 1.08 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 12px rgba(1, 24, 52, 0.75);
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 :is([data-hero-green], .text-emerald) {
+    color: #45d704 !important;
   }
 }
 
@@ -98,5 +97,19 @@
   }
   html[data-mobile-d3] main > section.homepage-hero:has(> [data-airport-hero]) > .homepage-hero-layout {
     z-index: 1;
+  }
+}
+
+/* Airport quick picks are for phones; the approved tablet quote form stays as it was. In @layer base
+   because the rule that shows them (globals.css) is a layered !important, which beats unlayered ones. */
+@layer base {
+  @media (min-width: 768px) and (max-width: 1199.98px) {
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page] #quote#quote#quote [data-quick-picks] {
+      display: none !important;
+    }
+    /* Phones show the first sentence of the intro; tablets keep the whole intro, as before. */
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page] #homepage-booking-intro [data-d3-intro-more] {
+      display: inline !important;
+    }
   }
 }

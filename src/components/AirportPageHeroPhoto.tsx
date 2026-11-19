@@ -1,14 +1,11 @@
 import type { AirportPageHero } from "@/lib/airport-page-hero";
 import { withBasePath } from "@/lib/paths";
 
-/**
- * Laptops 1200px+ and short phones keep the transparent pixel, so the photo is never downloaded
- * there. Must match the height threshold in airport-page-hero.css.
- */
+/** Laptops 1200px+ keep the transparent pixel, so the photo is never downloaded there. */
 const TRANSPARENT_PIXEL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICTAEAOw==";
 
-const PHONE = "(max-width: 767.98px) and (min-height: 700px)";
+const PHONE = "(max-width: 767.98px)";
 const TABLET = "(min-width: 768px) and (max-width: 1199.98px)";
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Airport guide pages: Design 3 phone banner / tablet photo hero (owner, 19 Nov 2026).
+ * Airport guide pages: homepage-style Design 3 phone hero / tablet photo hero (owner, 19 Nov 2026).
  * Only the four /airports/* pages use it; desktop and the other quote pages are unchanged.
  * Run: npx tsx scripts/check-airport-page-hero.ts
  */
@@ -52,7 +52,7 @@ console.log("=== Only the four airport guide pages use it ===");
 console.log("=== Desktop never downloads it; hero keeps its default elsewhere ===");
 {
   const photo = read("src/components/AirportPageHeroPhoto.tsx");
-  assert.match(photo, /"\(max-width: 767\.98px\) and \(min-height: 700px\)"/);
+  assert.match(photo, /"\(max-width: 767\.98px\)"/);
   assert.match(photo, /"\(min-width: 768px\) and \(max-width: 1199\.98px\)"/);
   assert.match(photo, /src=\{TRANSPARENT_PIXEL\}/);
   assert.match(photo, /alt=""/);
@@ -60,19 +60,40 @@ console.log("=== Desktop never downloads it; hero keeps its default elsewhere ==
   const hero = read("src/components/HeroSlideshow.tsx");
   assert.match(hero, /airportPhoto \?/);
   assert.match(hero, /"belfast-international-homepage"/);
+  assert.match(hero, /data-airport-page=\{airportPhoto \? "" : undefined\}/);
+  assert.match(hero, /homepageQuickPicks=\{homepageQuickPicks \? true : airportPhoto \? "phone-tablet" : false\}/);
 
   const css = read("src/app/airport-page-hero.css");
   for (const block of css.match(/@media[^{]+/g) ?? []) {
     assert.match(block, /max-width: (767|1199)\.98px/, `unexpected media query: ${block}`);
   }
   assert.match(css, /:not\(:has\(\[data-quote-results\], \[data-checkout-aside\]\)\)/);
+  assert.match(read("src/app/layout.tsx"), /import "\.\/airport-page-hero\.css";/);
+  console.log("OK  phones/tablets only; hidden once results or checkout show");
+}
+
+console.log("=== Homepage phone layout shared; desktop card unchanged ===");
+{
+  const mockup = read("src/app/mobile-home-mockup.css");
+  assert.match(mockup, /section\.homepage-hero:is\(\[data-desktop-roomy\], \[data-airport-page\]\)/);
+  assert.match(
+    mockup,
+    /section\.homepage-hero\[data-desktop-roomy\]:not\([^{]*\)::before \{[^}]*mobile-dublin-airport-dusk/,
+    "the homepage's AI-generated Dublin photo stays homepage-only",
+  );
+
+  const fields = read("src/components/HomepageQuoteFields.tsx");
+  assert.match(fields, /desktopQuickPicks = quickPicks/);
+  const card = read("src/components/QuoteCard.tsx");
+  assert.match(card, /desktopQuickPicks=\{homepageQuickPicks === true\}/);
+
+  const css = read("src/app/airport-page-hero.css");
   assert.match(
     css,
-    /@media \(max-width: 767\.98px\) and \(max-height: 699\.98px\) \{\s*html\[data-mobile-d3\] main > section\.homepage-hero > \[data-airport-hero\] \{\s*display: none !important;/,
-    "short phones (under 700px tall) hide the banner",
+    /@layer base \{\s*@media \(min-width: 768px\) and \(max-width: 1199\.98px\) \{[\s\S]*?\[data-airport-page\] #quote#quote#quote \[data-quick-picks\] \{\s*display: none !important;/,
+    "tablets keep the form without the airport chips",
   );
-  assert.match(read("src/app/layout.tsx"), /import "\.\/airport-page-hero\.css";/);
-  console.log("OK  phones/tablets only; not on short phones; hidden once results or checkout show");
+  console.log("OK  phones share the homepage rules; desktop title and tablet form unchanged");
 }
 
 console.log("=== Credits ===");
@@ -83,10 +104,11 @@ console.log("=== Credits ===");
     "Entrance_to_George_Best_Belfast_City_Airport_-_geograph.org.uk_-_3145806.jpg",
     "File:CODA.jpg",
     "Dublin_Airport_Terminal_2_-_2024-05-18.jpg",
+    "File:Airport_in_Dublin.jpg",
   ]) {
     assert.ok(credits.includes(source), `photo-credits missing ${source}`);
   }
-  console.log("OK  /photo-credits/ lists all four airport photographs");
+  console.log("OK  /photo-credits/ lists every airport photograph");
 }
 
 console.log("\nAll airport page hero checks passed.");

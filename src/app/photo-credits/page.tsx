@@ -68,6 +68,16 @@ const CREDITS: Credit[] = [
     changes: "Cropped, resized, colour-graded and re-encoded. The adapted image is shared under the same licence.",
   },
   {
+    subject: "Dublin Airport at sunset",
+    usedOn: "Dublin Airport page (phones)",
+    title: "Airport in Dublin",
+    author: "Skullical (Wikimedia Commons user)",
+    source: "https://commons.wikimedia.org/wiki/File:Airport_in_Dublin.jpg",
+    licence: "CC0 1.0 (public domain dedication, credit given as a courtesy)",
+    licenceUrl: "https://creativecommons.org/publicdomain/zero/1.0/",
+    changes: "Cropped, resized, colour-graded and re-encoded.",
+  },
+  {
     subject: "City of Derry Airport terminal",
     usedOn: "City of Derry Airport page (phones and tablets)",
     title: "CODA",
