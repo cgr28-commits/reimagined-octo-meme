@@ -3,7 +3,8 @@
  * WhatsApp header button from mobile-home-mockup.css, colour only — no phone layout or spacing.
  *
  * Phones (≤767.98px) and desktop (≥1200px, where data-mobile-d3 is removed) never match.
- * Christmas decorations and the floating WhatsApp QR launcher are not touched here.
+ * Christmas decorations are not touched here. The floating WhatsApp QR launcher is hidden in this
+ * band only; phones never render it and desktop keeps it.
  *
  * Rules live in the brand-override layer, declared first in globals.css: its !important
  * declarations beat the base-layer Design 3 stacks, so selectors stay short. Anything without
@@ -51,6 +52,11 @@
   [data-mobile-d3] [data-site-header] [data-matni-whatsapp-quick]:focus-visible {
     outline: 3px solid #071c38 !important;
     outline-offset: 3px !important;
+  }
+
+  /* Owner decision: the fixed header button is the only WhatsApp entry on tablet. */
+  [data-mobile-d3] :is([data-matni-whatsapp-qr-launcher], [data-matni-whatsapp-qr-panel]) {
+    display: none !important;
   }
 
   [data-mobile-d3] [data-hero-green],
