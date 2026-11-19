@@ -39,9 +39,9 @@ function isSpecificPickup(name: string): boolean {
 export function publishedVenuePickup(event: BelfastEventRecord, today: string): EventVenuePickup | null {
   if (event.status !== "published") return null;
   const venueNames = [event.venueName, ...(mapNames[event.venueId] ?? [])]
-    .map(name => name.split(",")[0].trim()).filter(isSpecificPickup);
-  const point = event.pickupPoint?.split(",")[0].trim();
-  const pickupPoint = point && isSpecificPickup(point) ? point : undefined;
+    .map(name => name.trim()).filter(name => isSpecificPickup(name.split(",")[0]));
+  const point = event.pickupPoint?.trim();
+  const pickupPoint = point && isSpecificPickup(point.split(",")[0]) ? point : undefined;
   if (!venueNames.length && !pickupPoint) return null;
   let end = event.date + "T23:59";
   if (event.startTime && event.endTime && event.endTime < event.startTime) {
@@ -53,22 +53,59 @@ export function publishedVenuePickup(event: BelfastEventRecord, today: string): 
   return { name: event.title, city: eventCityForArea(event.venueArea), venueNames, pickupPoint, start: event.date + "T00:00", end };
 }
 
-/** Match the selected place itself. A hotel name or a street line mentioning a stadium is insufficient. */
-function isPickupAddress(address: string, city: EventCity, places: string[]): boolean {
-  const [name, ...locality] = address.split(",");
-  const pickup = placeKey(name);
-  const cityOrPostcode = city === "belfast"
-    ? /^(?:belfast(?:\s+bt\d.*)?|bt(?:[1-9]|1[0-7])(?:\s?\d[a-z]{2})?)$/i
-    : /^(?:(?:co(?:unty)?\.?\s+)?dublin(?:\s+(?:\d{1,2}w?|d\w+)(?:\s+\w+)?)?|d(?:0[1-9]|1\d|2[0-4]|6w)(?:\s?\w{4})?)$/i;
-  if (locality.length && !locality.some(part => cityOrPostcode.test(part.trim()))) return false;
-  return places.some(place => pickup === placeKey(place) || pickup === placeKey(place + " " + city));
+function addressParts(value: string): string[] {
+  return value.split(",").map(placeKey).filter(Boolean);
+}
+
+function isCityOrPostcode(part: string, city: EventCity): boolean {
+  return city === "belfast"
+    ? /^(?:belfast(?: bt\d.*)?|bt(?:[1-9]|1[0-7])(?: ?\d[a-z]{2})?)$/.test(part)
+    : /^(?:(?:co(?:unty)? )?dublin(?: (?:\d{1,2}w?|d\w+)(?: \w+)?)?|d(?:0[1-9]|1\d|2[0-4]|6w)(?: ?\w{4})?)$/.test(part);
+}
+
+function isGenericSiteName(part: string): boolean {
+  return /^(?:(?:the|main|north|south|east|west|upper|lower|front|rear|side|public|visitor) )*(?:entrance|exit|gate|car park|meeting point|collection point|pickup point|pick up point)(?: (?:[a-z]|\d+[a-z]?|entrance|exit|collection point))?$/.test(part);
+}
+
+function isCountry(part: string): boolean {
+  return /^(?:uk|united kingdom|northern ireland|ireland|republic of ireland)$/.test(part);
+}
+
+/** Compare the selected place name, plus any venue or street specified by the owner. */
+function isPickupAddress(address: string, city: EventCity, places: string[], venueAnchors?: string[]): boolean {
+  const [name, ...location] = addressParts(address);
+  if (!name || (location.length && !location.some(part => isCityOrPostcode(part, city)))) return false;
+  const details = location.filter(part => !isCountry(part) && !isCityOrPostcode(part, city));
+  return places.some(place => {
+    const [wanted, ...qualifiers] = addressParts(place);
+    if (name !== wanted && name !== wanted + " " + city) return false;
+    const locality = qualifiers.filter(part => isCityOrPostcode(part, city));
+    if (!locality.every(part => location.some(actual => actual === part || actual.startsWith(part + " ")))) return false;
+    const site = qualifiers.filter(part => !isCountry(part) && !isCityOrPostcode(part, city));
+    if (site.some(part => /\b(?:hotel|hostel|airport)$/.test(part))) return false;
+    if (site.length) return site.every((part, i) => details[i] === part);
+    if (!venueAnchors) return !isGenericSiteName(wanted);
+    if (/^\d+[a-z]?\s+\S/.test(wanted)) return true;
+    // A city alone cannot identify a separately named gate, car park or entrance.
+    // Accept an unqualified point when its name or the next address line identifies the venue.
+    return venueAnchors.some(venue => {
+      const [anchor] = addressParts(venue);
+      return wanted === anchor || wanted.startsWith(anchor + " ") || details[0] === anchor;
+    });
+  });
+}
+
+function ruleTargetsPoint(rule: SpecialDateFare, event: EventVenuePickup): boolean {
+  if (!event.pickupPoint) return false;
+  const name = placeKey(rule.venue);
+  return name === placeKey(event.pickupPoint) || name === addressParts(event.pickupPoint)[0];
 }
 
 /** An owner-set collection window replaces the automatic rate at that point for that event. */
 export function ownerRuleForVenue(rule: SpecialDateFare, event: EventVenuePickup): boolean {
   if (rule.direction !== "from" && rule.direction !== "either") return false;
   const place = placeKey(rule.venue);
-  if (!event.venueNames.some(p => placeKey(p) === place) && placeKey(event.pickupPoint ?? "") !== place) return false;
+  if (!event.venueNames.some(p => placeKey(p) === place || addressParts(p)[0] === place) && !ruleTargetsPoint(rule, event)) return false;
   const start = rule.annual ? rule.start.slice(5) : rule.start;
   const end = rule.annual ? rule.end.slice(5) : rule.end;
   const first = rule.annual ? event.start.slice(5) : event.start;
@@ -78,13 +115,14 @@ export function ownerRuleForVenue(rule: SpecialDateFare, event: EventVenuePickup
 }
 
 export function pickupAtRulePlace(address: string | undefined, rule: SpecialDateFare, event: EventVenuePickup): boolean {
-  const places = event.pickupPoint && placeKey(event.pickupPoint) === placeKey(rule.venue) ? [event.pickupPoint] : event.venueNames;
-  return Boolean(address && isPickupAddress(address, event.city, places));
+  if (!address) return false;
+  if (event.pickupPoint && ruleTargetsPoint(rule, event)) return isPickupAddress(address, event.city, [event.pickupPoint], event.venueNames);
+  return isPickupAddress(address, event.city, event.venueNames);
 }
 
 function atEventPickup(address: string, event: EventVenuePickup): boolean {
-  const places = event.pickupPoint ? [...event.venueNames, event.pickupPoint] : event.venueNames;
-  return isPickupAddress(address, event.city, places);
+  return isPickupAddress(address, event.city, event.venueNames) ||
+    Boolean(event.pickupPoint && isPickupAddress(address, event.city, [event.pickupPoint], event.venueNames));
 }
 
 export function isPublishedPickupPlace(events: readonly EventVenuePickup[] | undefined, address: string): boolean {

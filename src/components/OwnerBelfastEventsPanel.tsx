@@ -293,7 +293,7 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
           <label className={labelClass}>
             Designated pickup point (optional)
             <input className={fieldClass} value={draft.pickupPoint} maxLength={120} onChange={(e) => set("pickupPoint", e.target.value)} />
-            <span className="mt-1 block text-xs text-white/65">Enter the exact place name or numbered address customers will select for collection.</span>
+            <span className="mt-1 block text-xs text-white/65">Use the address customers will select. For a gate or entrance, include its venue or street, for example Main Entrance, Croke Park, Dublin 3.</span>
             {err("pickupPoint")}
           </label>
           <label className={labelClass}>

@@ -7,6 +7,9 @@ on:
       - 'src/**'
       - 'workers/addresses/**'
       - 'scripts/check-bfs-minimum-*.ts'
+      - 'scripts/check-special-date-fares.ts'
+      - 'scripts/check-dublin-pricing-consistency.ts'
+      - 'scripts/check-public-minibus-capacity.ts'
       - '.github/workflows/bfs-minimum-review.yml'
 permissions:
   contents: read
@@ -33,7 +36,7 @@ jobs:
       - name: Pricing and payment regressions
         run: |
           set -e
-          for suite in owner-pricing quote-receipt open-website-payment-fares airport-fixed-costs airport-airport-access-fees express-drop-off night-weekend-surcharge deposit-cash pricing-vehicle-quote-flow quote-path-fare-parity customer-confirm-email owner-email-bcc quote-authoritative-fare dashboard-formula-recovery airport-weekend-premium quote-schedule-price-gate luggage-capacity-confirmation quick-quote pricing-confirmation quote-vehicle-fare-refresh airport-to-airport-pricing; do
+          for suite in owner-pricing special-date-fares dublin-pricing-consistency public-minibus-capacity quote-receipt open-website-payment-fares airport-fixed-costs airport-airport-access-fees express-drop-off night-weekend-surcharge deposit-cash pricing-vehicle-quote-flow quote-path-fare-parity customer-confirm-email owner-email-bcc quote-authoritative-fare dashboard-formula-recovery airport-weekend-premium quote-schedule-price-gate luggage-capacity-confirmation quick-quote pricing-confirmation quote-vehicle-fare-refresh airport-to-airport-pricing; do
             node --import tsx "scripts/check-$suite.ts"
           done
       - run: npm --prefix workers/addresses run build
