@@ -237,6 +237,19 @@
       "venueArea": "Merrion Square, Dublin 2",
       "date": "2027-10-24",
       "summary": "Over 20,000 runners through the streets of Dublin. Roads close across the city, so book your lift to the start and home from the finish."
+    },
+    {
+      "id": "foo-fighters-at-croke-park-2027-09-18",
+      "status": "published",
+      "title": "Foo Fighters at Croke Park",
+      "category": "concert",
+      "categoryLabel": "Concert",
+      "venueName": "Croke Park",
+      "venueArea": "Jones' Road, Dublin 3",
+      "date": "2027-09-18",
+      "highDemandPickupPercent": 30,
+      "summary": "Travel from the Belfast corridor to see Foo Fighters in Dublin, or book a lift back to Belfast after the concert. Choose Croke Park or your Dublin hotel when you get your group quote. Doors open at 5pm.",
+      "officialUrl": "https://crokepark.ie/news-and-events/foo-fighters-at-croke-park"
     }
   ]
 }

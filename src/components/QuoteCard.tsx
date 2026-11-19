@@ -152,7 +152,7 @@ import {
 } from "@/lib/quote";
 import { isLdyServiceAreaAddress } from "../../shared/ldy-service-area";
 import { eventFareShareLabel } from "../../shared/event-fare-share";
-import { isPublishedPickupPlace } from "../../shared/event-venue-pickups";
+import { highDemandVenueOnDate, isPublishedPickupPlace } from "../../shared/event-venue-pickups";
 import {
   formatJourneyDistance,
   formatJourneyDuration,
@@ -753,6 +753,7 @@ type BookingDelivery = "whatsapp" | "email";
 type QuoteCardProps = {
   restoredQuote?: SavedQuotePublicSummary;
   initialEventTransfer?: boolean;
+  initialEvent?: { title: string; date: string };
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
@@ -868,6 +869,7 @@ function JourneySummaryIcon({ name }: { name: "calendar" | "clock" | "return" })
 function QuoteCard({
   restoredQuote,
   initialEventTransfer = false,
+  initialEvent,
   homepagePolish = false,
   homepageQuickPicks = false,
   quoteCardTitle,
@@ -1060,7 +1062,7 @@ function QuoteCard({
   const timePremiumNeedsSchedule = publicPricingLoaded ? quoteNeedsScheduleUpFront(publicPricing) : QUOTE_SCHEDULE_UP_FRONT_AT_BUILD;
   const venueNeedsSchedule = isPublishedPickupPlace(publicPricing.eventVenuePickups, pickupAddress) ||
     (journeyMode === "return" && isPublishedPickupPlace(publicPricing.eventVenuePickups, dropoffAddress));
-  const scheduleUpFront = scheduleUpFrontPreview ?? (timePremiumNeedsSchedule || venueNeedsSchedule);
+  const scheduleUpFront = scheduleUpFrontPreview ?? (Boolean(initialEvent) || timePremiumNeedsSchedule || venueNeedsSchedule);
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
@@ -1088,9 +1090,13 @@ function QuoteCard({
   const [verifiedCollectionFlight, setVerifiedCollectionFlight] = useState<VerifiedFlight | null>(
     null,
   );
-  const [tripDate, setTripDate] = useState("");
+  const [tripDate, setTripDate] = useState(initialEvent?.date ?? "");
   const [tripTime, setTripTime] = useState("");
-  const [returnDate, setReturnDate] = useState("");
+  const [returnDate, setReturnDate] = useState(initialEvent?.date ?? "");
+  const eventAddresses = [pickupAddress, dropoffAddress];
+  const outboundDemandVenue = highDemandVenueOnDate(publicPricing.eventVenuePickups, tripDate, eventAddresses, initialEvent?.title);
+  const returnDemandVenue = returnJourney ? highDemandVenueOnDate(publicPricing.eventVenuePickups, returnDate, eventAddresses, initialEvent?.title) : undefined;
+  const isEventTrip = eventTransfer || Boolean(outboundDemandVenue || returnDemandVenue);
   const [returnTime, setReturnTime] = useState("");
   const tripDateInputRef = useRef<HTMLInputElement>(null);
   const tripTimeInputRef = useRef<HTMLInputElement>(null);
@@ -4457,7 +4463,7 @@ function QuoteCard({
             ? "Airport pickup"
             : "Airport drop-off"
           : "Address to address";
-  const tripLabel = eventTransfer ? `${routeLabel} · Concert or event` : routeLabel;
+  const tripLabel = isEventTrip ? `${routeLabel} · Concert or event` : routeLabel;
 
   const quoteCalculationFingerprint =
     quoteAnalyticsValue && effectivePassengers != null
@@ -4832,7 +4838,7 @@ function QuoteCard({
     const retTime = scheduleOverride?.returnTime || returnTime;
 
     return buildSaveQuotePayloadFromLiveQuote({
-      eventTransfer,
+      eventTransfer: isEventTrip,
       liveQuote: liveQuote
         ? {
             amount: (pricedFare?.totalGbp ?? liveQuote.amount) + (bookingMeetGreetActive ? bookingMeetGreetCharge : 0),
@@ -5830,9 +5836,9 @@ function QuoteCard({
     setCollectionFlightError("");
     setVerifiedGoingFlight(null);
     setVerifiedCollectionFlight(null);
-    setTripDate("");
+    setTripDate(initialEvent?.date ?? "");
     setTripTime("");
-    setReturnDate("");
+    setReturnDate(initialEvent?.date ?? "");
     setReturnTime("");
     setVehicle(VEHICLE_TYPES[0]);
     setChooseMinibus(false);
@@ -7509,6 +7515,8 @@ function QuoteCard({
         minReturnTime={minReturnTime}
         tripDateError={tripDateError}
         returnDateError={returnDateError}
+        outboundDemandVenue={outboundDemandVenue}
+        returnDemandVenue={returnDemandVenue}
         outboundTimeLabel={checkoutTimeLabel("outbound")}
         returnTimeLabel={checkoutTimeLabel("return")}
         tripDateInputRef={tripDateInputRef}
@@ -9821,7 +9829,7 @@ function QuoteCard({
     : null;
   const eventFareShare = !isVehiclePersonalQuote && !isEnquiryOnly && !isManualQuoteJourney &&
     !isTownGuidePickup && !authoritativeQuoteFailed && testChargeAmount == null
-    ? eventFareShareLabel(vehicleStepTotal, { eventTransfer, passengers: effectivePassengers })
+    ? eventFareShareLabel(vehicleStepTotal, { eventTransfer: isEventTrip, passengers: effectivePassengers })
     : null;
 
   if (bookingSent) {

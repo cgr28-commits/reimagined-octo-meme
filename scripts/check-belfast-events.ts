@@ -67,6 +67,15 @@ async function main(): Promise<void> {
   assert.ok(validateBelfastEventInput(valid({ venueId: "other", venueName: "RDS Arena", venueArea: "Ballsbridge, D04 AK83" })).ok, "Dublin Eircode accepted");
   assert.ok(!validateBelfastEventInput(valid({ venueId: "other", venueName: "Pearse Stadium", venueArea: "Salthill, Galway H91" })).ok, "other cities refused");
   assert.ok(validateBelfastEventInput(valid({ venueId: "aviva-stadium" })).ok, "listed Dublin venue accepted");
+  const high = created({ highDemandPickupPercent: "30" });
+  assert.equal(high.highDemandPickupPercent, 30);
+  assert.equal(toBelfastEventPublic({ ...high, status: "published" })?.highDemandPickupPercent, 30);
+  assert.equal(toBelfastEventPublic({ ...high, status: "cancelled" })?.highDemandPickupPercent, undefined);
+  for (const value of [0, 101, -5, "lots", true, 30.5]) assert.ok(!validateBelfastEventInput(valid({ highDemandPickupPercent: value })).ok);
+  const kept = applyBelfastEventAction(high, { type: "save", fields: valid() });
+  assert.ok(kept.ok && kept.record.highDemandPickupPercent === 30, "older forms preserve the rate");
+  const cleared = applyBelfastEventAction(high, { type: "save", fields: valid({ highDemandPickupPercent: "" }) });
+  assert.ok(cleared.ok && cleared.record.highDemandPickupPercent === undefined, "owner can restore the standard rate");
   // Plain text only; https links only.
   assert.ok(!validateBelfastEventInput(valid({ summary: "<img src=x onerror=alert(1)>" })).ok);
   assert.ok(!validateBelfastEventInput(valid({ officialUrl: "http://example.com" })).ok);
@@ -267,8 +276,12 @@ async function main(): Promise<void> {
   for (const line of block.split("\n").filter((l) => /\{/.test(l) && !/^\s*@/.test(l))) {
     assert.match(line, /data-bespoke-request-form/, `form styles are scoped to the request forms: ${line.trim().slice(0, 60)}`);
   }
-  // The shared quote form can display event details. Pricing and the underlying
-  // address and schedule controls stay independent of the events feature.
+  const scheduleFields = read("src/components/QuoteScheduleFields.tsx");
+  assert.match(scheduleFields, /id="date"[\s\S]*?type="date"[\s\S]*?onTripDateChange/, "the outbound date remains editable");
+  assert.match(scheduleFields, /id="returnDate"[\s\S]*?type="date"[\s\S]*?onReturnDateChange/, "the return date remains editable");
+  assert.match(scheduleFields, /outboundDemandVenue && <p id="trip-date-demand"/);
+  assert.match(scheduleFields, /returnDemandVenue && <p id="return-date-demand"/);
+  // The date fields can display a venue notice; the airport calculator, map and time picker stay independent.
   const { execFileSync } = await import("node:child_process");
   let changed = "";
   try {
@@ -276,7 +289,6 @@ async function main(): Promise<void> {
     const pricingAndInputFiles = [
       "src/components/AddressInput.tsx",
       "src/components/D3TimePicker.tsx",
-      "src/components/QuoteScheduleFields.tsx",
       "src/lib/google-maps.ts",
       "src/lib/addresses-api.ts",
       "src/lib/quote.ts",

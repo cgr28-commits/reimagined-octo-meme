@@ -22,6 +22,8 @@ export const EVENTS_HUB_PUBLIC_ENABLED = true;
 export const BUSINESS_CLASS_PAGE_PUBLIC_ENABLED = true;
 
 export const EVENTS_HUB_PATH = "/events/";
+export const FOO_FIGHTERS_EVENT_ID = "foo-fighters-at-croke-park-2027-09-18";
+export const FOO_FIGHTERS_TRANSFER_PATH = "/events/foo-fighters-croke-park-taxi/";
 export const EVENT_TRANSFER_REQUEST_PATH = "/events/transfer-request/";
 export const BUSINESS_CLASS_REQUEST_PATH = "/business-class-request/";
 

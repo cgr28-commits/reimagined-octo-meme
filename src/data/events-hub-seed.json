@@ -21,6 +21,7 @@
     { "title": "Harry Styles", "category": "concert", "venueId": "croke-park", "date": "2027-08-18", "summary": "Harry Styles brings his stadium tour to Croke Park. We'll drive you to Dublin and home again after the show." },
     { "title": "Harry Styles", "category": "concert", "venueId": "croke-park", "date": "2027-08-20", "summary": "Harry Styles at Croke Park. We'll drive you to Dublin and home again after the show." },
     { "title": "Harry Styles", "category": "concert", "venueId": "croke-park", "date": "2027-08-21", "summary": "Harry Styles' third night at Croke Park. We'll drive you to Dublin and home again after the show." },
-    { "title": "Dublin Marathon", "category": "sport", "venueId": "merrion-square", "date": "2027-10-24", "summary": "Over 20,000 runners through the streets of Dublin. Roads close across the city, so book your lift to the start and home from the finish." }
+    { "title": "Dublin Marathon", "category": "sport", "venueId": "merrion-square", "date": "2027-10-24", "summary": "Over 20,000 runners through the streets of Dublin. Roads close across the city, so book your lift to the start and home from the finish." },
+    {"title": "Foo Fighters at Croke Park", "category": "concert", "venueId": "croke-park", "date": "2027-09-18", "highDemandPickupPercent": 30, "summary": "Travel from the Belfast corridor to see Foo Fighters in Dublin, or book a lift back to Belfast after the concert. Choose Croke Park or your Dublin hotel when you get your group quote. Doors open at 5pm.", "officialUrl": "https://crokepark.ie/news-and-events/foo-fighters-at-croke-park", "sourceNote": "Croke Park and MCD, checked 19 November 2026. Owner-approved Belfast corridor concert transfer."}
   ]
 }

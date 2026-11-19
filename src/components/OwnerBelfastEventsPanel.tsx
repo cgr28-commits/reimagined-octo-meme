@@ -46,6 +46,7 @@ type Draft = {
   venueName: string;
   venueArea: string;
   pickupPoint: string;
+  highDemandPickupPercent: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -63,6 +64,7 @@ const EMPTY: Draft = {
   venueName: "",
   venueArea: "",
   pickupPoint: "",
+  highDemandPickupPercent: "",
   date: "",
   startTime: "",
   endTime: "",
@@ -81,6 +83,7 @@ function toDraft(r: BelfastEventRecord): Draft {
     venueName: r.venueId === BELFAST_VENUE_OTHER ? r.venueName : "",
     venueArea: r.venueId === BELFAST_VENUE_OTHER ? r.venueArea : "",
     pickupPoint: r.pickupPoint ?? "",
+    highDemandPickupPercent: r.highDemandPickupPercent?.toString() ?? "",
     date: r.date,
     startTime: r.startTime ?? "",
     endTime: r.endTime ?? "",
@@ -295,6 +298,12 @@ export default function OwnerBelfastEventsPanel({ ownerKey }: Props) {
             <input className={fieldClass} value={draft.pickupPoint} maxLength={120} onChange={(e) => set("pickupPoint", e.target.value)} />
             <span className="mt-1 block text-xs text-white/65">Use the address customers will select. For a gate or entrance, include its venue or street, for example Main Entrance, Croke Park, Dublin 3.</span>
             {err("pickupPoint")}
+          </label>
+          <label className={labelClass}>
+            High-demand venue pickup surcharge (%, optional)
+            <input type="number" min="1" max="100" step="1" className={fieldClass} value={draft.highDemandPickupPercent} onChange={(e) => set("highDemandPickupPercent", e.target.value)} />
+            <span className="mt-1 block text-xs text-white/65">Set a percentage to mark the date as High demand. Leave blank for the standard venue pickup rate.</span>
+            {err("highDemandPickupPercent")}
           </label>
           <label className={labelClass}>
             Summary for customers (your own words, up to 400 characters)

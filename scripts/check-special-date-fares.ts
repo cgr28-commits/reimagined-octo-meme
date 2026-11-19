@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { defaultOwnerPricingSettings, validateOwnerPricingInput, toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
 import { defaultSpecialDateFares } from "../shared/special-date-fares";
 import { createBelfastEvent } from "../shared/belfast-events";
-import { publishedVenuePickup } from "../shared/event-venue-pickups";
+import { highDemandVenueOnDate, publishedVenuePickup } from "../shared/event-venue-pickups";
 import { eventFareShareLabel } from "../shared/event-fare-share";
 import { applyTripPremium, specialFareLabel, tripSurchargeRate } from "../src/lib/point-to-point-premium";
 import { handleQuoteCalculateRequest } from "../workers/addresses/src/quote-handlers";
@@ -66,6 +66,29 @@ assert.equal(premium(stadium).total, 125);
 assert.equal(eventFareShareLabel(premium(stadium).total, { eventTransfer: true, passengers: 4 }), "£31.25 each for 4 sharing");
 assert.equal(premium("Gate 7 Collection Point, Croke Park, Dublin 3").total, 125);
 assert.equal(premium("Gate 7 Collection Point, Dublin").total, 100);
+
+const fooDate = "2027-09-18";
+const foo = publishedVenuePickup({ ...listed, title: "Foo Fighters at Croke Park", date: fooDate, pickupPoint: undefined,
+  startTime: undefined, endTime: undefined, highDemandPickupPercent: 30 }, fooDate)!;
+const overlappingStandard = { ...foo, name: "Other event", highDemandPickupPercent: undefined };
+const fooPricing = { ...settings, weekend: { ...settings.weekend, enabled: false }, eventVenuePickups: [overlappingStandard, foo] };
+const belfast = "Europa Hotel, Great Victoria Street, Belfast BT2 7AP";
+const fooPick = localTrip(stadium, belfast, fooDate, "22:30");
+const fooDrop = localTrip(belfast, stadium, fooDate);
+const fooReturn = { ...fooDrop, returnJourney: true, returnDate: fooDate, returnTime: "22:30" };
+const fooFare = (trip: typeof fooPick) => applyTripPremium(100, trip, undefined, { pricing: fooPricing });
+assert.equal(specialFareLabel(fooPick, fooPricing), "Foo Fighters at Croke Park venue pickup 30% surcharge");
+assert.equal(fooFare(fooPick).total, 130);
+assert.equal(eventFareShareLabel(fooFare(fooPick).total, { eventTransfer: true, passengers: 4 }), "£32.50 each for 4 sharing");
+assert.equal(fooFare(fooReturn).premiumAmount, 30, "only the stadium pickup on the way home");
+assert.equal(specialFareLabel(fooDrop, fooPricing), undefined);
+assert.equal(specialFareLabel(localTrip(hotel, belfast, fooDate), fooPricing), undefined);
+assert.equal(specialFareLabel(localTrip(stadium, belfast, "2027-09-19", "00:01"), fooPricing), undefined);
+assert.equal(highDemandVenueOnDate([foo], fooDate, [stadium, belfast]), "Croke Park");
+assert.equal(highDemandVenueOnDate([foo], fooDate, ["", ""], foo.name), "Croke Park");
+assert.equal(highDemandVenueOnDate([foo], fooDate, [hotel, belfast]), undefined);
+assert.equal(highDemandVenueOnDate([foo], "2027-09-19", [stadium], foo.name), undefined);
+assert.equal(highDemandVenueOnDate([overlappingStandard], fooDate, [stadium]), undefined);
 
 const entrance = publishedVenuePickup({ ...listed, pickupPoint: "Main Entrance, Croke Park, Dublin 3" }, date)!;
 const entrancePricing = { ...settings, eventVenuePickups: [entrance] };

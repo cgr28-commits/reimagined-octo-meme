@@ -57,6 +57,8 @@ export type QuoteScheduleFieldsProps = {
   minReturnTime?: string;
   tripDateError?: string;
   returnDateError?: string;
+  outboundDemandVenue?: string;
+  returnDemandVenue?: string;
   outboundTimeLabel: string;
   returnTimeLabel: string;
   tripDateInputRef?: RefObject<HTMLInputElement | null>;
@@ -87,6 +89,8 @@ export default function QuoteScheduleFields({
   minReturnTime,
   tripDateError = "",
   returnDateError = "",
+  outboundDemandVenue,
+  returnDemandVenue,
   outboundTimeLabel,
   returnTimeLabel,
   tripDateInputRef,
@@ -157,7 +161,7 @@ export default function QuoteScheduleFields({
               min={minTripDate}
               value={tripDate}
               aria-invalid={Boolean(tripDateError)}
-              aria-describedby={tripDateError ? "trip-date-error" : undefined}
+              aria-describedby={[tripDateError && "trip-date-error", outboundDemandVenue && "trip-date-demand"].filter(Boolean).join(" ") || undefined}
               required
               onClick={homepageInline ? openNativePicker : undefined}
               onChange={(e) => onTripDateChange(e.target.value)}
@@ -165,6 +169,7 @@ export default function QuoteScheduleFields({
               className={quoteDateTimeInputClass()}
             />
           </div>
+          {outboundDemandVenue && <p id="trip-date-demand" className="mt-1 inline-block rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">High demand at {outboundDemandVenue}</p>}
         </div>
         <div className="min-w-0 max-w-full">
           <label htmlFor="time" className="form-label">
@@ -247,6 +252,7 @@ export default function QuoteScheduleFields({
                 type="date"
                 min={minReturnDate}
                 value={returnDate}
+                aria-describedby={returnDemandVenue ? "return-date-demand" : undefined}
                 required
                 onClick={homepageInline ? openNativePicker : undefined}
                 onChange={(e) => onReturnDateChange(e.target.value)}
@@ -254,6 +260,7 @@ export default function QuoteScheduleFields({
                 className={quoteDateTimeInputClass()}
               />
             </div>
+            {returnDemandVenue && <p id="return-date-demand" className="mt-1 inline-block rounded-md bg-[#dcfce7] px-2 py-1 text-xs font-semibold text-[#14532d]">High demand at {returnDemandVenue}</p>}
           </div>
           <div className="min-w-0 max-w-full">
             <label htmlFor="returnTime" className="form-label">
