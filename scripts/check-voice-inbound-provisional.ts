@@ -42,7 +42,7 @@ async function main() {
   let body = await res.json();
   assert.equal(body.knownCaller, false);
   assert.equal(body.hasUpcomingBooking, false);
-  assert.match(body.greeting, /My Airport Taxi NI/);
+  assert.match(body.greeting, /My Airport Taxi\./);
   assert.equal(body.bookingReference, undefined);
   assert.equal(body.pickupLabel, undefined);
 
@@ -57,7 +57,7 @@ async function main() {
     new Date("2026-11-04T20:00:00Z"),
   );
   body = await res.json();
-  assert.match(body.greeting, /Good evening, My Airport Taxi NI/);
+  assert.match(body.greeting, /Good evening, My Airport Taxi\./);
   assert.equal(body.knownCaller, false);
   assert.equal(body.hasUpcomingBooking, false);
   console.log("OK  inbound greeting for unknown / landline; no journey PII");

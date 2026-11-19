@@ -163,7 +163,7 @@ console.log("=== Return discount uses protected legs and does not re-clamp ===")
     { returnOneWayFare: 50 },
   );
   assert.equal(Math.round(night.premiumAmount * 100) / 100, 4);
-  assert.equal(Math.round(night.total * 100) / 100, 89.5);
+  assert.equal(Math.round(night.total * 100) / 100, 89.3);
 }
 
 console.log("=== Failsafe keeps the existing fare ===");

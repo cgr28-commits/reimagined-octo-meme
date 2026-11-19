@@ -32,6 +32,7 @@ import type {
 } from "../../../src/lib/owner-profitability-report";
 import {
   applyTripPremium,
+  legSchedule,
   type TripSchedule,
 } from "../../../src/lib/point-to-point-premium";
 import { fetchOsrmTripRouteMetrics } from "../../../src/lib/trip-route";
@@ -375,8 +376,7 @@ export async function buildOwnerProfitabilityReport(input: {
 
   const describeLeg = (
     ops: { operationalMiles: number; operationalMinutes: number },
-    date?: string,
-    time?: string,
+    returning: boolean,
   ): ProfitabilityLegReport => {
     const floor = settings
       ? profitabilityFloorFromOperations({ ...ops, settings })
@@ -390,11 +390,8 @@ export async function buildOwnerProfitabilityReport(input: {
     const protectedVehicle = floor
       ? vehicleFareFromProtectedSaloon(protectedFare.protectedFareGbp, input.vehicleType, input.pricing)
       : existingVehicle;
-    const ratePremium = applyTripPremium(protectedVehicle, {
-      outboundDate: date,
-      outboundTime: time,
-      returnJourney: false,
-    }, undefined, { pricing: input.pricing });
+    const ratePremium = applyTripPremium(protectedVehicle, legSchedule(input.schedule, returning),
+      undefined, { pricing: input.pricing });
     return {
       passengerMiles,
       passengerMinutes,
@@ -415,9 +412,9 @@ export async function buildOwnerProfitabilityReport(input: {
     };
   };
 
-  const outbound = describeLeg(outboundOps, input.schedule.outboundDate, input.schedule.outboundTime);
+  const outbound = describeLeg(outboundOps, false);
   const returnLeg = returnOps
-    ? describeLeg(returnOps, input.schedule.returnDate, input.schedule.returnTime)
+    ? describeLeg(returnOps, true)
     : null;
 
   if (!active || !settings) {

@@ -120,6 +120,7 @@ import {
 import { defaultOwnerPricingSettings, toPublicOwnerPricingConfig } from "../../shared/owner-pricing-config";
 import { fetchPublicPricingConfig } from "@/lib/owner-pricing-api";
 import { isBrowserPricingPreview, previewMinibusQueryEnabled, previewMinibusRequestQuoteEnabled, previewScheduleUpFrontOverride } from "@/lib/pricing-preview-store";
+import { specialFareLabel } from "@/lib/point-to-point-premium";
 import { QUOTE_SCHEDULE_UP_FRONT_AT_BUILD } from "@/generated/quote-schedule-default";
 import { postcodeFareHasPence } from "../../shared/postcode-pricing";
 import { readPreviewCustomerQuoteSeed } from "@/lib/preview-customer-quote";
@@ -2427,6 +2428,7 @@ function QuoteCard({
     }
 
     const schedule = {
+      endpoints: { pickup: pickupAddress, dropoff: dropoffAddress },
       outboundDate: tripDate,
       outboundTime: tripTime,
       returnDate,
@@ -3441,7 +3443,10 @@ function QuoteCard({
     };
   }, [liveQuote, airportFeeResolution, currentServerFareParts, mayPaintNumericFare]);
 
-  const configuredSurchargeLabel = currentServerFareParts?.nightWeekendSurchargeLabel ?? nightWeekendSurchargeLabel(publicPricing, [tripDate, journeyMode === "return" ? returnDate : undefined]);
+  const configuredSurchargeLabel = currentServerFareParts?.nightWeekendSurchargeLabel ?? specialFareLabel({
+    endpoints: { pickup: pickupAddress, dropoff: dropoffAddress }, outboundDate: tripDate, outboundTime: tripTime,
+    returnJourney, returnDate, returnTime,
+  }, publicPricing) ?? nightWeekendSurchargeLabel(publicPricing, [tripDate, journeyMode === "return" ? returnDate : undefined]);
   const configuredSurchargeExplanation = currentServerFareParts?.nightWeekendSurchargeExplanation ?? nightWeekendSurchargeExplanation(publicPricing);
 
   const openWebsiteFareBreakdown = useMemo(() => {

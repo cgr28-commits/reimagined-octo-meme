@@ -17,7 +17,8 @@ jobs:
   validate:
     # Pin 24.04: Playwright 1.58.2 cannot install Chromium on ubuntu-latest (26.04).
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # Allow the browser tests to finish after a slow system dependency install.
+    timeout-minutes: 45
     env:
       NEXT_PUBLIC_ADDRESSES_API_URL: http://127.0.0.1:8787/addresses
       NEXT_PUBLIC_BOOKINGS_API_URL: http://127.0.0.1:8787/bookings

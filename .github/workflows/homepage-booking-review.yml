@@ -106,7 +106,8 @@ jobs:
 
   browser-review:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Browser dependency installation alone took 28 minutes on run 44422448347.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

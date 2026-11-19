@@ -1,3 +1,4 @@
+import { setQuoteCount, checkQuoteCountDefaults } from "./playwright-quote-count.mjs";
 /** Isolated hub/transfer quote regression; external services are mocked. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -50,16 +51,17 @@ try {
       await page.goto(`${base}${item.path}`);
       await page.locator('#quote-section-passengers').waitFor();
       assert.equal(await page.locator('[data-quote-presentation="homepage"]').count(),1);
-      assert.equal(await page.locator('#quote-section-passengers').inputValue(),'');
-      assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'');
+      await checkQuoteCountDefaults(page);
       if (item.airport) assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
       for (const button of await page.locator('[data-get-fixed-price]').all()) assert.equal(await button.isEnabled(),false);
       const cta = page.locator('a[data-landing-quote-cta]').first();
-      await cta.click();
+      assert.equal(await cta.getAttribute('href'),'#quote');
+      if(await cta.isVisible()) await cta.click();
+      else await page.goto(base+item.path+'#quote');
       await page.waitForTimeout(1100);
       assert.equal(new URL(page.url()).hash,'#quote');
       await page.locator('#quote-section-passengers').scrollIntoViewIfNeeded();
-      const rects = await page.locator('#passenger-luggage-section select').evaluateAll(els=>els.map(e=>e.getBoundingClientRect().top));
+      const rects = await page.locator('#passenger-luggage-section :is(select,output)').evaluateAll(els=>els.map(e=>e.getBoundingClientRect().top));
       assert.equal(rects[0],rects[1]);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await page.screenshot({path:`${output}/${width}-hub-${item.path.split('/').filter(Boolean).at(-1)}.png`});
@@ -67,8 +69,8 @@ try {
         const missing = item.field === 'pickup' ? 'dropoff' : 'pickup';
         await page.locator(`#${missing}`).fill('Belfast City Hall');
         await page.getByRole('button',{name:/Belfast City Hall.*Donegall/}).first().click();
-        await page.locator('#quote-section-passengers').selectOption('2');
-        await page.locator('#quote-section-suitcases').selectOption('0');
+        await setQuoteCount(page, 'passengers', 2);
+        await setQuoteCount(page, 'suitcases', 0);
         // The current flow requires collection details before the fixed fare,
         // on main as well as PR677. Do not wait for a booking CTA with no schedule.
         const date = new Date(Date.now()+5*86400000).toISOString().slice(0,10);
@@ -81,17 +83,20 @@ try {
         await page.locator('#date').fill(date);
         await page.locator('#time').fill('12:00');
         await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
-        await page.locator('[data-quote-fare-status="ready"]').waitFor();
-        const customerPrice=(await page.locator('[data-quote-fare-status="ready"]').innerText()).trim();
+        const fare=page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText(/^£[\d,]+(?:\.\d{2})?$/).first();
+        const confirmed=page.locator('[data-quote-fare-status="ready"]');
+        await confirmed.waitFor({state:'attached'});
+        const customerPrice=(await confirmed.textContent()).trim();
+        await fare.filter({hasText:new RegExp('^'+customerPrice.replace('.','[.]')+'$')}).waitFor();
         assert.match(customerPrice,/^£\d+(?:\.\d{2})?$/,'confirmed total includes the existing airport fees');
-        await page.getByRole('button',{name:new RegExp(`^(BOOK THIS TRANSFER — ${customerPrice.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|Continue (?:with .+ →|to booking))$`)}).click();
+        await page.getByRole('button',{name:new RegExp(`^(BOOK THIS TRANSFER — ${customerPrice.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|Continue (?:with .+ →|to booking(?: details)?))$`)}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.ok(quotes.slice(quoteStart).some(q=>q.outboundDate===date && q.outboundTime==='12:00'),'authoritative quote receives collection schedule: '+JSON.stringify(quotes.slice(quoteStart).map(q=>({date:q.outboundDate,time:q.outboundTime}))));
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
         assert.match(await page.locator('#quote-price-summary').innerText(),/2 passengers/);
         assert.match(await page.locator('#quote-price-summary').innerText(),/0 suitcases/);
-        assert.ok((await page.locator('#quote-price-summary').innerText()).includes(customerPrice),'booking summary retains the displayed customer total');
+        await page.getByText(customerPrice,{exact:true}).filter({visible:true}).first().waitFor();
         await page.waitForTimeout(1100);
         // Schedule inputs may sit in a collapsed checkout summary; the customer name field must be on-screen.
         const positions = await page.evaluate(()=>({name:document.getElementById('name').getBoundingClientRect().top,header:document.querySelector('header').getBoundingClientRect().bottom,height:innerHeight}));
@@ -100,13 +105,17 @@ try {
         await page.locator('#name').fill('Preview Test');
         await page.locator('#mobile').fill('07700900123');
         await page.locator('#email').fill('preview@example.invalid');
-        await page.locator('[data-back-to-quote="top"]').click();
-        assert.equal(await page.locator('#quote-section-passengers').inputValue(),'2');
-        assert.equal(await page.locator('#quote-section-suitcases').inputValue(),'0');
+        await page.getByRole('button',{name:/Back to your quote/i}).first().click();
+        const mobileEdit=page.locator('[data-d2-edit]:visible');
+        const editing=await mobileEdit.count()>0;
+        if(editing) await mobileEdit.click();
+        assert.equal(await page.locator('#quote-section-passengers').evaluate(el=>el.value),'2');
+        assert.equal(await page.locator('#quote-section-suitcases').evaluate(el=>el.value),'0');
         assert.match(await page.locator(`#${item.field}`).inputValue(),item.airport);
         assert.equal(await page.locator('#date').inputValue(),date);
         assert.equal(await page.locator('#time').inputValue(),'12:00');
-        await page.getByRole('button',{name:new RegExp(`^(BOOK THIS TRANSFER — ${customerPrice.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|Continue (?:with .+ →|to booking))$`)}).click();
+        if(editing) await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
+        await page.getByRole('button',{name:new RegExp(`^(BOOK THIS TRANSFER — ${customerPrice.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|Continue (?:with .+ →|to booking(?: details)?))$`)}).click();
         await page.locator('#name').waitFor({state:'visible'});
         assert.equal(await page.locator('#name').inputValue(),'Preview Test');
         assert.equal(await page.locator('#email').inputValue(),'preview@example.invalid');

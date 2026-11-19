@@ -371,7 +371,12 @@ export function lightCustomerEmailHtml(html: string): string {
         next = next.replace(/\sbgcolor="[^"]*"/gi, "");
         next = next.replace(/>$/, ' bgcolor="#ffffff">');
       }
-      if (name.toLowerCase() === "body") next = next.replace("<body", '<body class="matni-light"');
+      if (name.toLowerCase() === "body") {
+        next = /\sclass="/i.test(next)
+          ? next.replace(/class="([^"]*)"/i, (_, classes: string) =>
+              `class="${[...new Set([...classes.split(/\s+/).filter(Boolean), "matni-light"])].join(" ")}"`)
+          : next.replace(/<body/i, '<body class="matni-light"');
+      }
       return next;
     });
   return customerEmailHeaderHtml(themed, html);

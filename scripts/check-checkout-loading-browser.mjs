@@ -1,3 +1,4 @@
+import { setQuoteCount } from "./playwright-quote-count.mjs";
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -48,8 +49,8 @@ try {
   try {
   await page.goto(`${base}/?previewJourney=bfs`);
   await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
-  await page.locator('#quote-section-passengers').selectOption('2');
-  await page.locator('#quote-section-suitcases').selectOption('2');
+  await setQuoteCount(page, 'passengers', 2);
+  await setQuoteCount(page, 'suitcases', 2);
   await page.locator('#date').fill('2026-12-14');
   await page.locator('#time').fill('12:00');
   await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();

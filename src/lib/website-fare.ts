@@ -60,6 +60,7 @@ export function calculateWebsiteOneWayFare(
   const dropoff = input.dropoffPlace;
   const schedule: TripSchedule = {
     ...(input.schedule ?? {}),
+    endpoints: { pickup: pickupAddress, dropoff: dropoffAddress },
     returnJourney: false,
   };
   const returnJourney = false;

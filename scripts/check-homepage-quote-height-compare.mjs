@@ -47,15 +47,21 @@ async function measure(label, url, width) {
       horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
       buttonVisibleAfterQuoteScroll: b.top >= document.querySelector('header').getBoundingClientRect().bottom && b.bottom <= innerHeight,
       controls: ids.map(id => {
-        const el = document.getElementById(id), r = el.getBoundingClientRect();
-        return { id, height:r.height, top:r.top, fontSize:getComputedStyle(el).fontSize };
+        const field = document.getElementById(id);
+        const shell = field.closest('[data-schedule-control]');
+        const el = field.tagName === 'OUTPUT' ? field.parentElement.querySelector('button') :
+          shell?.querySelector('[data-d3-time-trigger]') || field;
+        const r = el.getBoundingClientRect();
+        const extra = getComputedStyle(el, '::after');
+        const hitHeight = extra.content === 'none' ? r.height : Math.max(r.height, parseFloat(extra.height) || 0);
+        return { id, height:hitHeight, top:(shell || el).getBoundingClientRect().top, fontSize:getComputedStyle(field).fontSize };
       }),
     };
   });
   await page.screenshot({ path: `${output}/${label}-${width}.png` });
   if (label === 'after' && mobile) {
     assert.ok(await page.getByText('Select date', {exact:true}).isVisible());
-    assert.ok(await page.getByText('Select time', {exact:true}).isVisible());
+    assert.ok(await card.locator('[data-schedule-control]').filter({has:page.locator('#time')}).getByText('Select time', {exact:true}).filter({visible:true}).first().isVisible());
     // Resizing approximates browser chrome expanding; it does not simulate native Safari UI.
     await page.setViewportSize({width, height:520});
     await page.locator('[data-get-fixed-price]').scrollIntoViewIfNeeded();

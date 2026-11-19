@@ -39,12 +39,14 @@ try {
   const page=await context.newPage();page.setDefaultTimeout(30000);page.on('pageerror',e=>errors.push(e.message));
   try {
   await page.goto(base+'/quote/#t='+token,{waitUntil:'domcontentloaded'});
-  const reject=page.getByRole('button',{name:'Reject optional',exact:true});await reject.click();
-  await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
-  assert.equal(await page.locator('#quoteForm [name="passengers"]').first().inputValue(),'2');
-  assert.equal(await page.locator('#quoteForm [name="suitcases"]').first().inputValue(),'1');
-  assert.equal(await page.locator('#date').inputValue(),journey.tripDate);
-  assert.equal(await page.locator('#time').inputValue(),journey.tripTime);
+  const reject=page.getByRole('button',{name:'Decline all',exact:true});await reject.click();
+  await page.getByText('£130', { exact: true }).filter({visible:true}).first().waitFor();
+  const journeyDetails = width < 768
+    ? ['2 passengers', '1 suitcase', /Wed,? 1 Dec(?: 2027)?[, ·]+12:00/i, /Return Sun,? 5 Dec(?: 2027)?[, ·]+(?:flight lands )?12:00/i]
+    : ['2 passengers · 1 suitcase', /Wed,? 1 Dec 2027[, ·]+12:00/i, /Return Sun,? 5 Dec 2027[, ·]+flight lands 12:00/i];
+  for (const detail of journeyDetails) {
+    await page.getByText(detail, {exact:true}).filter({visible:true}).first().waitFor();
+  }
   await page.getByText(/Your current fare has changed/).waitFor();
   await page.clock.install();
   // The timed "Not Ready to Book Yet?" pop-up was retired (the quote card's "Any questions?" pop-up replaces it).
@@ -52,13 +54,14 @@ try {
   const reminder=page.locator('[data-save-quote-reminder]');
   assert.equal(await reminder.count(),0,'no timed save-quote pop-up');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal overflow');
-  await page.locator('[data-quote-save]').click();
-  const dialog=page.getByRole('dialog',{name:'Save My Quote',exact:true});await dialog.waitFor();
+  await page.getByRole('button', {name:/^(send me my quote|email (?:my )?quote)$/i}).first().click();
+  const dialog=page.getByRole('dialog',{name:'Send Me My Quote',exact:true});await dialog.waitFor();
   await page.screenshot({path:`test-results/save-my-quote/${width}-save-options.png`});
-  await dialog.getByRole('button',{name:'Save via WhatsApp',exact:true}).click();
+  await dialog.getByLabel('Mobile number (WhatsApp)').fill('07700900123');
+  await dialog.getByRole('button',{name:'Send to My WhatsApp',exact:true}).click();
   const share=dialog.getByRole('link',{name:'Open WhatsApp to Share'});await share.waitFor();
   assert.equal(new URL(await share.getAttribute('href')).hostname,width<768?'wa.me':'web.whatsapp.com');
-  assert.equal(channel,'whatsapp');
+  assert.equal(channel,'whatsapp_send');
   assert.equal(saveRequests,1,'one quote saved per WhatsApp selection');
   const message=new URL(await share.getAttribute('href')).searchParams.get('text');
   for(const part of ['My Airport Taxi NI',journey.pickupLabel,journey.dropoffLabel,ESTATE_VEHICLE,'£130.00',quote.reference,quote.bookUrl,journey.tripDate,journey.returnDate,'Passengers: 2 | Suitcases: 1']) assert.ok(message.includes(part),part+' carried into WhatsApp');
@@ -71,7 +74,7 @@ try {
   await dialog.getByRole('button',{name:'Continue to Booking'}).click();
   await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'booking not interrupted');
   await page.reload({waitUntil:'domcontentloaded'});
-  await page.locator('[data-quote-fare-status="ready"]').first().waitFor();
+  await page.getByText('£130', { exact: true }).filter({visible:true}).first().waitFor();
   await page.clock.fastForward(30000);assert.equal(await reminder.count(),0,'still no timed pop-up after reload');
   assert.deepEqual(errors,[]);assert.deepEqual(mutations,[]);
   console.log(`PASS ${width}px: restoration, changed fare, no timed pop-up, save options, share URL, email`);

@@ -10,7 +10,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await ({chromium,webkit}[engine]).launch();
 try {
  for (const width of [390,1280]) {
-  let state='paid',calls=0;
+  let state='paid',calls=0, confirmationGate;
   const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'});
   await skipCookieConsent(context);
   await context.route('**/*',async route=>{
@@ -18,7 +18,7 @@ try {
    if(url.origin===new URL(base).origin)return route.continue();
    if(req.method()==='POST'&&url.pathname.includes('confirm')) {
     calls++;
-    await new Promise(r=>setTimeout(r,400));
+    await confirmationGate;
     if(state==='error'||state==='pending')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:state==='pending'?'Payment has not been completed':'Unable to verify payment'})});
     return route.fulfill({contentType:'application/json',body:JSON.stringify({amountPaid:state==='deposit'?'£20.00':'£100.00',paymentReference:'SUMUP-EXAMPLE',customerReference:'MAT-1234',customerEmailSent:true,ownerEmailSent:true,emailSent:true,calendarLogged:true,...(state==='deposit'?{paymentMethod:'DEPOSIT_CASH',totalFare:100,onlineAmountPaid:20,cashBalanceDue:80}:{})})});
    }
@@ -31,9 +31,12 @@ try {
   assert.equal(calls,0);
   for(const test of ['paid','deposit','error','pending']) {
    state=test;
+   let releaseConfirmation;
+   confirmationGate=new Promise(resolve=>{releaseConfirmation=resolve;});
    await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=test-${width}-${test}`);
-   await page.getByRole('heading',{name:'Confirming payment',exact:true}).waitFor();
+   await page.getByRole('heading',{name:'Confirming your payment…',exact:true}).waitFor();
    assert.equal(await page.locator('[data-confirmed-booking-number]').count(),0);
+   releaseConfirmation();
    if(test==='paid'||test==='deposit') {
     await page.getByRole('heading',{name:'Thank You for Your Booking',exact:true}).waitFor();
     assert.match(await page.locator('[data-confirmed-booking-number]').innerText(),/Your booking number\s+MAT-1234/i);

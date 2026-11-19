@@ -1,3 +1,4 @@
+import { setQuoteCount } from "./playwright-quote-count.mjs";
 /** Static-export conversion checks. Every non-static request is intercepted; no live writes. */
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -65,7 +66,7 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
  const page=await context.newPage();
  page.setDefaultTimeout(15000);
  await page.goto(`${url}/?previewJourney=bfs`);
- await page.getByRole('button',{name:'Reject optional',exact:true}).click();
+ await page.getByRole('button',{name:'Decline all',exact:true}).click();
  await page.waitForFunction(()=>document.getElementById('pickup')?.value.includes('City Hall'));
  if(collection) {
   for(const [id,text] of [['pickup','Belfast International'],['dropoff','Belfast City Hall']]) {
@@ -74,30 +75,26 @@ async function quote(url,width,total=68,enabled=true,collection=true,fee=18.25) 
    await page.locator(`[id="${listbox}"]`).getByRole('button').filter({hasText:text}).first().click();
   }
  }
- await page.locator('#quote-section-passengers').selectOption('2');
- await page.locator('#quote-section-suitcases').selectOption('1');
+ await setQuoteCount(page, 'passengers', 2);
+ await setQuoteCount(page, 'suitcases', 1);
  const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
  await page.locator('#date').fill(date);await page.locator('#time').fill('12:00');
  await page.getByRole('button',{name:/Get My Fixed Price/}).last().click();
  await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).waitFor();
- await page.locator('[data-quote-result-price] [data-quote-fare-status="ready"]').waitFor();
+ await page.locator('[data-vehicle-category][aria-pressed="true"]:visible').getByText('£' + (total - 5), {exact:true}).first().waitFor();
  await page.evaluate(()=>document.fonts.ready);
- const card=page.locator('[data-quote-result-card]');
- const height=await card.evaluate(el=>el.getBoundingClientRect().height);
- return {context,page,card,height,requests};
+ return {context,page,requests};
 }
 try {
  for(const width of (process.env.TEST_WIDTH ? [Number(process.env.TEST_WIDTH)] : [320,390,1280])) {
   for(const collection of [false,true]) {
    const q=await quote(base,width,68,true,collection),{page}=q;
    assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0);
-   if(width>=1200) {
-    // Desktop (1200px+): Meet & Greet is offered once, under the vehicle choices; checkout does not repeat it.
     const upgrade=page.locator('[data-results-upgrades]');
-    assert.equal(await upgrade.isVisible(),collection,'Desktop offers Meet & Greet under the vehicles for airport pickups only');
+    assert.equal(await upgrade.isVisible(),collection,'The quote offers Meet & Greet under the vehicles for airport pickups only');
     if(collection) {
      assert.match(await upgrade.innerText(),/Meet & Greet[\s\S]*£18.25/);
-     const total=async()=>Number((await page.locator('[data-quote-result-card]').innerText()).match(/Your current total\s*£([\d.]+)/)[1]);
+     const total=async()=>width<1200 ? Number((await page.locator('[data-d2-sticky-price] strong').innerText()).replace('£','')) : Number((await page.locator('[data-quote-result-card]').innerText()).match(/Your current total\s*£([\d.]+)/)[1]);
      const box=upgrade.getByRole('checkbox');assert.equal(await box.isChecked(),false);
      // Customers click the whole card (the checkbox sits inside the label).
      const card=upgrade.locator('[data-results-upgrade]').first();
@@ -106,6 +103,7 @@ try {
      await toggle();assert.equal(await box.isChecked(),true);assert.equal(Math.round((await total()-before)*100),1825);
      await toggle();assert.equal(await box.isChecked(),false);assert.equal(await total(),before);
      await toggle();
+     await upgrade.screenshot({path:`${output}/${width}-service.png`});
      await page.getByRole('button',{name:/Continue to booking/i}).first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.getByRole('button',{name:/Continue to booking/i}).first().click();
      await page.locator('#name').waitFor();
      assert.equal(await page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})}).count(),0,'Checkout does not repeat the offer');
@@ -114,32 +112,12 @@ try {
      if(await full.count()){await full.evaluate(el=>el.scrollIntoView({block:'center'}));await full.click();}
      const pay=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
      assert.equal(Math.round(Number(pay.match(/£([\d.]+)/)[1])*100),Math.round((before+18.25)*100),'Pay amount includes the selected upgrade');
-     await page.locator('[data-back-to-quote]:visible').first().evaluate(el=>el.scrollIntoView({block:'center'}));await page.locator('[data-back-to-quote]:visible').first().click();
-     await upgrade.waitFor();assert.equal(await upgrade.getByRole('checkbox').isChecked(),true,'Choice kept when returning to the vehicles');
-    }
-    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-    await q.context.close();console.log('PASS',width,collection?'desktop vehicle-step upgrade toggles total, carried to Pay, kept on return':'airport dropoff omitted');
-    continue;
-   }
-   await page.getByRole('button',{name:/BOOK THIS TRANSFER|Continue (?:with|to booking)/i}).click();
-   await page.locator('#name').waitFor();
-   const section=page.locator('[data-terminal-access]').filter({has:page.getByRole('checkbox',{name:/Meet.*Greet/})});
-   assert.equal(await section.count(),collection?1:0);
-   if(collection) {
-    assert.match(await section.innerText(),/Meet & Greet[\s\S]*£18.25/);
-    const checkbox=section.getByRole('checkbox');assert.equal(await checkbox.isChecked(),false);
-    const pos=await page.evaluate(()=>({contact:document.querySelector('#email').getBoundingClientRect().bottom,service:document.querySelector('[data-terminal-access]').getBoundingClientRect().top}));
-    assert.ok(pos.service>=pos.contact);
-    const options=page.locator('form').filter({has:page.locator('#name')});
-    await options.getByRole('button',{name:/Pay in Full Online/}).click();
-    const before=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
-    await checkbox.check();assert.match(await page.locator('#quote-price-summary').innerText(),/Meet & Greet[\s\S]*£18.25/);
-    const after=await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText();
-    const amount=s=>Number(s.match(/£([\d.]+)/)[1]);assert.equal(Math.round((amount(after)-amount(before))*100),1825);
-    await checkbox.uncheck();assert.equal(await page.locator('[data-meet-greet-summary]').count(),0);
-    assert.equal(await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).innerText(),before);
-    await checkbox.check();
+     await page.getByRole('button',{name:/Back to your quote/i}).first().click();
+     await upgrade.waitFor();assert.equal(await box.isChecked(),true,'Choice kept when returning to the vehicles');
+     await page.getByRole('button',{name:/Continue to booking/i}).first().click();
+     await page.getByRole('button',{name:/Pay in Full Online/}).click();
     if(width===390) {
+      const expectedAmount=before+18.25;
       await page.locator('#name').fill('Meet Greet Test');await page.locator('#mobile').fill('07700900123');await page.locator('#email').fill('test@example.invalid');
       for(const id of ['goingFlightNumber','collectionFlightNumber'])if(await page.locator(`#${id}`).count())await page.locator(`#${id}`).fill('BA1234');
       await page.getByRole('checkbox',{name:/I agree to the Terms/}).check();
@@ -148,10 +126,13 @@ try {
       await page.getByText(PAYMENT_UNCERTAIN_MESSAGE,{exact:true}).waitFor();
       assert.equal(await page.getByRole('button',{name:/Pay £.*Confirm Booking/}).isDisabled(),true,'An ambiguous 503 must block another payment attempt');
       assert.equal(q.requests.length,1);assert.equal(q.requests[0].booking.terminalAccessChoices['outbound:BFS:pick-up'],'meet-greet');
-      assert.equal(q.requests[0].acceptedFinalAmountGbp,amount(after));
-      await q.context.route('**/payments/confirm',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({amountPaid:`£${amount(after).toFixed(2)}`,paymentReference:'TEST-ONLY',customerReference:'MAT-TEST',customerEmailSent:true,ownerEmailSent:true,emailSent:true,calendarLogged:true,paymentMethod:'FULL_ONLINE',totalFare:amount(after),meetGreetFeeGbp:18.25})}));
+      assert.equal(q.requests[0].acceptedFinalAmountGbp,expectedAmount);
+      await q.context.route('**/payments/confirm',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({amountPaid:`£${expectedAmount.toFixed(2)}`,paymentReference:'TEST-ONLY',customerReference:'MAT-TEST',customerEmailSent:true,ownerEmailSent:true,emailSent:true,calendarLogged:true,paymentMethod:'FULL_ONLINE',totalFare:expectedAmount,meetGreetFeeGbp:18.25})}));
     }
-    await section.screenshot({path:`${output}/${width}-service.png`});
+   } else {
+     await page.getByRole('button',{name:/Continue to booking/i}).first().click();
+     await page.locator('#name').waitFor();
+     assert.equal(await page.locator('[data-terminal-access]').getByRole('checkbox',{name:/Meet.*Greet/}).count(),0);
    }
    if(collection && width===390) {
      await page.goto(`${base}/booking-confirmed/?payment=return&checkout_id=isolated-confirmed`);

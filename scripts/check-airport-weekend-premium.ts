@@ -1,6 +1,6 @@
 /**
  * Night & Weekend Surcharge (10%) — public / personal / quick-quote parity.
- * The automatic 5% return discount is retired (Nov 2026). SumUp stays Worker-authoritative.
+ * Both vehicle fares, including premiums, receive the 5% return discount.
  * Run: npx tsx scripts/check-airport-weekend-premium.ts
  */
 

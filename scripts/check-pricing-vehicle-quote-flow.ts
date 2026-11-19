@@ -1,6 +1,6 @@
 const cityBfsMetrics = { distanceKm: 14 / 0.621371, durationMinutes: 25 };
 /**
- * Combined regression: 10% Night & Weekend Surcharge, retired return discount, vehicle rule,
+ * Combined regression: 10% Night & Weekend Surcharge, 5% return discount, vehicle rule,
  * optional quote date/time, mandatory booking date/time, homepage benefit.
  * Run: npx tsx scripts/check-pricing-vehicle-quote-flow.ts
  */
@@ -35,11 +35,11 @@ function check(name: string, fn: () => void) {
   console.log(`✓ ${name}`);
 }
 
-check("pricing rates: 10% Night & Weekend Surcharge; automatic return discount retired (Nov 2026)", () => {
+check("pricing rates: 10% Night & Weekend Surcharge; 5% return discount", () => {
   assert.equal(PRICING_CONFIG.airportTripPremiumRate, 0.1);
   assert.equal(PRICING_CONFIG.addressToAddressTripPremiumRate, 0.1);
-  assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0);
-  assert.equal(getReturnJourneyFare(100), 200);
+  assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
+  assert.equal(getReturnJourneyFare(100), 190);
 });
 
 check("weekend / night pickup is 10% above weekday daytime; BH daytime is normal", () => {
@@ -242,11 +242,11 @@ check("customer-facing copy does not claim weekend costs more", () => {
   assert.doesNotMatch(panel, /Bank Holiday premiums/);
 });
 
-check("shared return discount source of truth: retired (0%) since Nov 2026", () => {
+check("shared return discount source of truth: 5%", () => {
   const rate = JSON.parse(
     fs.readFileSync(path.join(root, "shared/return-journey-discount-rate.json"), "utf8"),
   ) as { returnJourneyDiscountRate: number };
-  assert.equal(rate.returnJourneyDiscountRate, 0);
+  assert.equal(rate.returnJourneyDiscountRate, 0.05);
 });
 
 console.log(`\n${passed} combined pricing/vehicle/quote-flow checks passed`);

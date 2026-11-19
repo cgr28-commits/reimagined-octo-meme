@@ -16,7 +16,9 @@ import {
 } from "../shared/owner-pricing-config";
 import { applyTripPremium } from "../src/lib/point-to-point-premium";
 
+// Isolate the Christmas rule from separately tested New Year pricing.
 const settings = defaultOwnerPricingSettings();
+settings.specialDateFares = [];
 const premium = (date: string, time: string, pricing = settings) =>
   applyTripPremium(100, { outboundDate: date, outboundTime: time }, undefined, { pricing }).premiumAmount;
 

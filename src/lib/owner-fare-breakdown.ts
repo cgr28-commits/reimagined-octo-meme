@@ -37,7 +37,7 @@ import {
 } from "../../shared/universal-distance-pricing";
 import { roundGbp } from "../../shared/gbp";
 import type { DublinTollAllowance } from "../../shared/dublin-tolls";
-import { applyTripPremium, AIRPORT_TRIP_PREMIUM_RATE, type TripSchedule } from "./point-to-point-premium";
+import { legSchedule, applyTripPremium, AIRPORT_TRIP_PREMIUM_RATE, type TripSchedule } from "./point-to-point-premium";
 
 export type OwnerFareBreakdownLeg = {
   leg: "outbound" | "return";
@@ -212,10 +212,7 @@ export function buildOwnerFareBreakdown(input: {
       ? applyBfsMinimumFare(afterDublin, input.vehicleType, [airport], input.pricing)
       : afterDublin;
     const legVehicleFare = roundGbp(afterMinimum + positioning);
-    const schedule: TripSchedule =
-      leg === "outbound"
-        ? { outboundDate: input.schedule.outboundDate, outboundTime: input.schedule.outboundTime, returnJourney: false }
-        : { outboundDate: input.schedule.returnDate, outboundTime: input.schedule.returnTime, returnJourney: false };
+    const schedule = legSchedule(input.schedule, leg === "return");
     const surcharge = applyTripPremium(
       legVehicleFare,
       schedule,

@@ -26,13 +26,13 @@ async function main(){
    });
    const page=await context.newPage();activePage=page;page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://127.0.0.1:3096/?previewJourney=bfs&previewPax=1&previewBags=1');
-   await page.getByRole('button',{name:'Reject optional',exact:true}).click();
+   await page.getByRole('button',{name:'Decline all',exact:true}).click();
    await page.waitForFunction(()=>document.querySelector('#pickup')?.value && document.querySelector('#dropoff')?.value);
    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('quote-prefill-draft',{detail:{passengers:1,suitcases:1,vehicle:'Standard Saloon (1–4 passengers)',returnJourney:false,tripDate:new Date(Date.now()+10*86400000).toISOString().slice(0,10),tripTime:'12:00'}})));
    await page.getByRole('button',{name:'Get My Fixed Price',exact:false}).click();
-   await page.locator('[data-quote-result-card] #quote-book-now-button').waitFor();
+   await page.locator('#quote-book-now-button:visible').waitFor();
    assert.equal(events.filter(e=>e.kind==='booking_started').length,0);
-   await page.locator('[data-quote-result-card] #quote-book-now-button').click();
+   await page.locator('#quote-book-now-button:visible').click();
    await page.getByPlaceholder('John Smith').waitFor();
    await page.waitForTimeout(200);
    assert.equal(events.filter(e=>e.kind==='booking_started').length,1, 'Immediate booking-click event');
@@ -44,7 +44,7 @@ async function main(){
    assert.equal(events.filter(e=>e.kind==='details_opened').length,1);
    assert.equal(events.filter(e=>e.kind==='contact'||e.kind==='details_submitted').length,0,'Typing must not send contact details');
    await page.getByRole('button',{name:'Back to your quote',exact:false}).first().click();
-   await page.locator('[data-quote-result-card] #quote-book-now-button').click();
+   await page.locator('#quote-book-now-button:visible').click();
    await page.getByPlaceholder('John Smith').waitFor();await page.waitForTimeout(200);
    assert.equal(events.filter(e=>e.kind==='booking_started').length,width===390?2:1,'Retry failed send on next click, dedupe successful sends');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -54,7 +54,10 @@ async function main(){
   for(const width of [320,1440]){
    const context=await browser.newContext({viewport:{width,height:1000},serviceWorkers:'block'});
    const statsRequests=[];
-   await context.addInitScript(()=>sessionStorage.setItem('matni-owner-key','mock-owner-only'));
+   await context.addInitScript(()=>{
+    sessionStorage.setItem('matni-owner-key','mock-owner-only');
+    localStorage.setItem('matni-cookie-consent-v1','rejected');
+   });
    await context.route('**/*',async route=>{
     const u=route.request().url();if(u.startsWith('http://127.0.0.1:3096/'))return route.continue();
     if(u.includes('/quote-stats')){
@@ -67,8 +70,6 @@ async function main(){
     return route.fulfill({json:{ok:true,role:'owner',jobs:[],drivers:[],availableDrivers:[],configured:true,entries:[],settings:{}}});
    });
    const page=await context.newPage();activePage=page;await page.goto('http://127.0.0.1:3096/owner/?tab=more');
-   await page.getByRole('button',{name:'Reject optional',exact:true}).click();
-   await page.getByRole('dialog',{name:'Cookie consent'}).waitFor({state:'hidden'});
    const [statsResponse]=await Promise.all([
     page.waitForResponse(r=>new URL(r.url()).pathname==='/quote-stats',{timeout:10000}),
     page.getByRole('button',{name:'Enquiries',exact:false}).click(),
@@ -76,6 +77,7 @@ async function main(){
    assert.equal(statsResponse.status(),200,'Owner panel must fetch the funnel fixture');
    assert.ok(statsRequests.length>0,'No funnel API request: check the build-time NEXT_PUBLIC_BOOKINGS_API_URL');
    assert.ok(statsRequests.every(r=>new URL(r.url).origin==='https://booking-funnel.test' && r.key==='mock-owner-only'),'Funnel requests must use the configured mock API and existing owner header');
+   await page.getByText('Quote stats & booking journey',{exact:true}).click();
    const panel=page.locator('[data-booking-funnel]');await panel.waitFor();
    await page.getByText('Possibly abandoned — no recent stage recorded',{exact:true}).waitFor();
    await panel.scrollIntoViewIfNeeded();

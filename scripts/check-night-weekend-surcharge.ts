@@ -160,14 +160,14 @@ assert.equal(thursday0600.amount, 45, "D. Weekday 06:00 — no surcharge");
 assert.equal(thursday0600.nightWeekendSurchargeGbp, 0);
 console.log("OK  A weekday day / B 22:00 / C 05:59 / D 06:00 / E 21:59");
 
-console.log("\n=== H–K. Return: two full BASE fares (5% return discount retired Nov 2026), then +10% of base per qualifying leg ===");
-assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0);
-const returnNeitherExpected = roundGbp(weekdayFare * 2); // 90.00
-const returnOneExpected = roundGbp(returnNeitherExpected + weekdayFare * 0.1); // 94.50
-const returnBothExpected = roundGbp(returnNeitherExpected + weekdayFare * 0.2); // 99.00
-assert.equal(returnNeitherExpected, 90);
-assert.equal(returnOneExpected, 94.5);
-assert.equal(returnBothExpected, 99);
+console.log("\n=== H–K. Return: 5% off both legs including eligible premiums ===");
+assert.equal(RETURN_JOURNEY_DISCOUNT_RATE, 0.05);
+const returnNeitherExpected = roundGbp(weekdayFare * 2 * 0.95);
+const returnOneExpected = roundGbp(weekdayFare * 2.1 * 0.95);
+const returnBothExpected = roundGbp(weekdayFare * 2.2 * 0.95);
+assert.equal(returnNeitherExpected, 85.5);
+assert.equal(returnOneExpected, 89.78);
+assert.equal(returnBothExpected, 94.05);
 
 const returnNeither = quote(
   {
@@ -181,7 +181,7 @@ const returnNeither = quote(
 assert.ok(returnNeither);
 assert.equal(returnNeither.premiumApplied, false);
 assert.equal(returnNeither.amount, returnNeitherExpected);
-assert.equal(returnNeither.amount, 90);
+assert.equal(returnNeither.amount, 85.5);
 console.log(`OK  H. return neither leg £${returnNeither.amount} (2×£${weekdayFare})`);
 
 const returnOutboundOnly = quote(
@@ -196,7 +196,7 @@ const returnOutboundOnly = quote(
 assert.ok(returnOutboundOnly);
 assert.equal(returnOutboundOnly.nightWeekendSurchargeGbp, roundGbp(weekdayFare * 0.1));
 assert.equal(returnOutboundOnly.amount, returnOneExpected);
-assert.equal(returnOutboundOnly.amount, 94.5);
+assert.equal(returnOutboundOnly.amount, 89.78);
 console.log(`OK  I. return outbound-only: £90 then +£4.50 = £${returnOutboundOnly.amount}`);
 
 const returnReturnOnly = quote(
@@ -210,7 +210,7 @@ const returnReturnOnly = quote(
 );
 assert.ok(returnReturnOnly);
 assert.equal(returnReturnOnly.nightWeekendSurchargeGbp, 4.5);
-assert.equal(returnReturnOnly.amount, 94.5);
+assert.equal(returnReturnOnly.amount, 89.78);
 console.log(
   `OK  J. Friday 14:00 + Tuesday 23:00 = £${returnReturnOnly.amount} (base, then +£4.50)`,
 );
@@ -225,7 +225,7 @@ const returnSundayOnly = quote(
   { returnJourney: true },
 );
 assert.ok(returnSundayOnly);
-assert.equal(returnSundayOnly.amount, 94.5);
+assert.equal(returnSundayOnly.amount, 89.78);
 assert.equal(returnSundayOnly.nightWeekendSurchargeGbp, 4.5);
 console.log(`OK  J. Friday 14:00 + Sunday 15:00 = £${returnSundayOnly.amount}`);
 
@@ -241,7 +241,7 @@ const returnBoth = quote(
 assert.ok(returnBoth);
 assert.equal(returnBoth.nightWeekendSurchargeGbp, 9);
 assert.equal(returnBoth.amount, returnBothExpected);
-assert.equal(returnBoth.amount, 99);
+assert.equal(returnBoth.amount, 94.05);
 console.log(`OK  K. return both legs £${returnBoth.amount} (£90 then +£9.00)`);
 
 console.log("\n=== Fixed costs excluded ===");
@@ -299,7 +299,7 @@ console.log(
   `OK  DUB pickup fixed £${dubFixedPickup} not in 10%; Express +£5 also excluded`,
 );
 
-console.log("\n=== 15. Authoritative £100 base + £10 + £6 = £116 (5% return discount retired) ===");
+console.log("\n=== 15. Authoritative 5% off £110 then £6 fixed ===");
 const specEngine = applyTripPremium(
   50,
   {
@@ -312,20 +312,20 @@ const specEngine = applyTripPremium(
   0.1,
 );
 assert.equal(specEngine.premiumAmount, 10);
-assert.equal(specEngine.total, 110);
+assert.equal(specEngine.total, 104.5);
 const specBreakdown = composeWebsiteFareBreakdown({
   journeyFareBeforeAirportAccessGbp: specEngine.total,
   nightWeekendSurchargeGbp: specEngine.premiumAmount,
   airportFixedCostsGbp: 6,
   returnJourney: true,
 });
-assert.equal(specBreakdown.originalEligibleJourneyPriceGbp, 100);
-assert.equal(specBreakdown.returnJourneySavingGbp, 0);
+assert.equal(specBreakdown.originalEligibleJourneyPriceGbp, 110);
+assert.equal(specBreakdown.returnJourneySavingGbp, 5.5);
 assert.equal(specBreakdown.nightWeekendSurchargeGbp, 10);
 assert.equal(specBreakdown.airportFixedCostsGbp, 6);
-assert.equal(specBreakdown.finalAmountPayableGbp, 116);
-assert.equal(roundGbp(applyReturnJourneyDiscount(100) + 10 + 6), 116);
-console.log("OK  £100 base + £10 surcharge + £6 fixed = £116");
+assert.equal(specBreakdown.finalAmountPayableGbp, 111);
+assert.equal(roundGbp(applyReturnJourneyDiscount(110) + 6), 110.5);
+console.log("OK  £110 less 5% plus £6 rounds to £111");
 
 console.log("\n=== N. Express excluded from both percentages ===");
 const specExpress = composeWebsiteFareBreakdown({
@@ -335,9 +335,9 @@ const specExpress = composeWebsiteFareBreakdown({
   airportAccessChargeGbp: 5,
   returnJourney: true,
 });
-assert.equal(specExpress.returnJourneySavingGbp, 0);
+assert.equal(specExpress.returnJourneySavingGbp, 5.5);
 assert.equal(specExpress.airportAccessChargeGbp, 5);
-assert.equal(specExpress.finalAmountPayableGbp, 121);
+assert.equal(specExpress.finalAmountPayableGbp, 116);
 assert.equal(
   specExpress.finalAmountPayableGbp,
   roundGbp(specBreakdown.finalAmountPayableGbp + 5),
@@ -411,7 +411,7 @@ const a2aReturnQualifying = roundGbp(a2aUnderlying.amount * 1.1 * 2);
 assert.equal(a2aReturnBoth.nightWeekendSurchargeGbp, roundGbp(a2aUnderlying.amount * 0.2));
 assert.equal(
   a2aReturnBoth.journeyFareGbp,
-  roundGbp(applyReturnJourneyDiscount(a2aUnderlying.amount * 2) + a2aUnderlying.amount * 0.2),
+  roundGbp(applyReturnJourneyDiscount(a2aReturnQualifying)),
 );
 console.log(
   `OK  P. BFS→BHD Saturday surcharge once (£${a2aSaturday.nightWeekendSurchargeGbp});  return = two full journeys`,
@@ -431,7 +431,7 @@ const engine = applyTripPremium(
 );
 assert.equal(engine.returnDiscountApplied, true);
 assert.equal(engine.premiumAmount, 10);
-assert.equal(engine.total, 210, "two full journeys + 10% on the weekend leg (5% return discount retired)");
+assert.equal(engine.total, 199.5, "5% off both fares including the weekend premium");
 const live = calculateAuthoritativeWebsiteQuote({
   airportCode: "BFS",
   fromAirport: false,
@@ -478,8 +478,8 @@ if (liveReturn.ok) {
     checkout.finalAmountPayableGbp,
     roundCustomerPayableGbp(liveReturn.amount),
   );
-  assert.equal(checkout.returnJourneySavingGbp, 0);
-  assert.equal(checkout.originalEligibleJourneyPriceGbp, 90);
+  assert.equal(checkout.returnJourneySavingGbp, roundGbp(liveReturn.amount / 0.95 - liveReturn.amount));
+  assert.equal(checkout.originalEligibleJourneyPriceGbp, roundGbp(liveReturn.amount / 0.95));
 }
 const paymentSrc = fs.readFileSync(
   path.join(root, "workers/addresses/src/index.ts"),

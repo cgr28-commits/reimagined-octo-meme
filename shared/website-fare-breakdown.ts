@@ -361,7 +361,7 @@ export function customerFacingFareBreakdown(breakdown: WebsiteFareBreakdown): We
   ) / 100;
   const rounding = Number.isFinite(roundingGbp) && Math.abs(roundingGbp) < 1 ? roundingGbp : 0;
   if (!(surcharge > 0) && rounding === 0) return breakdown;
-  const add = (value: number) => Math.round((value + surcharge + rounding) * 100) / 100;
+  const add = (value: number) => Math.round((value + rounding) * 100) / 100;
   return {
     ...breakdown,
     journeyFareBeforePromotionsGbp: add(breakdown.journeyFareBeforePromotionsGbp),
