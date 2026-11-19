@@ -83,7 +83,9 @@ function streetLinesEquivalent(a: string, b: string): boolean {
   const bKey = normaliseJourneyAddressCompareKey(b);
   if (!aKey || !bKey) return false;
   if (aKey === bKey) return true;
-  if (aKey.startsWith(`${bKey} `) || bKey.startsWith(`${aKey} `)) return true;
+  // Keep a venue or hotel whose name starts with its street (e.g. Boucher Road Playing Fields).
+  // A shorter leading duplicate can still be dropped in favour of the more specific second line.
+  if (bKey.startsWith(`${aKey} `)) return true;
 
   if (looksLikeStreetAddressLine(a) && looksLikeStreetAddressLine(b)) {
     const aNum = a.match(/^(\d+[a-zA-Z]?)\b/i)?.[1]?.toLowerCase();
