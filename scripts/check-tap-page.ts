@@ -215,11 +215,25 @@ console.log("\n=== 6. Page + Worker wiring ===");
   assert.match(client, /from "lucide-react"/);
   assert.match(client, /tap-heading/);
   assert.match(client, /tap-subhead/);
+  assert.match(client, /tap-action/);
+  assert.match(client, /tap-action-label/);
+  assert.match(client, /TAP_SUBHEADING_LINES/);
   assert.doesNotMatch(client, /⭐|💚|📱|🚘|💬/);
   assert.doesNotMatch(client, /\{SITE\.name\}/);
   const tapCss = read("src/app/tap/tap.css");
   assert.match(tapCss, /#ffffff|#FFFFFF/i);
   assert.match(tapCss, /#d1d5db|#D1D5DB/i);
+  assert.match(tapCss, /\.tap-action-label/);
+  assert.match(tapCss, /#071c38|#071C38/i);
+  // Root island must not blanket-set fill (Safari inherits white fill into white buttons).
+  assert.doesNotMatch(
+    tapCss.replace(/\/\*[\s\S]*?\*\//g, ""),
+    /\[data-tap-page\]\s*\{[^}]*-webkit-text-fill-color\s*:\s*#fff/i,
+  );
+  assert.match(tapCss, /-webkit-text-fill-color:\s*#071c38/i);
+  const agents = read("AGENTS.md");
+  assert.match(agents, /Visual quality \(standing acceptance requirement\)/);
+  assert.match(agents, /-webkit-text-fill-color/);
   assert.match(layout, /TAP_TIP_TOKEN_STRIP_SCRIPT/);
   assert.match(index, /handleTapPublicRequest/);
   assert.match(index, /\/tap\/tip\/checkout/);

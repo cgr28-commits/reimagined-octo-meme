@@ -13,6 +13,27 @@ the site went down twice because of hosting changes. Never do, suggest or instru
 - `site-watchdog.yml` checks the live site every 15 minutes, redeploys if it is broken and emails
   the owner. Do not disable it.
 
+## Visual quality (standing acceptance requirement)
+Every feature must be **functionally correct, visually balanced, mobile-first, consistent with
+premium branding, and professionally presented**. Typography, line breaks, spacing, alignment and
+readability must be deliberately reviewed. Passing technical tests alone does **not** constitute
+completion.
+
+- Inspect the **rendered** UI (not only DOM/CSS dumps). Capture mobile screenshots where the work
+  is visual, then look at those images for awkward wrapping, orphans, poor contrast, clipped text,
+  uneven spacing, misaligned icons/buttons, or unbalanced headings — and fix what you find.
+- Prefer responsive sizing, `max-width`, line-height and `text-wrap: balance` / intentional structure
+  over brittle hardcoded `<br>` that break at other widths. On very narrow screens, graceful wrap is
+  fine; never clip or force horizontal scroll for copy.
+- Brand palette: deep navy `#071C38`, emerald `#2FBF4A`, white / readable neutrals on dark surfaces.
+  Cormorant for display headings; clean sans for supporting copy. Keep effects restrained.
+- Watch Safari/WebKit specifically for `-webkit-text-fill-color` inheritance (a fill set on a dark
+  parent can make navy labels invisible on white buttons even when `color` is correct).
+- If Safari on a real iPhone cannot be tested in the environment, say so — do not claim Safari
+  verification from Chromium-only tooling.
+- Scope visual refactors to the surfaces in the request; do not make broad site-wide CSS changes
+  without identifying their effects.
+
 ## Cursor Cloud specific instructions
 
 ### What this repo is

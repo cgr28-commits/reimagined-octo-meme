@@ -11,8 +11,12 @@ export const TAP_PUBLIC_PATH = "/tap";
 export const TAP_PUBLIC_URL = `${BUSINESS_WEBSITE}${TAP_PUBLIC_PATH}`;
 
 export const TAP_HEADING = "THANK YOU FOR TRAVELLING WITH US";
-export const TAP_SUBHEADING =
-  "We hope you enjoyed your journey. We’d love to see you again.";
+/** Two centred lines on standard iPhone widths; joined for meta/descriptions. */
+export const TAP_SUBHEADING_LINES = [
+  "We hope you enjoyed your journey.",
+  "We’d love to see you again.",
+] as const;
+export const TAP_SUBHEADING = TAP_SUBHEADING_LINES.join(" ");
 
 /** Headrest tip presets (journey-email tips keep £3 / £5 / £10). */
 export const TAP_TIP_PRESET_AMOUNTS_GBP = [2, 5, 10, 20] as const;

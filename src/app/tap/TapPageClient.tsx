@@ -24,7 +24,7 @@ import {
   TAP_GOOGLE_REVIEW_URL,
   TAP_HEADING,
   TAP_PUBLIC_URL,
-  TAP_SUBHEADING,
+  TAP_SUBHEADING_LINES,
   TAP_TIP_PRESET_AMOUNTS_GBP,
   TAP_TIP_TOKEN_STORAGE_KEY,
   tapWhatsAppHref,
@@ -87,13 +87,13 @@ function trackConsented(event: Parameters<typeof trackTapEvent>[0]) {
 }
 
 const actionClass =
-  "group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/90 bg-white px-4 py-3 text-left text-[#071c38] shadow-[0_8px_28px_rgba(0,0,0,0.22)] transition duration-300 hover:border-emerald hover:shadow-[0_10px_32px_rgba(47,191,74,0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald active:scale-[0.99]";
+  "tap-action group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/90 bg-white px-4 py-3 text-left shadow-[0_8px_28px_rgba(0,0,0,0.22)] transition duration-300 hover:border-emerald hover:shadow-[0_10px_32px_rgba(47,191,74,0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald active:scale-[0.99]";
 
 function ActionIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <span
       aria-hidden
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#071c38]/[0.06] text-emerald"
+      className="tap-action-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#071c38]/[0.06]"
     >
       <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={2.25} />
     </span>
@@ -102,7 +102,7 @@ function ActionIcon({ icon: Icon }: { icon: LucideIcon }) {
 
 function ActionLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="flex-1 text-sm font-bold uppercase tracking-[0.06em] text-[#071c38]">
+    <span className="tap-action-label flex-1 text-[0.8125rem] font-bold uppercase tracking-[0.055em] sm:text-sm">
       {children}
     </span>
   );
@@ -216,11 +216,15 @@ export default function TapPageClient() {
 
         {screen === "home" ? (
           <section className="tap-rise mt-5 flex flex-1 flex-col sm:mt-7">
-            <h1 className="tap-heading font-display text-center text-[1.75rem] font-semibold leading-[1.12] sm:text-[2.1rem]">
+            <h1 className="tap-heading mx-auto max-w-[18.5rem] text-center text-[1.55rem] font-semibold leading-[1.18] sm:max-w-[22rem] sm:text-[1.95rem] sm:leading-[1.14]">
               {TAP_HEADING}
             </h1>
-            <p className="tap-subhead mx-auto mt-2.5 max-w-[22rem] text-center text-[0.95rem] leading-relaxed sm:mt-3">
-              {TAP_SUBHEADING}
+            <p className="tap-subhead mx-auto mt-3 max-w-[20rem] text-center text-[0.98rem] leading-snug sm:mt-3.5 sm:max-w-[22rem] sm:text-[1.02rem]">
+              {TAP_SUBHEADING_LINES.map((line) => (
+                <span key={line} className="tap-subhead-line">
+                  {line}
+                </span>
+              ))}
             </p>
 
             <div className="mt-5 space-y-2.5 sm:mt-7 sm:space-y-3">
