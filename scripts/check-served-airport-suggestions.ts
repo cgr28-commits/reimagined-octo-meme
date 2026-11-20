@@ -44,6 +44,20 @@ console.log("\n=== Belfast airports ===");
 expectSuggestion("Belfast International", "BFS");
 expectSuggestion("Belfast City Airport", "BHD");
 expectSuggestion("George Best", "BHD");
+expectSuggestion("Belfast City", "BHD");
+expectSuggestion("belfast  city air", "BHD");
+expectSuggestion("Belfast George Best", "BHD");
+expectSuggestion("BHD", "BHD");
+expectSuggestion("Belfast Intl", "BFS");
+expectSuggestion("Belfast Air", "BFS");
+
+for (const query of ["Belfast City Hall", "Belfast City Hospital", "Belfast City Centre", "Belfast Interface Project"]) {
+  assert.deepEqual(matchServedAirportSuggestions(query), [], `Unexpected airport shortcut for "${query}"`);
+}
+assert.deepEqual(
+  matchServedAirportSuggestions("Belfast City Airport").map((item) => servedAirportFromPlaceId(item.id)?.code),
+  ["BHD"],
+);
 
 console.log("\n=== Bare Dublin must not fake the airport ===");
 const bareDublin = matchServedAirportSuggestions("Dublin");
