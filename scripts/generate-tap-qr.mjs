@@ -1,12 +1,14 @@
 /**
- * High-contrast QR assets for the permanent NFC/QR headrest URL.
+ * High-contrast QR assets + premium 150×100 mm headrest plate.
  * Run: node scripts/generate-tap-qr.mjs
  */
+import { createRequire } from "node:module";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import QRCode from "qrcode";
 
+const require = createRequire(import.meta.url);
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "public", "tap");
 const url = "https://www.myairporttaxini.co.uk/tap";
@@ -39,46 +41,169 @@ try {
   logoDataUri = "";
 }
 
-const plate = `<?xml version="1.0" encoding="UTF-8"?>
+const logoMarkup = logoDataUri
+  ? `<image href="${logoDataUri}" x="90" y="58" width="620" height="108" preserveAspectRatio="xMinYMid meet"/>`
+  : `<text x="90" y="120" fill="#F5F7FA" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700">My Airport Taxi NI</text>`;
+
+/** Shared premium plate artwork (embedded assets for offline print). */
+function buildPlate({ embedQrHref, embedLogoMarkup }) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="150mm" height="100mm" viewBox="0 0 1500 1000" role="img"
   aria-label="My Airport Taxi NI headrest Tap and Scan plate">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#071C38"/>
-      <stop offset="100%" stop-color="#090B10"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="42%" stop-color="#07101C"/>
+      <stop offset="100%" stop-color="#050607"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="28%" r="62%">
+      <stop offset="0%" stop-color="#0E2744" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#07101C" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#050607" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="emeraldHairline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2FBF4A" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#2FBF4A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#2FBF4A" stop-opacity="0"/>
     </linearGradient>
   </defs>
+
   <rect width="1500" height="1000" fill="url(#bg)"/>
-  <rect x="24" y="24" width="1452" height="952" rx="28" fill="none" stroke="#2FBF4A" stroke-opacity="0.35" stroke-width="4"/>
-  ${
-    logoDataUri
-      ? `<image href="${logoDataUri}" x="80" y="70" width="720" height="126" preserveAspectRatio="xMinYMid meet"/>`
-      : `<text x="80" y="140" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700">My Airport Taxi NI</text>`
-  }
-  <text x="750" y="260" text-anchor="middle" fill="#2FBF4A" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" letter-spacing="6">THANK YOU FOR TRAVELLING WITH US</text>
-  <text x="750" y="310" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.75" font-family="Arial, Helvetica, sans-serif" font-size="26">Tap the NFC badge or scan the QR code</text>
+  <rect width="1500" height="1000" fill="url(#glow)"/>
+
+  <!-- Subtle premium double border -->
+  <rect x="28" y="28" width="1444" height="944" rx="18" fill="none" stroke="#2FBF4A" stroke-opacity="0.22" stroke-width="2"/>
+  <rect x="40" y="40" width="1420" height="920" rx="12" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
+
+  ${embedLogoMarkup}
+
+  <text x="750" y="232" text-anchor="middle" fill="#F4F6F8"
+    font-family="Georgia, 'Times New Roman', Times, serif" font-size="58" font-weight="700"
+    letter-spacing="4">ENJOYED YOUR JOURNEY?</text>
+
+  <rect x="280" y="262" width="940" height="2" fill="url(#emeraldHairline)"/>
+
+  <text x="750" y="312" text-anchor="middle" fill="#2FBF4A" fill-opacity="0.92"
+    font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="600"
+    letter-spacing="2.8">GOOGLE REVIEW • LEAVE A TIP • SAVE CONTACT • BOOK AGAIN</text>
+
+  <!-- NFC tap area (left) — same centre as previous plate; chip mounts behind -->
   <g transform="translate(280,620)">
-    <circle r="170" fill="#FFFFFF" fill-opacity="0.06" stroke="#2FBF4A" stroke-width="6"/>
-    <circle r="132" fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="3"/>
-    <circle r="78" fill="#2FBF4A"/>
-    <path d="M-28 -8c18-18 46-18 64 0" fill="none" stroke="#071C38" stroke-width="10" stroke-linecap="round"/>
-    <path d="M-42 -22c28-28 70-28 98 0" fill="none" stroke="#071C38" stroke-width="8" stroke-linecap="round"/>
-    <path d="M-14 6c10-10 26-10 36 0" fill="none" stroke="#071C38" stroke-width="10" stroke-linecap="round"/>
-    <text y="230" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="3">TAP HERE</text>
-    <text y="272" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.55" font-family="Arial, Helvetica, sans-serif" font-size="22">NFC · phone near badge</text>
+    <circle r="168" fill="#FFFFFF" fill-opacity="0.035" stroke="#2FBF4A" stroke-opacity="0.45" stroke-width="3.5"/>
+    <circle r="128" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="2"/>
+    <circle r="74" fill="#1FA63A"/>
+    <path d="M-26 -7c16-16 42-16 58 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
+    <path d="M-40 -20c26-26 66-26 92 0" fill="none" stroke="#050607" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-13 6c9-9 24-9 33 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
+    <text y="228" text-anchor="middle" fill="#F4F6F8"
+      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
+      letter-spacing="4">TAP</text>
   </g>
-  <g transform="translate(1040,620)">
-    <rect x="-210" y="-210" width="420" height="420" rx="24" fill="#FFFFFF"/>
-    <image href="${pngDataUri}" x="-175" y="-175" width="350" height="350" preserveAspectRatio="xMidYMid meet"/>
-    <text y="250" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" letter-spacing="3">SCAN QR</text>
-    <text y="292" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.55" font-family="Arial, Helvetica, sans-serif" font-size="22">Camera · high contrast</text>
+
+  <!-- QR (right) — same centre; white quiet zone; QR ECC H + margin 4 -->
+  <g transform="translate(1040,600)">
+    <rect x="-210" y="-210" width="420" height="420" rx="16" fill="#FFFFFF"/>
+    <image href="${embedQrHref}" x="-175" y="-175" width="350" height="350" preserveAspectRatio="xMidYMid meet"/>
+    <text y="248" text-anchor="middle" fill="#F4F6F8"
+      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
+      letter-spacing="4">SCAN</text>
   </g>
-  <text x="750" y="930" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.55" font-family="Arial, Helvetica, sans-serif" font-size="24">www.myairporttaxini.co.uk/tap</text>
+
+  <text x="750" y="938" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.42"
+    font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="1.5">www.myairporttaxini.co.uk/tap</text>
 </svg>
 `;
-writeFileSync(join(outDir, "headrest-plate-150x100-print.svg"), plate, "utf8");
+}
+
+const printPlate = buildPlate({
+  embedQrHref: pngDataUri,
+  embedLogoMarkup: logoMarkup,
+});
+writeFileSync(join(outDir, "headrest-plate-150x100-print.svg"), printPlate, "utf8");
+
+const editablePlate = `<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Printable headrest plate — 150 × 100 mm landscape.
+  Print at 100% scale (no “fit to page”). Keep the quiet zone around the QR.
+  Program the NFC chip with the same HTTPS URL as the QR: https://www.myairporttaxini.co.uk/tap
+  Prefer headrest-plate-150x100-print.svg (embedded logo + QR) for offline print.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="150mm" height="100mm" viewBox="0 0 1500 1000" role="img"
+  aria-label="My Airport Taxi NI headrest Tap and Scan plate">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="42%" stop-color="#07101C"/>
+      <stop offset="100%" stop-color="#050607"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="28%" r="62%">
+      <stop offset="0%" stop-color="#0E2744" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#07101C" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#050607" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="emeraldHairline" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2FBF4A" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#2FBF4A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#2FBF4A" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1500" height="1000" fill="url(#bg)"/>
+  <rect width="1500" height="1000" fill="url(#glow)"/>
+  <rect x="28" y="28" width="1444" height="944" rx="18" fill="none" stroke="#2FBF4A" stroke-opacity="0.22" stroke-width="2"/>
+  <rect x="40" y="40" width="1420" height="920" rx="12" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
+
+  <image href="/logo-wide.svg" x="90" y="58" width="620" height="108" preserveAspectRatio="xMinYMid meet"/>
+
+  <text x="750" y="232" text-anchor="middle" fill="#F4F6F8"
+    font-family="Georgia, 'Times New Roman', Times, serif" font-size="58" font-weight="700"
+    letter-spacing="4">ENJOYED YOUR JOURNEY?</text>
+  <rect x="280" y="262" width="940" height="2" fill="url(#emeraldHairline)"/>
+  <text x="750" y="312" text-anchor="middle" fill="#2FBF4A" fill-opacity="0.92"
+    font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="600"
+    letter-spacing="2.8">GOOGLE REVIEW • LEAVE A TIP • SAVE CONTACT • BOOK AGAIN</text>
+
+  <g transform="translate(280,620)">
+    <circle r="168" fill="#FFFFFF" fill-opacity="0.035" stroke="#2FBF4A" stroke-opacity="0.45" stroke-width="3.5"/>
+    <circle r="128" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="2"/>
+    <circle r="74" fill="#1FA63A"/>
+    <path d="M-26 -7c16-16 42-16 58 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
+    <path d="M-40 -20c26-26 66-26 92 0" fill="none" stroke="#050607" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-13 6c9-9 24-9 33 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
+    <text y="228" text-anchor="middle" fill="#F4F6F8"
+      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
+      letter-spacing="4">TAP</text>
+  </g>
+
+  <g transform="translate(1040,600)">
+    <rect x="-210" y="-210" width="420" height="420" rx="16" fill="#FFFFFF"/>
+    <image href="qr.svg" x="-175" y="-175" width="350" height="350" preserveAspectRatio="xMidYMid meet"/>
+    <text y="248" text-anchor="middle" fill="#F4F6F8"
+      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
+      letter-spacing="4">SCAN</text>
+  </g>
+
+  <text x="750" y="938" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.42"
+    font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="1.5">www.myairporttaxini.co.uk/tap</text>
+</svg>
+`;
+writeFileSync(join(outDir, "headrest-plate-150x100.svg"), editablePlate, "utf8");
+
+// PNG preview at print aspect (1500×1000 ≈ 300 dpi for 150×100 mm)
+try {
+  const sharp = require("sharp");
+  await sharp(Buffer.from(printPlate))
+    .resize(1500, 1000, { fit: "fill" })
+    .png()
+    .toFile(join(outDir, "headrest-plate-150x100-preview.png"));
+  console.log(`Wrote ${join(outDir, "headrest-plate-150x100-preview.png")}`);
+} catch (err) {
+  console.warn("PNG preview skipped:", err?.message || err);
+}
 
 console.log(`Wrote ${join(outDir, "qr.svg")}`);
 console.log(`Wrote ${join(outDir, "qr.png")} (1200px, ECC H, quiet zone 4)`);
 console.log(`Wrote ${join(outDir, "headrest-plate-150x100-print.svg")}`);
+console.log(`Wrote ${join(outDir, "headrest-plate-150x100.svg")}`);
 console.log(`URL: ${url}`);
