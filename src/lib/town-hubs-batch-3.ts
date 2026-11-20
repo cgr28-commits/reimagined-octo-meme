@@ -12,7 +12,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Newtownards",
     hubSlug: "newtownards-airport-taxis",
     title: "Newtownards Airport Taxi & Airport Transfers",
-    seoTitle: "Newtownards Taxi to Belfast City & International Airport | 5★",
+    seoTitle: "Newtownards Taxi to Belfast City & International Airport",
     h1: "Newtownards Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book a Newtownards airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from the Ards. Quote your street.",
@@ -52,7 +52,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Dundonald",
     hubSlug: "dundonald-airport-taxis",
     title: "Dundonald Airport Taxi & Airport Transfers",
-    seoTitle: "Dundonald Taxi to Belfast City & International Airport | 5★",
+    seoTitle: "Dundonald Taxi to Belfast City & International Airport",
     h1: "Dundonald Airport Taxi & Airport Transfers",
     metaDescription:
       "Book a Dundonald airport taxi for Belfast City, Belfast International or Dublin Airport. Fixed-price A20 transfers, quoted from your street.",
@@ -92,7 +92,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Comber",
     hubSlug: "comber-airport-taxis",
     title: "Comber Airport Taxi & Airport Transfers",
-    seoTitle: "Comber Taxi to Belfast City & International Airport | 5★",
+    seoTitle: "Comber Taxi to Belfast City & International Airport",
     h1: "Comber Airport Taxi & Airport Transfers",
     metaDescription:
       "Choose a Comber airport taxi for Belfast International, Belfast City or Dublin Airport. A22 routes toward Dundonald, with a fixed quote online.",
@@ -132,7 +132,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Carryduff",
     hubSlug: "carryduff-airport-taxis",
     title: "Carryduff Airport Taxi & Airport Transfers",
-    seoTitle: "Carryduff Taxi to Belfast City & International Airport | 5★",
+    seoTitle: "Carryduff Taxi to Belfast City & International Airport",
     h1: "Carryduff Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book a Carryduff airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from the A24 Saintfield Road.",
@@ -172,7 +172,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Hillsborough",
     hubSlug: "hillsborough-airport-taxis",
     title: "Hillsborough Airport Taxi & Airport Transfers",
-    seoTitle: "Hillsborough Taxi to Belfast International & Dublin Airport | 5★",
+    seoTitle: "Hillsborough Taxi to Belfast International & Dublin Airport",
     h1: "Hillsborough Airport Taxi & Airport Transfers",
     metaDescription:
       "Book a Hillsborough airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price A1 transfers, quoted from the village.",
@@ -212,7 +212,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Moira",
     hubSlug: "moira-airport-taxis",
     title: "Moira Airport Taxi & Airport Transfers",
-    seoTitle: "Moira Taxi to Belfast International & Dublin Airport | 5★",
+    seoTitle: "Moira Taxi to Belfast International & Dublin Airport",
     h1: "Moira Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book a Moira airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price M1 transfers, quoted from your street online.",
@@ -252,7 +252,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Glengormley",
     hubSlug: "glengormley-airport-taxis",
     title: "Glengormley Airport Taxi & Airport Transfers",
-    seoTitle: "Glengormley Taxi to Belfast International & City Airport | 5★",
+    seoTitle: "Glengormley Taxi to Belfast International & City Airport",
     h1: "Glengormley Airport Taxi & Airport Transfers",
     metaDescription:
       "Book a Glengormley airport taxi to Belfast International, Belfast City or Dublin Airport. Fixed-price transfers from Sandyknowes, quoted live.",
@@ -292,7 +292,7 @@ export const TOWN_HUB_BATCH_3: TownHubContent[] = [
     addressHint: "Whiteabbey",
     hubSlug: "whiteabbey-airport-taxis",
     title: "Whiteabbey Airport Taxi & Airport Transfers",
-    seoTitle: "Whiteabbey Taxi to Belfast International & City Airport | 5★",
+    seoTitle: "Whiteabbey Taxi to Belfast International & City Airport",
     h1: "Whiteabbey Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book a Whiteabbey airport taxi to Belfast City, Belfast International or Dublin Airport. Fixed-price Shore Road transfers, quoted live online.",

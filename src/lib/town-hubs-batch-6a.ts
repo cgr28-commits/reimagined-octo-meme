@@ -12,7 +12,7 @@ export const TOWN_HUB_BATCH_6A: TownHubContent[] = [
     addressHint: "Banbridge",
     hubSlug: "banbridge-airport-taxis",
     title: "Banbridge Airport Taxi & Airport Transfers",
-    seoTitle: "Banbridge & Dromore Airport Taxi | Fixed Price, 5★ Rated",
+    seoTitle: "Banbridge & Dromore Airport Taxi | Fixed Price",
     h1: "Banbridge Airport Taxi & Airport Transfers",
     metaDescription:
       "Pre-book an airport taxi from Banbridge, Dromore, Gilford or Rathfriland to Belfast International, Belfast City or Dublin Airport. Fixed fare from your door.",

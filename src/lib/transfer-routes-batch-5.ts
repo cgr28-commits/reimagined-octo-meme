@@ -15,7 +15,7 @@ export const TRANSFER_ROUTE_BATCH_5: TransferRouteContent[] = [
     title: "Coleraine to Belfast International Airport Taxi",
     h1: "Coleraine to Belfast International Airport Taxi",
     metaDescription:
-      "Book a private taxi from Coleraine, Portrush or Portstewart to Belfast International Airport. Fixed-price A26 transfer from your door. Rated 5★ on Google.",
+      "Book a private taxi from Coleraine, Portrush or Portstewart to Belfast International Airport. Fixed-price A26 transfer from your door.",
     intro:
       "Coleraine to Belfast International Airport is the main airport run from the Causeway Coast: the A26 south through Ballymoney and Ballymena, then on towards Antrim and Aldergrove. My Airport Taxi NI collects from Coleraine, Portrush, Portstewart, Castlerock, Bushmills and Ballymoney, and quotes a fixed price from your exact street, with Belfast International already selected on this page. Early departures mean very early starts from the north coast, so the booking form takes overnight and first-light pickup times. Travelling from Belfast International Airport back to Coleraine or Portrush? Book the collection here too and add your flight number; we monitor inbound flights where possible and airport pickups include complimentary waiting. Holiday lets and caravan parks should include the property or park name. Add a return if you want both legs on one booking, and message us on WhatsApp if a pickup needs a named door.",
     journeyInfo: `The A26 south through Ballymoney and Ballymena, then on towards Antrim and Aldergrove, is the usual line. Ballymena and the approach to the airport are the parts to allow for. ${TRAFFIC}`,
@@ -60,7 +60,7 @@ export const TRANSFER_ROUTE_BATCH_5: TransferRouteContent[] = [
     title: "Coleraine to Belfast City Airport Taxi",
     h1: "Coleraine to Belfast City Airport Taxi",
     metaDescription:
-      "Book a private taxi from Coleraine, Portrush or Portstewart to George Best Belfast City Airport. Fixed-price A26 and M2 transfer from your door. 5★ on Google.",
+      "Book a private taxi from Coleraine, Portrush or Portstewart to George Best Belfast City Airport. Fixed-price A26 and M2 transfer from your door.",
     intro:
       "Coleraine to Belfast City Airport is a reserved run from the Causeway Coast to George Best Belfast City Airport: the A26 south through Ballymoney and Ballymena, the M2 into Belfast, then across to Sydenham. It suits short business trips and flights to Great Britain. My Airport Taxi NI collects from Coleraine, Portrush, Portstewart, Castlerock, Bushmills and Ballymoney, and quotes a fixed price from your exact street, with Belfast City Airport already selected on this page. Early flights mean early starts from the north coast, so the booking form takes overnight pickup times. Flying back into Belfast City Airport? Book the collection here with your flight number; we monitor inbound flights where possible and airport pickups include complimentary waiting. Enter the full address, including any holiday-let or caravan-park name. Add a return to keep both directions on one booking, and message us on WhatsApp with any questions.",
     journeyInfo: `The A26 south, the M2 into Belfast, then across the city to Sydenham is the usual line. The Belfast end of the run is the part to allow for at peak times. ${TRAFFIC}`,
@@ -106,7 +106,7 @@ export const TRANSFER_ROUTE_BATCH_5: TransferRouteContent[] = [
     title: "Coleraine to Dublin Airport Taxi",
     h1: "Coleraine to Dublin Airport Taxi",
     metaDescription:
-      "Book a private taxi from Coleraine, Portrush or Portstewart to Dublin Airport. Fixed-price long-distance transfer with applicable M1 tolls included. 5★ on Google.",
+      "Book a private taxi from Coleraine, Portrush or Portstewart to Dublin Airport. Fixed-price long-distance transfer with applicable M1 tolls included.",
     intro:
       "Coleraine to Dublin Airport is a reserved long transfer south from the Causeway Coast: the A26 to the M2, through Belfast onto the M1 and A1, across the border and down the M1 to the airport. My Airport Taxi NI quotes it as a Dublin Airport fare with applicable M1 tolls included, and this page already has Dublin Airport selected — you add your pickup street. First-wave Dublin flights mean very early starts from the north coast, so the booking form accepts overnight pickup times. Tell us your terminal when you know it. Coming home from Dublin Airport to Coleraine or Portrush? Book the collection here with your flight number; we monitor inbound flights where possible, your driver meets you in Arrivals, and airport pickups include complimentary waiting. Enter the full address, including any holiday-let name. Add a return to keep both directions on one booking, and message us on WhatsApp with any questions.",
     journeyInfo: `The A26 and M2 to Belfast, then the M1 and A1 south and the M1 in the Republic, is the usual line. The Belfast section and the run past Newry are the parts to allow for. ${TRAFFIC}`,

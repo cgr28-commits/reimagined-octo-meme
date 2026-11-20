@@ -16,7 +16,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Armagh to Belfast International Airport Taxi",
     h1: "Armagh to Belfast International Airport Taxi",
     metaDescription:
-      "Private taxi from Armagh, Richhill, Markethill or Loughgall to Belfast International Airport. Fixed price via the A3 and M1, booked from your door. 5★ Google.",
+      "Private taxi from Armagh, Richhill, Markethill or Loughgall to Belfast International Airport. Fixed price via the A3 and M1, booked from your door.",
     intro:
       "Armagh to Belfast International Airport takes you out of the cathedral city on the A3 through Richhill towards Portadown, onto the M1 heading east, and then north across country to Aldergrove. My Airport Taxi NI collects from Armagh city, Markethill, Richhill, Keady, Tandragee and Loughgall, and this page already has Belfast International selected, so you only add your pickup address to see a fixed price. Plenty of Aldergrove flights leave early in the morning, and the booking form takes pickup times through the night so you are not relying on a lift or a week in the long-stay car park. Flying back into Belfast International? Book the collection here with your flight number; we monitor arrivals where possible and airport pickups include complimentary waiting. Orchard-country addresses around Loughgall and Richhill should include the house name or townland. Add a return to keep both legs on one booking, and message us on WhatsApp if the pickup needs directions.",
     journeyInfo: `The A3 through Richhill towards Portadown, the M1 east, then north towards Aldergrove is the usual line. The Portadown end of the A3 and the cross-country stretch to the airport are the parts to allow for. ${TRAFFIC}`,
@@ -63,7 +63,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Armagh to Belfast City Airport Taxi",
     h1: "Armagh to Belfast City Airport Taxi",
     metaDescription:
-      "Book a fixed-price taxi from Armagh, Tandragee or Keady to George Best Belfast City Airport. M1, Westlink and M3 transfer from your door. Rated 5★ on Google.",
+      "Book a fixed-price taxi from Armagh, Tandragee or Keady to George Best Belfast City Airport. M1, Westlink and M3 transfer from your door.",
     intro:
       "Armagh to Belfast City Airport is a reserved transfer to George Best Belfast City Airport: the A3 out of Armagh to join the M1, the motorway all the way into Belfast, then the Westlink and the M3 across the harbour to Sydenham. It is a popular choice for business trips and short flights to Great Britain. My Airport Taxi NI collects from Armagh city, Markethill, Richhill, Keady, Tandragee and Loughgall, and Belfast City Airport is already selected on this page so you just add your street for a fixed price. Early departures from the city airport mean early starts from County Armagh, and the booking form accepts pickup times before dawn. Returning to Belfast City Airport? Book the collection here with your flight number; we monitor inbound flights where possible and airport pickups include complimentary waiting. Enter the full address, including any house name. Add a return to keep both directions together, and message us on WhatsApp with any questions.",
     journeyInfo: `The A3 to the M1, the M1 into Belfast, then the Westlink and M3 to Sydenham is the usual line. The Westlink and the city approach are the parts to allow for at rush hour. ${TRAFFIC}`,
@@ -109,7 +109,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Armagh to Dublin Airport Taxi",
     h1: "Armagh to Dublin Airport Taxi",
     metaDescription:
-      "Pre-book a taxi from Armagh, Markethill or Keady to Dublin Airport. Fixed-price transfer via the A28 and Newry, applicable M1 tolls included. 5★ on Google.",
+      "Pre-book a taxi from Armagh, Markethill or Keady to Dublin Airport. Fixed-price transfer via the A28 and Newry, applicable M1 tolls included.",
     intro:
       "Armagh to Dublin Airport is one of the most natural cross-border runs we do: the A28 south through Markethill to Newry, then the A1 to the border and the M1 through Dundalk and Drogheda to the airport. Many people in County Armagh find Dublin offers more direct flights than either Belfast airport, and a pre-booked car means no long-stay parking bill at the other end. My Airport Taxi NI quotes this as a fixed Dublin Airport fare with applicable M1 tolls included, and Dublin Airport is already selected on this page — you add your pickup address. Early transatlantic and European departures are no problem, as the booking form accepts overnight pickup times. Tell us your terminal once you know it. Flying home into Dublin? Book the collection here with your flight number; we monitor it where possible, your driver meets you in Arrivals, and airport pickups include complimentary waiting. Add a return to keep both legs together.",
     journeyInfo: `The A28 through Markethill to Newry, then the A1 and the M1 in the Republic, is the usual line. Newry and the airport approach on the M1 are the parts to allow for. ${TRAFFIC}`,
@@ -155,7 +155,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Dungannon to Belfast International Airport Taxi",
     h1: "Dungannon to Belfast International Airport Taxi",
     metaDescription:
-      "Taxi from Dungannon, Coalisland or Moy to Belfast International Airport at a fixed price. M1 transfer from your front door, booked ahead. Rated 5★ on Google.",
+      "Taxi from Dungannon, Coalisland or Moy to Belfast International Airport at a fixed price. M1 transfer from your front door, booked ahead.",
     intro:
       "Dungannon to Belfast International Airport begins right at the western end of the M1: the motorway east past the Lough Neagh side of County Armagh, then north across country to Aldergrove. My Airport Taxi NI collects from Dungannon, Coalisland, Moy, Donaghmore, Ballygawley and Aughnacloy, and quotes a fixed price from your exact address, with Belfast International already chosen on this page. Early flights from Aldergrove are easier when someone else does the driving, and the booking form takes pickup times through the night. Coming back into Belfast International? Book the collection here and add your flight number; we monitor arrivals where possible and airport pickups include complimentary waiting. Clogher Valley pickups around Ballygawley and Aughnacloy are priced from that village, so type the full address rather than just Dungannon. Rural homes should include a house name or townland. Add a return to put both journeys on one booking, and message us on WhatsApp with any questions.",
     journeyInfo: `The M1 east from Dungannon, then north across country towards Aldergrove, is the usual line. Pickups out in the Clogher Valley add the run back to the motorway, and the final approach to the airport is the part to allow for. ${TRAFFIC}`,
@@ -201,7 +201,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Dungannon to Belfast City Airport Taxi",
     h1: "Dungannon to Belfast City Airport Taxi",
     metaDescription:
-      "Fixed-fare taxi from Dungannon, Donaghmore or Ballygawley to George Best Belfast City Airport. The full M1 into Belfast, booked ahead from your door. 5★ Google.",
+      "Fixed-fare taxi from Dungannon, Donaghmore or Ballygawley to George Best Belfast City Airport. The full M1 into Belfast, booked ahead from your door.",
     intro:
       "Dungannon to Belfast City Airport is about as simple as a cross-province run gets: join the M1 at its western end, follow it the whole way into Belfast, then take the Westlink and the M3 over to Sydenham and George Best Belfast City Airport. It suits business travellers and anyone on a short flight to London, Manchester or elsewhere in Great Britain. My Airport Taxi NI collects from Dungannon, Coalisland, Moy, Donaghmore, Ballygawley and Aughnacloy, and this page already has Belfast City Airport selected, so you add your address for a fixed price. The booking form accepts early-morning pickups for the first departures. Flying back into Belfast City Airport? Book the collection here with your flight number; we monitor inbound flights where possible and airport pickups include complimentary waiting. Enter the full address, including any house name or townland. Add a return to keep both directions on one booking, and message us on WhatsApp if you need help.",
     journeyInfo: `The M1 from Dungannon into Belfast, then the Westlink and M3 to Sydenham, is the usual line. The Belfast end of the M1 and the Westlink are the parts to allow for at peak times. ${TRAFFIC}`,
@@ -247,7 +247,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Dungannon to Dublin Airport Taxi",
     h1: "Dungannon to Dublin Airport Taxi",
     metaDescription:
-      "Book a taxi from Dungannon, Moy, Coalisland or Aughnacloy to Dublin Airport. Fixed-price cross-border transfer, applicable M1 tolls included. 5★ on Google.",
+      "Book a taxi from Dungannon, Moy, Coalisland or Aughnacloy to Dublin Airport. Fixed-price cross-border transfer, applicable M1 tolls included.",
     intro:
       "Dungannon to Dublin Airport is a reserved cross-border transfer, and from here there is more than one sensible way south. Most runs head towards Newry and then follow the A1 and the M1 through Dundalk and Drogheda, while pickups on the Clogher Valley side around Aughnacloy can cross into County Monaghan and come down through Monaghan instead. Your driver picks the best line on the day. My Airport Taxi NI quotes a fixed Dublin Airport fare with applicable M1 tolls included, and this page already has Dublin Airport selected — you add your address in Dungannon, Coalisland, Moy, Donaghmore, Ballygawley or Aughnacloy. The booking form accepts overnight pickups for first-wave departures. Let us know your terminal once you have it. Coming home through Dublin? Book the collection here with your flight number; we monitor it where possible, your driver meets you in Arrivals, and airport pickups include complimentary waiting. Add a return for both legs.",
     journeyInfo: `Towards Newry and then the A1 and M1 south is the usual line, with the Monaghan road an option from the Aughnacloy side. The Newry area and the M1 approach to the airport are the parts to allow for. ${TRAFFIC}`,
@@ -294,7 +294,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Cookstown to Belfast International Airport Taxi",
     h1: "Cookstown to Belfast International Airport Taxi",
     metaDescription:
-      "Fixed-price taxi from Cookstown, Magherafelt or Moneymore to Belfast International Airport, round the top of Lough Neagh via Toome. Book ahead. 5★ Google.",
+      "Fixed-price taxi from Cookstown, Magherafelt or Moneymore to Belfast International Airport, round the top of Lough Neagh via Toome. Book ahead.",
     intro:
       "Cookstown to Belfast International Airport is the closest airport run from Mid Ulster: across to the A6 at Toome, round the top of Lough Neagh past Randalstown, then on towards Antrim and Aldergrove. My Airport Taxi NI collects from Cookstown, Magherafelt, Moneymore, Maghera, Stewartstown and Pomeroy, and this page already has Belfast International selected, so you add your address for a fixed price. Early departures are common from Aldergrove, and the booking form takes overnight pickup times so nobody has to drive you there in the dark. Landing back at Belfast International? Book the collection here and add your flight number; we monitor arrivals where possible and airport pickups include complimentary waiting. Magherafelt and Maghera are priced separately from Cookstown, so give the full address. Lough-shore and Sperrin-side homes should include the house name or townland. Add a return to keep both legs together, and message us on WhatsApp with any questions.",
     journeyInfo: `Across to the A6 at Toome, past Randalstown, then on towards Antrim and Aldergrove is the usual line. The crossing at Toome and the final approach to the airport are the parts to allow for. ${TRAFFIC}`,
@@ -340,7 +340,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Cookstown to Belfast City Airport Taxi",
     h1: "Cookstown to Belfast City Airport Taxi",
     metaDescription:
-      "Taxi from Cookstown, Maghera or Magherafelt to George Best Belfast City Airport. Fixed fare via the A6, M22 and M2, booked from your door. Rated 5★ on Google.",
+      "Taxi from Cookstown, Maghera or Magherafelt to George Best Belfast City Airport. Fixed fare via the A6, M22 and M2, booked from your door.",
     intro:
       "Cookstown to Belfast City Airport is a reserved transfer from Mid Ulster to George Best Belfast City Airport: across to the A6 at Toome, onto the M22 at Randalstown, down the M2 into Belfast, then across the city to Sydenham. It works well for business travellers and short flights to Great Britain. My Airport Taxi NI collects from Cookstown, Magherafelt, Moneymore, Maghera, Stewartstown and Pomeroy, and Belfast City Airport is already selected on this page, so you add your street to see a fixed price. First flights out of the city airport mean early starts west of Lough Neagh, and the booking form accepts pre-dawn pickup times. Flying home to Belfast City Airport? Book the collection here with your flight number; we monitor inbound flights where possible and airport pickups include complimentary waiting. Enter the full address, including any house name. Add a return to keep both directions on one booking, and message us on WhatsApp if anything needs explaining.",
     journeyInfo: `The A6 via Toome, the M22 and M2 into Belfast, then across the city to Sydenham is the usual line. The M2 into the city and the cross-town section are the parts to allow for at peak times. ${TRAFFIC}`,
@@ -386,7 +386,7 @@ export const TRANSFER_ROUTE_BATCH_6B: TransferRouteContent[] = [
     title: "Cookstown to Dublin Airport Taxi",
     h1: "Cookstown to Dublin Airport Taxi",
     metaDescription:
-      "Book a private taxi from Cookstown, Magherafelt or Pomeroy to Dublin Airport. Fixed-price transfer via Dungannon and the M1, applicable tolls included. 5★ Google.",
+      "Book a private taxi from Cookstown, Magherafelt or Pomeroy to Dublin Airport. Fixed-price transfer via Dungannon and the M1, applicable tolls included.",
     intro:
       "Cookstown to Dublin Airport is a reserved long-distance transfer that heads south rather than round the lough: down the A29 to Dungannon, onto the M1, then across to the A1 and past Newry to the border, finishing on the M1 through Dundalk and Drogheda. For Mid Ulster travellers on long-haul or cheaper Dublin flights it avoids a tiring drive and a week of airport parking. My Airport Taxi NI quotes a fixed Dublin Airport fare with applicable M1 tolls included, and Dublin Airport is already selected on this page — add your address in Cookstown, Magherafelt, Moneymore, Maghera, Stewartstown or Pomeroy. The booking form takes overnight pickup times for early departures. Tell us your terminal when you know it. Flying back into Dublin? Book the collection here with your flight number; we monitor it where possible, your driver meets you in Arrivals, and airport pickups include complimentary waiting. Add a return to keep both legs together.",
     journeyInfo: `The A29 to Dungannon, the M1 east, then the A1 past Newry and the M1 in the Republic, is the usual line. Pickups north of Cookstown add the run down to Dungannon, and the Newry area is the part to allow for. ${TRAFFIC}`,

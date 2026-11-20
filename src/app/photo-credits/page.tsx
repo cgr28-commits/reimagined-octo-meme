@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   title: `Photo credits | ${SITE.name}`,
   description: `Credits and licences for photographs used on the ${SITE.name} website.`,
   alternates: { canonical: "/photo-credits/" },
+  robots: {
+    index: false,
+    follow: true,
+  },
 };
 
 type Credit = {

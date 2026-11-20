@@ -16,7 +16,7 @@ export const TRANSFER_ROUTE_BATCH_6A: TransferRouteContent[] = [
     title: "Banbridge to Belfast International Airport Taxi",
     h1: "Banbridge to Belfast International Airport Taxi",
     metaDescription:
-      "Private taxi from Banbridge, Dromore or Gilford to Belfast International Airport. Fixed fare via the A1 and Sprucefield, Express Drop-Off included. 5★ on Google.",
+      "Private taxi from Banbridge, Dromore or Gilford to Belfast International Airport. Fixed fare via the A1 and Sprucefield, Express Drop-Off included.",
     intro:
       "Banbridge to Belfast International Airport takes you north up the A1 past Dromore towards Sprucefield, then across country to Aldergrove. My Airport Taxi NI collects from Banbridge, Dromore, Gilford, Rathfriland, Loughbrickland and Scarva, and prices the trip as a fixed fare from your exact address, with Belfast International already selected on this page. Many sun-holiday and low-cost departures leave Aldergrove early in the morning, so the booking form happily takes pre-dawn pickup times from the Banbridge area. Express Drop-Off and the applicable airport access charge are built into the price, so there is nothing extra to pay at the barrier. Flying home into Belfast International? Book the collection here and add your flight number; we monitor flights where possible and airport pickups include up to 60 minutes complimentary waiting. Add a return to keep both legs on one booking, and message us on WhatsApp if your farm lane or estate needs directions.",
     journeyInfo: `The A1 north past Dromore to Sprucefield, then cross-country towards Aldergrove, is the usual line. The Sprucefield junctions and the roads approaching the airport are the parts to allow for. ${TRAFFIC}`,
@@ -63,7 +63,7 @@ export const TRANSFER_ROUTE_BATCH_6A: TransferRouteContent[] = [
     title: "Banbridge to Belfast City Airport Taxi",
     h1: "Banbridge to Belfast City Airport Taxi",
     metaDescription:
-      "Book a fixed-price taxi from Banbridge, Dromore or Scarva to George Best Belfast City Airport via the A1, M1 and Westlink. Pre-booked driver, rated 5★ on Google.",
+      "Book a fixed-price taxi from Banbridge, Dromore or Scarva to George Best Belfast City Airport via the A1, M1 and Westlink. Pre-booked driver, rated.",
     intro:
       "Banbridge to Belfast City Airport is a straightforward run up the A1 to Sprucefield, onto the M1 into Belfast, then along the Westlink and out to George Best Belfast City Airport at Sydenham. It is a popular choice from Banbridge for business trips and short flights to London, Manchester and other Great Britain airports. My Airport Taxi NI collects from Banbridge, Dromore, Gilford, Rathfriland, Loughbrickland and Scarva, and gives you a fixed price from your door, with Belfast City Airport preselected here. Express Drop-Off and the applicable airport access charge are included in the fare. Early business departures are no problem: choose your pickup time in the booking form, including before first light. Landing back at Belfast City? Book the collection with your flight number; we monitor flights where possible and allow up to 60 minutes complimentary waiting. Add a return trip if you are flying out and back the same week.",
     journeyInfo: `The A1 north to Sprucefield, the M1 into Belfast, then the Westlink and on towards Sydenham is the usual line. The M1 approach and the Westlink are the parts to allow for at rush hour. ${TRAFFIC}`,
@@ -204,7 +204,7 @@ export const TRANSFER_ROUTE_BATCH_6A: TransferRouteContent[] = [
     title: "Downpatrick to Belfast City Airport Taxi",
     h1: "Downpatrick to Belfast City Airport Taxi",
     metaDescription:
-      "Taxi from Downpatrick, Saintfield or Killyleagh to George Best Belfast City Airport up the A7. Fixed price from your door, Express Drop-Off included. 5★ rated.",
+      "Taxi from Downpatrick, Saintfield or Killyleagh to George Best Belfast City Airport up the A7. Fixed price from your door, Express Drop-Off included.",
     intro:
       "Downpatrick to Belfast City Airport is usually the shortest airport trip from St Patrick's country: up the A7 through Crossgar, Saintfield and Carryduff, then across east Belfast to George Best Belfast City Airport. That makes it a favourite for business flights and quick trips to Great Britain. My Airport Taxi NI collects from Downpatrick, Ballynahinch, Saintfield, Crossgar, Killyleagh and Ardglass, and gives you a fixed fare from your exact address, with Belfast City Airport already selected here. Express Drop-Off and the applicable airport access charge are included, and you can pick any time for the car to arrive, including well before first light. Heading home through Belfast City? Book the collection on this page with your flight number; we monitor flights where possible and airport pickups include up to 60 minutes complimentary waiting. Farms and townlands near Killyleagh should add a house name. Add a return if you are flying out and back.",
     journeyInfo: `The A7 north through Crossgar, Saintfield and Carryduff, then across east Belfast to Sydenham, is the usual line. The Carryduff end and the east Belfast roads are the parts to allow for at rush hour. ${TRAFFIC}`,
@@ -346,7 +346,7 @@ export const TRANSFER_ROUTE_BATCH_6A: TransferRouteContent[] = [
     title: "Newcastle to Belfast City Airport Taxi",
     h1: "Newcastle to Belfast City Airport Taxi",
     metaDescription:
-      "Book a fixed-fare taxi from Newcastle, Co Down or Clough to George Best Belfast City Airport via the A24. Ideal for golfers flying from Great Britain. 5★ Google.",
+      "Book a fixed-fare taxi from Newcastle, Co Down or Clough to George Best Belfast City Airport via the A24. Ideal for golfers flying from Great Britain.",
     intro:
       "Newcastle to Belfast City Airport is the classic golf transfer: George Best Belfast City Airport has frequent flights from London and other Great Britain airports, and the A24 runs north from Newcastle through Clough, Ballynahinch and Carryduff into Belfast and across to Sydenham. My Airport Taxi NI collects from Newcastle, Dundrum, Castlewellan, Annsborough and Clough, and quotes a fixed fare from your exact address, with Belfast City Airport already selected here. Express Drop-Off and the applicable airport access charge are included. Golf parties staying near Royal County Down should mention clubs and bags so we send the right vehicle, and the booking form takes early-morning and late-evening times. Flying into Belfast City for a round or a weekend in the Mournes? Book the collection on this page with your flight number; we monitor flights where possible and airport pickups include up to 60 minutes complimentary waiting. Add a return to cover both legs.",
     journeyInfo: `The A24 north through Clough, Ballynahinch and Carryduff into Belfast, then across to Sydenham, is the usual line. The Carryduff approach and the city roads are the parts to allow for at peak times. ${TRAFFIC}`,
