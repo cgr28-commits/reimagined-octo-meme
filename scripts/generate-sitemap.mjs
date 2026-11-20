@@ -247,6 +247,7 @@ const pages = [
   },
   { path: "/terms/", source: "src/lib/terms.ts" },
   { path: "/cancellation/", source: "shared/cancellation-policy.ts" },
+  { path: "/airport-transfer-prices/", source: "src/app/airport-transfer-prices/page.tsx" },
   { path: "/privacy/", source: "src/lib/privacy.ts" },
   { path: "/contact/", source: "src/app/contact/page.tsx" },
   {

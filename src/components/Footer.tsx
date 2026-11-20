@@ -221,6 +221,10 @@ export default function Footer() {
               Cancellation Policy
             </Link>
             <span className="text-white/20">|</span>
+            <Link href="/airport-transfer-prices/" className="transition-colors hover:text-emerald">
+              How prices work
+            </Link>
+            <span className="text-white/20">|</span>
             <Link href="/privacy/" className="transition-colors hover:text-emerald">
               Privacy Policy
             </Link>

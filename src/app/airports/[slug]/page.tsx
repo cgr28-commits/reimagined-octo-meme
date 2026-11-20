@@ -52,6 +52,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/** Existing FAQ answers shown above the longer travel tips. The wording stays in the FAQ data. */
+const EARLY_PRACTICAL_QUESTIONS: Partial<Record<string, readonly string[]>> = {
+  BFS: [
+    "Where will my driver meet me at Belfast International Airport?",
+    "What happens if my flight into Aldergrove is delayed?",
+  ],
+  BHD: [
+    "Where will my driver meet me at Belfast City Airport?",
+    "What if my flight into Belfast City is delayed?",
+  ],
+  DUB: ["What if my flight into Dublin is delayed?"],
+};
+
 const D2_AIRPORT_PLACE: Record<string, string> = {
   BFS: "Aldergrove",
   BHD: "Belfast City",
@@ -82,6 +95,9 @@ export default async function AirportTransferPage({ params }: Props) {
     areaServed: page.areaServed,
   });
   const faqLd = page.faqs?.length ? getFaqPageJsonLd(page.faqs) : null;
+  const earlyQuestions = new Set(EARLY_PRACTICAL_QUESTIONS[page.code] ?? []);
+  const earlyFaqs = (page.faqs ?? []).filter((faq) => earlyQuestions.has(faq.question));
+  const laterFaqs = (page.faqs ?? []).filter((faq) => !earlyQuestions.has(faq.question));
 
   return (
     <>
@@ -167,7 +183,15 @@ export default async function AirportTransferPage({ params }: Props) {
                 {page.code === "BFS" ? "Belfast City Airport taxi" : "Belfast International Airport taxi"}
               </Link>{" "}
               page. Belfast International is at Aldergrove, north-west of the city; Belfast City Airport
-              is beside the harbour in east Belfast.
+              is beside the harbour in east Belfast. For Dublin Airport, see our{" "}
+              <Link href="/transfers/belfast-to-dublin-airport/" className="font-semibold text-emerald underline underline-offset-4">
+                Belfast to Dublin Airport taxi
+              </Link>{" "}
+              and{" "}
+              <Link href="/transfers/dublin-airport-to-belfast/" className="font-semibold text-emerald underline underline-offset-4">
+                Dublin Airport to Belfast taxi
+              </Link>{" "}
+              pages.
             </p>
           ) : null}
           {page.code === "DUB" ? (
@@ -314,6 +338,26 @@ export default async function AirportTransferPage({ params }: Props) {
             </ul>
           </section>
 
+          {earlyFaqs.length > 0 ? (
+            <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
+              <h2 className="text-lg font-bold text-white">Meeting point, delays and waiting</h2>
+              <dl className="mt-4 space-y-5">
+                {earlyFaqs.map((faq) => (
+                  <div key={faq.question}>
+                    <dt className="text-sm font-semibold text-white">{faq.question}</dt>
+                    <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-5 text-sm leading-relaxed text-white/65">
+                <Link href="/airport-transfer-prices/" className="text-emerald underline underline-offset-4">
+                  How airport transfer prices work
+                </Link>
+                , including waiting time, tolls and cancellation.
+              </p>
+            </section>
+          ) : null}
+
           <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <h2 className="text-lg font-bold text-white">Local tips for {page.shortName}</h2>
             <ul className="mt-4 space-y-3 text-sm leading-relaxed text-white/65">
@@ -326,11 +370,11 @@ export default async function AirportTransferPage({ params }: Props) {
             </ul>
           </section>
 
-          {page.faqs?.length ? (
+          {laterFaqs.length ? (
             <section className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
               <h2 className="text-lg font-bold text-white">{airportTaxiAnchor(page)} FAQs</h2>
               <dl className="mt-4 space-y-5">
-                {page.faqs.map((faq) => (
+                {laterFaqs.map((faq) => (
                   <div key={faq.question}>
                     <dt className="text-sm font-semibold text-white">{faq.question}</dt>
                     <dd className="mt-1.5 text-sm leading-relaxed text-white/65">{faq.answer}</dd>

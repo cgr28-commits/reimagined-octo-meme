@@ -12,7 +12,7 @@ import styles from "./station.module.css";
 
 const path = "/belfast-grand-central-station-taxi/";
 const title = "Belfast Grand Central Station Taxi to Anywhere in NI";
-const description = "Arrived at Belfast Grand Central by train or coach? Pre-book a fixed-price taxi onward to anywhere in Northern Ireland or to the airports. 5★ on Google.";
+const description = "Arrived at Belfast Grand Central by train or coach? Pre-book a fixed-price taxi onward to anywhere in Northern Ireland or to the airports.";
 const stationGuide = "https://www.translink.co.uk/using-translink/station-finder/belfast-grand-central-station";
 const whatsapp = `https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like help arranging a Belfast Grand Central Station transfer.")}`;
 

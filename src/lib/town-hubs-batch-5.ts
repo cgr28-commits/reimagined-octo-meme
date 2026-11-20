@@ -12,10 +12,10 @@ export const TOWN_HUB_BATCH_5: TownHubContent[] = [
     addressHint: "Coleraine",
     hubSlug: "coleraine-airport-taxis",
     title: "Coleraine Airport Taxi & Airport Transfers",
-    seoTitle: "Coleraine, Portrush & Portstewart Airport Taxi | 5★ Rated",
+    seoTitle: "Coleraine, Portrush & Portstewart Airport Taxi",
     h1: "Coleraine Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book an airport taxi from Coleraine, Portrush or Portstewart to Belfast International, Belfast City or Dublin Airport. Fixed price from your door. 5★ Google.",
+      "Pre-book an airport taxi from Coleraine, Portrush or Portstewart to Belfast International, Belfast City or Dublin Airport. Fixed price from your door.",
     intro:
       "Coleraine, Portrush and Portstewart sit on the Causeway Coast, the far end of the A26 from Belfast, so a pre-booked airport taxi saves a long early drive and a week of airport parking. Start here to choose the airport, then open that route for a fixed price from your street. Belfast International is the usual choice: the A26 south through Ballymoney and Ballymena towards Antrim and Aldergrove. Belfast City Airport means carrying on down the M2 into Belfast and across to Sydenham, which suits short business trips to Great Britain. Dublin Airport is the long southbound transfer via the M2, the M1 and the A1, with applicable tolls included in the fare. We collect from Coleraine, Portrush, Portstewart, Castlerock, Bushmills and Ballymoney, including holiday lets, caravan parks and the university campus. Enter the full address rather than only the town name, because a Portrush seafront pickup and a Coleraine town pickup are different journeys.",
     blurb:

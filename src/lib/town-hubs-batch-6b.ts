@@ -12,10 +12,10 @@ export const TOWN_HUB_BATCH_6B: TownHubContent[] = [
     addressHint: "Armagh",
     hubSlug: "armagh-airport-taxis",
     title: "Armagh Airport Taxi & Airport Transfers",
-    seoTitle: "Armagh City Airport Taxi to Belfast & Dublin | 5★",
+    seoTitle: "Armagh City Airport Taxi to Belfast & Dublin",
     h1: "Armagh Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book an airport taxi from Armagh, Markethill, Richhill or Keady to Belfast International, Belfast City or Dublin Airport. Fixed price from your door. 5★ Google.",
+      "Pre-book an airport taxi from Armagh, Markethill, Richhill or Keady to Belfast International, Belfast City or Dublin Airport. Fixed price from your door.",
     intro:
       "Armagh is the cathedral city of the Orchard County, and it sits almost halfway between the Belfast airports and Dublin, so it is one of the few places in Northern Ireland where all three airports are genuinely worth comparing. Use this page to pick the airport, then open that route for a fixed price from your own street. Belfast International means the A3 out through Richhill towards Portadown, the M1 east, then north across country to Aldergrove. Belfast City Airport follows the M1 the whole way into Belfast, then the Westlink and the M3 out to Sydenham. Dublin Airport is often the natural pick from Armagh: the A28 through Markethill to Newry, then south on the A1 and the M1, with applicable tolls included in the fare. We collect across Armagh city, Markethill, Richhill, Keady, Tandragee and Loughgall, including farms and rural roads. Enter the full address with the townland or house name so the quote prices your exact pickup.",
     blurb:

@@ -12,10 +12,10 @@ export const TOWN_HUB_BATCH_4: TownHubContent[] = [
     addressHint: "Craigavon",
     hubSlug: "craigavon-airport-taxis",
     title: "Craigavon Airport Taxi & Airport Transfers",
-    seoTitle: "Craigavon Airport Transfers & Taxi | Portadown, Lurgan | 5★",
+    seoTitle: "Craigavon Airport Transfers & Taxi | Portadown, Lurgan",
     h1: "Craigavon Airport Taxi & Airport Transfers",
     metaDescription:
-      "Pre-book an airport taxi from Craigavon, Portadown or Lurgan to Belfast International, Belfast City or Dublin Airport. Fixed price from your door. 5★ on Google.",
+      "Pre-book an airport taxi from Craigavon, Portadown or Lurgan to Belfast International, Belfast City or Dublin Airport. Fixed price from your door.",
     intro:
       "Craigavon, Portadown and Lurgan sit on the M1 corridor in County Armagh, which puts all three main airports within reach without a change of car. Start here to choose the airport, then open that route for the fixed price from your street. Belfast International is usually reached by leaving the M1 at Moira and heading north on the A26 towards Aldergrove, so it suits holiday and long-haul tickets out of Belfast. Belfast City Airport means staying on the M1 into Belfast and crossing to the Sydenham side, which works well for short business trips to Great Britain. Dublin Airport is the southbound option on the A1 and then the M1 in the Republic, with applicable tolls included in the fare. We collect from Portadown, Lurgan, Brownlow, Waringstown, Dollingstown and Magheralin. Enter the full address rather than only the town name, because a Portadown pickup and a Lurgan pickup are different journeys.",
     blurb:
