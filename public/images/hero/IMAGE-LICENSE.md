@@ -9,6 +9,19 @@ Shown on the website at /photo-credits/ (linked from the footer).
   瑞丽江的河水, https://commons.wikimedia.org/wiki/File:Dublin_Airport_Terminal_2_-_2024-05-18.jpg —
   CC BY-SA 4.0. Cropped, resized, re-encoded; adaptations shared under CC BY-SA 4.0. Credit required.
 
+- optimized/airport-page-{bfs,bhd,dub,ldy}-{phone,tablet}.*: /airports/* hero on phones and tablets,
+  made by scripts/optimize-airport-page-heroes.mjs (cropped, resized, re-encoded; the CSS adds a navy
+  grade):
+  - bfs, bhd, dub: owner-supplied sunset images (19 November 2026; originals in
+    design/airport-page-heroes/). AI-generated or AI-enhanced, used with the owner's approval. No
+    third-party credit.
+  - ldy: "CODA" by Ddoherty958, https://commons.wikimedia.org/wiki/File:CODA.jpg — CC BY-SA 4.0.
+    Adaptations shared under CC BY-SA 4.0. Fetched from Commons by the script, not stored here.
+    Credit required and shown on /photo-credits/.
+- derry-airport.jpg (+ optimized/derry-airport-*): "City of Derry Airport 01" by Blue Magenta,
+  https://commons.wikimedia.org/wiki/File:City_of_Derry_Airport_01.JPG — CC BY-SA 3.0 (see
+  derry-airport.attribution.txt). Credit required.
+
 - optimized/christmas-shopping-belfast-960.webp: supplied by the owner (Brian Rice) on
   9 November 2026 for the homepage "Christmas shopping in Belfast" card. Resized to 960px and
   re-encoded as WebP. Not a credited third-party photograph.

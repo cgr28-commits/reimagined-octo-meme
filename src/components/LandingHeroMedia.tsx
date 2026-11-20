@@ -8,6 +8,8 @@ type Props = {
   variant?: "default" | "airport";
   /** Optional two or three lines shown over the bottom of the photo. */
   caption?: { title: string; text: string };
+  /** Download the photo only at this viewport width and above (for slots CSS hides on smaller screens). */
+  loadFromMinWidth?: number;
 };
 
 /**
@@ -19,6 +21,7 @@ export default function LandingHeroMedia({
   alt,
   variant = "default",
   caption,
+  loadFromMinWidth,
 }: Props) {
   if (!baseName || !alt) return null;
 
@@ -29,7 +32,7 @@ export default function LandingHeroMedia({
 
   return (
     <div className={frameClass} data-landing-hero>
-      <OptimizedHeroPicture baseName={baseName} alt={alt} priority />
+      <OptimizedHeroPicture baseName={baseName} alt={alt} priority loadFromMinWidth={loadFromMinWidth} />
       {variant === "airport" ? (
         <>
           <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-navy/20" />

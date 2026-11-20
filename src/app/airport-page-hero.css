@@ -1,0 +1,115 @@
+/*
+ * Airport guide pages (/airports/*), Design 3 only (owner, 19 Nov 2026).
+ * Phones: the homepage phone design (mobile-home-mockup.css) with this airport's photo behind the
+ * heading. Tablets: photo behind the heading on the right, faded into the navy hero, quote form
+ * and heading in their usual places.
+ * Laptops 1200px+ are unchanged (the photo is never downloaded there).
+ * Markup: src/components/AirportPageHeroPhoto.tsx. Hidden once quote results or checkout show.
+ */
+
+@media (max-width: 1199.98px) {
+  html[data-mobile-d3] main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) > [data-airport-hero] {
+    display: block;
+    pointer-events: none;
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* The airport photo below the hero repeats this one, so it is hidden (and not downloaded) here. */
+  html[data-mobile-d3] main > [data-d2-airport-photo] {
+    display: none;
+  }
+}
+
+/* ---------- Phones: the homepage hero (mobile-home-mockup.css) with this airport's photo ---------- */
+@media (max-width: 767.98px) {
+  /* Same place, shape and navy fades as the homepage photo; it sits behind the heading, so the
+     quote form does not move down. */
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
+    position: absolute;
+    top: 3.75rem;
+    right: 0;
+    z-index: 0;
+    width: 78%;
+    aspect-ratio: 3 / 2;
+    filter: saturate(1.08) contrast(1.04);
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 20%, rgba(1, 25, 48, 0.62) 40%, rgba(1, 25, 48, 0.18) 55%, rgba(1, 25, 48, 0) 64%),
+      linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.6) 14%, rgba(0, 24, 47, 0) 36%),
+      linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 12%);
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] [data-airport-hero-badge] {
+    display: none;
+  }
+  /* Homepage heading style; airport headings are longer, so they wrap instead of two fixed lines. */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    max-width: 15.5rem;
+    font-size: clamp(1.4rem, 6.6vw, 1.75rem) !important;
+    line-height: 1.08 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 12px rgba(1, 24, 52, 0.75);
+  }
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 :is([data-hero-green], .text-emerald) {
+    color: #45d704 !important;
+  }
+}
+
+/* ---------- Tablets: homepage-style photo hero ---------- */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] {
+    position: absolute;
+    top: 4.5rem;
+    right: 0;
+    z-index: 0;
+    width: 64%;
+    aspect-ratio: 3 / 2;
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, #000 55%),
+      linear-gradient(0deg, transparent 0%, #000 40%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0%, #000 55%),
+      linear-gradient(0deg, transparent 0%, #000 40%, #000 88%, transparent 100%);
+    mask-composite: intersect;
+  }
+  /* Evening grade so the heading stays readable over daytime photos. */
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(1, 25, 48, 0.42);
+  }
+  html[data-mobile-d3] main > section.homepage-hero:has(> [data-airport-hero]) #homepage-booking-intro :is(h1, p) {
+    text-shadow: 0 1px 10px rgba(1, 24, 52, 0.85);
+  }
+  html[data-mobile-d3] main > section.homepage-hero > [data-airport-hero] [data-airport-hero-badge] {
+    display: none;
+  }
+  html[data-mobile-d3] main > section.homepage-hero:has(> [data-airport-hero]) > .homepage-hero-layout {
+    z-index: 1;
+  }
+}
+
+/* Airport quick picks are for phones; the approved tablet quote form stays as it was. In @layer base
+   because the rule that shows them (globals.css) is a layered !important, which beats unlayered ones. */
+@layer base {
+  @media (min-width: 768px) and (max-width: 1199.98px) {
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page] #quote#quote#quote [data-quick-picks] {
+      display: none !important;
+    }
+    /* Phones show the first sentence of the intro; tablets keep the whole intro, as before. */
+    html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero[data-airport-page] #homepage-booking-intro [data-d3-intro-more] {
+      display: inline !important;
+    }
+  }
+}

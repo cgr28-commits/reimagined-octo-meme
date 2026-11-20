@@ -757,8 +757,11 @@ type QuoteCardProps = {
   initialEvent?: { title: string; date: string };
   eventChoices?: ReactNode;
   homepagePolish?: boolean;
-  /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
-  homepageQuickPicks?: boolean;
+  /**
+   * Homepage: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026).
+   * "phone-tablet": airport guide pages, below 1200px only; the desktop card title stays as it was.
+   */
+  homepageQuickPicks?: boolean | "phone-tablet";
   /** Page-specific card title shown above the fields (e.g. "Events & Concerts" on /events/). */
   quoteCardTitle?: string;
   bookingIntroduction?: string;
@@ -10308,7 +10311,8 @@ function QuoteCard({
                 design2={design2Home}
                 design3={mobileDesign3}
                 homepagePolish={homepagePolish}
-                quickPicks={homepageQuickPicks}
+                quickPicks={homepageQuickPicks !== false}
+                desktopQuickPicks={homepageQuickPicks === true}
                 cardTitle={quoteCardTitle}
                 onQuickPickAirport={applyHomepageQuickPick}
                 formResetKey={formResetKey}

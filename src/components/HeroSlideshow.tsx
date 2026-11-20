@@ -6,10 +6,12 @@ import FromAirportText from "./FromAirportText";
 import DesktopQuoteBenefits from "./DesktopQuoteBenefits";
 import HeroBenefitsRow from "./HeroBenefitsRow";
 import HomepageHeroSideRails from "./HomepageHeroSideRails";
+import AirportPageHeroPhoto from "./AirportPageHeroPhoto";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
 import type { ReactNode } from "react";
+import type { AirportPageHero } from "@/lib/airport-page-hero";
 import type { SelectedPlace, TownGuidePickup } from "@/lib/selected-place";
 import type { SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 
@@ -51,6 +53,12 @@ type Props = {
   };
   /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
   heroBackground?: { baseName: string; widths: readonly number[] };
+  /**
+   * Airport guide pages (Design 3, up to 1199px): the homepage phone hero with this airport's
+   * photo, airport quick picks in the quote card, and the tablet photo hero. Replaces the
+   * background photo above, which is hidden at every width and would only waste a download.
+   */
+  airportPhoto?: AirportPageHero;
   /**
    * The rotating image cards under the quote tool (laptops 1200px+). Off by default, and no
    * page turns them on since the owner removed them from the homepage (17 Nov 2026).
@@ -99,27 +107,32 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, airportPhoto, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
-  // Homepage only: split after the first sentence so phones can show the short version.
+  // Homepage and airport pages: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
-  const introLead = introSplit ? introSplit[1] : introText;
-  const introMore = introSplit ? introSplit[2] : "";
+  const leadSplit = introSplit ?? (airportPhoto && !introFromAirport ? /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText) : null);
+  const introLead = leadSplit ? leadSplit[1] : introText;
+  const introMore = leadSplit ? leadSplit[2] : "";
   return (
-    <section data-desktop-roomy={desktopRoomy ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
-      <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
-        <OptimizedHeroPicture
-          baseName={heroBackground?.baseName ?? "belfast-international-homepage"}
-          alt=""
-          priority
-          widths={heroBackground?.widths ?? [960, 1280]}
-          width={1280}
-          height={720}
-          loadFromMinWidth={768}
-          className="homepage-hero-photo hero-photo absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="homepage-hero-scrim absolute inset-0" />
-      </div>
+    <section data-desktop-roomy={desktopRoomy ? "" : undefined} data-airport-page={airportPhoto ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
+      {airportPhoto ? (
+        <AirportPageHeroPhoto {...airportPhoto} />
+      ) : (
+        <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
+          <OptimizedHeroPicture
+            baseName={heroBackground?.baseName ?? "belfast-international-homepage"}
+            alt=""
+            priority
+            widths={heroBackground?.widths ?? [960, 1280]}
+            width={1280}
+            height={720}
+            loadFromMinWidth={768}
+            className="homepage-hero-photo hero-photo absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="homepage-hero-scrim absolute inset-0" />
+        </div>
+      )}
 
       {belowIntro ? (
         <div data-saved-quote-banner className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-3 sm:px-6 md:pt-0 lg:max-w-[1400px] lg:px-10 xl:px-12">{belowIntro}</div>
@@ -187,7 +200,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
           <QuoteCard
             presentation="homepage"
             homepagePolish
-            homepageQuickPicks={homepageQuickPicks}
+            homepageQuickPicks={homepageQuickPicks ? true : airportPhoto ? "phone-tablet" : false}
             quoteCardTitle={quoteCardTitle}
             bookingIntroduction={journey?.bookingIntroduction}
             initialEventTransfer={journey?.eventTransfer}
