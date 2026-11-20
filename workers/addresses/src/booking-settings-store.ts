@@ -1,4 +1,10 @@
 import { normalizeSaveQuoteSettings, parseSaveQuoteSettings, type SaveQuoteSettings } from "../shared/save-quote-settings";
+import {
+  defaultPostJourneyRequestSettings,
+  normalizePostJourneyRequestSettings,
+  parsePostJourneyRequestSettingsInput,
+  type PostJourneyRequestSettings,
+} from "../shared/post-journey-requests";
 /**
  * Owner booking availability settings (KV).
  * Multiple unavailable periods — eligibility is computed on read (no expiry writes).
@@ -59,6 +65,8 @@ export type BookingSettings = {
    * On unless the owner switches it off (dashboard switch, 15 Nov 2026).
    */
   cardBalanceDeposit: CardBalanceDepositSettings;
+  /** Post-journey tip and Google review messages. Missing saved values use the defaults. */
+  postJourneyRequests: PostJourneyRequestSettings;
   updatedAt: string;
 };
 
@@ -84,6 +92,7 @@ export function defaultBookingSettings(): BookingSettings {
     customerPaymentWindowMinutes: CUSTOMER_PAYMENT_WINDOW_MINUTES_DEFAULT,
     depositCash: defaultDepositCashSettings(),
     cardBalanceDeposit: { enabled: true },
+    postJourneyRequests: defaultPostJourneyRequestSettings(),
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -128,6 +137,9 @@ export function normalizeBookingSettings(
     cardBalanceDeposit: normalizeCardBalanceDepositSettings(
       (raw as { cardBalanceDeposit?: unknown } | null | undefined)?.cardBalanceDeposit,
     ),
+    postJourneyRequests: normalizePostJourneyRequestSettings(
+      (raw as { postJourneyRequests?: unknown } | null | undefined)?.postJourneyRequests,
+    ),
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
   };
 }
@@ -142,8 +154,10 @@ async function putBookingSettings(
   store: KVNamespace,
   settings: BookingSettings,
 ): Promise<BookingSettings> {
+  const previous = await getBookingSettings(store);
   const normalized = normalizeBookingSettings({
     ...settings,
+    postJourneyRequests: settings.postJourneyRequests ?? previous.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
   await store.put(BOOKING_SETTINGS_KEY, JSON.stringify(normalized), {
@@ -178,6 +192,7 @@ export async function saveBookingSettings(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -206,6 +221,7 @@ export async function updateMinimumBookingNoticeHours(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -231,6 +247,7 @@ export async function updateMinibusMinimumBookingNoticeHours(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -261,6 +278,7 @@ export async function updateMinimumShortNoticeLeadHours(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -281,6 +299,7 @@ export async function updateDepositCashSettings(
     depositCash: parsed,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -306,6 +325,7 @@ export async function updateShortNoticeConfirmationWindowHours(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -331,6 +351,7 @@ export async function updateCustomerPaymentWindowMinutes(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -361,6 +382,7 @@ export async function addUnavailablePeriod(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -401,6 +423,7 @@ export async function updateUnavailablePeriod(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: now.toISOString(),
   });
   return { settings, period };
@@ -427,6 +450,7 @@ export async function deleteUnavailablePeriod(
     depositCash: current.depositCash,
     cardBalanceDeposit: current.cardBalanceDeposit,
     saveQuote: current.saveQuote,
+    postJourneyRequests: current.postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -458,6 +482,19 @@ export async function updateCardBalanceDepositSettings(
   return putBookingSettings(store, {
     ...current,
     cardBalanceDeposit: { enabled },
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updatePostJourneyRequestSettings(
+  store: KVNamespace,
+  raw: unknown,
+): Promise<BookingSettings> {
+  const postJourneyRequests = parsePostJourneyRequestSettingsInput(raw);
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    ...current,
+    postJourneyRequests,
     updatedAt: new Date().toISOString(),
   });
 }

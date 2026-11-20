@@ -3,15 +3,21 @@ import { buildGoogleReviewRequestEmail } from "../shared/booking-notifications";
 import { resolveGoogleReviewUrl } from "../shared/business-links";
 import { corsHeaders } from "../shared/google-places";
 import {
+  isPostJourneyTestBooking,
+  planAutomaticReviewRequest,
+  postJourneyDelayMs,
+  type PostJourneyRequestSettings,
+} from "../shared/post-journey-requests";
+import {
   ensureReviewRequestScheduled,
   getReviewRequestStatus,
-  isReviewRequestDue,
   journeyStatusOf,
-  resolveReviewRequestDelayMs,
   type ReviewRequestStatus,
   type TrackingJobRecord,
 } from "../shared/tracking";
+import { getBookingSettings } from "./booking-settings-store";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
+import { isMarketingOptedOut } from "./marketing-store";
 import { getPaidBookingRecord } from "./paid-booking-store";
 import {
   findTrackingJobByPaymentReference,
@@ -71,8 +77,28 @@ function jsonResponse(body: unknown, status: number, origin: string | null) {
   });
 }
 
-function delayMsFromEnv(env: Env): number {
-  return resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES);
+function reviewUrlFromSettings(settings: PostJourneyRequestSettings, envUrl?: string): string | null {
+  return resolveGoogleReviewUrl(settings.googleReviewUrl) || resolveGoogleReviewUrl(envUrl);
+}
+
+async function reviewEligibilityFlags(
+  env: Env,
+  job: TrackingJobRecord,
+): Promise<{ testBooking: boolean; optedOut: boolean; cancelled: boolean; email: string }> {
+  let testBooking = isPostJourneyTestBooking(job);
+  let cancelled = isTrackingJobCancelled(job);
+  let email = job.customerEmail?.trim() ?? "";
+  const paymentReference = job.paymentReference?.trim() ?? "";
+  if (paymentReference && env.TRACKING_STORE) {
+    const paid = await getPaidBookingRecord(env.TRACKING_STORE, paymentReference);
+    if (paid) {
+      if (paid.isRefundTest || paid.isAmendmentTestFixture) testBooking = true;
+      if (paid.operationalStatus === "cancelled" || paid.cancelledAt?.trim()) cancelled = true;
+      if (!email) email = paid.customerEmail?.trim() ?? "";
+    }
+  }
+  const optedOut = email && env.TRACKING_STORE ? await isMarketingOptedOut(env.TRACKING_STORE, email) : false;
+  return { testBooking, optedOut, cancelled, email };
 }
 
 export function buildReviewRequestSummary(job: TrackingJobRecord): ReviewRequestSummary {
@@ -241,18 +267,22 @@ export async function processDueReviewRequests(env: Env): Promise<ReviewRequestR
     return result;
   }
 
-  const reviewUrl = resolveGoogleReviewUrl(env.GOOGLE_REVIEW_URL);
+  const settings = (await getBookingSettings(env.TRACKING_STORE)).postJourneyRequests;
+  if (!settings.googleReviewRequestsEnabled) {
+    return result;
+  }
+
+  const reviewUrl = reviewUrlFromSettings(settings, env.GOOGLE_REVIEW_URL);
   if (!reviewUrl) {
     console.warn("Google review URL is not configured — skipping review request emails");
     return result;
   }
 
-  const delayMs = delayMsFromEnv(env);
   const jobs = await listTrackingJobsForRecentDays(env.TRACKING_STORE, 7);
   result.scanned = jobs.length;
 
   for (const job of jobs) {
-    const outcome = await maybeProcessReviewRequest(env, job, reviewUrl, delayMs);
+    const outcome = await maybeProcessReviewRequest(env, job, reviewUrl, settings);
     if (outcome === "sent") {
       result.sent += 1;
       result.eligible += 1;
@@ -274,29 +304,45 @@ async function maybeProcessReviewRequest(
   env: Env,
   job: TrackingJobRecord,
   reviewUrl: string,
-  delayMs: number,
+  settings: PostJourneyRequestSettings,
 ): Promise<"not_eligible" | "scheduled" | "eligible_skipped" | "sent" | "eligible_error"> {
   if (job.reviewRequestSentAt?.trim()) {
     return "not_eligible";
   }
 
-  if (isTrackingJobCancelled(job) || job.refundedAt?.trim()) {
-    return "not_eligible";
-  }
-
-  if (journeyStatusOf(job) !== "completed") {
+  const flags = await reviewEligibilityFlags(env, job);
+  const nowMs = Date.now();
+  const plan = planAutomaticReviewRequest({
+    settings,
+    nowMs,
+    nowIso: new Date(nowMs).toISOString(),
+    journeyStatus: journeyStatusOf(job),
+    journeyCompletedAt: job.journeyCompletedAt,
+    reviewRequestScheduledAt: job.reviewRequestScheduledAt,
+    reviewRequestDueAt: job.reviewRequestDueAt,
+    reviewRequestSentAt: job.reviewRequestSentAt,
+    refundedAt: job.refundedAt,
+    cancelled: flags.cancelled,
+    testBooking: flags.testBooking,
+    optedOut: flags.optedOut,
+  });
+  if (plan.action === "skip") {
     return "not_eligible";
   }
 
   let current = job;
   const beforeScheduled = Boolean(current.reviewRequestScheduledAt?.trim());
-  current = ensureReviewRequestScheduled(current, delayMs);
-  if (!beforeScheduled && current.reviewRequestScheduledAt) {
+  if (!beforeScheduled) {
+    current = {
+      ...current,
+      reviewRequestScheduledAt: current.reviewRequestScheduledAt ?? new Date(nowMs).toISOString(),
+      reviewRequestDueAt: plan.dueAt,
+      journeyCompletedAt: current.journeyCompletedAt,
+    };
     await saveTrackingJob(env.TRACKING_STORE!, current);
-    // Fall through — may already be due if delay is 0 or completion was earlier.
   }
 
-  if (!isReviewRequestDue(current, delayMs)) {
+  if (plan.action === "wait") {
     return beforeScheduled ? "not_eligible" : "scheduled";
   }
 
@@ -394,6 +440,29 @@ export async function handleReviewRequestSendRequest(
     );
   }
 
+  const flags = await reviewEligibilityFlags(env, job);
+  if (flags.cancelled) {
+    return jsonResponse(
+      { error: "This booking was cancelled or refunded — review request not sent." },
+      400,
+      origin,
+    );
+  }
+  if (flags.testBooking) {
+    return jsonResponse(
+      { error: "Test bookings do not receive a Google review request." },
+      400,
+      origin,
+    );
+  }
+  if (flags.optedOut) {
+    return jsonResponse(
+      { error: "This customer has opted out — review request not sent." },
+      400,
+      origin,
+    );
+  }
+
   if (job.reviewRequestSentAt?.trim() && !forceResend) {
     return jsonResponse(
       {
@@ -408,13 +477,13 @@ export async function handleReviewRequestSendRequest(
     );
   }
 
-  const reviewUrl = resolveGoogleReviewUrl(env.GOOGLE_REVIEW_URL);
+  const settings = (await getBookingSettings(env.TRACKING_STORE)).postJourneyRequests;
+  const reviewUrl = reviewUrlFromSettings(settings, env.GOOGLE_REVIEW_URL);
   if (!reviewUrl) {
     return jsonResponse({ error: "GOOGLE_REVIEW_URL is not configured." }, 503, origin);
   }
 
-  const delayMs = delayMsFromEnv(env);
-  let current = ensureReviewRequestScheduled(job, delayMs);
+  let current = ensureReviewRequestScheduled(job, postJourneyDelayMs(settings));
 
   const recipient = await resolveReviewRequestRecipient(env.TRACKING_STORE, current);
   if (!recipient) {
