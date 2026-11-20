@@ -241,6 +241,9 @@ console.log("\n=== 8. QR + plate assets ===");
     "public/tap/qr.png",
     "public/tap/headrest-plate-150x100.svg",
     "public/tap/headrest-plate-150x100-print.svg",
+    "public/tap/headrest-plate-150x100-preview.png",
+    "public/tap/headrest-plate-150x100-trim.pdf",
+    "public/tap/headrest-plate-150x100-bleed.pdf",
     "docs/tap-nfc.md",
   ]) {
     assert.equal(existsSync(join(root, rel)), true, `missing ${rel}`);

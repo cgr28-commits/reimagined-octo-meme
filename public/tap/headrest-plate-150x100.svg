@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Printable headrest plate — 150 × 100 mm landscape.
-  Print at 100% scale (no “fit to page”). Keep the quiet zone around the QR.
-  Program the NFC chip with the same HTTPS URL as the QR: https://www.myairporttaxini.co.uk/tap
-  Prefer headrest-plate-150x100-print.svg (embedded logo + QR) for offline print.
+  Printable headrest plate — 150 × 100 mm landscape. Print at 100% scale.
+  NFC chip mounts behind the green TAP circle centre (see docs/tap-nfc.md).
+  Prefer this file or the PDFs for print. QR → https://www.myairporttaxini.co.uk/tap
 -->
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-  width="150mm" height="100mm" viewBox="0 0 1500 1000" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" width="150mm" height="100mm" viewBox="0 0 1500 1000" role="img"
   aria-label="My Airport Taxi NI headrest Tap and Scan plate">
+
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.85" y2="1">
       <stop offset="0%" stop-color="#0B1220"/>
@@ -21,26 +20,35 @@
     </radialGradient>
     <linearGradient id="emeraldHairline" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="#2FBF4A" stop-opacity="0"/>
-      <stop offset="50%" stop-color="#2FBF4A" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#2FBF4A" stop-opacity="0.7"/>
       <stop offset="100%" stop-color="#2FBF4A" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
   <rect width="1500" height="1000" fill="url(#bg)"/>
   <rect width="1500" height="1000" fill="url(#glow)"/>
+
+  <!-- Premium double border (inside trim safe area) -->
   <rect x="28" y="28" width="1444" height="944" rx="18" fill="none" stroke="#2FBF4A" stroke-opacity="0.22" stroke-width="2"/>
   <rect x="40" y="40" width="1420" height="920" rx="12" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
 
-  <image href="/logo-wide.svg" x="90" y="58" width="620" height="108" preserveAspectRatio="xMinYMid meet"/>
+  <image href="/logo-wide.svg" x="90" y="48" width="600" height="105" preserveAspectRatio="xMinYMid meet"/>
 
-  <text x="750" y="232" text-anchor="middle" fill="#F4F6F8"
-    font-family="Georgia, 'Times New Roman', Times, serif" font-size="58" font-weight="700"
-    letter-spacing="4">ENJOYED YOUR JOURNEY?</text>
-  <rect x="280" y="262" width="940" height="2" fill="url(#emeraldHairline)"/>
-  <text x="750" y="312" text-anchor="middle" fill="#2FBF4A" fill-opacity="0.92"
-    font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="600"
-    letter-spacing="2.8">GOOGLE REVIEW • LEAVE A TIP • SAVE CONTACT • BOOK AGAIN</text>
+  <text x="750" y="220" text-anchor="middle" fill="#F7F9FB"
+    font-family="Georgia, 'Times New Roman', Times, serif" font-size="70" font-weight="700"
+    letter-spacing="3.5">ENJOYED YOUR JOURNEY?</text>
 
+  <rect x="300" y="248" width="900" height="2" fill="url(#emeraldHairline)"/>
+
+  <!-- Benefits: two balanced lines, brighter emerald for seated readability -->
+  <text x="750" y="292" text-anchor="middle" fill="#3DD65A"
+    font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700"
+    letter-spacing="2.4">GOOGLE REVIEW • LEAVE A TIP</text>
+  <text x="750" y="332" text-anchor="middle" fill="#3DD65A"
+    font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700"
+    letter-spacing="2.4">SAVE CONTACT • BOOK AGAIN</text>
+
+  <!-- NFC tap area (left) — centre 280,620 -->
   <g transform="translate(280,620)">
     <circle r="168" fill="#FFFFFF" fill-opacity="0.035" stroke="#2FBF4A" stroke-opacity="0.45" stroke-width="3.5"/>
     <circle r="128" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="2"/>
@@ -48,19 +56,21 @@
     <path d="M-26 -7c16-16 42-16 58 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
     <path d="M-40 -20c26-26 66-26 92 0" fill="none" stroke="#050607" stroke-width="7" stroke-linecap="round"/>
     <path d="M-13 6c9-9 24-9 33 0" fill="none" stroke="#050607" stroke-width="9" stroke-linecap="round"/>
-    <text y="228" text-anchor="middle" fill="#F4F6F8"
-      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
-      letter-spacing="4">TAP</text>
+    <text y="242" text-anchor="middle" fill="#F7F9FB"
+      font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700"
+      letter-spacing="5">TAP</text>
   </g>
 
+  <!-- QR (right) — centre 1040,600; white quiet zone; QR ECC H + margin 4 -->
   <g transform="translate(1040,600)">
     <rect x="-210" y="-210" width="420" height="420" rx="16" fill="#FFFFFF"/>
     <image href="qr.svg" x="-175" y="-175" width="350" height="350" preserveAspectRatio="xMidYMid meet"/>
-    <text y="248" text-anchor="middle" fill="#F4F6F8"
-      font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700"
-      letter-spacing="4">SCAN</text>
+    <text y="258" text-anchor="middle" fill="#F7F9FB"
+      font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700"
+      letter-spacing="5">SCAN</text>
   </g>
 
-  <text x="750" y="938" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.42"
+  <text x="750" y="942" text-anchor="middle" fill="#FFFFFF" fill-opacity="0.45"
     font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="1.5">www.myairporttaxini.co.uk/tap</text>
+
 </svg>
