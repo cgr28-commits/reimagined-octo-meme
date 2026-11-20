@@ -401,7 +401,7 @@ export default function TapPageClient() {
                       type="button"
                       data-tap-tip-confirm
                       onClick={() => setConfirmAmount(chosenAmount)}
-                      className="min-h-12 w-full rounded-xl border border-emerald/60 bg-emerald/15 px-4 py-3 text-base font-bold text-emerald"
+                      className="tap-tip-confirm min-h-12 w-full rounded-xl border px-4 py-3 text-base font-bold"
                     >
                       Confirm {formatTipGbp(chosenAmount)} tip
                     </button>

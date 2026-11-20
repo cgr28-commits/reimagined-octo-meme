@@ -187,6 +187,23 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-amount-active,
   -webkit-text-fill-color: #071c38 !important;
 }
 
+/* Confirm step — quiet navy-panel control; solid emerald reserved for Pay. */
+html[data-mobile-light] main[data-tap-page] .tap-tip-confirm,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
+[data-tap-page] .tap-tip-confirm {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-confirm:hover,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm:hover,
+[data-tap-page] .tap-tip-confirm:hover {
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 html[data-mobile-light] main[data-tap-page] .tap-tip-input,
 html[data-mobile-d3] main[data-tap-page] .tap-tip-input,
 [data-tap-page] .tap-tip-input {
