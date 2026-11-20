@@ -215,6 +215,7 @@ import {
   confirmJourneyTipWebhook,
   handlePublicTipRequest,
 } from "./journey-tip-handlers";
+import { handleTapPublicRequest } from "./tap-handlers";
 import {
   handleOwnerProfileGetRequest,
   handleOwnerProfileSaveRequest,
@@ -5486,6 +5487,19 @@ export default {
       url.pathname === "/api/tip/confirm"
     ) {
       return handlePublicTipRequest(request, env, origin);
+    }
+
+    if (
+      url.pathname === "/tap/tip/status" ||
+      url.pathname === "/api/tap/tip/status" ||
+      url.pathname === "/tap/tip/checkout" ||
+      url.pathname === "/api/tap/tip/checkout" ||
+      url.pathname === "/tap/event" ||
+      url.pathname === "/api/tap/event" ||
+      url.pathname === "/owner/tap-metrics" ||
+      url.pathname === "/api/owner/tap-metrics"
+    ) {
+      return handleTapPublicRequest(request, env, origin);
     }
 
     if (

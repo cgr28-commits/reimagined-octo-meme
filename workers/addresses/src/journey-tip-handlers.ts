@@ -663,11 +663,22 @@ export async function confirmJourneyTipWebhook(
 
   try {
     const record = await readTip(env.TRACKING_STORE, token);
-    if (!record || record.status === "paid") return "done";
+    if (!record) return "done";
+    if (record.status === "paid") {
+      if (record.source === "tap") {
+        const { recordTapTipMetricsIfNeeded } = await import("./tap-metrics-store");
+        await recordTapTipMetricsIfNeeded(env.TRACKING_STORE, record);
+      }
+      return "done";
+    }
     // A superseded checkout stays indexed so this webhook does not fall through
     // into journey-payment finalization, but it must not mark the tip paid.
     if (!record.pendingCheckoutId || record.pendingCheckoutId !== id) return "done";
-    await settleTipRecord(env, record, id);
+    const settled = await settleTipRecord(env, record, id);
+    if (settled.record.source === "tap" && settled.record.status === "paid") {
+      const { recordTapTipMetricsIfNeeded } = await import("./tap-metrics-store");
+      await recordTapTipMetricsIfNeeded(env.TRACKING_STORE, settled.record);
+    }
     return "done";
   } catch (error) {
     console.error("Tip webhook SumUp confirmation failed");

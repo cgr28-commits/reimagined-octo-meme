@@ -26,6 +26,7 @@ import { getGoogleAdsConfig } from "@/lib/google-ads";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getLocalBusinessJsonLd, getWebSiteJsonLd } from "@/lib/structured-data";
 import { TIP_TOKEN_STRIP_SCRIPT } from "../../shared/journey-tip";
+import { TAP_TIP_TOKEN_STRIP_SCRIPT } from "../../shared/tap-page";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -162,6 +163,9 @@ export default function RootLayout({
             Browsers without :has()/color-mix() keep the previous mobile design. */}
         <Script id="strip-tip-token" strategy="beforeInteractive">
           {TIP_TOKEN_STRIP_SCRIPT}
+        </Script>
+        <Script id="strip-tap-tip-token" strategy="beforeInteractive">
+          {TAP_TIP_TOKEN_STRIP_SCRIPT}
         </Script>
         <Script id="matni-landing-click-id" strategy="beforeInteractive">
           {`try{if(!window.__matniLandingSearch&&typeof window.location.search==="string"&&window.location.search.length>1){window.__matniLandingSearch=window.location.search}}catch(e){}`}

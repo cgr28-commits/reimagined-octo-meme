@@ -2113,6 +2113,7 @@ const MORE_GROUPS: Array<{ title: string; items: Array<{ tool: OwnerDashboardToo
     items: [
       { tool: "admin", label: "Payments & refunds", hint: "Awaiting payment, future jobs, refunds" },
       { tool: "money", label: "Revenue & driver pay", hint: "Earned revenue, payments received, driver pay" },
+      { tool: "tap-scan", label: "Tap & Scan", hint: "NFC / QR visits, review clicks, verified tips" },
     ],
   },
   {

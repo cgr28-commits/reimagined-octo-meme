@@ -77,6 +77,8 @@ export const SITE_OFFLINE_ALLOWLIST = [
   "/book-quote",
   "/quote",
   "/manage-booking",
+  "/tap",
+  "/tip",
 ] as const;
 
 /**

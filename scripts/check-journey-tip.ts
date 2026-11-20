@@ -574,7 +574,8 @@ console.log("\n=== 6. Owner prompt, worker, and page wiring ===");
 
   const tipHandlers = read("workers/addresses/src/journey-tip-handlers.ts");
   assert.match(tipHandlers, /isSumUpCheckoutPaid/);
-  assert.match(tipHandlers, /description: "Optional driver tip"/);
+  assert.match(tipHandlers, /payment_type: "driver_tip"/);
+  assert.match(tipHandlers, /tipPaymentLabels/);
   assert.doesNotMatch(tipHandlers, /finalizePaidCheckout|savePaidBookingRecord|onlineAmountPaid/);
   assert.doesNotMatch(tipHandlers, /searchParams\.get\("paid"\)/);
   assert.match(tipHandlers, /publicTipState/);
