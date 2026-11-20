@@ -26,6 +26,135 @@
   animation: tap-rise 0.7s ease-out both;
 }
 
+/*
+  /tap is a dark premium island. Mobile Design 2/3 remaps --color-white to navy and
+  forces light main backgrounds + navy headings — beat those with matching specificity.
+*/
+html[data-mobile-light] main[data-tap-page],
+html[data-mobile-d3] main[data-tap-page],
+main[data-tap-page],
+[data-tap-page] {
+  background-color: #090b10 !important;
+  background: #090b10 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+  --color-navy: #071c38;
+  --color-navy-light: #0c2a52;
+  --color-navy-dark: #041020;
+  --color-white: #ffffff;
+  --color-mist: #e8edf5;
+  --color-ink-muted: rgba(232, 237, 245, 0.68);
+  --color-ink-secondary: #b5c0cd;
+}
+
+html[data-mobile-light] main[data-tap-page] h1.tap-heading,
+html[data-mobile-d3] main[data-tap-page] h1.tap-heading,
+[data-tap-page] h1.tap-heading {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-family: var(--font-display), Georgia, "Times New Roman", serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-subhead,
+html[data-mobile-d3] main[data-tap-page] .tap-subhead,
+[data-tap-page] .tap-subhead,
+html[data-mobile-light] main[data-tap-page] .tap-support,
+html[data-mobile-d3] main[data-tap-page] .tap-support,
+[data-tap-page] .tap-support {
+  color: #d1d5db !important;
+  -webkit-text-fill-color: #d1d5db !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-footer-link,
+html[data-mobile-d3] main[data-tap-page] .tap-footer-link,
+[data-tap-page] .tap-footer-link,
+html[data-mobile-light] main[data-tap-page] .tap-footer-brand,
+html[data-mobile-d3] main[data-tap-page] .tap-footer-brand,
+[data-tap-page] .tap-footer-brand {
+  color: #9ca3af !important;
+  -webkit-text-fill-color: #9ca3af !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-back,
+html[data-mobile-d3] main[data-tap-page] .tap-back,
+[data-tap-page] .tap-back {
+  color: #d1d5db !important;
+  -webkit-text-fill-color: #d1d5db !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-back:hover,
+html[data-mobile-d3] main[data-tap-page] .tap-back:hover,
+[data-tap-page] .tap-back:hover {
+  color: #2fbf4a !important;
+  -webkit-text-fill-color: #2fbf4a !important;
+}
+
+/* Tip form headings stay white on the dark card. */
+html[data-mobile-light] main[data-tap-page] h2,
+html[data-mobile-d3] main[data-tap-page] h2,
+[data-tap-page] h2 {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Tip panel — avoid mobile-light remapping of bg-white/* utilities to solid white. */
+html[data-mobile-light] main[data-tap-page] .tap-tip-card,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-card,
+[data-tap-page] .tap-tip-card {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-amount,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-amount,
+[data-tap-page] .tap-tip-amount {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-amount:hover,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-amount:hover,
+[data-tap-page] .tap-tip-amount:hover {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-amount-active,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-amount-active,
+[data-tap-page] .tap-tip-amount-active {
+  background-color: #2fbf4a !important;
+  border-color: #2fbf4a !important;
+  color: #071c38 !important;
+  -webkit-text-fill-color: #071c38 !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-input,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-input,
+[data-tap-page] .tap-tip-input {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-input::placeholder,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-input::placeholder,
+[data-tap-page] .tap-tip-input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-input:focus,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-input:focus,
+[data-tap-page] .tap-tip-input:focus {
+  border-color: #2fbf4a !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-tap-page] .tap-fade,
   [data-tap-page] .tap-rise {
