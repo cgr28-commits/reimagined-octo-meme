@@ -27,17 +27,21 @@
 }
 
 /*
-  /tap is a dark premium island. Mobile Design 2/3 remaps --color-white to navy and
-  forces light main backgrounds + navy headings — beat those with matching specificity.
+  /tap is a dark premium island. Mobile Design 2/3 remaps brand tokens and forces
+  light-page heading colours — beat those with matching specificity.
+
+  Do NOT set -webkit-text-fill-color on [data-tap-page] itself. Safari inherits
+  fill into white action buttons and paints white-on-white (labels disappear)
+  even when color is navy. Set fill only on the elements that need it.
 */
 html[data-mobile-light] main[data-tap-page],
 html[data-mobile-d3] main[data-tap-page],
 main[data-tap-page],
 [data-tap-page] {
-  background-color: #090b10 !important;
-  background: #090b10 !important;
+  /* Brand navy base — not near-black. Depth via a quiet vertical navy deepen. */
+  background-color: #071c38 !important;
+  background: linear-gradient(180deg, #071c38 0%, #071c38 48%, #051828 100%) !important;
   color: #ffffff !important;
-  -webkit-text-fill-color: #ffffff;
   --color-navy: #071c38;
   --color-navy-light: #0c2a52;
   --color-navy-dark: #041020;
@@ -54,17 +58,66 @@ html[data-mobile-d3] main[data-tap-page] h1.tap-heading,
   -webkit-text-fill-color: #ffffff !important;
   font-family: var(--font-display), Georgia, "Times New Roman", serif !important;
   font-weight: 600 !important;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
 }
 
 html[data-mobile-light] main[data-tap-page] .tap-subhead,
 html[data-mobile-d3] main[data-tap-page] .tap-subhead,
-[data-tap-page] .tap-subhead,
+[data-tap-page] .tap-subhead {
+  color: #d1d5db !important;
+  -webkit-text-fill-color: #d1d5db !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-subhead-line,
+html[data-mobile-d3] main[data-tap-page] .tap-subhead-line,
+[data-tap-page] .tap-subhead-line {
+  display: block;
+  color: #d1d5db !important;
+  -webkit-text-fill-color: #d1d5db !important;
+  text-wrap: pretty;
+}
+
 html[data-mobile-light] main[data-tap-page] .tap-support,
 html[data-mobile-d3] main[data-tap-page] .tap-support,
 [data-tap-page] .tap-support {
   color: #d1d5db !important;
   -webkit-text-fill-color: #d1d5db !important;
+}
+
+/* White action buttons: navy labels must win over any inherited fill. */
+html[data-mobile-light] main[data-tap-page] .tap-action,
+html[data-mobile-d3] main[data-tap-page] .tap-action,
+[data-tap-page] .tap-action {
+  color: #071c38 !important;
+  -webkit-text-fill-color: #071c38 !important;
+  background-color: #ffffff !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-action-label,
+html[data-mobile-d3] main[data-tap-page] .tap-action-label,
+[data-tap-page] .tap-action-label {
+  color: #071c38 !important;
+  -webkit-text-fill-color: #071c38 !important;
+  opacity: 1 !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-action-icon,
+html[data-mobile-d3] main[data-tap-page] .tap-action-icon,
+[data-tap-page] .tap-action-icon {
+  color: #2fbf4a !important;
+  -webkit-text-fill-color: #2fbf4a !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-action-icon svg,
+html[data-mobile-d3] main[data-tap-page] .tap-action-icon svg,
+[data-tap-page] .tap-action-icon svg {
+  color: #2fbf4a !important;
+  stroke: #2fbf4a !important;
 }
 
 html[data-mobile-light] main[data-tap-page] .tap-footer-link,
@@ -106,7 +159,8 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-card,
   background-color: rgba(255, 255, 255, 0.07) !important;
   border-color: rgba(255, 255, 255, 0.15) !important;
   color: #ffffff !important;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35) !important;
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 16px 40px rgba(4, 16, 32, 0.35) !important;
 }
 
 html[data-mobile-light] main[data-tap-page] .tap-tip-amount,
@@ -129,6 +183,46 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-amount-active,
 [data-tap-page] .tap-tip-amount-active {
   background-color: #2fbf4a !important;
   border-color: #2fbf4a !important;
+  color: #071c38 !important;
+  -webkit-text-fill-color: #071c38 !important;
+}
+
+/* Selected amount — keep emerald readable on navy (not remapped dark green). */
+html[data-mobile-light] main[data-tap-page] .tap-tip-selected,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-selected,
+[data-tap-page] .tap-tip-selected {
+  color: #2fbf4a !important;
+  -webkit-text-fill-color: #2fbf4a !important;
+}
+
+/*
+  Confirm — solid mid-navy chip + white text/fill.
+  Avoid translucent white (mobile themes can flatten it and hide Safari fill).
+*/
+html[data-mobile-light] main[data-tap-page] .tap-tip-confirm,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
+html:root:root[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
+[data-tap-page] .tap-tip-confirm {
+  background-color: #0c2a52 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+html[data-mobile-light] main[data-tap-page] .tap-tip-confirm:hover,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm:hover,
+[data-tap-page] .tap-tip-confirm:hover {
+  background-color: #0e3363 !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Pay CTA — emerald with navy fill locked for Safari. */
+html[data-mobile-light] main[data-tap-page] .tap-tip-pay,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-pay,
+html:root:root[data-mobile-d3] main[data-tap-page] .tap-tip-pay,
+[data-tap-page] .tap-tip-pay {
+  background-color: #2fbf4a !important;
+  border: 0 !important;
   color: #071c38 !important;
   -webkit-text-fill-color: #071c38 !important;
 }

@@ -24,7 +24,7 @@ import {
   TAP_GOOGLE_REVIEW_URL,
   TAP_HEADING,
   TAP_PUBLIC_URL,
-  TAP_SUBHEADING,
+  TAP_SUBHEADING_LINES,
   TAP_TIP_PRESET_AMOUNTS_GBP,
   TAP_TIP_TOKEN_STORAGE_KEY,
   tapWhatsAppHref,
@@ -87,13 +87,13 @@ function trackConsented(event: Parameters<typeof trackTapEvent>[0]) {
 }
 
 const actionClass =
-  "group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/90 bg-white px-4 py-3 text-left text-[#071c38] shadow-[0_8px_28px_rgba(0,0,0,0.22)] transition duration-300 hover:border-emerald hover:shadow-[0_10px_32px_rgba(47,191,74,0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald active:scale-[0.99]";
+  "tap-action group flex min-h-12 w-full items-center gap-3 rounded-2xl border border-white/90 bg-white px-4 py-3 text-left shadow-[0_8px_28px_rgba(0,0,0,0.22)] transition duration-300 hover:border-emerald hover:shadow-[0_10px_32px_rgba(47,191,74,0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald active:scale-[0.99]";
 
 function ActionIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <span
       aria-hidden
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#071c38]/[0.06] text-emerald"
+      className="tap-action-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#071c38]/[0.06]"
     >
       <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={2.25} />
     </span>
@@ -102,7 +102,7 @@ function ActionIcon({ icon: Icon }: { icon: LucideIcon }) {
 
 function ActionLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="flex-1 text-sm font-bold uppercase tracking-[0.06em] text-[#071c38]">
+    <span className="tap-action-label flex-1 text-[0.8125rem] font-bold uppercase tracking-[0.055em] sm:text-sm">
       {children}
     </span>
   );
@@ -196,19 +196,7 @@ export default function TapPageClient() {
   }
 
   return (
-    <main
-      data-tap-page
-      className="relative min-h-screen overflow-hidden bg-[#090B10] text-white"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(47,191,74,0.14),_transparent_52%),radial-gradient(ellipse_at_bottom,_rgba(7,28,56,0.88),_#090B10_72%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald/50 to-transparent"
-      />
-
+    <main data-tap-page className="relative min-h-screen overflow-hidden bg-[#071C38] text-white">
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-8 pt-6 sm:px-5 sm:pb-10 sm:pt-8">
         <header className="tap-fade flex flex-col items-center text-center">
           <Logo wide theme="dark" className="h-10 w-auto sm:h-11" priority />
@@ -216,11 +204,15 @@ export default function TapPageClient() {
 
         {screen === "home" ? (
           <section className="tap-rise mt-5 flex flex-1 flex-col sm:mt-7">
-            <h1 className="tap-heading font-display text-center text-[1.75rem] font-semibold leading-[1.12] sm:text-[2.1rem]">
+            <h1 className="tap-heading mx-auto max-w-[18.5rem] text-center text-[1.55rem] font-semibold leading-[1.18] sm:max-w-[22rem] sm:text-[1.95rem] sm:leading-[1.14]">
               {TAP_HEADING}
             </h1>
-            <p className="tap-subhead mx-auto mt-2.5 max-w-[22rem] text-center text-[0.95rem] leading-relaxed sm:mt-3">
-              {TAP_SUBHEADING}
+            <p className="tap-subhead mx-auto mt-3 max-w-[20rem] text-center text-[0.98rem] leading-snug sm:mt-3.5 sm:max-w-[22rem] sm:text-[1.02rem]">
+              {TAP_SUBHEADING_LINES.map((line) => (
+                <span key={line} className="tap-subhead-line">
+                  {line}
+                </span>
+              ))}
             </p>
 
             <div className="mt-5 space-y-2.5 sm:mt-7 sm:space-y-3">
@@ -252,21 +244,16 @@ export default function TapPageClient() {
                 <ActionLabel>Leave a Tip</ActionLabel>
               </button>
 
-              <div className="space-y-1.5">
-                <a
-                  href={TAP_CONTACT_VCARD_HREF}
-                  download="My-Airport-Taxi-NI.vcf"
-                  data-tap-action="contact"
-                  className={actionClass}
-                  onClick={() => trackConsented("contact_click")}
-                >
-                  <ActionIcon icon={Contact} />
-                  <ActionLabel>Save Our Contact</ActionLabel>
-                </a>
-                <p className="tap-support px-1 text-center text-[0.72rem] leading-snug">
-                  Opens a contact card — confirm Save on your phone to add us.
-                </p>
-              </div>
+              <a
+                href={TAP_CONTACT_VCARD_HREF}
+                download="My-Airport-Taxi-NI.vcf"
+                data-tap-action="contact"
+                className={actionClass}
+                onClick={() => trackConsented("contact_click")}
+              >
+                <ActionIcon icon={Contact} />
+                <ActionLabel>Save Our Contact</ActionLabel>
+              </a>
 
               <Link
                 href={TAP_BOOK_HREF}
@@ -403,7 +390,7 @@ export default function TapPageClient() {
                   {chosenAmount != null ? (
                     <p className="tap-support text-center text-sm">
                       Selected tip:{" "}
-                      <span className="font-bold text-emerald">{formatTipGbp(chosenAmount)}</span>
+                      <span className="tap-tip-selected font-bold">{formatTipGbp(chosenAmount)}</span>
                     </p>
                   ) : null}
 
@@ -414,7 +401,7 @@ export default function TapPageClient() {
                       type="button"
                       data-tap-tip-confirm
                       onClick={() => setConfirmAmount(chosenAmount)}
-                      className="min-h-12 w-full rounded-xl border border-emerald/60 bg-emerald/15 px-4 py-3 text-base font-bold text-emerald"
+                      className="tap-tip-confirm min-h-12 w-full rounded-xl px-4 py-3 text-base font-bold"
                     >
                       Confirm {formatTipGbp(chosenAmount)} tip
                     </button>
@@ -427,7 +414,7 @@ export default function TapPageClient() {
                         disabled={submitting}
                         data-tap-tip-pay={chosenAmount}
                         onClick={() => void startPayment(chosenAmount)}
-                        className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy disabled:opacity-60"
+                        className="tap-tip-pay min-h-12 w-full rounded-xl px-4 py-3 text-base font-bold disabled:opacity-60"
                       >
                         {submitting
                           ? "Opening secure payment…"
@@ -451,9 +438,6 @@ export default function TapPageClient() {
           >
             {TAP_PUBLIC_URL.replace(/^https:\/\//, "")}
           </a>
-          <p className="tap-footer-brand mt-1.5 text-[0.65rem] uppercase tracking-[0.18em]">
-            My Airport Taxi NI
-          </p>
         </footer>
       </div>
     </main>
