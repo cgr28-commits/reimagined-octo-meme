@@ -34,8 +34,8 @@ const SECTIONS: Array<{ title: string; paragraphs: string[] }> = [
   {
     title: "Fixed-price quotes",
     paragraphs: [
-      airportFaq("BFS", "How much is a taxi to Belfast International Airport?"),
-      airportFaq("BHD", "How much is a taxi to Belfast City Airport?"),
+      "Enter your street, passengers and suitcases in the quote box for your fixed fare. The price you are shown is the price for that journey.",
+      "Any applicable time-of-day or seasonal pricing is already included in the quoted total. Vehicle supplements form part of the journey fare.",
       airportFaq("DUB", "How much is a taxi from Belfast to Dublin Airport?"),
     ],
   },
@@ -66,7 +66,7 @@ const SECTIONS: Array<{ title: string; paragraphs: string[] }> = [
     title: "Return bookings",
     paragraphs: [
       siteFaq("Can I book a return journey?"),
-      "The 5% return discount applies to the vehicle fare only. Airport access charges, tolls and other extras are not discounted. The quote shows the total before you pay.",
+      "The 5% return discount applies to the combined vehicle fare for both legs, including any night or weekend premium on that fare. Airport access charges and tolls are added in full and are not discounted. The quote shows the total before you pay.",
     ],
   },
 ];
