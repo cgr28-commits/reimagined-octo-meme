@@ -187,12 +187,24 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-amount-active,
   -webkit-text-fill-color: #071c38 !important;
 }
 
-/* Confirm step — quiet navy-panel control; solid emerald reserved for Pay. */
+/* Selected amount — keep emerald readable on navy (not remapped dark green). */
+html[data-mobile-light] main[data-tap-page] .tap-tip-selected,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-selected,
+[data-tap-page] .tap-tip-selected {
+  color: #2fbf4a !important;
+  -webkit-text-fill-color: #2fbf4a !important;
+}
+
+/*
+  Confirm — solid mid-navy chip + white text/fill.
+  Avoid translucent white (mobile themes can flatten it and hide Safari fill).
+*/
 html[data-mobile-light] main[data-tap-page] .tap-tip-confirm,
 html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
+html:root:root[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
 [data-tap-page] .tap-tip-confirm {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.28) !important;
+  background-color: #0c2a52 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
 }
@@ -200,8 +212,19 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm,
 html[data-mobile-light] main[data-tap-page] .tap-tip-confirm:hover,
 html[data-mobile-d3] main[data-tap-page] .tap-tip-confirm:hover,
 [data-tap-page] .tap-tip-confirm:hover {
-  border-color: rgba(255, 255, 255, 0.42) !important;
-  background-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: #0e3363 !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Pay CTA — emerald with navy fill locked for Safari. */
+html[data-mobile-light] main[data-tap-page] .tap-tip-pay,
+html[data-mobile-d3] main[data-tap-page] .tap-tip-pay,
+html:root:root[data-mobile-d3] main[data-tap-page] .tap-tip-pay,
+[data-tap-page] .tap-tip-pay {
+  background-color: #2fbf4a !important;
+  border: 0 !important;
+  color: #071c38 !important;
+  -webkit-text-fill-color: #071c38 !important;
 }
 
 html[data-mobile-light] main[data-tap-page] .tap-tip-input,

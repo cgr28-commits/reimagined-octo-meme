@@ -390,7 +390,7 @@ export default function TapPageClient() {
                   {chosenAmount != null ? (
                     <p className="tap-support text-center text-sm">
                       Selected tip:{" "}
-                      <span className="font-bold text-emerald">{formatTipGbp(chosenAmount)}</span>
+                      <span className="tap-tip-selected font-bold">{formatTipGbp(chosenAmount)}</span>
                     </p>
                   ) : null}
 
@@ -401,7 +401,7 @@ export default function TapPageClient() {
                       type="button"
                       data-tap-tip-confirm
                       onClick={() => setConfirmAmount(chosenAmount)}
-                      className="tap-tip-confirm min-h-12 w-full rounded-xl border px-4 py-3 text-base font-bold"
+                      className="tap-tip-confirm min-h-12 w-full rounded-xl px-4 py-3 text-base font-bold"
                     >
                       Confirm {formatTipGbp(chosenAmount)} tip
                     </button>
@@ -414,7 +414,7 @@ export default function TapPageClient() {
                         disabled={submitting}
                         data-tap-tip-pay={chosenAmount}
                         onClick={() => void startPayment(chosenAmount)}
-                        className="min-h-12 w-full rounded-xl bg-emerald px-4 py-3 text-base font-bold text-navy disabled:opacity-60"
+                        className="tap-tip-pay min-h-12 w-full rounded-xl px-4 py-3 text-base font-bold disabled:opacity-60"
                       >
                         {submitting
                           ? "Opening secure payment…"
