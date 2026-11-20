@@ -196,19 +196,7 @@ export default function TapPageClient() {
   }
 
   return (
-    <main
-      data-tap-page
-      className="relative min-h-screen overflow-hidden bg-[#090B10] text-white"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(47,191,74,0.14),_transparent_52%),radial-gradient(ellipse_at_bottom,_rgba(7,28,56,0.88),_#090B10_72%)]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald/50 to-transparent"
-      />
-
+    <main data-tap-page className="relative min-h-screen overflow-hidden bg-[#071C38] text-white">
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-8 pt-6 sm:px-5 sm:pb-10 sm:pt-8">
         <header className="tap-fade flex flex-col items-center text-center">
           <Logo wide theme="dark" className="h-10 w-auto sm:h-11" priority />
@@ -256,21 +244,16 @@ export default function TapPageClient() {
                 <ActionLabel>Leave a Tip</ActionLabel>
               </button>
 
-              <div className="space-y-1.5">
-                <a
-                  href={TAP_CONTACT_VCARD_HREF}
-                  download="My-Airport-Taxi-NI.vcf"
-                  data-tap-action="contact"
-                  className={actionClass}
-                  onClick={() => trackConsented("contact_click")}
-                >
-                  <ActionIcon icon={Contact} />
-                  <ActionLabel>Save Our Contact</ActionLabel>
-                </a>
-                <p className="tap-support px-1 text-center text-[0.72rem] leading-snug">
-                  Opens a contact card — confirm Save on your phone to add us.
-                </p>
-              </div>
+              <a
+                href={TAP_CONTACT_VCARD_HREF}
+                download="My-Airport-Taxi-NI.vcf"
+                data-tap-action="contact"
+                className={actionClass}
+                onClick={() => trackConsented("contact_click")}
+              >
+                <ActionIcon icon={Contact} />
+                <ActionLabel>Save Our Contact</ActionLabel>
+              </a>
 
               <Link
                 href={TAP_BOOK_HREF}
@@ -455,9 +438,6 @@ export default function TapPageClient() {
           >
             {TAP_PUBLIC_URL.replace(/^https:\/\//, "")}
           </a>
-          <p className="tap-footer-brand mt-1.5 text-[0.65rem] uppercase tracking-[0.18em]">
-            My Airport Taxi NI
-          </p>
         </footer>
       </div>
     </main>

@@ -225,6 +225,10 @@ console.log("\n=== 6. Page + Worker wiring ===");
   assert.match(tapCss, /#d1d5db|#D1D5DB/i);
   assert.match(tapCss, /\.tap-action-label/);
   assert.match(tapCss, /#071c38|#071C38/i);
+  assert.match(tapCss, /background-color:\s*#071c38/i);
+  assert.doesNotMatch(tapCss, /#090b10|#090B10/);
+  assert.doesNotMatch(client, /Opens a contact card/);
+  assert.doesNotMatch(client, /tap-footer-brand/);
   // Root island must not blanket-set fill (Safari inherits white fill into white buttons).
   assert.doesNotMatch(
     tapCss.replace(/\/\*[\s\S]*?\*\//g, ""),

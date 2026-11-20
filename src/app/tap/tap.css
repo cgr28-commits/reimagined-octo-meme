@@ -38,8 +38,9 @@ html[data-mobile-light] main[data-tap-page],
 html[data-mobile-d3] main[data-tap-page],
 main[data-tap-page],
 [data-tap-page] {
-  background-color: #090b10 !important;
-  background: #090b10 !important;
+  /* Brand navy base — not near-black. Depth via a quiet vertical navy deepen. */
+  background-color: #071c38 !important;
+  background: linear-gradient(180deg, #071c38 0%, #071c38 48%, #051828 100%) !important;
   color: #ffffff !important;
   --color-navy: #071c38;
   --color-navy-light: #0c2a52;
@@ -159,7 +160,7 @@ html[data-mobile-d3] main[data-tap-page] .tap-tip-card,
   border-color: rgba(255, 255, 255, 0.15) !important;
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 16px 40px rgba(4, 16, 32, 0.35) !important;
 }
 
 html[data-mobile-light] main[data-tap-page] .tap-tip-amount,
