@@ -23,6 +23,16 @@ function read(rel: string) {
   return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
+/** Visible copy with nested tags removed, so a styled span does not hide the heading. */
+function visibleMarkupText(source: string): string {
+  return source
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const layout = read("src/app/layout.tsx");
 const home = read("src/app/page.tsx");
 const hero = read("src/components/HeroSlideshow.tsx");
@@ -52,7 +62,8 @@ console.log("=== Homepage title, description, H1 ===");
   assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
-  assert.match(hero, /Belfast &amp; Dublin Airport Transfers/);
+  assert.match(visibleMarkupText(hero), /Belfast & Dublin Airport Transfers/);
+  assert.match(hero, /data-hero-green[^>]*>Airport Transfers/);
   assert.doesNotMatch(hero, /Pre-Booked 24\/7/);
   const popular = read("src/components/PopularBelfastTransfers.tsx");
   const belfastRoutes = read("src/lib/locations-content.ts");
@@ -143,8 +154,11 @@ console.log("\n=== Sitemap ===");
     /metaDescription: `Pre-book a fixed-price taxi from \$\{town\.name\} to \$\{airport\.name\}[^`]*waiting/,
   );
   const dublin = getAirportPage("dublin")!;
-  assert.match(dublin.metaDescription, /Dublin Airport transfers to or from Belfast and Northern Ireland/);
-  assert.match(dublin.metaDescription, /fixed-price taxi quote with applicable tolls included/);
+  assert.match(
+    dublin.metaDescription,
+    /Private taxi between Dublin Airport and Belfast or anywhere in Northern Ireland/,
+  );
+  assert.match(dublin.metaDescription, /Door-to-door, fixed price, tolls included, flight tracking/);
   assert.match(dublin.intro, /Dublin Airport \(DUB\)/);
   assert.match(dublin.intro, /Terminal 1 or Terminal 2/);
   assert.doesNotMatch(sitemap, /\/manage-booking\//);
