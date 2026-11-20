@@ -124,6 +124,13 @@ export type BookingSettings = {
   };
   /** 20% deposit now, balance by card later (pickups 30+ days away). On unless switched off. */
   cardBalanceDeposit?: { enabled: boolean };
+  /** Messages after a completed journey. Tips default off; Google reviews default on; delay defaults to 2 hours. */
+  postJourneyRequests?: {
+    tipRequestsEnabled: boolean;
+    googleReviewRequestsEnabled: boolean;
+    delayHours: number;
+    googleReviewUrl: string;
+  };
   updatedAt: string;
 };
 
@@ -708,6 +715,31 @@ export async function updateDepositCashSettings(
   const payload = await parseJson(response);
   if (!response.ok) {
     throw new Error(String(payload.error || "Could not save Deposit + Cash settings"));
+  }
+  return payload.settings as BookingSettings;
+}
+
+export async function updatePostJourneyRequestSettings(
+  ownerKey: string,
+  settings: {
+    tipRequestsEnabled: boolean;
+    googleReviewRequestsEnabled: boolean;
+    delayHours: number;
+    googleReviewUrl: string;
+  },
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ action: "set-post-journey-requests", postJourneyRequests: settings }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save post-journey settings"));
   }
   return payload.settings as BookingSettings;
 }

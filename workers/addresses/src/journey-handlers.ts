@@ -7,6 +7,11 @@ import { sendDriverArrivedWhatsApp, sendDriverOnTheWayWhatsApp, sendTipRequestWh
 import { airportPickupContext, airportPickupReminderInput, arrivalsMeetingPlace } from "./airport-pickup-reminder-handlers";
 import { parseCustomerTipped, type TipCompletionPayload } from "../shared/journey-tip";
 import {
+  defaultPostJourneyRequestSettings,
+  postJourneyDelayMs,
+  tipRequestShouldSend,
+} from "../shared/post-journey-requests";
+import {
   applyJourneyAction,
   allowedJourneyActions,
   buildPublicTrackUrl,
@@ -15,7 +20,6 @@ import {
   formatLondonDateTime,
   isAirportPickupJob,
   journeyStatusOf,
-  resolveReviewRequestDelayMs,
   TRACKING_SESSION_TTL_SECONDS,
   type DriverLocationPoint,
   type JourneyAction,
@@ -29,6 +33,7 @@ import {
 import { corsHeaders } from "../shared/google-places";
 import { legPickupAirportAccessOption } from "../shared/meet-greet";
 import { oweDriverPayOnCompletion, mutateDriverPayFields } from "../shared/driver-pay-ledger";
+import { getBookingSettings } from "./booking-settings-store";
 import { syncDurableDriverPayFromTracking } from "./driver-pay-sync";
 import { authorizeDriverJobAction, sequentialDriverJourneyActions } from "../shared/driver-portal-access";
 import {
@@ -586,6 +591,9 @@ export async function handleJourneyTransitionRequest(
 
   let tipPayload: TipCompletionPayload | null = null;
   if (action === "complete_journey") {
+    const postJourney = env.TRACKING_STORE
+      ? (await getBookingSettings(env.TRACKING_STORE)).postJourneyRequests
+      : defaultPostJourneyRequestSettings();
     const customerTipped = parseCustomerTipped(body.customerTipped);
     if (customerTipped !== undefined) {
       const attached = await attachTipDecision(env, next, customerTipped);
@@ -596,20 +604,24 @@ export async function handleJourneyTransitionRequest(
       tipPayload = attached.tip;
       // Not tipped in person: send the optional tip link from the business WhatsApp
       // (approved template only). When it goes, the driver's phone needn't send it too.
+      // The owner switch only stops that message. The tip record and tip page stay as they are.
       if (attached.tip.openWhatsApp && next.tipDecision === "no" && next.tipToken) {
-        const sent = await sendTipRequestWhatsApp(env, {
-          jobKey: next.token,
-          customerName: next.customerName,
-          mobile: next.customerMobile,
-          tipToken: next.tipToken,
-        });
-        if (sent.sent) tipPayload = { ...attached.tip, openWhatsApp: false };
+        if (tipRequestShouldSend(postJourney, next.tipDecision)) {
+          const sent = await sendTipRequestWhatsApp(env, {
+            jobKey: next.token,
+            customerName: next.customerName,
+            mobile: next.customerMobile,
+            tipToken: next.tipToken,
+          });
+          if (sent.sent) tipPayload = { ...attached.tip, openWhatsApp: false };
+        } else {
+          tipPayload = { ...attached.tip, openWhatsApp: false };
+        }
       }
     }
-    next = ensureReviewRequestScheduled(
-      next,
-      resolveReviewRequestDelayMs(env.REVIEW_REQUEST_DELAY_MINUTES),
-    );
+    if (postJourney.googleReviewRequestsEnabled) {
+      next = ensureReviewRequestScheduled(next, postJourneyDelayMs(postJourney));
+    }
     const owed = oweDriverPayOnCompletion(next, {
       nowIso: next.journeyCompletedAt?.trim() || new Date().toISOString(),
       cancelled: isTrackingJobCancelled(next),

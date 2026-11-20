@@ -84,6 +84,7 @@ import {
   type BookingSettings,
   updateDepositCashSettings,
   updateCardBalanceDepositSettings,
+  updatePostJourneyRequestSettings,
   updateMinimumBookingNoticeHours,
   updateMinibusMinimumBookingNoticeHours,
   updateMinimumShortNoticeLeadHours,
@@ -2343,6 +2344,13 @@ export async function handleOwnerSaveBookingSettings(
       const settings = await updateCardBalanceDepositSettings(
         env.TRACKING_STORE,
         body.cardBalanceDeposit ?? body,
+      );
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
+    if (action === "set-post-journey-requests") {
+      const settings = await updatePostJourneyRequestSettings(
+        env.TRACKING_STORE,
+        body.postJourneyRequests ?? body,
       );
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
