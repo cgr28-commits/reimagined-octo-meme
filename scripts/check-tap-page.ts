@@ -63,7 +63,7 @@ console.log("\n=== 2. Tip presets and amount validation ===");
   console.log("OK  £2/£5/£10/£20 + custom bounds reuse journey-tip parser");
 }
 
-console.log("\n=== 3. Anonymous tip record stays separate from bookings ===");
+console.log("\n=== 3. Anonymous tip checkout / settlement / duplicates / failures ===");
 {
   const record: JourneyTipRecord = {
     tipToken: "b".repeat(32),
@@ -74,6 +74,7 @@ console.log("\n=== 3. Anonymous tip record stays separate from bookings ===");
   };
   assert.equal(record.source, "tap");
   assert.equal(planTipCheckout(record, 5), "create");
+
   const withPending: JourneyTipRecord = {
     ...record,
     pendingCheckoutId: "cs_test_tip",
@@ -81,8 +82,42 @@ console.log("\n=== 3. Anonymous tip record stays separate from bookings ===");
     pendingCheckoutReference: `tip-${record.tipToken}-1`,
     pendingPaymentUrl: "https://example.test/pay",
   };
+  // Same amount while PENDING → reuse existing checkout (no duplicate charge session).
   assert.equal(planTipCheckout(withPending, 5, { paid: false, status: "PENDING" }), "reuse");
+  // Different amount while PENDING → block (duplicate / in-progress protection).
   assert.equal(planTipCheckout(withPending, 10, { paid: false, status: "PENDING" }), "in_progress");
+  // Cancelled / failed checkout → allow a new create.
+  assert.equal(planTipCheckout(withPending, 10, { paid: false, status: "FAILED" }), "create");
+  assert.equal(planTipCheckout(withPending, 5, { paid: false, status: "CANCELLED" }), "create");
+  assert.equal(planTipCheckout(withPending, 5, { paid: false, status: "EXPIRED" }), "create");
+
+  // Browser return without provider paid:true must not mark tip paid.
+  const unpaidReturn = applyConfirmedSumUpTip(
+    withPending,
+    {
+      paid: false,
+      checkoutId: "cs_test_tip",
+      status: "PENDING",
+      checkoutReference: withPending.pendingCheckoutReference,
+    },
+    "2026-11-20T12:04:00.000Z",
+  );
+  assert.equal(unpaidReturn.paidNow, false);
+  assert.equal(unpaidReturn.record.status, "requested");
+
+  // Wrong checkout id must not settle.
+  const wrongId = applyConfirmedSumUpTip(
+    withPending,
+    {
+      paid: true,
+      checkoutId: "cs_other",
+      amount: 5,
+      checkoutReference: withPending.pendingCheckoutReference,
+    },
+    "2026-11-20T12:04:30.000Z",
+  );
+  assert.equal(wrongId.paidNow, false);
+
   const paid = applyConfirmedSumUpTip(
     withPending,
     {
@@ -97,26 +132,55 @@ console.log("\n=== 3. Anonymous tip record stays separate from bookings ===");
   assert.equal(paid.record.status, "paid");
   assert.equal(paid.record.amountGbp, 5);
   assert.equal(paid.record.paymentReference, undefined);
-  console.log("OK  tap tips never carry a booking payment reference");
+
+  // Second successful webhook / settle cannot replace or double-count money on the record.
+  const second = applyConfirmedSumUpTip(
+    paid.record,
+    {
+      paid: true,
+      checkoutId: "cs_test_tip_2",
+      amount: 20,
+      checkoutReference: `tip-${record.tipToken}-2`,
+    },
+    "2026-11-20T12:06:00.000Z",
+  );
+  assert.equal(second.paidNow, false);
+  assert.equal(second.record.amountGbp, 5);
+  assert.equal(planTipCheckout(paid.record, 20, { paid: true, status: "PAID" }), "already_paid");
+  console.log("OK  create/reuse/cancel/fail/duplicate settle rules; no booking payment reference");
 }
 
-console.log("\n=== 4. Metrics distinguish clicks from completed tips ===");
+console.log("\n=== 4. Owner metrics: clicks stay separate from completed tips ===");
 {
   let metrics = emptyTapMetrics("2026-11-20T12:00:00.000Z");
   metrics = applyTapEvent(metrics, "visit", "2026-11-20T12:00:01.000Z");
   metrics = applyTapEvent(metrics, "review_click", "2026-11-20T12:00:02.000Z");
   metrics = applyTapEvent(metrics, "tip_open", "2026-11-20T12:00:03.000Z");
+  metrics = applyTapEvent(metrics, "contact_click", "2026-11-20T12:00:04.000Z");
+  metrics = applyTapEvent(metrics, "book_click", "2026-11-20T12:00:05.000Z");
+  metrics = applyTapEvent(metrics, "whatsapp_click", "2026-11-20T12:00:06.000Z");
   assert.equal(metrics.visits, 1);
   assert.equal(metrics.reviewClicks, 1);
   assert.equal(metrics.tipOpens, 1);
+  assert.equal(metrics.contactClicks, 1);
+  assert.equal(metrics.bookClicks, 1);
+  assert.equal(metrics.whatsappClicks, 1);
+  // Opening the tip UI must not count as a completed tip.
   assert.equal(metrics.tipPaymentsCompleted, 0);
+  assert.equal(metrics.tipTotalGbp, 0);
   metrics = applyTapTipPaid(metrics, 10, "2026-11-20T12:01:00.000Z");
-  assert.equal(metrics.tipPaymentsCompleted, 1);
-  assert.equal(metrics.tipTotalGbp, 10);
-  assert.equal(metrics.tipAverageGbp, averageTipGbp(10, 1));
+  metrics = applyTapTipPaid(metrics, 5, "2026-11-20T12:02:00.000Z");
+  assert.equal(metrics.tipPaymentsCompleted, 2);
+  assert.equal(metrics.tipTotalGbp, 15);
+  assert.equal(metrics.tipAverageGbp, averageTipGbp(15, 2));
+  assert.equal(metrics.tipOpens, 1); // unchanged by paid tips
   assert.equal(isTapEventName("visit"), true);
   assert.equal(isTapEventName("paid"), false);
-  console.log("OK  clicks ≠ completed payments");
+  const panel = read("src/components/OwnerTapScanPanel.tsx");
+  assert.match(panel, /Button opens — not verified reviews/);
+  assert.match(panel, /Verified payments only/);
+  assert.match(panel, /Opened tip panel/);
+  console.log("OK  clicks ≠ completed payments; owner copy labels both correctly");
 }
 
 console.log("\n=== 5. Return URL + token strip script ===");
