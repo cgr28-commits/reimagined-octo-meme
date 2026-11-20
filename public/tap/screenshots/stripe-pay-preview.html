@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Secure tip payment preview | My Airport Taxi NI</title>
+  <style>
+    :root {
+      --navy: #071c38;
+      --bg: #090b10;
+      --emerald: #2fbf4a;
+      --card: #11253f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Manrope, system-ui, sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #0e2744 0%, var(--bg) 55%);
+      color: #e8edf5;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 40px;
+    }
+    .phone {
+      width: 390px;
+      max-width: 100%;
+    }
+    .banner {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.12);
+      color: #fde68a;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .card {
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.04);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .secure {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--emerald);
+    }
+    .brand {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .brand span { color: var(--emerald); }
+    .amount-row {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .wallets {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .wallet {
+      height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: transparent;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .wallet.apple { background: #000; border-color: #000; }
+    .wallet.google { background: #fff; color: #1f1f1f; border-color: #fff; }
+    .or {
+      margin: 10px 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+    .methods {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .method {
+      border: 1px solid rgba(255,255,255,0.15);
+      background: var(--card);
+      border-radius: 10px;
+      padding: 14px 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .method.active { border-color: var(--emerald); }
+    .pay {
+      margin-top: 14px;
+      width: 100%;
+      height: 48px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--emerald);
+      color: var(--navy);
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .fine {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <div class="banner">
+      Structural preview of the shared <strong>/pay/card</strong> Stripe Elements page used by anonymous /tap tips.
+      Live Apple Pay / Google Pay / Link buttons are drawn by Stripe when a real Checkout Session exists.
+      Tip checkout APIs are not deployed yet, so this is not a live Stripe iframe and no payment was taken.
+    </div>
+    <div class="card">
+      <div class="row">
+        <div class="brand">MY AIRPORT <span>TAXI NI</span></div>
+        <div class="secure">Secure card payment</div>
+      </div>
+      <div class="amount-row">
+        <div>
+          <div style="font-size:14px;font-weight:700">Driver tip</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px">Anonymous /tap tip</div>
+        </div>
+        <div style="font-size:20px;font-weight:800">£5.00</div>
+      </div>
+      <div class="wallets">
+        <div class="wallet apple"> Apple Pay</div>
+        <div class="wallet google">Google Pay</div>
+      </div>
+      <div class="or">or pay by card</div>
+      <div class="methods">
+        <div class="method active">Link — pay faster with Link</div>
+        <div class="method">Card</div>
+      </div>
+      <button class="pay" type="button">Pay £5.00</button>
+      <p class="fine">Secured by Stripe — we never see your card details. Test mode only; no live charge.</p>
+    </div>
+  </div>
+</body>
+</html>

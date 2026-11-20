@@ -62,10 +62,15 @@ export type StoredTipDecision = {
 
 export type JourneyTipStatus = "requested" | "paid";
 
+/** Where the tip link came from. Missing source means a journey tip (legacy records). */
+export type TipRecordSource = "journey" | "tap";
+
 /** Server-side tip record. The public URL carries only `tipToken`. */
 export type JourneyTipRecord = {
   tipToken: string;
   trackingJobToken: string;
+  /** Anonymous NFC/QR tips use `tap`; journey tips omit or use `journey`. */
+  source?: TipRecordSource;
   paymentReference?: string;
   journeyLeg?: "outbound" | "return";
   requestedAt: string;
@@ -81,6 +86,8 @@ export type JourneyTipRecord = {
   pendingCheckoutReference?: string;
   pendingPaymentUrl?: string;
   pendingCheckoutCreatedAt?: string;
+  /** Set once when a tap tip is counted in owner Tap & Scan metrics. */
+  tapMetricsRecordedAt?: string;
 };
 
 /**

@@ -22,7 +22,8 @@ export type OwnerDashboardToolTab =
   | "marketing"
   | "google-ads"
   | "empty-legs"
-  | "name-board";
+  | "name-board"
+  | "tap-scan";
 
 type OwnerDashboardToolSwitcherProps = {
   value: OwnerDashboardToolTab;
@@ -49,6 +50,11 @@ export const OWNER_MORE_DESTINATIONS: {
   { id: "inbox", label: "Inbox", hint: "Emails to bookings@ — read and reply with your logo signature" },
   { id: "admin", label: "Job admin", hint: "Awaiting payment, future jobs, refunds, and checkout recovery" },
   { id: "money", label: "Money", hint: "Earned revenue and payments received" },
+  {
+    id: "tap-scan",
+    label: "Tap & Scan",
+    hint: "NFC / QR landing visits, review clicks, and verified tip payments",
+  },
   { id: "requests", label: "Requests", hint: "Approvals that need a decision, and deposit cash" },
   { id: "enquiries", label: "Enquiries", hint: "Quotes and enquiry jobs" },
   { id: "whatsapp", label: "WhatsApp chats", hint: "What customers asked the WhatsApp assistant and its replies" },

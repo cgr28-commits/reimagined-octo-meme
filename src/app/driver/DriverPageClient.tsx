@@ -27,6 +27,7 @@ import OwnerBookingCalendar from "@/components/OwnerBookingCalendar";
 import OwnerAccountProfilePanel from "@/components/OwnerAccountProfilePanel";
 import OwnerFinancialSummaryPanel from "@/components/OwnerFinancialSummaryPanel";
 import OwnerDriverPaymentsPanel from "@/components/OwnerDriverPaymentsPanel";
+import OwnerTapScanPanel from "@/components/OwnerTapScanPanel";
 import DriverPayPanel from "@/components/DriverPayPanel";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import OwnerMobileApp, { BottomNav, type OwnerMobileTab } from "@/components/owner-mobile/OwnerMobileApp";
@@ -3895,6 +3896,13 @@ export default function DriverPageClient({
                   <OwnerToolBackBar title="Money" onBack={() => setOwnerToolTab("more")} />
                   <OwnerFinancialSummaryPanel ownerKey={savedKey} />
                   <OwnerDriverPaymentsPanel ownerKey={savedKey} />
+                </div>
+              ) : null}
+
+              {isOwnerView && savedKey && ownerToolTab === "tap-scan" ? (
+                <div id="owner-tool-panel-tap-scan">
+                  <OwnerToolBackBar title="Tap & Scan" onBack={() => setOwnerToolTab("more")} />
+                  <OwnerTapScanPanel ownerKey={savedKey} />
                 </div>
               ) : null}
 
