@@ -4641,20 +4641,20 @@ body:has(.cookie-consent-banner--modal) {
    ========================================================================== */
 @media (min-width: 1200px) {
   /* ---------- Airport, location and route pages ---------- */
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) { background: #f4f7fa !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main { background: #f4f7fa; color: #33445a; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) header[data-site-header] { background: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) { background: #f4f7fa !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main { background: #f4f7fa; color: #33445a; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) header[data-site-header] { background: #071c38 !important; }
   body:has([data-landing-quote]) [data-landing-quote] > div.absolute.inset-0 { display: none; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(h1, h2, h3, h4):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #071c38 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #071c38 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-emerald:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) {
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main :is(h1, h2, h3, h4):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main :is(strong, b):is(.text-white, [class*="text-white/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #071c38 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main :is(.text-white, [class*="text-white/"], [class*="text-mist"], [class*="text-ink"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *):not(h1, h2, h3, h4, strong, b) { color: #33445a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main .text-emerald:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main :is([class*="bg-white/"], .glass-card, [class*="bg-navy-light"], [class*="bg-navy/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) {
     background-color: #ffffff !important; border-color: #dde4ec !important; box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 12px 28px -22px rgba(7, 28, 56, 0.3);
   }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="border-white/"]:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { border-color: #dde4ec !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #2fbf4a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main [class*="border-white/"]:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { border-color: #dde4ec !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main a:not([class*="bg-"]):is(.text-emerald, [class*="hover:text-emerald"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main svg:is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #2fbf4a !important; }
   /* The airport photo banner stays a navy/photo band with white text. */
 
   /* ---------- Vehicle selection and checkout: light page, navy summary panel kept ---------- */
@@ -4684,9 +4684,9 @@ body:has(.cookie-consent-banner--modal) {
 /* LIGHT DESIGN SYSTEM: small green text on light backgrounds uses a deeper emerald
    (#1A7F2E, about 5:1) so links and eyebrow labels pass WCAG AA; large headings keep #1F9A36. */
 @media (min-width: 1200px) {
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #17692a !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #b07800 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main :is(a, p, span, li, div):is(.text-emerald, [class*="text-emerald/"]):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *):not([class*="bg-emerald"]):not(h1 *, h2 *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main [class*="bg-emerald/"][class*="bg-emerald/"]:is(.text-emerald, *):not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #17692a !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main .text-amber-300:not([data-landing-hero] *, [data-hub-quote] *, section.homepage-hero *, main :is(.bg-navy, .bg-navy-dark, [class*="bg-[#071c38]"], [class*="bg-[#0b"], [class*="bg-navy-dark/"]) *, :is(section, div):has(> img.absolute, > picture, > video) *, :is(a, div):has(> img[data-nimg="fill"]) *) { color: #b07800 !important; }
 }
 
 /* Field labels carry a Tailwind !important utility (layered). An !important rule in an
@@ -4723,9 +4723,9 @@ body:has(.cookie-consent-banner--modal) {
 
 /* LIGHT DESIGN SYSTEM: shared section headings (eyebrow + description) on light pages. */
 @media (min-width: 1200px) {
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-eyebrow:not(section.homepage-hero *) { color: #1a7f2e !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .section-description:not(section.homepage-hero *) { color: #4a5a70 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"])) main .text-amber-300:not(section.homepage-hero *) { color: #b07800 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main .section-eyebrow:not(section.homepage-hero *) { color: #1a7f2e !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main .section-description:not(section.homepage-hero *) { color: #4a5a70 !important; }
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page])) main .text-amber-300:not(section.homepage-hero *) { color: #b07800 !important; }
 }
 @media (min-width: 1200px) {
   body:has(footer.bg-navy-dark) main [class*="bg-[#071c38]"][class*="bg-[#071c38]"][class*="bg-[#071c38]"]:is([class*="text-white"], [class*="text-mist"]) { color: rgba(255, 255, 255, 0.8) !important; }
@@ -5024,24 +5024,24 @@ body:has(.cookie-consent-banner--modal) {
    Desktop 1200px+ only.
    ========================================================================== */
 @media (min-width: 1200px) {
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0:is([class*="bg-gradient"], .bg-navy-dark, .bg-navy, [class*="bg-navy/"], :has(> [class*="bg-[radial-gradient"])) {
     display: none !important;
   }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(even) { background: #ffffff !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main > section:not(.homepage-hero):not(:has([data-landing-hero])):nth-of-type(odd) { background: #f4f7fa !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main :is(.section-heading, h1, h2, h3):not(section.homepage-hero *):not([data-landing-hero] *) {
     font-family: var(--font-sans), system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.025em !important;
   }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main .section-heading:not(section.homepage-hero *) { color: #071c38 !important; font-size: clamp(2rem, 2.4vw, 2.6rem) !important; line-height: 1.12 !important; }
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main :is(h3):not(section.homepage-hero *):not([data-landing-hero] *) { font-weight: 700 !important; letter-spacing: -0.01em !important; color: #071c38 !important; }
   /* Cards sitting on a white section get a soft shadow so they still read as cards. */
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main > section:nth-of-type(even):not(.homepage-hero) :is(.glass-card, [class*="bg-white/"], .bg-navy-light):not([class*="bg-white/0"]) {
     box-shadow: 0 14px 34px -26px rgba(7, 28, 56, 0.45) !important; border-color: #e1e7ee !important;
   }
@@ -5395,7 +5395,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 /* Site review (8 Nov): page heroes built as main > div (e.g. /tours/) keep their decorative navy
    gradient on the light theme; hide it like the section heroes. Photo overlays are untouched. */
 @media (min-width: 1200px) {
-  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"]))
+  body:has(footer.bg-navy-dark):not(:has([data-staff-page], [class*="station_page"], [data-tap-page]))
     main > div.relative.overflow-hidden:not(:has([data-landing-hero], [data-hub-quote])):not(:has(> img, > picture, > video, > div > img.object-cover, > div > picture)) > div.absolute.inset-0[class*="bg-gradient"] {
     display: none !important;
   }
@@ -5453,7 +5453,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
 
   /* Dark islands keep the original palette. */
   html[data-mobile-light] :is(
-      header:not(main header), footer, #matni-test-mode,
+      header:not(main header), footer, #matni-test-mode, [data-tap-page],
       .bg-emerald, .bg-emerald-dark, .bg-emerald-light, .btn-primary, [class*="bg-[#25D366]"], [class*="bg-[#25d366]"],
       :is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video)
     ) {
@@ -5470,7 +5470,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   html[data-mobile-light] main .bg-white { background-color: #ffffff; }
 
   /* Cards: white with a hairline and a soft shadow instead of faint glass. */
-  html[data-mobile-light] main :is([class*="bg-white/[0.0"], [class*="bg-white/5"], [class*="bg-navy-light/"]):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
+  html[data-mobile-light] main:not([data-tap-page]) :is([class*="bg-white/[0.0"], [class*="bg-white/5"], [class*="bg-navy-light/"]):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     background-color: #ffffff;
     border-color: #e3e9f0;
     box-shadow: 0 1px 2px rgba(7, 28, 56, 0.05), 0 6px 18px rgba(7, 28, 56, 0.06);
@@ -5478,7 +5478,7 @@ a[data-call-us-pill="compact"] [data-phone-number] { display: none; }
   /* Muted greys meant for navy pages. */
   html[data-mobile-light] main :is(.text-slate-200, .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400):not(:is(header:not(main header), footer, .bg-emerald, .btn-primary) *) { color: #24364f; }
   /* Headings: navy, Manrope, tight. */
-  html[data-mobile-light] main :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
+  html[data-mobile-light] main:not([data-tap-page]) :is(h1, h2, h3):not(:is(a, div, section, figure):has(> img[data-nimg="fill"], > img.absolute, > picture, > video) *) {
     color: #071c38;
     font-family: var(--font-sans), system-ui, sans-serif;
     letter-spacing: -0.02em;
@@ -5788,7 +5788,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
 @layer base {
 @media (max-width: 1199.98px) {
   html[data-mobile-light] { --d2-bg: #eef2f6; --d2-line: #dde4ec; --d2-field: #d3dce6; --d2-muted: #5f6f84; }
-  html[data-mobile-light] body, html[data-mobile-light] main { background: var(--d2-bg) !important; }
+  html[data-mobile-light] body:not(:has([data-tap-page])), html[data-mobile-light] main:not([data-tap-page]) { background: var(--d2-bg) !important; }
 
   /* Header: navy bar, green Call Us pill, square WhatsApp and menu buttons. */
   html[data-mobile-light] header:not(main header) { background: #071c38 !important; }
@@ -6119,8 +6119,8 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
 
   /* ---- Text ---- */
-  html[data-mobile-d3] body, html[data-mobile-d3] main { color: #1e293b; }
-  html[data-mobile-d3] main :is(h1, h2, h3, h4) { color: #071c38 !important; }
+  html[data-mobile-d3] body:not(:has([data-tap-page])), html[data-mobile-d3] main:not([data-tap-page]) { color: #1e293b; }
+  html[data-mobile-d3] main:not([data-tap-page]) :is(h1, h2, h3, h4) { color: #071c38 !important; }
   html[data-mobile-d3] .quote-flow .quote-secondary,
   html[data-mobile-d3] #homepage-booking-intro [data-d2-intro-sub] { color: #24364f !important; }
   html[data-mobile-d3] .quote-flow :is(.form-label, label):not(:has(input[type=checkbox], input[type=radio])),
