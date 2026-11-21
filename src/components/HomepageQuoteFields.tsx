@@ -566,8 +566,9 @@ export default function HomepageQuoteFields({
       ) : null}
       {scheduleFields}
 
+      {/* items-end: level steppers when Suitcases / Large Bags wraps (Linux CI fonts). */}
       {design2 ? (
-        <div className="grid grid-cols-2 gap-2" id="passenger-luggage-section" data-d2-party>
+        <div className="grid grid-cols-2 items-end gap-2" id="passenger-luggage-section" data-d2-party>
           <Design2Stepper
             id="quote-section-passengers"
             label="Passengers"
