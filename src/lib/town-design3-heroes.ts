@@ -61,6 +61,12 @@ export const TOWN_DESIGN3_HEROES = [
     widths: [640, 960, 1280] as const,
     alt: "Ballyclare town hall at dusk",
   },
+  {
+    townSlug: "antrim",
+    heroBase: "d3-town-ai-antrim-castle-gardens",
+    widths: [640, 960, 1280] as const,
+    alt: "Antrim Castle Gardens ruin and tower at sunset",
+  },
 ] as const satisfies readonly TownDesign3Hero[];
 
 const byTownSlug = new Map<string, TownDesign3Hero>(

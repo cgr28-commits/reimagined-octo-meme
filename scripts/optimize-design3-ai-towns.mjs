@@ -17,6 +17,7 @@ const widths = [640, 960, 1280];
 const TOWNS = [
   { base: "d3-town-ai-lisburn-linen-centre", src: "lisburn-linen-centre-ai-1600.jpg" },
   { base: "d3-town-ai-ballyclare-town-hall", src: "ballyclare-town-hall-ai-1600.jpg" },
+  { base: "d3-town-ai-antrim-castle-gardens", src: "antrim-castle-gardens-ai-1600.jpg" },
 ];
 
 mkdirSync(outDir, { recursive: true });
