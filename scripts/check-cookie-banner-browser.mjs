@@ -134,7 +134,10 @@ try {
             assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'privacy wall overlay must cover the page');
             assert.equal(m.wallLocked,true,'page scroll must lock behind the wall');
             assert.ok(m.overlay,'overlay metrics missing');
-            assert.ok(m.overlay.width>=width-1 && m.overlay.height>=m.viewport.visualHeight-1,'overlay covers the viewport');
+            // Fixed inset:0 overlay; allow a couple of px for scrollbars / subpixel visualViewport.
+            assert.ok(m.overlay.width>=width-2,'overlay spans the viewport width');
+            assert.ok(m.overlay.height>=m.viewport.visualHeight-8,'overlay spans the viewport height');
+            assert.ok(m.overlay.x<=0.5 && m.overlay.y<=0.5,'overlay starts at the viewport origin');
             assert.ok(m.banner.height>=160,'wall panel remains a substantial consent surface');
             assert.equal(m.buttons.length,2,'Accept all and Decline all');
             assert.match(m.buttons.map(b=>b.label).join('|'),/Accept all/);
