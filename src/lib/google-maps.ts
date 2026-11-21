@@ -18,7 +18,16 @@ import {
   isFullNorthernIrelandPostcode,
   isPureFullNorthernIrelandPostcodeQuery,
 } from "../../shared/address-validation";
-import { matchServedAirportSuggestions, servedAirportFromPlaceId } from "../../shared/served-airports";
+import {
+  getServedAirport,
+  matchServedAirportSuggestions,
+  servedAirportFromPlaceId,
+} from "../../shared/served-airports";
+import {
+  dublinTerminalAddress,
+  dublinTerminalFromPlaceId,
+  shapeDublinAirportSuggestions,
+} from "@/lib/dublin-terminal-suggestions";
 import type { SelectedPlace } from "@/lib/selected-place";
 import { selectedPlaceFromParts } from "@/lib/selected-place";
 import {
@@ -96,7 +105,10 @@ function mergePredictions(
   const servedFirst = merged.filter((item) => servedIds.has(item.placeId));
   const remainder = merged.filter((item) => !servedIds.has(item.placeId));
   const ranked = rankAddressSuggestions(remainder, query, airportCode);
-  return collapseDuplicateAirportSuggestions([...servedFirst, ...ranked]).slice(0, limit);
+  const collapsed = collapseDuplicateAirportSuggestions([...servedFirst, ...ranked]);
+  // Dublin Airport shows as exactly two entries: Terminal 1 and Terminal 2.
+  const dublinIntent = merged.some((item) => item.placeId === getServedAirport("DUB")?.placeId);
+  return shapeDublinAirportSuggestions(collapsed, dublinIntent).slice(0, limit);
 }
 
 function toPrediction(suggestion: {
@@ -320,6 +332,27 @@ export async function fetchSelectedPlaceDetails(
   userInput?: string,
   suggestionName?: string,
 ): Promise<SelectedPlace | null> {
+  const dublinTerminal = dublinTerminalFromPlaceId(placeId);
+  if (dublinTerminal) {
+    // Same Dublin Airport place and coordinates as before (fares unchanged); the label names the terminal.
+    const dub = getServedAirport("DUB")!;
+    const label = dublinTerminalAddress(dublinTerminal);
+    return {
+      placeId: dub.placeId,
+      formattedAddress: label,
+      displayAddress: label,
+      placeName: label.split(",")[0],
+      lat: dub.lat,
+      lng: dub.lng,
+      countryCode: dub.countryCode,
+      postalCode: dub.postalCode,
+      streetNumber: null,
+      route: null,
+      locality: null,
+      administrativeArea: null,
+    };
+  }
+
   const served = servedAirportFromPlaceId(placeId);
   if (served) {
     return {
