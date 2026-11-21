@@ -57,7 +57,14 @@ async function metrics(page) {
       ...document.querySelectorAll('.cookie-consent-banner button'),
     ].filter((el, i, all) => all.indexOf(el) === i)
       .filter(el => /accept|decline|reject/i.test(el.textContent || ''));
-    const buttons=choiceButtons.map(el=>({ ...rect(el), label:el.textContent.trim(), font:getComputedStyle(el).fontSize, color:getComputedStyle(el).color, background:getComputedStyle(el).backgroundColor, border:getComputedStyle(el).border, weight:getComputedStyle(el).fontWeight, hit:el.contains(document.elementFromPoint(el.getBoundingClientRect().x+el.getBoundingClientRect().width/2,el.getBoundingClientRect().y+el.getBoundingClientRect().height/2)) }));
+    // Wall panels scroll on short phones; bring each choice into the panel viewport before hit-testing.
+    const buttons=choiceButtons.map(el=>{
+      el.scrollIntoView({block:'nearest', inline:'nearest'});
+      const r=el.getBoundingClientRect();
+      const midX=r.x+r.width/2, midY=r.y+r.height/2;
+      const top=document.elementFromPoint(midX, midY);
+      return { ...rect(el), label:el.textContent.trim(), font:getComputedStyle(el).fontSize, color:getComputedStyle(el).color, background:getComputedStyle(el).backgroundColor, border:getComputedStyle(el).border, weight:getComputedStyle(el).fontWeight, hit:Boolean(top && el.contains(top)) };
+    });
     return {
       overlay: overlay ? rect(overlay) : null,
       banner: panel ? rect(panel) : null,
