@@ -413,7 +413,7 @@ import {
   alertOwnerApprovalRequest,
   verifyOwnerApprovalToken,
 } from "./owner-approval-alert";
-import { notifyOwnerPush } from "./owner-push";
+import { buildQuoteInterestPushNotice, notifyOwnerPush } from "./owner-push";
 export { QuoteLeadCoordinator } from "./quote-lead-coordinator";
 // Bespoke (manually priced) Event / Business Class quotes — isolated module, see bespoke-quote-handlers.ts.
 export { BespokeQuoteCoordinator } from "./bespoke-quote-coordinator";
@@ -1690,6 +1690,11 @@ async function handleQuoteLeadRequest(
           idempotencyKey: `booking-started-${txn}` });
         return result.sent;
       });
+      // Same dedupe as the email claim — push only when the first booking-started alert succeeded.
+      // Never blocks the customer; prefs default OFF for the quotes category.
+      if (emailed) {
+        await notifyOwnerPush(env, buildQuoteInterestPushNotice("booking_started", details)).catch(() => undefined);
+      }
     }
     return json({ ok: true, recorded: true, emailed }, 200, origin);
   }
@@ -1768,6 +1773,15 @@ async function handleQuoteLeadRequest(
     });
     emailed = notify.emailed;
     contactEmailed = notify.contactEmailed;
+    // Quote-interest push uses the same Durable Object email claim: only after a successful
+    // first send for this quoteTransactionId / contact fingerprint. Inbox email classification
+    // still ignores these subjects so mailbox forwarding cannot double-notify.
+    if (notify.quoteEmailed) {
+      await notifyOwnerPush(env, buildQuoteInterestPushNotice("viewed", details)).catch(() => undefined);
+    }
+    if (notify.contactEmailed) {
+      await notifyOwnerPush(env, buildQuoteInterestPushNotice("contact", details)).catch(() => undefined);
+    }
     if (kind === "contact" && env.TRACKING_STORE) {
       // One "your quote is waiting" email about an hour later if they don't book.
       await enqueueQuoteContactFollowUp(env.TRACKING_STORE, details).catch((error) =>

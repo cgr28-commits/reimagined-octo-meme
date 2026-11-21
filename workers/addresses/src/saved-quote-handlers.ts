@@ -71,6 +71,7 @@ import {
   tryClaimSavedQuoteReminder,
 } from "./saved-quote-store";
 import { trySendBrandedCustomerEmail, trySendOwnerOperationalEmail, type WorkerEmailEnv } from "./worker-email";
+import { buildQuoteInterestPushNotice, notifyOwnerPush, type OwnerPushEnv } from "./owner-push";
 import { isExecutiveVehicle } from "../shared/executive-vehicle";
 import { ownerPricingEngineOptions, type OwnerPricingSettings } from "../shared/owner-pricing-config";
 import { composeWebsiteFareBreakdown } from "../shared/website-fare-breakdown";
@@ -747,6 +748,15 @@ export async function handleCreateSavedQuote(
   } catch (err) {
     console.error("[saved-quote] owner alert exception", err);
   }
+
+  // Optional phone push (quotes category, default OFF). No customer PII on the lock screen.
+  // One call per successful create — unique saved-quote reference. Failures never block the customer.
+  await notifyOwnerPush(env as OwnerPushEnv, buildQuoteInterestPushNotice("saved", {
+    pickupLabel: record.journey.pickupLabel,
+    dropoffLabel: record.journey.dropoffLabel,
+    estimatedPrice: formatSavedQuoteAmount(record.pricing.totalAmount),
+    totalGbp: record.pricing.totalAmount,
+  })).catch(() => undefined);
 
   const summary = toSavedQuotePublicSummary(record, siteOrigin(env));
   return jsonResponse(

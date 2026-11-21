@@ -199,38 +199,80 @@ export default function OwnerNotificationsScreen({ ownerKey, onBack, onToast }: 
         </section>
 
         {status ? (
-          <section className={styles.card} style={{ overflow: "hidden" }}>
-            <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
-              Alert me about
-            </h2>
-            {status.categories.map((c) => {
-              const on = status.prefs[c.id] !== false;
-              return (
-                <div key={c.id} className={styles.row} style={{ cursor: "default" }}>
-                  <span className={styles.rowBody}>
-                    <span className={styles.rowTitle} style={{ fontWeight: 700, whiteSpace: "normal" }}>
-                      {c.label}
+          <>
+            <section className={styles.card} style={{ overflow: "hidden" }} data-owner-quote-interest-notifications>
+              <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
+                Quote Interest Notifications
+              </h2>
+              {(() => {
+                const quoteCat = status.categories.find((c) => c.id === "quotes");
+                if (!quoteCat) return null;
+                const on = status.prefs.quotes === true;
+                return (
+                  <div className={styles.row} style={{ cursor: "default" }}>
+                    <span className={styles.rowBody}>
+                      <span className={styles.rowTitle} style={{ fontWeight: 700, whiteSpace: "normal" }}>
+                        Enable quote-interest push notifications
+                      </span>
+                      <span style={{ display: "block", marginTop: 4, fontSize: 13, color: "#5B6B80", lineHeight: 1.45, fontWeight: 500 }}>
+                        Quote viewed, booking started, contact details and saved quotes. Off by default. Preference is saved for all your devices.
+                      </span>
                     </span>
-                  </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={on}
-                    aria-label={c.label}
-                    disabled={busy}
-                    onClick={() => setPref(c.id, !on)}
-                    style={{ width: 60, height: 36, borderRadius: 999, border: 0, background: on ? "#2FBF4A" : "#C9D2DE", position: "relative", flexShrink: 0, cursor: "pointer" }}
-                  >
-                    <span style={{ position: "absolute", top: 3, left: on ? 27 : 3, width: 30, height: 30, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(7,28,56,0.25)", transition: "left 150ms" }} />
-                  </button>
-                </div>
-              );
-            })}
-            <p style={{ margin: 0, padding: "10px 16px 14px", fontSize: 13, color: "#5B6B80", lineHeight: 1.45 }}>
-              “Quote viewed”, saved quotes and the daily report never alert you. Alerts follow the emails arriving in your dashboard Inbox, so they
-              rely on your mailbox forwarding staying switched on.
-            </p>
-          </section>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-label="Enable quote-interest push notifications"
+                      disabled={busy}
+                      onClick={() => setPref("quotes", !on)}
+                      style={{ width: 60, height: 36, borderRadius: 999, border: 0, background: on ? "#2FBF4A" : "#C9D2DE", position: "relative", flexShrink: 0, cursor: "pointer" }}
+                    >
+                      <span style={{ position: "absolute", top: 3, left: on ? 27 : 3, width: 30, height: 30, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(7,28,56,0.25)", transition: "left 150ms" }} />
+                    </button>
+                  </div>
+                );
+              })()}
+              <p style={{ margin: 0, padding: "10px 16px 14px", fontSize: 13, color: "#5B6B80", lineHeight: 1.45 }}>
+                Lock-screen alerts show the journey and fare only — not the customer&apos;s name, email or mobile. The daily quote report still never
+                alerts your phone.
+              </p>
+            </section>
+
+            <section className={styles.card} style={{ overflow: "hidden" }}>
+              <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
+                Alert me about
+              </h2>
+              {status.categories
+                .filter((c) => c.id !== "quotes")
+                .map((c) => {
+                  const on = status.prefs[c.id] !== false;
+                  return (
+                    <div key={c.id} className={styles.row} style={{ cursor: "default" }}>
+                      <span className={styles.rowBody}>
+                        <span className={styles.rowTitle} style={{ fontWeight: 700, whiteSpace: "normal" }}>
+                          {c.label}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={c.label}
+                        disabled={busy}
+                        onClick={() => setPref(c.id, !on)}
+                        style={{ width: 60, height: 36, borderRadius: 999, border: 0, background: on ? "#2FBF4A" : "#C9D2DE", position: "relative", flexShrink: 0, cursor: "pointer" }}
+                      >
+                        <span style={{ position: "absolute", top: 3, left: on ? 27 : 3, width: 30, height: 30, borderRadius: 999, background: "#fff", boxShadow: "0 1px 3px rgba(7,28,56,0.25)", transition: "left 150ms" }} />
+                      </button>
+                    </div>
+                  );
+                })}
+              <p style={{ margin: 0, padding: "10px 16px 14px", fontSize: 13, color: "#5B6B80", lineHeight: 1.45 }}>
+                Paid bookings, requests, messages and payment alerts follow emails arriving in your dashboard Inbox, so they rely on mailbox
+                forwarding staying switched on. Quote interest alerts above are sent directly and do not need forwarding.
+              </p>
+            </section>
+          </>
         ) : null}
 
         {status && status.devices.length ? (

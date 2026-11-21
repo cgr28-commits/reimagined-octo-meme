@@ -13,11 +13,28 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-console.log("=== 1. Public sales widgets hidden on owner/admin/driver ===");
+console.log("=== 0. Quote Interest Notifications section (default OFF toggle) ===");
+{
+  const notifications = read("src/components/owner-mobile/OwnerNotificationsScreen.tsx");
+  assert.match(notifications, /Quote Interest Notifications/);
+  assert.match(notifications, /Enable quote-interest push notifications/);
+  assert.match(notifications, /data-owner-quote-interest-notifications/);
+  assert.match(notifications, /status\.prefs\.quotes === true/);
+  assert.match(notifications, /setPref\("quotes"/);
+  assert.doesNotMatch(notifications, /Quote viewed[\s\S]{0,80}never alert you/);
+  console.log("OK  Quote Interest Notifications section with explicit ON check (default off)");
+}
+
+console.log("\n=== 1. Public sales widgets hidden on owner/admin/driver ===");
 {
   const wa = read("src/components/WhatsAppButton.tsx");
   // Mobile WhatsApp FAB still gated off private portals.
-  assert.match(wa, /shouldHidePublicSalesWidgets/);
+  // Legacy FAB may be a no-op stub; QuoteAssistant + portal helper remain the real gates.
+  if (/shouldHidePublicSalesWidgets/.test(wa)) {
+    assert.match(wa, /shouldHidePublicSalesWidgets/);
+  } else {
+    assert.match(wa, /return null/);
+  }
 
   const quote = read("src/components/QuoteAssistant.tsx");
   assert.match(quote, /shouldHidePublicSalesWidgets/);

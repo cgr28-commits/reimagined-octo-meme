@@ -1,9 +1,11 @@
 /**
  * Owner Dashboard push notifications (iPhone Home Screen app, Android, desktop).
  * Subscriptions, preferences and the VAPID identity live in the private KV store.
- * Notifications are raised from emails arriving in the dashboard inbox, so every alert
- * the office already receives by email can also reach the phone — without touching
- * booking or payment code.
+ *
+ * Most alerts are raised from emails arriving in the dashboard inbox. Quote-interest
+ * alerts are raised directly from verified Worker events (/quote-leads, Save My Quote)
+ * so they do not depend on mailbox forwarding — and inbound email classification still
+ * ignores quote emails to avoid duplicates.
  */
 import { corsHeaders } from "../shared/google-places";
 import { ownerAuthorized, type DriverAuthEnv } from "./driver-auth";
@@ -24,6 +26,11 @@ export const PUSH_CATEGORIES = {
   cancellations: { label: "Cancellations and refunds", defaultOn: true },
   calls: { label: "Phone calls taken by the receptionist", defaultOn: true },
   payments: { label: "Payment problems", defaultOn: true },
+  /**
+   * Quote interest (viewed / booking started / contact / saved). Default OFF so
+   * existing owners are not flooded; preference is stored in owner-push:prefs KV.
+   */
+  quotes: { label: "Quote interest (viewed, started booking, saved)", defaultOn: false },
   // Driver portal (Stage 2). Only listed where driver accounts are switched on.
   drivers: { label: "Driver jobs and urgent driver reports", defaultOn: true },
 } as const;
@@ -78,10 +85,102 @@ async function getPrefs(store: KVNamespace): Promise<PushPrefs> {
 
 export type OwnerPushNotice = { category: PushCategory; title: string; body: string; url: string; tag?: string };
 
+export type QuoteInterestPushKind = "viewed" | "booking_started" | "contact" | "saved";
+
+export type QuoteInterestPushDetails = {
+  pickupLabel?: string;
+  dropoffLabel?: string;
+  estimatedPrice?: string;
+  totalGbp?: number;
+};
+
+/** Format a known fare for the lock screen — never invent an amount. */
+export function formatQuoteInterestAmount(details: QuoteInterestPushDetails): string | null {
+  const label = details.estimatedPrice?.trim() ?? "";
+  if (label && /£\s*\d/.test(label) && !/^(quote|tbc|poa|on\s*request|request)/i.test(label)) {
+    const match = label.match(/£\s*([\d,]+(?:\.\d{1,2})?)/);
+    if (match) {
+      const n = Number(match[1].replace(/,/g, ""));
+      if (Number.isFinite(n) && n > 0) {
+        return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
+      }
+    }
+  }
+  if (typeof details.totalGbp === "number" && Number.isFinite(details.totalGbp) && details.totalGbp > 0) {
+    const n = Math.round(details.totalGbp * 100) / 100;
+    return Number.isInteger(n) ? `£${n}` : `£${n.toFixed(2)}`;
+  }
+  return null;
+}
+
+/**
+ * Short journey phrase from real labels only (no invented places).
+ * Prefers an airport name + "transfer" when either end names an airport.
+ */
+export function quoteInterestJourneyPhrase(details: QuoteInterestPushDetails): string | null {
+  const pickup = details.pickupLabel?.trim() ?? "";
+  const dropoff = details.dropoffLabel?.trim() ?? "";
+  const airportRaw = [pickup, dropoff].find((label) => /\bairport\b/i.test(label));
+  if (airportRaw) {
+    const short = airportRaw.split(",")[0]?.replace(/\s*\([^)]*\)\s*$/, "").trim() ?? "";
+    if (short) {
+      const phrase = `${short} transfer`;
+      return phrase.length > 80 ? `${phrase.slice(0, 77)}…` : phrase;
+    }
+  }
+  if (pickup && dropoff) {
+    const a = pickup.split(",")[0]?.trim() || pickup;
+    const b = dropoff.split(",")[0]?.trim() || dropoff;
+    const route = `${a} to ${b}`;
+    return route.length > 72 ? `${route.slice(0, 69)}…` : route;
+  }
+  return null;
+}
+
+/**
+ * Direct quote-interest phone alert (not from inbound email).
+ * Lock-screen copy uses journey/fare only — never customer name, email or mobile.
+ */
+export function buildQuoteInterestPushNotice(
+  kind: QuoteInterestPushKind,
+  details: QuoteInterestPushDetails,
+): OwnerPushNotice {
+  const amount = formatQuoteInterestAmount(details);
+  const journey = quoteInterestJourneyPhrase(details);
+  const enquiries = "/owner/?ui=mobile#enquiries";
+
+  if (kind === "viewed") {
+    let body = "New quote viewed";
+    if (journey && amount) body = `New quote viewed — ${journey}. ${amount}.`;
+    else if (journey) body = `New quote viewed — ${journey}.`;
+    else if (amount) body = `New quote viewed — ${amount} transfer.`;
+    return { category: "quotes", title: "Quote viewed", body: body.slice(0, 160), url: enquiries, tag: "quote-viewed" };
+  }
+
+  if (kind === "booking_started") {
+    const body = amount
+      ? `Customer started booking — ${amount} transfer.`
+      : "Customer started booking.";
+    return { category: "quotes", title: "Booking started", body: body.slice(0, 160), url: enquiries, tag: "quote-booking-started" };
+  }
+
+  if (kind === "saved") {
+    const body = amount
+      ? `Customer saved a quote — ${amount} transfer.`
+      : "Customer saved a quote.";
+    return { category: "quotes", title: "Quote saved", body: body.slice(0, 160), url: enquiries, tag: "quote-saved" };
+  }
+
+  const body = amount
+    ? `Customer added contact details — ${amount} transfer.`
+    : "Customer added contact details to a quote.";
+  return { category: "quotes", title: "Contact details added", body: body.slice(0, 160), url: enquiries, tag: "quote-contact" };
+}
+
 /**
  * Decide whether an email arriving in the dashboard inbox deserves a phone alert.
  * Routine automatic emails (quote viewed/saved, daily reports, confirmations copied to the
- * office) return null.
+ * office) return null — quote interest uses buildQuoteInterestPushNotice instead.
  */
 export function pushNoticeForInboundEmail(email: { from: string; fromName?: string; subject: string; text: string }): OwnerPushNotice | null {
   const from = email.from.trim().toLowerCase();
