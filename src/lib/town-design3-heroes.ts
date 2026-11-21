@@ -49,6 +49,24 @@ export const TOWN_DESIGN3_HEROES = [
     widths: [640, 960, 1280] as const,
     alt: "Glengormley High Street in bloom",
   },
+  {
+    townSlug: "lisburn",
+    heroBase: "d3-concept-lisburn-linen-centre",
+    widths: [640, 960, 1280] as const,
+    alt: "Irish Linen Centre area at Market Square, Lisburn, at sunset",
+  },
+  {
+    townSlug: "ballyclare",
+    heroBase: "d3-concept-ballyclare-town-hall",
+    widths: [640, 960, 1280] as const,
+    alt: "Ballyclare Town Hall on a clear day",
+  },
+  {
+    townSlug: "antrim",
+    heroBase: "d3-concept-antrim-castle-gardens",
+    widths: [640, 960, 1280] as const,
+    alt: "Deerpark Bridge in Antrim Castle Gardens",
+  },
 ] as const satisfies readonly TownDesign3Hero[];
 
 const byTownSlug = new Map<string, TownDesign3Hero>(
