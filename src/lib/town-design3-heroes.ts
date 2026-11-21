@@ -51,21 +51,15 @@ export const TOWN_DESIGN3_HEROES = [
   },
   {
     townSlug: "lisburn",
-    heroBase: "d3-town-lisburn-linen-centre",
+    heroBase: "d3-town-ai-lisburn-linen-centre",
     widths: [640, 960, 1280] as const,
-    alt: "Irish Linen Centre and Lisburn Museum",
+    alt: "Lisburn town centre at dusk",
   },
   {
     townSlug: "ballyclare",
-    heroBase: "d3-town-ballyclare-town-hall",
+    heroBase: "d3-town-ai-ballyclare-town-hall",
     widths: [640, 960, 1280] as const,
-    alt: "Ballyclare Town Hall",
-  },
-  {
-    townSlug: "antrim",
-    heroBase: "d3-town-antrim-castle-gardens",
-    widths: [640, 960, 1280] as const,
-    alt: "Deerpark Bridge in Antrim Castle Gardens",
+    alt: "Ballyclare town hall at dusk",
   },
 ] as const satisfies readonly TownDesign3Hero[];
 
