@@ -37,6 +37,18 @@ export const TOWN_DESIGN3_HEROES = [
     widths: [640, 960, 1280] as const,
     alt: "Holywood Old Pier on Belfast Lough at sunset",
   },
+  {
+    townSlug: "whiteabbey",
+    heroBase: "d3-concept-whiteabbey-hazelbank",
+    widths: [640, 960, 1280] as const,
+    alt: "Sunset over Belfast Lough from Whiteabbey",
+  },
+  {
+    townSlug: "glengormley",
+    heroBase: "d3-concept-glengormley-high-street",
+    widths: [640, 960, 1280] as const,
+    alt: "Glengormley High Street in bloom",
+  },
 ] as const satisfies readonly TownDesign3Hero[];
 
 const byTownSlug = new Map<string, TownDesign3Hero>(
