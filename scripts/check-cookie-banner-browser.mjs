@@ -1,4 +1,7 @@
-/** Local static exports only. Never contacts production, analytics or a payment service. */
+/** Local static exports only. Never contacts production, analytics or a payment service.
+ *  Candidate (after): owner 16 Nov 2026 full-screen privacy wall.
+ *  Baseline (before): may still be the older slim bottom bar — compared only after dismissal.
+ */
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -15,8 +18,6 @@ async function serve(directory, port) {
     try {
       let name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
       if (name.startsWith('/isolated-api/')) {
-        // Both builds use the same mock API; the comparison page is on another local port.
-        // Permit that fixture request in WebKit without silencing any browser errors.
         res.setHeader('Access-Control-Allow-Origin','*');
         res.setHeader('Access-Control-Allow-Methods','GET, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers','Accept, Content-Type');
@@ -35,12 +36,36 @@ async function serve(directory, port) {
   return server;
 }
 const servers = [await serve(process.env.BASELINE_OUT || '../taxi-cookie-baseline-out',3198), await serve('out',3199)];
+
+function dialogLocator(page, variant) {
+  // Candidate wall is titled; older baseline used aria-label="Cookie consent".
+  if (variant === 'after') {
+    return page.getByRole('dialog', { name: 'Your privacy and how we use your data' });
+  }
+  return page.getByRole('dialog', { name: /Cookie consent|Your privacy and how we use your data/i });
+}
+
 async function metrics(page) {
   return page.evaluate(() => {
     const rect = el => { const r=el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right}; };
-    const banner=document.querySelector('.cookie-consent-banner');
-    const buttons=[...banner.querySelectorAll('button')].map(el=>({ ...rect(el), label:el.textContent.trim(), font:getComputedStyle(el).fontSize, color:getComputedStyle(el).color, background:getComputedStyle(el).backgroundColor, border:getComputedStyle(el).border, weight:getComputedStyle(el).fontWeight, hit:el.contains(document.elementFromPoint(el.getBoundingClientRect().x+el.getBoundingClientRect().width/2,el.getBoundingClientRect().y+el.getBoundingClientRect().height/2)) }));
-    return {banner:rect(banner),buttons,viewport:{width:innerWidth,height:innerHeight,visualHeight:visualViewport.height,visualTop:visualViewport.offsetTop},overflow:document.documentElement.scrollWidth>innerWidth,paddingBottom:getComputedStyle(banner).paddingBottom};
+    const overlay=document.querySelector('[data-cookie-consent-overlay]');
+    const panel=document.querySelector('.cookie-wall-panel')
+      || document.querySelector('.cookie-consent-banner')
+      || document.querySelector('[role="dialog"]');
+    const choiceButtons=[
+      ...document.querySelectorAll('.cookie-wall-btn'),
+      ...document.querySelectorAll('.cookie-consent-banner button'),
+    ].filter((el, i, all) => all.indexOf(el) === i)
+      .filter(el => /accept|decline|reject/i.test(el.textContent || ''));
+    const buttons=choiceButtons.map(el=>({ ...rect(el), label:el.textContent.trim(), font:getComputedStyle(el).fontSize, color:getComputedStyle(el).color, background:getComputedStyle(el).backgroundColor, border:getComputedStyle(el).border, weight:getComputedStyle(el).fontWeight, hit:el.contains(document.elementFromPoint(el.getBoundingClientRect().x+el.getBoundingClientRect().width/2,el.getBoundingClientRect().y+el.getBoundingClientRect().height/2)) }));
+    return {
+      overlay: overlay ? rect(overlay) : null,
+      banner: panel ? rect(panel) : null,
+      buttons,
+      viewport:{width:innerWidth,height:innerHeight,visualHeight:visualViewport.height,visualTop:visualViewport.offsetTop},
+      overflow:document.documentElement.scrollWidth>innerWidth,
+      wallLocked: document.documentElement.hasAttribute('data-cookie-wall'),
+    };
   });
 }
 async function underlyingPage(page) {
@@ -55,6 +80,15 @@ async function grantedBeforeChoice(page) {
 async function lastConsent(page) {
   return page.evaluate(() => [...(window.dataLayer || [])].reverse().find(item=>item[0]==='consent' && item[1]==='update')?.[2]);
 }
+
+async function clickDecline(banner) {
+  const decline = banner.getByRole('button', { name: /^(Decline all|Reject optional)$/ });
+  await decline.press('Enter');
+}
+async function clickAccept(banner) {
+  await banner.getByRole('button', { name: /^(Accept all|Accept)$/ }).click();
+}
+
 try {
   for (const [engineName,engine] of Object.entries({chromium,webkit})) {
     const browser=await engine.launch();
@@ -74,10 +108,9 @@ try {
           const page=await context.newPage();
           page.on('pageerror',error=>errors.push(error.message));
           await page.goto(`http://127.0.0.1:${port}/`,{waitUntil:'networkidle'});
-          const banner=page.getByRole('dialog',{name:'Cookie consent'});
+          const banner=dialogLocator(page, variant);
           await banner.waitFor();
           await page.evaluate(()=>document.fonts.ready);
-          // Offscreen lazy images have no request yet; waiting for decode would never finish.
           await page.locator('main img').evaluateAll(images=>Promise.all(images.filter(image=>image.complete && image.naturalWidth>0).map(image=>image.decode().catch(()=>{}))));
           assert.equal(await grantedBeforeChoice(page),false,'optional consent must start denied');
           const policy=banner.getByRole('link',{name:'Privacy Policy'});
@@ -85,35 +118,43 @@ try {
           const m=await metrics(page);
           snapshots[variant]=m;
           assert.equal(m.overflow,false,`${variant}: horizontal overflow`);
+          assert.ok(m.banner,`${variant}: consent surface missing`);
           assert.ok(m.banner.x>=0 && m.banner.right<=width+1);
           assert.ok(m.banner.bottom<=m.viewport.visualTop+m.viewport.visualHeight+1);
           for (const button of m.buttons) assert.equal(button.hit,true,`${variant}: ${button.label} obstructed`);
           if (variant==='after') {
-            // Owner (13 Nov 2026): a slim bar along the bottom of every page; no grey-out, no pop-up.
-            assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),0,'no overlay over the page');
-            assert.ok(m.banner.bottom>=m.viewport.visualTop+m.viewport.visualHeight-24,'banner sits at the bottom of the screen');
-            assert.ok(m.banner.height<=(width>=768?120:190),'banner stays slim');
-            assert.equal(m.buttons[0].y,m.buttons[1].y,'buttons side by side');
-            assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
+            // Owner (16 Nov 2026): full-screen dimmed wall until Accept all / Decline all.
+            assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'privacy wall overlay must cover the page');
+            assert.equal(m.wallLocked,true,'page scroll must lock behind the wall');
+            assert.ok(m.overlay,'overlay metrics missing');
+            assert.ok(m.overlay.width>=width-1 && m.overlay.height>=m.viewport.visualHeight-1,'overlay covers the viewport');
+            assert.ok(m.banner.height>=160,'wall panel remains a substantial consent surface');
+            assert.equal(m.buttons.length,2,'Accept all and Decline all');
+            assert.match(m.buttons.map(b=>b.label).join('|'),/Accept all/);
+            assert.match(m.buttons.map(b=>b.label).join('|'),/Decline all/);
+            if (width>=768) {
+              assert.equal(m.buttons[0].y,m.buttons[1].y,'desktop buttons side by side');
+              assert.equal(m.buttons[0].width,m.buttons[1].width,'equal button width');
+            }
             assert.equal(m.buttons[0].height,m.buttons[1].height,'equal button height');
             assert.equal(m.buttons[0].font,m.buttons[1].font,'same size text: font');
-            assert.match(await banner.innerText(),/Can we see which of our Google ads brought you here\? It helps us keep our prices down\. Booking works either way\./);
+            assert.match(await banner.innerText(),/Declining optional cookies will not affect your ability to obtain a quote or make a booking/i);
+            assert.match(await banner.innerText(),/Google \(Google Ads\)/);
             for (const button of m.buttons) { assert.ok(button.height>=40);assert.ok(Number.parseFloat(button.font)>=13); }
-            // The quote form is usable while the bar is showing.
             const pickup=page.locator('#pickup').first();
-            if (await pickup.count()) { await pickup.click(); assert.equal(await pickup.evaluate(el=>el===document.activeElement),true,'quote form usable with the bar showing'); await pickup.blur(); }
+            if (await pickup.count()) {
+              await pickup.click({force:true}).catch(()=>{});
+              assert.equal(await pickup.evaluate(el=>el===document.activeElement),false,'quote form must stay blocked while the wall is open');
+            }
           }
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}.png`)});
-          // Keyboard users can reach both choices; focus is visibly indicated.
-          // Do this before scrolling the quote — a scrolled page must not hide the modal buttons from Playwright.
-          const choiceButtons = banner.locator('button');
-          assert.equal(await choiceButtons.count(), 2);
-          for (let i = 0; i < 2; i++) {
-            const button = choiceButtons.nth(i);
+          const accept=banner.getByRole('button',{name:/^(Accept all|Accept)$/});
+          const decline=banner.getByRole('button',{name:/^(Decline all|Reject optional)$/});
+          for (const button of [accept, decline]) {
             await button.evaluate(el => el.focus());
             assert.equal(await button.evaluate(el => el === document.activeElement), true);
           }
-          await banner.getByRole('button',{name:'Reject optional',exact:true}).press('Enter');
+          await clickDecline(banner);
           await banner.waitFor({state:'hidden'});
           assert.equal(await page.evaluate(key=>localStorage.getItem(key),consentKey),'rejected');
           assert.equal((await lastConsent(page)).ad_storage,'denied');
@@ -123,50 +164,40 @@ try {
           await page.locator('[data-homepage-quote-fields]').scrollIntoViewIfNeeded();
           await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}-quote.png`)});
           snapshots[`${variant}Underlying`]=await underlyingPage(page);
-          // Existing reset/reopen behaviour: clearing stored choice and reloading.
-          // There is no separate preferences/withdrawal control in unchanged main.
           await page.evaluate(key=>localStorage.removeItem(key),consentKey);
           await page.reload({waitUntil:'networkidle'});await banner.waitFor();
-          await banner.getByRole('button',{name:/^Accept( all)?$/}).click();
+          await clickAccept(banner);
           await banner.waitFor({state:'hidden'});
           assert.equal(await page.evaluate(key=>localStorage.getItem(key),consentKey),'accepted');
           for(const key of ['ad_storage','ad_user_data','ad_personalization','analytics_storage']) assert.equal((await lastConsent(page))[key],'granted');
           await page.reload({waitUntil:'networkidle'});assert.equal(await banner.count(),0,'accepted preference persists');
-          // Withdraw through the same stored-choice reset path, then decline.
           await page.evaluate(key=>localStorage.removeItem(key),consentKey);
           await page.reload({waitUntil:'networkidle'});await banner.waitFor();
           assert.equal(await grantedBeforeChoice(page),false);
           if(width<768) {
-            // A shorter visible viewport approximates expanded browser chrome, not a physical Safari toolbar.
             await page.setViewportSize({width,height:520});
             const short=await metrics(page);
             assert.ok(short.banner.bottom<=short.viewport.visualTop+short.viewport.visualHeight+1);
             assert.ok(short.buttons.every(button=>button.hit));assert.equal(short.overflow,false);
             await page.screenshot({path:path.join(target,`${engineName}-${width}-${variant}-short-viewport.png`)});
           }
-          await banner.getByRole('button',{name:'Reject optional',exact:true}).click();
+          await banner.getByRole('button',{name:/^(Decline all|Reject optional)$/}).click();
           assert.equal((await lastConsent(page)).ad_storage,'denied');
           assert.deepEqual(errors,[],'uncaught browser errors');
           results.push({engine:engineName,width,variant,...m,externalRequestsBlocked:external.length});
           await context.close();
         }
-        // Approved homepage typography/field sizing intentionally differs from the old cookie baseline.
-        // Compare stable branding only — lazy hero/tour images race between baseline and candidate.
         const {quote: beforeQuote, ...beforeBranding}=snapshots.beforeUnderlying;
         const {quote: afterQuote, ...afterBranding}=snapshots.afterUnderlying;
-        // Header height can differ vs baseline while fonts/colours stay brand-stable.
         assert.equal(beforeBranding.bodyFont,afterBranding.bodyFont,'body font unchanged after dismissal');
         assert.equal(beforeBranding.bodyBackground,afterBranding.bodyBackground,'body background unchanged after dismissal');
-        // From 1200px the approved desktop homepage redesign intentionally widens the header
-        // shell and the quote panel, so horizontal bounds are only compared below that.
         if(width<1200){
           assert.equal(beforeBranding.header[0],afterBranding.header[0],'header x unchanged');
           assert.equal(beforeBranding.header[2],afterBranding.header[2],'header width unchanged');
           assert.equal(beforeQuote[0],afterQuote[0]);
           assert.equal(beforeQuote[2],afterQuote[2],'quote stays within the same horizontal bounds');
         }
-        // Required-choice modal is a centred card; do not require a smaller footprint than the old bottom bar.
-        assert.ok(snapshots.after.banner.width>0 && snapshots.after.banner.height>0,'consent modal remains measurable');
+        assert.ok(snapshots.after.banner.width>0 && snapshots.after.banner.height>0,'consent wall remains measurable');
         console.log(`PASS ${engineName} ${width}px: ${snapshots.before.banner.width}×${snapshots.before.banner.height} → ${snapshots.after.banner.width}×${snapshots.after.banner.height}; buttons, storage, consent and unchanged page`);
       }
     } finally {await browser.close();}
