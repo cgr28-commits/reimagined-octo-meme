@@ -6604,6 +6604,95 @@ mark[data-suggestion-match] { background: none; color: inherit; }
     }
   }
 
+  /*
+   * Tablets (768–1199.98px): location-specific compact right-side photo for Design 3 hubs.
+   * Homepage tablet stays navy-only (no location photo). Geometry sits between phone (78%)
+   * and desktop (40%) so the H1 and quote card stay readable over the navy fade.
+   */
+  @media (min-width: 768px) and (max-width: 1199.98px) {
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      ) {
+      background:
+        radial-gradient(70% 28% at 80% 12%, rgba(12, 52, 110, 0.55) 0%, rgba(12, 52, 110, 0) 100%),
+        radial-gradient(90% 40% at 50% 62%, rgba(9, 40, 78, 0.55) 0%, rgba(9, 40, 78, 0) 100%),
+        linear-gradient(180deg, #011930 0%, #00182f 45%, #00172d 80%, #001931 100%) !important;
+      position: relative;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )::before {
+      content: "" !important;
+      display: block !important;
+      position: absolute !important;
+      top: 4rem;
+      right: 0;
+      width: 58%;
+      height: auto;
+      aspect-ratio: 3 / 2;
+      filter: saturate(1.08) contrast(1.04);
+      pointer-events: none;
+      z-index: 0;
+      background:
+        linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 18%, rgba(1, 25, 48, 0.55) 38%, rgba(1, 25, 48, 0.16) 54%, rgba(1, 25, 48, 0) 64%),
+        linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.55) 12%, rgba(0, 24, 47, 0) 34%),
+        linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 14%),
+        var(--design3-hero-image) center / 100% 100% no-repeat !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      .homepage-hero-layout {
+      position: relative;
+      z-index: 1;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1 {
+      white-space: normal !important;
+      max-width: min(100%, 28rem);
+      line-height: 1.12 !important;
+      text-wrap: balance;
+      overflow-wrap: break-word;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1
+      :is([data-hero-green], .text-emerald) {
+      display: inline !important;
+      margin-top: 0 !important;
+      color: #45d704 !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > p {
+      max-width: min(100%, 32rem) !important;
+    }
+  }
+
   /* Desktop 1200+: same footprint/masks/sizing as homepage; swap only the photograph. */
   @media (min-width: 1200px) {
     html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3])

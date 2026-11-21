@@ -91,14 +91,23 @@
     outline: 3px solid #071c38 !important;
     outline-offset: 3px !important;
   }
+  /* Match phone/desktop: keep the bright green CTA even before the form is complete
+     (owner, 21 Nov 2026). Grey disabled styling failed contrast vs the white quote card. */
   [data-mobile-d3] button[data-get-fixed-price]:disabled {
-    background: #e2e8f0 !important;
-    color: #334155 !important;
-    -webkit-text-fill-color: #334155 !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
+    border: 0 !important;
+    background: var(--matni-cta) !important;
+    background-color: #08a201 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35) !important;
+    box-shadow: var(--matni-cta-shadow) !important;
     filter: none !important;
     opacity: 1 !important;
+  }
+  [data-mobile-d3] button[data-get-fixed-price]:disabled * {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
   }
 
   /* Selected states and icons on the white quote card. */
