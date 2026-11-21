@@ -18,8 +18,9 @@ export default function StandaloneBrandBar({
   return (
     <div data-standalone-brand-bar className="hidden border-b border-white/10 bg-[#071c38] min-[75rem]:block">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-10 py-3 xl:px-12">
-        <Link href="/" aria-label={`${SITE.name} home`} className="shrink-0">
+        <Link href="/" aria-label={`${SITE.name} home`} className="relative shrink-0">
           <Logo wide className="h-12 w-auto" />
+          <span className="seasonal-hat-standalone" aria-hidden="true" />
         </Link>
         <div className="flex items-center gap-3">
           {showCall ? (
