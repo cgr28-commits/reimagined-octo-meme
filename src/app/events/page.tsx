@@ -34,6 +34,7 @@ import {
 import { bookingHelpWhatsAppUrl } from "@/lib/booking-help-whatsapp";
 import { loadBuildTimeBelfastEvents } from "@/lib/belfast-events-snapshot";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+import { getEventsDesign3HeroImageUrl } from "@/lib/events-design3-hero";
 import { BELFAST_VENUES } from "../../../shared/belfast-events";
 
 // Instant-quote copy with the page's own Events & Concerts quote tool (owner, 16 Nov 2026).
@@ -93,6 +94,9 @@ export default async function BelfastEventsHubPage() {
           quoteCardTitle="Events & Concerts"
           eventChoices={<PopularEventPicker initialEvents={initialEvents} />}
           journey={{ eventTransfer: true, bookingIntroduction: "Book your event transfer in just a few clicks." }}
+          design3TownHero
+          desktopRoomy
+          design3HeroImageUrl={getEventsDesign3HeroImageUrl()}
         />
         <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:px-8">
           <LandingBreadcrumbs items={[{ name: "Home", href: "/" }, { name: "Events" }]} />

@@ -9,7 +9,7 @@ import HomepageHeroSideRails from "./HomepageHeroSideRails";
 import OptimizedHeroPicture from "./OptimizedHeroPicture";
 import QuoteCard from "./QuoteCard";
 import QuoteHelpContact from "./QuoteHelpContact";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { SelectedPlace, TownGuidePickup } from "@/lib/selected-place";
 import type { SavedQuotePublicSummary } from "@/lib/saved-quote-api";
 
@@ -51,6 +51,19 @@ type Props = {
   };
   /** Landing pages: this page's own hero background photo (768px+). Default: Belfast International. */
   heroBackground?: { baseName: string; widths: readonly number[] };
+  /**
+   * Dev-only: absolute or site-root URL for a full-bleed hero photo (all viewports).
+   * When set, replaces OptimizedHeroPicture so concept packs can be reviewed without
+   * touching production `/images/hero` assets.
+   */
+  heroImageSrc?: string;
+  /**
+   * Town/airport Design 3 heroes: mark the section so CSS reuses the homepage compact
+   * right-side photo (::before), not a full-bleed `.homepage-hero-media` layer.
+   */
+  design3TownHero?: boolean;
+  /** Site-root URL for the compact Design 3 photo (CSS --design3-hero-image). */
+  design3HeroImageUrl?: string;
   /**
    * The rotating image cards under the quote tool (laptops 1200px+). Off by default, and no
    * page turns them on since the owner removed them from the homepage (17 Nov 2026).
@@ -99,26 +112,51 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, heroImageSrc, design3TownHero = false, design3HeroImageUrl, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
   const introLead = introSplit ? introSplit[1] : introText;
   const introMore = introSplit ? introSplit[2] : "";
+  // Design 3 town/airport heroes use the compact ::before photo (homepage geometry), not this layer.
+  const photoAllViewports = Boolean(heroImageSrc) && !design3TownHero;
+  const design3ImageStyle =
+    design3TownHero && design3HeroImageUrl
+      ? ({ ["--design3-hero-image" as string]: `url("${design3HeroImageUrl}")` } as CSSProperties)
+      : undefined;
   return (
-    <section data-desktop-roomy={desktopRoomy ? "" : undefined} className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28">
+    <section
+      data-desktop-roomy={desktopRoomy ? "" : undefined}
+      data-design3-town-hero={design3TownHero ? "" : undefined}
+      style={design3ImageStyle}
+      className="homepage-hero relative max-w-full overflow-x-clip overflow-y-hidden bg-navy pt-16 md:pt-28"
+    >
+      {/* Hidden for Design 3 town/airport heroes — photo comes from section::before like the homepage. */}
       <div className="homepage-hero-media absolute inset-0 overflow-hidden bg-navy" aria-hidden="true">
-        <OptimizedHeroPicture
-          baseName={heroBackground?.baseName ?? "belfast-international-homepage"}
-          alt=""
-          priority
-          widths={heroBackground?.widths ?? [960, 1280]}
-          width={1280}
-          height={720}
-          loadFromMinWidth={768}
-          className="homepage-hero-photo hero-photo absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="homepage-hero-scrim absolute inset-0" />
+        {design3TownHero ? null : heroImageSrc ? (
+          // Dev concept preview: show on phones too (production heroes stay 768px+ only).
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary preview URLs, not the optimized hero pipeline
+          <img
+            src={heroImageSrc}
+            alt=""
+            width={1600}
+            height={900}
+            className="homepage-hero-photo hero-photo absolute inset-0 h-full w-full object-cover"
+            data-town-hero-preview=""
+          />
+        ) : (
+          <OptimizedHeroPicture
+            baseName={heroBackground?.baseName ?? "belfast-international-homepage"}
+            alt=""
+            priority
+            widths={heroBackground?.widths ?? [960, 1280]}
+            width={1280}
+            height={720}
+            loadFromMinWidth={photoAllViewports ? undefined : 768}
+            className="homepage-hero-photo hero-photo absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {design3TownHero ? null : <div className="homepage-hero-scrim absolute inset-0" />}
       </div>
 
       {belowIntro ? (

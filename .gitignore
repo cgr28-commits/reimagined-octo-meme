@@ -26,6 +26,19 @@
 tmp-*.html
 **/.wrangler/
 
+# Dev-only AI town hero concept pack (local review). Keep manifest/README if present.
+/public/preview-town-images/*.jpg
+/public/preview-town-images/*.jpeg
+/public/preview-town-images/*.png
+/public/preview-town-images/*.webp
+
+# Dev-only airport concept pack + review screenshots
+/public/preview-airport-images/*.png
+/public/preview-airport-images/*.jpg
+/public/dev/design3-town-review/*.png
+/public/dev/design3-airport-review/*.png
+/public/dev/design3-hero-compare/*.png
+
 # debug
 npm-debug.log*
 yarn-debug.log*
@@ -43,3 +56,6 @@ __pycache__/
 
 .compat-baseline/
 workers/addresses/wrangler.bespoke-preview.generated.toml
+
+# Visual QA local captures
+/visual-qa/
