@@ -134,9 +134,9 @@ try {
             assert.equal(await page.locator('[data-cookie-consent-overlay]').count(),1,'privacy wall overlay must cover the page');
             assert.equal(m.wallLocked,true,'page scroll must lock behind the wall');
             assert.ok(m.overlay,'overlay metrics missing');
-            // Fixed inset:0 overlay; allow a couple of px for scrollbars / subpixel visualViewport.
-            assert.ok(m.overlay.width>=width-2,'overlay spans the viewport width');
-            assert.ok(m.overlay.height>=m.viewport.visualHeight-8,'overlay spans the viewport height');
+            // Fixed inset:0 overlay. Desktop Chromium often reports ~15px less width when a scrollbar gutter is reserved.
+            assert.ok(m.overlay.width>=width-24,`overlay spans the viewport width (${m.overlay.width} vs ${width})`);
+            assert.ok(m.overlay.height>=m.viewport.visualHeight-8,`overlay spans the viewport height (${m.overlay.height} vs ${m.viewport.visualHeight})`);
             assert.ok(m.overlay.x<=0.5 && m.overlay.y<=0.5,'overlay starts at the viewport origin');
             assert.ok(m.banner.height>=160,'wall panel remains a substantial consent surface');
             assert.equal(m.buttons.length,2,'Accept all and Decline all');
