@@ -38,9 +38,9 @@ export const AIRPORT_DESIGN3_HEROES = [
   {
     slug: "city-of-derry",
     code: "LDY",
-    heroBase: "d3-concept-city-of-derry",
+    heroBase: "d3-airport-ai-city-of-derry",
     widths: [640, 960, 1280] as const,
-    alt: "Concept: City of Derry Airport at dusk (unverified)",
+    alt: "City of Derry Airport at sunset",
   },
 ] as const satisfies readonly AirportDesign3Hero[];
 
