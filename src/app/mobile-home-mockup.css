@@ -363,6 +363,20 @@
     z-index: 0;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 34' preserveAspectRatio='none'%3E%3Cpath d='M0 20 C 120 34, 250 30, 390 6' fill='none' stroke='%2357f403' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M0 26 C 140 38, 260 34, 390 14' fill='none' stroke='%2357f403' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat !important;
   }
+
+  /* Same green sweep on phone heroes that don't use the roomy desktop layout (Derry, Cork, cruise, routes, hubs). */
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] main > section.homepage-hero:not([data-desktop-roomy]):not(:has([data-quote-results], [data-checkout-aside]))::after {
+    content: "" !important;
+    display: block !important;
+    position: absolute !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2.1rem;
+    pointer-events: none;
+    z-index: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 390 34' preserveAspectRatio='none'%3E%3Cpath d='M0 20 C 120 34, 250 30, 390 6' fill='none' stroke='%2357f403' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M0 26 C 140 38, 260 34, 390 14' fill='none' stroke='%2357f403' stroke-opacity='.35' stroke-width='2'/%3E%3C/svg%3E") center bottom / 100% 100% no-repeat !important;
+  }
 }
 }
 
