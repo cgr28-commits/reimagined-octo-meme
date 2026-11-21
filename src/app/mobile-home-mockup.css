@@ -46,11 +46,6 @@
     max-width: none !important;
     flex: 0 0 auto !important;
   }
-  /* Official logo without the Santa hat on every phone page. */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] .quote-header-logo-wide::after {
-    content: none !important;
-    display: none !important;
-  }
   html:root:root:root:root:root:root:root:root[data-mobile-d3] header[data-site-header] [data-matni-whatsapp-quick] {
     background: linear-gradient(180deg, #2fd10a 0%, #20c403 55%, #18ad02 100%) !important;
     border: 0 !important;
