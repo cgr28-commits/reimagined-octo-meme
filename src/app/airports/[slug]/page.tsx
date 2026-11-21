@@ -19,6 +19,7 @@ import {
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import { withBasePath } from "@/lib/paths";
 import GoogleReviewsBadge from "@/components/GoogleReviewsBadge";
+import { getAirportDesign3Hero, getAirportDesign3HeroImageUrl } from "@/lib/airport-design3-heroes";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -98,6 +99,7 @@ export default async function AirportTransferPage({ params }: Props) {
   const earlyQuestions = new Set(EARLY_PRACTICAL_QUESTIONS[page.code] ?? []);
   const earlyFaqs = (page.faqs ?? []).filter((faq) => earlyQuestions.has(faq.question));
   const laterFaqs = (page.faqs ?? []).filter((faq) => !earlyQuestions.has(faq.question));
+  const design3Hero = getAirportDesign3Hero(page.slug);
 
   return (
     <>
@@ -117,16 +119,26 @@ export default async function AirportTransferPage({ params }: Props) {
       ) : null}
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
-        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        {/* Quote tool first: same Design 3 hero shell as the homepage. */}
         <HeroSlideshow
           heading={page.title}
           headingSubject={page.title.includes(page.name) ? page.name : page.shortName}
           intro={`Pre-booked, fixed-price transfers to and from ${page.shortName}. ${page.durationNote}`}
           journey={{ airportCode: page.code, direction: "to-airport" }}
+          {...(design3Hero
+            ? {
+                design3TownHero: true,
+                desktopRoomy: true,
+                design3HeroImageUrl: getAirportDesign3HeroImageUrl(page.slug),
+              }
+            : {})}
         />
-        <div data-d2-airport-photo data-d2-badge={`${page.code} · ${D2_AIRPORT_PLACE[page.code] ?? page.shortName}`}>
-          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
-        </div>
+        {/* Design 3: photograph lives in the quote hero — no separate airport photo card. */}
+        {!design3Hero ? (
+          <div data-d2-airport-photo data-d2-badge={`${page.code} · ${D2_AIRPORT_PLACE[page.code] ?? page.shortName}`}>
+            <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} variant="airport" />
+          </div>
+        ) : null}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <Link

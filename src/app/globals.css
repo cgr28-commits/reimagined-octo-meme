@@ -6536,6 +6536,188 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   }
 }
 
+/*
+ * Town/airport Design 3 heroes: reuse the homepage compact right-side photograph
+ * (section::before in mobile-home-mockup.css / desktop-home-premium.css).
+ * Never full-bleed .homepage-hero-media — that was oversized vs the homepage.
+ * Image URL comes from --design3-hero-image on the section (set in HeroSlideshow).
+ *
+ * Long town/airport H1s must wrap: homepage Design 3 forces nowrap for its short
+ * two-line title; that truncates "Carrickfergus Airport Taxi & Airport Transfers".
+ */
+@layer base {
+  .homepage-hero[data-design3-town-hero] .homepage-hero-media {
+    display: none !important;
+  }
+
+  /* Phones: same geometry + edge blends + sizing as homepage Design 3 (mobile-home-mockup.css). */
+  @media (max-width: 767.98px) {
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )::before {
+      background:
+        linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 20%, rgba(1, 25, 48, 0.62) 40%, rgba(1, 25, 48, 0.18) 55%, rgba(1, 25, 48, 0) 64%),
+        linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.6) 14%, rgba(0, 24, 47, 0) 36%),
+        linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 12%),
+        var(--design3-hero-image) center / 100% 100% no-repeat !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1 {
+      white-space: normal !important;
+      max-width: min(100%, 16.5rem);
+      font-size: clamp(1.32rem, 6.2vw, 1.68rem) !important;
+      line-height: 1.12 !important;
+      text-wrap: balance;
+      overflow-wrap: break-word;
+    }
+
+    /* Town/airport accent stays inline so the full H1 can wrap; homepage keeps block green line. */
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1
+      :is([data-hero-green], .text-emerald) {
+      display: inline !important;
+      margin-top: 0 !important;
+      color: #45d704 !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > p {
+      max-width: min(100%, 18rem) !important;
+    }
+  }
+
+  /*
+   * Tablets (768–1199.98px): location-specific compact right-side photo for Design 3 hubs.
+   * Homepage tablet stays navy-only (no location photo). Geometry sits between phone (78%)
+   * and desktop (40%) so the H1 and quote card stay readable over the navy fade.
+   */
+  @media (min-width: 768px) and (max-width: 1199.98px) {
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      ) {
+      background:
+        radial-gradient(70% 28% at 80% 12%, rgba(12, 52, 110, 0.55) 0%, rgba(12, 52, 110, 0) 100%),
+        radial-gradient(90% 40% at 50% 62%, rgba(9, 40, 78, 0.55) 0%, rgba(9, 40, 78, 0) 100%),
+        linear-gradient(180deg, #011930 0%, #00182f 45%, #00172d 80%, #001931 100%) !important;
+      position: relative;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )::before {
+      content: "" !important;
+      display: block !important;
+      position: absolute !important;
+      top: 4rem;
+      right: 0;
+      width: 58%;
+      height: auto;
+      aspect-ratio: 3 / 2;
+      filter: saturate(1.08) contrast(1.04);
+      pointer-events: none;
+      z-index: 0;
+      background:
+        linear-gradient(90deg, #011930 0%, rgba(1, 25, 48, 0.94) 18%, rgba(1, 25, 48, 0.55) 38%, rgba(1, 25, 48, 0.16) 54%, rgba(1, 25, 48, 0) 64%),
+        linear-gradient(0deg, #00182f 0%, rgba(0, 24, 47, 0.55) 12%, rgba(0, 24, 47, 0) 34%),
+        linear-gradient(180deg, #011930 0%, rgba(1, 25, 48, 0) 14%),
+        var(--design3-hero-image) center / 100% 100% no-repeat !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      .homepage-hero-layout {
+      position: relative;
+      z-index: 1;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1 {
+      white-space: normal !important;
+      max-width: min(100%, 28rem);
+      line-height: 1.12 !important;
+      text-wrap: balance;
+      overflow-wrap: break-word;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1
+      :is([data-hero-green], .text-emerald) {
+      display: inline !important;
+      margin-top: 0 !important;
+      color: #45d704 !important;
+    }
+
+    html:root:root:root:root:root:root:root:root[data-mobile-d3]
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > p {
+      max-width: min(100%, 32rem) !important;
+    }
+  }
+
+  /* Desktop 1200+: same footprint/masks/sizing as homepage; swap only the photograph. */
+  @media (min-width: 1200px) {
+    html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3])
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )::before {
+      background: var(--design3-hero-image) center / 100% 100% no-repeat !important;
+    }
+
+    html:root:root:root:root:root:root:root:root:root:not([data-mobile-d3])
+      main
+      > section.homepage-hero[data-desktop-roomy][data-design3-town-hero]:not(
+        :has([data-quote-results], [data-checkout-aside])
+      )
+      #homepage-booking-intro
+      > h1 {
+      white-space: normal !important;
+      text-wrap: balance;
+      overflow-wrap: break-word;
+      max-width: min(100%, 42rem);
+    }
+  }
+}
+
 /* Desktop (1200px+) release fixes: vehicle rows never overlap on 1200-1365px laptops; on-request badge under the name. */
 @media (min-width: 1200px) {
   :is(.homepage-hero, [data-hub-quote]) #quote-results-summary [data-quote-vehicle-categories] [data-vehicle-option-copy][data-vehicle-option-copy] { grid-template-columns: minmax(0, 1fr) !important; min-width: 0; }
@@ -10253,7 +10435,7 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
     padding-top: clamp(1.25rem, calc(9vh - 2rem), 4rem) !important;
     padding-bottom: clamp(2.5rem, 6vh, 4rem) !important;
-    row-gap: clamp(2.25rem, calc(9vh - 1.75rem), 4.25rem) !important; /* also keeps the wording clear of the Christmas snow on the card */
+    row-gap: clamp(2.25rem, calc(9vh - 1.75rem), 4.25rem) !important;
   }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
     margin-top: clamp(0.5rem, 1.6vh, 1rem) !important;

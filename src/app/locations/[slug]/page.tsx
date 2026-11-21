@@ -19,8 +19,11 @@ import {
 } from "@/lib/location-pages";
 import { withBasePath } from "@/lib/paths";
 import { getBreadcrumbJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
+import { getTownDesign3Hero, getTownDesign3HeroImageUrl } from "@/lib/town-design3-heroes";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+};
 
 const INTERNATIONAL_GUIDE_CONTEXT: Record<string, string> = {
   newtownabbey: "Flying from Aldergrove? Plan your Newtownabbey pickup and read the arrival collection guidance in our ",
@@ -87,6 +90,8 @@ export default async function TownHubPage({ params }: Props) {
   const page = getTownHubPage(slug);
   if (!page) notFound();
 
+  const design3Hero = getTownDesign3Hero(page.town.slug);
+
   const routes = getRoutesForTown(page.town.slug);
   const crumbs = [
     { name: "Home", path: "/" },
@@ -113,16 +118,26 @@ export default async function TownHubPage({ params }: Props) {
       />
       <Header />
       <main className={LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS}>
-        {/* Quote tool first: the same quote hero as the homepage, with this page's heading. */}
+        {/* Quote tool first: same Design 3 hero shell as the homepage. */}
         <HeroSlideshow
           heading={page.h1}
           headingSubject={page.town.name}
           intro={`Door-to-door airport taxis from ${page.town.name} to Belfast International, Belfast City and Dublin Airport. Fixed price before you pay.`}
+          {...(design3Hero
+            ? {
+                design3TownHero: true,
+                desktopRoomy: true,
+                design3HeroImageUrl: getTownDesign3HeroImageUrl(page.town.slug),
+              }
+            : {})}
         />
-        {/* Photo hidden on phones so the quote form is on the first screen. */}
-        <div className="hidden sm:block">
-          <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
-        </div>
+        {/* Design 3 batch: photograph lives in the quote hero — no separate photo card.
+            Other towns keep the existing desktop/tablet strip until approved. */}
+        {!design3Hero ? (
+          <div className="hidden sm:block">
+            <LandingHeroMedia baseName={page.heroBase} alt={page.heroAlt} />
+          </div>
+        ) : null}
 
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <LandingBreadcrumbs

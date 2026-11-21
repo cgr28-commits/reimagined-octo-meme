@@ -61,8 +61,15 @@ try {
       await page.waitForTimeout(1100);
       assert.equal(new URL(page.url()).hash,'#quote');
       await page.locator('#quote-section-passengers').scrollIntoViewIfNeeded();
-      const rects = await page.locator('#passenger-luggage-section :is(select,output)').evaluateAll(els=>els.map(e=>e.getBoundingClientRect().top));
-      assert.equal(rects[0],rects[1]);
+      // Passenger + luggage must stay on one row with level controls (not stacked).
+      // Tops match when the party grid uses items-end and labels wrap unequally.
+      const party = await page.locator('#passenger-luggage-section :is(select,output)').evaluateAll(els=>els.map(e=>{
+        const r=e.getBoundingClientRect();
+        return {top:r.top,left:r.left,bottom:r.bottom};
+      }));
+      assert.equal(party.length,2,'passenger and luggage controls must both render');
+      assert.ok(party[0].left<party[1].left,'passenger and luggage must sit side by side');
+      assert.equal(party[0].top,party[1].top,'passenger and luggage controls must share the same top');
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
       await page.screenshot({path:`${output}/${width}-hub-${item.path.split('/').filter(Boolean).at(-1)}.png`});
       if (item.airport) {
