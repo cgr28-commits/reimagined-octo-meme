@@ -125,6 +125,10 @@ console.log("\n=== Worker quote-lead handler emails via operational Resend path 
   assert.match(handler[0], /upsertQuoteSession/);
   assert.match(handler[0], /runQuoteLeadNotification/);
   assert.match(handler[0], /trySendOwnerOperationalEmail/);
+  assert.match(handler[0], /buildQuoteInterestPushNotice\("viewed"/);
+  assert.match(handler[0], /buildQuoteInterestPushNotice\("contact"/);
+  assert.match(handler[0], /buildQuoteInterestPushNotice\("booking_started"/);
+  assert.match(handler[0], /notifyOwnerPush/);
   assert.match(worker, /QUOTE_LEAD_COORDINATOR/);
   assert.match(worker, /createSerializedQuoteLeadMarkerStore/);
   assert.doesNotMatch(worker, /quote_lead_fp:\$\{fingerprint\}/);
@@ -141,7 +145,7 @@ console.log("\n=== Worker quote-lead handler emails via operational Resend path 
   assert.match(worker, /sendBookingEmail/);
   const session = read("shared/quote-session.ts");
   assert.match(session, /Never stores customer name \/ mobile \/ email/);
-  console.log("OK  Worker emails once via operational path; booking emails stay separate");
+  console.log("OK  Worker emails once via operational path; optional quote-interest push; booking emails stay separate");
 }
 
 console.log("\n=== Quote email copy includes journey fields and no-contact wording ===");

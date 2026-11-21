@@ -185,9 +185,11 @@ function run() {
   assert.match(createFn, /buildAuthoritativeSavedQuotePricing/);
   assert.doesNotMatch(createFn, /parsePricing\(/);
   assert.doesNotMatch(createFn, /pricing\.totalAmount\s*=\s*client/);
-  // Owner is emailed whenever a customer saves a quote.
+  // Owner is emailed whenever a customer saves a quote; optional quote-interest push (prefs default OFF).
   assert.match(createFn, /buildOwnerSavedQuoteAlert/);
   assert.match(createFn, /trySendOwnerOperationalEmail/);
+  assert.match(createFn, /buildQuoteInterestPushNotice\("saved"/);
+  assert.match(createFn, /notifyOwnerPush/);
   const alert = buildOwnerSavedQuoteAlert(
     {
       reference: "Q-TEST",

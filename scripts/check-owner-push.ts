@@ -8,7 +8,14 @@ import {
   isAllowedPushEndpoint,
   vapidAuthorization,
 } from "../workers/addresses/src/web-push";
-import { handleOwnerPushRequest, notifyOwnerPush, pushNoticeForInboundEmail } from "../workers/addresses/src/owner-push";
+import {
+  buildQuoteInterestPushNotice,
+  defaultPushPrefs,
+  handleOwnerPushRequest,
+  notifyOwnerPush,
+  PUSH_CATEGORIES,
+  pushNoticeForInboundEmail,
+} from "../workers/addresses/src/owner-push";
 
 const enc = new TextEncoder();
 async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, len: number) {
@@ -74,6 +81,36 @@ async function main() {
   assert.equal(isAllowedPushEndpoint("http://web.push.apple.com/x"), false);
   assert.equal(isAllowedPushEndpoint("https://web.push.apple.com.evil.com/x"), false);
 
+  // Quote-interest category: default OFF; wording uses real journey/fare only (no PII).
+  assert.equal(PUSH_CATEGORIES.quotes.defaultOn, false);
+  assert.equal(defaultPushPrefs().quotes, false);
+  const viewed = buildQuoteInterestPushNotice("viewed", {
+    pickupLabel: "249 Rashee Road, Ballyclare",
+    dropoffLabel: "Belfast International Airport (BFS)",
+    estimatedPrice: "£65.00",
+    totalGbp: 65,
+  });
+  assert.equal(viewed.category, "quotes");
+  assert.equal(viewed.title, "Quote viewed");
+  assert.equal(viewed.body, "New quote viewed — Belfast International Airport transfer. £65.");
+  assert.doesNotMatch(viewed.body, /sarah|@|077|mobile|email|name/i);
+  assert.equal(
+    buildQuoteInterestPushNotice("booking_started", { estimatedPrice: "£65.00", totalGbp: 65 }).body,
+    "Customer started booking — £65 transfer.",
+  );
+  assert.equal(
+    buildQuoteInterestPushNotice("saved", { estimatedPrice: "£65.00", totalGbp: 65 }).body,
+    "Customer saved a quote — £65 transfer.",
+  );
+  assert.equal(
+    buildQuoteInterestPushNotice("contact", { estimatedPrice: "£65.00", totalGbp: 65 }).body,
+    "Customer added contact details — £65 transfer.",
+  );
+  assert.equal(
+    buildQuoteInterestPushNotice("viewed", { pickupLabel: "Town A", dropoffLabel: "Town B" }).body,
+    "New quote viewed — Town A to Town B.",
+  );
+
   // Which emails alert the phone.
   const n = (from: string, subject: string, fromName?: string) => pushNoticeForInboundEmail({ from, fromName, subject, text: "Hello there" });
   const own = "bookings@myairporttaxini.co.uk";
@@ -86,7 +123,8 @@ async function main() {
   assert.equal(n(own, "Short-notice request — needs your decision")?.category, "requests");
   assert.equal(n("sarah@example.com", "Question about my booking", "Sarah Jones")?.title, "Email from Sarah Jones");
   assert.equal(n("alerts@fonio.ai", "New phone call (fonio) - check for booking request")?.category, "calls");
-  for (const quiet of ["Quote viewed — £53 — Belfast International Airport", "Quote saved — £294.00 — x", "My Airport Taxi NI — Daily Quote Report — 11 November 2026", "Updated Booking Confirmation - MAT-5452", "Customer details captured — payment started — £45"]) {
+  // Quote emails must stay quiet on the inbox→push path (direct quote push handles them; avoids duplicates).
+  for (const quiet of ["Quote viewed — £53 — Belfast International Airport", "Quote saved — £294.00 — x", "Contact details added to quote — £65 — x", "Customer clicked Book My Transfer — My Airport Taxi NI", "My Airport Taxi NI — Daily Quote Report — 11 November 2026", "Updated Booking Confirmation - MAT-5452", "Customer details captured — payment started — £45"]) {
     assert.equal(n(own, quiet), null, quiet);
   }
   assert.equal(n("no-reply@titan.email", "Titan confirmation code"), null);
@@ -107,6 +145,8 @@ async function main() {
   assert.equal(st.status, 200);
   assert.equal(b64urlDecode(st.body.publicKey).length, 65);
   assert.equal(st.body.devices.length, 0);
+  assert.equal(st.body.prefs.quotes, false, "quote interest default OFF");
+  assert.ok(st.body.categories.some((c: { id: string }) => c.id === "quotes"), "quotes category listed");
   assert.equal((await call("GET", "/owner/push"))!.body.publicKey, st.body.publicKey, "stable key");
   assert.ok(!JSON.stringify(st.body).includes('"d"'), "private key never returned");
 
@@ -136,6 +176,18 @@ async function main() {
   assert.equal((await call("POST", "/owner/push/prefs", { prefs: { bookings: false, bogus: true } }))!.body.prefs.bookings, false);
   r = await notifyOwnerPush(env, n(own, "Paid booking — x — £1")!, fakeFetch);
   assert.equal(r.sent, 0, "category switched off");
+
+  // Quote interest: default OFF → no push; enable → one push; paid booking path still works when bookings on.
+  sent.length = 0;
+  r = await notifyOwnerPush(env, viewed, fakeFetch);
+  assert.equal(r.sent, 0, "quotes default off");
+  assert.equal((await call("POST", "/owner/push/prefs", { prefs: { quotes: true, bookings: true } }))!.body.prefs.quotes, true);
+  r = await notifyOwnerPush(env, viewed, fakeFetch);
+  assert.equal(r.sent, 1, "quotes enabled");
+  assert.equal(JSON.parse(await device.decrypt(sent[sent.length - 1]!.init.body as Uint8Array)).title, "Quote viewed");
+  r = await notifyOwnerPush(env, n(own, "Paid booking — Sarah — £45")!, fakeFetch);
+  assert.equal(r.sent, 1, "paid booking push preserved");
+
   const test = (await call("POST", "/owner/push/test", {}, "owner-key", fakeFetch))!;
   assert.equal(test.body.sent, 1, "test ignores prefs");
 

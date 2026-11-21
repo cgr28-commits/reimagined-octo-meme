@@ -79,6 +79,7 @@
     "check:save-to-contacts": "npx tsx scripts/check-save-to-contacts.ts",
     "check:tracking-diagnostic": "npx tsx scripts/check-tracking-diagnostic.ts",
     "check:journey-evidence": "npx tsx scripts/check-journey-evidence.ts",
+    "check:owner-push": "npx tsx scripts/check-owner-push.ts",
     "check:owner-mobile-ui": "npx tsx scripts/check-owner-mobile-ui.ts",
     "check:owner-dashboard-job-cleanup": "npx tsx scripts/check-owner-dashboard-job-cleanup.ts",
     "check:owner-daily-driver-layout": "npx tsx scripts/check-owner-daily-driver-layout.ts",
