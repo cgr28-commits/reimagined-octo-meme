@@ -85,6 +85,15 @@ export async function findSavedDriverProfileByEmail(
   return null;
 }
 
+/** Saved non-owner profiles, used by the owner-authorized driver-account import. */
+export async function listSavedDriverVehicleProfiles(store: KVNamespace): Promise<DriverVehicleProfile[]> {
+  const keys = await readProfileIndex(store);
+  const profiles = await Promise.all(keys.map((key) => getDriverVehicleProfile(store, key)));
+  return profiles.filter(
+    (profile): profile is DriverVehicleProfile => Boolean(profile && profile.profileKey !== OWNER_VEHICLE_PROFILE_KEY),
+  );
+}
+
 export async function getDriverVehicleProfile(
   store: KVNamespace,
   profileNameOrKey: string,

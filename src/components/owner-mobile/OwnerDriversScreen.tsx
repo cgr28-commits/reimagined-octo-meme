@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 10278)
+Total output lines: 952
+
 "use client";
 
 /**
@@ -13,8 +16,6 @@ import OwnerDriverJobsPanel from "./OwnerDriverJobsPanel";
 import {
   DriverAccountsError,
   STATUS_LABEL,
-  documentStateLabel,
-  documentStateTone,
   driverPortalLink,
   checkSupportPhone,
   ownerDrivers,
@@ -102,6 +103,7 @@ export default function OwnerDriversScreen({
   const [selected, setSelected] = useState<string | null>(initialDriverId ?? null);
   const [inviting, setInviting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importingSaved, setImportingSaved] = useState(false);
   const [tab, setTab] = useState<"drivers" | "jobs">(initialTab ?? "drivers");
 
   const load = useCallback(async () => {
@@ -225,6 +227,25 @@ export default function OwnerDriversScreen({
             <button type="button" className={styles.emeraldButton} onClick={() => setInviting(true)}>
               Invite a driver
             </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              disabled={importingSaved}
+              onClick={async () => {
+                setImportingSaved(true);
+                try {
+                  const res = await ownerDrivers.importSavedDrivers(ownerKey);
+                  onToast(`Saved drivers copied: ${res.added} added, ${res.updated} refreshed${res.skipped ? `, ${res.skipped} skipped` : ""}`);
+                  await load();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Could not copy saved drivers.");
+                } finally {
+                  setImportingSaved(false);
+                }
+              }}
+            >
+              {importingSaved ? "Copying saved drivers…" : "Copy current drivers into bidding"}
+            </button>
             <section className={styles.card} style={{ overflow: "hidden" }}>
               {drivers && drivers.length === 0 && !error ? <p className={styles.empty}>No drivers yet. Invite your first driver above.</p> : null}
               {(drivers ?? []).map((d) => (
@@ -234,7 +255,7 @@ export default function OwnerDriversScreen({
                       {d.name}
                     </span>
                     <span className={styles.rowDetail} style={{ whiteSpace: "normal" }}>
-                      {d.attention && d.attention.length ? ukDate(d.attention.slice(0, 2).join(" · ")) : d.operatorName || d.email}
+                      {d.attention && d.attention.length ? ukDate(d.attention.slice(0, 2).join(" · ")) : d.vehicleSummary || d.email}
                     </span>
                   </span>
                   {d.urgentMessages ? (
@@ -472,35 +493,7 @@ function AcknowledgeWholeAlert({ alert, ownerKey, onDone, onToast }: { alert: Ow
   );
 }
 
-function statusTone(d: OwnerDriver): string {
-  if (d.status === "approved") return d.available ? styles.green : styles.grey;
-  if (d.status === "applied") return styles.amber;
-  if (d.status === "suspended" || d.status === "declined") return styles.red;
-  return styles.grey;
-}
-
-function SubHeader({ title, back, onBack }: { title: string; back: string; onBack: () => void }) {
-  return (
-    <div data-owner-mobile-header className={styles.pageHeader}>
-      <div className={styles.backRow}>
-        <button type="button" className={styles.backButton} onClick={onBack}>
-          <BackIcon size={24} />
-          {back}
-        </button>
-      </div>
-      <div className={styles.pageTitleRow}>
-        <h1 className={styles.pageTitle}>{title}</h1>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
-  return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <span style={{ fontSize: 13, fontWeight: 800, color: "#071C38" }}>{label}</span>
-      {children}
-      {hint ? <span style={{ fontSize: 13, color: "#5B6B80" }}>{hint}</span> : null}
+f…278 tokens truncated…int}</span> : null}
     </label>
   );
 }
@@ -599,8 +592,6 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Pr
   const [action, setAction] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [rejecting, setRejecting] = useState<string | null>(null);
-  const [rejectNote, setRejectNote] = useState("");
   const [link, setLink] = useState<{ link: string; expiresAt: string } | null>(null);
   const [showAudit, setShowAudit] = useState(false);
 
@@ -633,7 +624,6 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Pr
   }
 
   const d = detail?.driver;
-  const pendingDocs = detail?.documents.filter((doc) => doc.status === "pending") ?? [];
 
   async function run(fn: () => Promise<unknown>, done: string) {
     setBusy(true);
@@ -668,8 +658,6 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Pr
                   <span className={`${styles.chip} ${d.available ? styles.green : styles.grey}`}>{d.available ? "Available" : "Unavailable"}</span>
                 ) : null}
               </div>
-              <Kv label="Operator" value={d.operatorName || "—"} />
-              <Kv label="Operator licence" value={d.operatorLicenceNumber || "—"} />
               <Kv label="Vehicle" value={d.vehicleSummary || "—"} />
               <Kv label="Registration" value={d.vehicleReg || "Not added yet"} />
               <Kv label="Email" value={d.email} />
@@ -724,65 +712,12 @@ function DriverDetail({ ownerKey, driverId, onBack, onToast, onOpenBooking }: Pr
               </section>
             ) : null}
 
-            <section className={`${styles.card}`} style={{ overflow: "hidden" }}>
-              <h2 className={styles.sectionTitle} style={{ padding: "14px 16px 6px" }}>
-                Documents
-              </h2>
-              {detail.summary.map((item) => (
-                <div key={item.kind} className={styles.row} style={{ cursor: "default" }}>
-                  <span className={styles.rowBody}>
-                    <span className={styles.rowTitle} style={{ fontWeight: 700 }}>
-                      {item.label}
-                    </span>
-                    {item.required ? null : <span className={styles.rowDetail}>Optional</span>}
-                  </span>
-                  <span className={`${styles.chip} ${styles[documentStateTone(item.state)]}`}>{documentStateLabel(item.state, item.expiresOn)}</span>
-                </div>
-              ))}
-            </section>
-
-            {pendingDocs.map((doc) => (
-              <section key={doc.id} className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 10 }}>
-                <h2 className={styles.sectionTitle}>Check: {doc.label}</h2>
-                <Kv label="Reference" value={doc.reference || "—"} />
-                <Kv label="Expires" value={ukDate(doc.expiresOn)} />
-                <p style={{ margin: 0, fontSize: 13, color: "#5B6B80" }}>Check the original document with the driver before accepting.</p>
-                {rejecting === doc.id ? (
-                  <>
-                    <textarea className={styles.composer} style={{ minHeight: 80 }} placeholder="What needs fixing?" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} />
-                    <button
-                      type="button"
-                      className={styles.dangerButton}
-                      disabled={busy || !rejectNote.trim()}
-                      onClick={async () => {
-                        if (await run(() => ownerDrivers.reviewDocument(ownerKey, doc.id, "reject", rejectNote), "Document rejected")) {
-                          setRejecting(null);
-                          setRejectNote("");
-                        }
-                      }}
-                    >
-                      Reject document
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => setRejecting(doc.id)}>
-                      Reject
-                    </button>
-                    <button type="button" className={styles.emeraldButton} disabled={busy} onClick={() => run(() => ownerDrivers.reviewDocument(ownerKey, doc.id, "accept", ""), "Document accepted")}>
-                      Accept
-                    </button>
-                  </div>
-                )}
-              </section>
-            ))}
-
             {action ? (
               <section className={`${styles.card} ${styles.cardPad}`} style={{ display: "grid", gap: 12 }}>
                 <h2 className={styles.sectionTitle}>{ACTION_LABEL[action]}</h2>
                 {action === "approve" || action === "reinstate" ? (
                   <p style={{ margin: 0, fontSize: 14, color: "#33445C" }}>
-                    {d.name} will be able to sign in and set themselves available. They will not receive any jobs in Stage 1.
+                    {d.name} will be able to sign in and set themselves available for job offers.
                   </p>
                 ) : (
                   <>

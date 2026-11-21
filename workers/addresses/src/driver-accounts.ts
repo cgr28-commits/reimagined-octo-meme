@@ -1,15 +1,15 @@
 /**
- * Stage 1 — individual driver accounts (staging only).
+ * Driver accounts and jobs.
  *
- * Scope: invite / apply, documents with expiry, owner approve / decline / suspend /
+ * Scope: invite / apply, optional historical document records, owner approve / decline / suspend /
  * reinstate / remove, availability flag, single-use sign-in links, individual sessions,
  * Contact Office message fallback, private driver-support number, permanent audit log.
  *
- * Out of scope (later stages): jobs, offers, money, notifications, file uploads.
- *
- * Only active when the Worker has a DRIVER_DB (D1) binding. Production has none, so
- * every route here answers 404 there.
+ * Only active when the Worker has a DRIVER_DB (D1) binding.
  */
+
+import { listSavedDriverVehicleProfiles } from "./driver-vehicle-store";
+import type { DriverVehicleProfile } from "../shared/driver-vehicle";
 
 export type D1Result<T> = { results?: T[] };
 export interface D1PreparedLike {
@@ -25,6 +25,7 @@ export interface D1Like {
 
 export type DriverAccountsEnv = {
   DRIVER_DB?: D1Like;
+  TRACKING_STORE?: KVNamespace;
 };
 
 export type DriverIdentity = { id: string; name: string; email: string; mobile: string };
@@ -85,13 +86,8 @@ export const DOCUMENT_KINDS = [
 ] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
-/** Documents that must be accepted and in date before a driver can be approved. */
-export const REQUIRED_FOR_APPROVAL: DocumentKind[] = [
-  "operator_licence",
-  "phv_driver_licence",
-  "vehicle_licence",
-  "insurance",
-];
+/** No document records are required for approval or job offers in the current driver workflow. */
+export const REQUIRED_FOR_APPROVAL: DocumentKind[] = [];
 
 export const DOCUMENT_LABELS: Record<DocumentKind, string> = {
   operator_licence: "Taxi operator licence",
@@ -130,6 +126,10 @@ export type DriverRow = {
   operator_name: string;
   operator_licence_number: string;
   vehicle_summary: string;
+  legacy_profile_key?: string | null;
+  vehicle_make?: string;
+  vehicle_model?: string;
+  vehicle_colour?: string;
   /** Stage 2 column; absent on a Stage 1 database. */
   vehicle_reg: string;
   created_at: string;
@@ -257,16 +257,23 @@ export function missingForApproval(docs: DocumentRow[], today: string): Document
   });
 }
 
+function completeSavedProfile(profile: DriverVehicleProfile): boolean {
+  return Boolean(
+    profile.profileKey.trim() && profile.displayName.trim() && profile.email.trim() &&
+    profile.mobile?.trim() && profile.registration.trim(),
+  );
+}
+
 /**
  * Whether a driver may be sent new work offers (Stage 2 uses this as its gate).
- * Suspended, declined, removed, unavailable or out-of-date drivers never qualify.
+ * Suspended, declined, removed or unavailable drivers never qualify.
  */
 export function canReceiveOffers(
   driver: Pick<DriverRow, "status" | "available">,
-  docs: DocumentRow[],
-  today: string,
+  _docs: DocumentRow[],
+  _today: string,
 ): boolean {
-  return driver.status === "approved" && driver.available === 1 && missingForApproval(docs, today).length === 0;
+  return driver.status === "approved" && driver.available === 1;
 }
 
 function publicDocument(doc: DocumentRow, today: string) {
@@ -402,6 +409,7 @@ export async function handleDriverAccountsRequest(
   if (!db) return json({ ok: false, error: "Not found." }, 404, cors);
   const ctx: Ctx = {
     db,
+    legacyDriverStore: env.TRACKING_STORE,
     cors,
     now: deps.now ?? (() => new Date()),
     token: deps.randomToken ?? defaultRandomToken,
@@ -426,6 +434,7 @@ export async function handleDriverAccountsRequest(
 
 export type Ctx = {
   db: D1Like;
+  legacyDriverStore?: KVNamespace;
   cors: HeadersInit;
   now: () => Date;
   token: (prefix: string) => string;
@@ -441,6 +450,60 @@ async function ownerRoute(request: Request, url: URL, ctx: Ctx): Promise<Respons
   const { db, cors } = ctx;
   const at = ctx.now().toISOString();
   const today = ymd(ctx.now());
+
+  if (path === "/owner/driver-accounts/import-saved-drivers" && request.method === "POST") {
+    const store = ctx.legacyDriverStore;
+    if (!store) throw new HttpError(503, "Saved driver profiles are unavailable.");
+    const profiles = await listSavedDriverVehicleProfiles(store);
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+    for (const profile of profiles) {
+      if (!completeSavedProfile(profile)) {
+        skipped += 1;
+        continue;
+      }
+      const key = profile.profileKey.trim();
+      const email = profile.email.trim().toLowerCase();
+      const current = await db
+        .prepare("SELECT id, status FROM drivers WHERE legacy_profile_key = ?")
+        .bind(key)
+        .first<{ id: string; status: DriverStatus }>();
+      const at = ctx.now().toISOString();
+      const vehicleSummary = [profile.colour, profile.make, profile.model].map((part) => part.trim()).filter(Boolean).join(" ");
+      if (current) {
+        if (current.status === "removed") {
+          skipped += 1;
+          continue;
+        }
+        const emailMatch = await db.prepare("SELECT id FROM drivers WHERE lower(email) = ? AND status <> 'removed'").bind(email).first<{ id: string }>();
+        if (emailMatch && emailMatch.id !== current.id) {
+          skipped += 1;
+          continue;
+        }
+        await db.batch([
+          db.prepare("UPDATE drivers SET name = ?, email = ?, mobile = ?, vehicle_summary = ?, vehicle_make = ?, vehicle_model = ?, vehicle_colour = ?, vehicle_reg = ?, updated_at = ? WHERE id = ?")
+            .bind(profile.displayName.trim(), email, profile.mobile!.trim(), vehicleSummary, profile.make.trim(), profile.model.trim(), profile.colour.trim(), profile.registration.trim().toUpperCase(), at, current.id),
+          auditStatement(db, at, "system", "", "driver.legacy_profile_synced", current.id, { profileKey: key }),
+        ]);
+        updated += 1;
+        continue;
+      }
+      const emailMatch = await db.prepare("SELECT id FROM drivers WHERE lower(email) = ? AND status <> 'removed'").bind(email).first<{ id: string }>();
+      if (emailMatch) {
+        skipped += 1;
+        continue;
+      }
+      const id = newId("drv");
+      await db.batch([
+        db.prepare("INSERT INTO drivers (id, name, email, mobile, status, available, vehicle_summary, vehicle_make, vehicle_model, vehicle_colour, vehicle_reg, legacy_profile_key, created_at, updated_at) VALUES (?, ?, ?, ?, 'approved', 1, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(id, profile.displayName.trim(), email, profile.mobile!.trim(), vehicleSummary, profile.make.trim(), profile.model.trim(), profile.colour.trim(), profile.registration.trim().toUpperCase(), key, profile.updatedAt || at, at),
+        auditStatement(db, at, "system", "", "driver.legacy_profile_imported", id, { profileKey: key }),
+      ]);
+      added += 1;
+    }
+    return json({ ok: true, added, updated, skipped }, 200, cors);
+  }
 
   if (path === "/owner/driver-accounts" && request.method === "GET") {
     const drivers = (await db.prepare("SELECT * FROM drivers WHERE status <> 'removed' ORDER BY created_at DESC").all<DriverRow>()).results ?? [];
@@ -942,6 +1005,9 @@ function ownerDriverView(d: DriverRow) {
     operatorLicenceNumber: d.operator_licence_number,
     vehicleSummary: d.vehicle_summary,
     vehicleReg: d.vehicle_reg ?? "",
+    vehicleMake: d.vehicle_make ?? "",
+    vehicleModel: d.vehicle_model ?? "",
+    vehicleColour: d.vehicle_colour ?? "",
     createdAt: d.created_at,
     updatedAt: d.updated_at,
   };
@@ -1093,24 +1159,24 @@ async function driverRoute(request: Request, url: URL, ctx: Ctx): Promise<Respon
     const mobileRaw = text(body.mobile, 30);
     const mobile = mobileRaw ? normaliseUkPhone(mobileRaw) : driver.mobile;
     if (!mobile) throw new HttpError(400, "Enter a valid UK mobile number.");
-    const operatorName = text(body.operatorName, 120);
-    const operatorLicenceNumber = text(body.operatorLicenceNumber, 60);
-    if (!operatorName || !operatorLicenceNumber) {
-      throw new HttpError(400, "Enter your operator name and operator licence number.");
+    const vehicleMake = text(body.vehicleMake, 60);
+    const vehicleModel = text(body.vehicleModel, 80);
+    const vehicleColour = text(body.vehicleColour, 40);
+    const vehicleReg = text(body.vehicleReg, 12).toUpperCase();
+    if (!vehicleReg) {
+      throw new HttpError(400, "Enter your vehicle registration before applying.");
     }
-    if (body.confirmOwnOperatorLicence !== true) {
-      throw new HttpError(400, "Confirm that you hold your own taxi operator licence.");
-    }
+    const vehicleSummary = [vehicleColour, vehicleMake, vehicleModel].filter(Boolean).join(" ");
     await claimLink(ctx, link.tokenHash);
     const session = await createSessionStatements(ctx, driver.id);
     await db.batch([
       db
         .prepare(
-          "UPDATE drivers SET status = 'applied', mobile = ?, operator_name = ?, operator_licence_number = ?, vehicle_summary = ?, updated_at = ? WHERE id = ? AND status = 'invited'",
+          "UPDATE drivers SET status = 'applied', mobile = ?, vehicle_summary = ?, vehicle_make = ?, vehicle_model = ?, vehicle_colour = ?, vehicle_reg = ?, updated_at = ? WHERE id = ? AND status = 'invited'",
         )
-        .bind(mobile, operatorName, operatorLicenceNumber, text(body.vehicleSummary, 120), at, driver.id),
+        .bind(mobile, vehicleSummary, vehicleMake, vehicleModel, vehicleColour, vehicleReg, at, driver.id),
       ...session.statements,
-      auditStatement(db, at, "driver", driver.id, "driver.applied", driver.id, { operatorName, operatorLicenceNumber }),
+      auditStatement(db, at, "driver", driver.id, "driver.applied", driver.id, { vehicleMake, vehicleModel, vehicleColour, vehicleReg }),
     ]);
     return json({ ok: true, sessionToken: session.token, expiresAt: session.expiresAt }, 200, cors);
   }
