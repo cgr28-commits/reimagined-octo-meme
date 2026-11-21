@@ -31,6 +31,12 @@ export const TOWN_DESIGN3_HEROES = [
     widths: [640, 960, 1280] as const,
     alt: "Bangor harbour at sunset",
   },
+  {
+    townSlug: "holywood",
+    heroBase: "d3-concept-holywood-old-pier",
+    widths: [640, 960, 1280] as const,
+    alt: "Holywood Old Pier on Belfast Lough at sunset",
+  },
 ] as const satisfies readonly TownDesign3Hero[];
 
 const byTownSlug = new Map<string, TownDesign3Hero>(
