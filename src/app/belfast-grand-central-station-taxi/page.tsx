@@ -6,6 +6,7 @@ import HeroSlideshow from "@/components/HeroSlideshow";
 import LandingBreadcrumbs from "@/components/LandingBreadcrumbs";
 import { LandingPageQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
+import { getGrandCentralDesign3HeroImageUrl } from "@/lib/grand-central-design3-hero";
 import { absoluteSiteUrl } from "@/lib/paths";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/lib/structured-data";
 import styles from "./station.module.css";
@@ -84,6 +85,9 @@ export default function GrandCentralStationPage() {
         headingSubject="Belfast Grand Central Station"
         intro="Pre-book a private taxi to or from Belfast Grand Central Station. Fixed price before you pay."
         journey={{ bookingIntroduction: "Pre-book your transfer to or from Belfast Grand Central Station in just a few clicks." }}
+        design3TownHero
+        desktopRoomy
+        design3HeroImageUrl={getGrandCentralDesign3HeroImageUrl()}
       />
       <section className={styles.hero} style={{ paddingTop: 32 }}>
         <div className={styles.shell}>
