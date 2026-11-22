@@ -367,6 +367,17 @@ export default function BusinessClassPage() {
                     </Link>
                     .
                   </p>
+                  <p data-dublin-route-links>
+                    Business Class is available on{" "}
+                    <Link href="/transfers/belfast-to-dublin-airport/" className="font-semibold bc-c-em underline underline-offset-4">
+                      Belfast to Dublin Airport
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/transfers/dublin-airport-to-belfast/" className="font-semibold bc-c-em underline underline-offset-4">
+                      Dublin Airport to Belfast
+                    </Link>{" "}
+                    transfers.
+                  </p>
                 </div>
               </div>
             </div>

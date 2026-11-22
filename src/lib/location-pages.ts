@@ -286,7 +286,7 @@ const AIRPORT_PAGES_ALL: AirportPage[] = [
     name: "Dublin Airport",
     shortName: "Dublin Airport",
     title: "Dublin Airport Transfers to & from Northern Ireland",
-    seoTitle: "Taxi to Dublin Airport from Belfast & NI | Fixed Price, Tolls Incl.",
+    seoTitle: "Dublin Airport Taxi & Transfers from Northern Ireland",
     metaDescription:
       "Private taxi between Dublin Airport and Belfast or anywhere in Northern Ireland. Door-to-door, fixed price, tolls included, flight tracking.",
     intro:

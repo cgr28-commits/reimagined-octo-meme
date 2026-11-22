@@ -1523,10 +1523,10 @@ export const TRANSFER_ROUTE_CONTENT: TransferRouteContent[] = [
     townSlug: "belfast",
     airportCode: "DUB",
     direction: "from-airport",
-    title: "Dublin Airport to Belfast Taxi – Fixed Price, Met in Arrivals",
+    title: "Dublin Airport to Belfast Taxi & Transfer – Met in Arrivals",
     h1: "Dublin Airport to Belfast Taxi & Private Transfer",
     metaDescription:
-      "Yes, you can pre-book a taxi from Dublin Airport to Belfast. Your driver meets you in Arrivals, tracks your flight and drives you door to door. Fixed price, tolls included.",
+      "Yes, you can pre-book a taxi from Dublin Airport to Belfast. We meet you in Arrivals and track your flight. Fixed-price private transfer, tolls included.",
     intro:
       "Landed at Dublin Airport and need to get to Belfast? Pre-book a private taxi with My Airport Taxi NI and your driver will meet you in Arrivals at Terminal 1 or Terminal 2 and drive you door to door to your Belfast home, hotel or office — no bus connections and no queue at the taxi rank. The journey takes around two hours in normal traffic. Add your flight number when you book and we'll track your flight, so if it lands early or late your driver knows. Airport pickups include up to 60 minutes' free waiting, and M1 tolls are included in the fare. Enter your Belfast address in the quote box above to see your fixed price, then book and pay securely online. Need to fly back out of Dublin? Add the return on the same form and book both journeys together. WhatsApp us @belfasttaxi if you need to check luggage or anything else before you fly.",
     journeyInfo: `Dublin Airport to Belfast is a reserved cross-border transfer, typically around two hours in normal traffic. ${TRAFFIC}`,

@@ -181,6 +181,10 @@ export default function BelfastCruiseTerminalTransfersPage() {
               <Link href="/airports/dublin/" className="text-emerald hover:text-emerald-light">
                 Dublin Airport
               </Link>
+              {" · "}
+              <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald hover:text-emerald-light">
+                Belfast to Dublin Airport taxi
+              </Link>
             </p>
           </section>
 
