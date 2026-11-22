@@ -101,6 +101,14 @@ export default function LongDistanceTransfersPage() {
               </div>
             </section>
             <section className="mt-10">
+              <h2 className="text-xl font-bold text-white">Belfast and Dublin Airport transfers</h2>
+              <p className="mt-3 max-w-2xl leading-relaxed text-white/70">A private taxi between Belfast and Dublin Airport, in either direction, door to door with M1 tolls included and your flight tracked on arrival.</p>
+              <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">
+                <Link href="/transfers/belfast-to-dublin-airport/" className="underline underline-offset-4">Belfast to Dublin Airport Taxi</Link>
+                <Link href="/transfers/dublin-airport-to-belfast/" className="underline underline-offset-4">Dublin Airport to Belfast Taxi</Link>
+              </div>
+            </section>
+            <section className="mt-10">
               <h2 className="text-xl font-bold text-white">Belfast and Cork private transfers</h2>
               <p className="mt-3 max-w-2xl leading-relaxed text-white/70">Read our route guides for door-to-door journeys between Belfast and Cork, including Belfast airport collections and personalised Cork pickups.</p>
               <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">

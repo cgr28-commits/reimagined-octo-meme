@@ -66,6 +66,17 @@ export default function AirportsIndexPage() {
               </li>
             ))}
           </ul>
+          <p data-dublin-route-links className="mt-6 text-sm leading-relaxed text-white/60">
+            Travelling between Belfast and Dublin Airport? See{" "}
+            <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald underline underline-offset-4">
+              Belfast to Dublin Airport transfers
+            </Link>{" "}
+            and{" "}
+            <Link href="/transfers/dublin-airport-to-belfast/" className="text-emerald underline underline-offset-4">
+              Dublin Airport to Belfast transfers
+            </Link>
+            .
+          </p>
         </div>
         <LandingPageStickyQuoteCta />
       </main>

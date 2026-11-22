@@ -224,6 +224,17 @@ export default async function BelfastEventsHubPage() {
                 Get an instant airport quote
               </Link>
             </p>
+            <p data-dublin-route-links className="mt-2 text-sm leading-relaxed text-white/75">
+              Flying in or out of Dublin for a show? See{" "}
+              <Link href="/transfers/dublin-airport-to-belfast/" className="font-semibold text-emerald underline">
+                Dublin Airport to Belfast taxi
+              </Link>{" "}
+              and{" "}
+              <Link href="/transfers/belfast-to-dublin-airport/" className="font-semibold text-emerald underline">
+                Belfast to Dublin Airport taxi
+              </Link>
+              .
+            </p>
           </section>
         </div>
       </main>

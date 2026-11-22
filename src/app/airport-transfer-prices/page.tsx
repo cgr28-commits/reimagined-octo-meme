@@ -116,6 +116,19 @@ export default function AirportTransferPricesPage() {
                     {paragraph}
                   </p>
                 ))}
+                {section.title === "Tolls" ? (
+                  <p data-dublin-route-links className="mt-4 text-sm leading-relaxed text-white/65">
+                    M1 tolls are already included on{" "}
+                    <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald underline underline-offset-4">
+                      Belfast to Dublin Airport transfers
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/transfers/dublin-airport-to-belfast/" className="text-emerald underline underline-offset-4">
+                      Dublin Airport to Belfast transfers
+                    </Link>
+                    .
+                  </p>
+                ) : null}
                 {section.title === "Cancellation and refunds" ? (
                   <p className="mt-4 text-sm leading-relaxed text-white/65">
                     <Link href="/cancellation/" className="text-emerald underline underline-offset-4">

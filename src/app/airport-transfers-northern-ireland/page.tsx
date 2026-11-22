@@ -131,6 +131,10 @@ export default function NorthernIrelandAirportTransfersPage() {
                 <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald underline underline-offset-4">
                   Belfast to Dublin Airport
                 </Link>
+                . Landing there? See{" "}
+                <Link href="/transfers/dublin-airport-to-belfast/" className="text-emerald underline underline-offset-4">
+                  Dublin Airport to Belfast
+                </Link>
                 .
               </p>
             </section>

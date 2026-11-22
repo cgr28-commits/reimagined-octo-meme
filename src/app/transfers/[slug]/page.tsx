@@ -546,6 +546,19 @@ export default async function TransferRoutePage({ params }: Props) {
                   guide. Arriving by train or coach? <Link href="/belfast-grand-central-station-taxi/" className="text-emerald underline underline-offset-4">Arrange a Belfast Grand Central Station transfer</Link> for your onward airport connection.
                 </p>
               ) : null}
+              {page.airport.code === "DUB" && page.town.slug !== "belfast" ? (
+                <p data-dublin-route-links className="mt-4 text-sm text-white/50">
+                  Starting in Belfast instead? See{" "}
+                  <Link href="/transfers/belfast-to-dublin-airport/" className="text-emerald hover:text-emerald-light">
+                    Belfast to Dublin Airport transfers
+                  </Link>
+                  . For how we meet you in Arrivals on the way home, see{" "}
+                  <Link href="/transfers/dublin-airport-to-belfast/" className="text-emerald hover:text-emerald-light">
+                    Dublin Airport to Belfast transfers
+                  </Link>
+                  .
+                </p>
+              ) : null}
             </section>
           ) : null}
 

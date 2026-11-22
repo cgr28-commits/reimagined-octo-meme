@@ -2,10 +2,10 @@
 export const DUBLIN_CITY_TRANSFER_PATH = "/transfers/belfast-to-dublin-city/";
 
 export const DUBLIN_CITY_TRANSFER_PAGE = {
-  title: "Belfast to Dublin Taxi – Door to Door to Dublin City",
+  title: "Belfast to Dublin Taxi & Private Transfer – Door to Door",
   h1: "Belfast to Dublin City Taxi",
   description:
-    "Pre-booked private taxi from Belfast to Dublin city. Door to door to your Dublin hotel, home or office, with a fixed price agreed before you pay. Return journeys available.",
+    "Pre-booked taxi transfer from Belfast to Dublin city, door to door to your hotel, home or office. Fixed price agreed before you pay. Returns available.",
   eyebrow: "Belfast ⇄ Dublin city · Private taxi",
   intro:
     "Travel between Belfast and Dublin city in one pre-booked private car, door to door. We collect from your Belfast home, hotel or office and drive you to your Dublin address, or collect you in Dublin and bring you home to Belfast. Your price is fixed and agreed before you pay, with no meter running and no change of bus or train on the way.",

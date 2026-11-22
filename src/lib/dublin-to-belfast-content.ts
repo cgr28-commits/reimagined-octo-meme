@@ -8,10 +8,10 @@ import type { BelfastDublinLandingContent } from "@/components/DublinCityTransfe
 export const DUBLIN_TO_BELFAST_PATH = "/transfers/dublin-to-belfast/";
 
 export const DUBLIN_TO_BELFAST_PAGE: BelfastDublinLandingContent = {
-  title: "Dublin to Belfast Taxi – Fixed Price, Door to Door",
+  title: "Dublin to Belfast Taxi & Private Transfer – Door to Door",
   h1: "Dublin to Belfast Taxi",
   description:
-    "Pre-booked private taxi from Dublin city to Belfast. Collected from your Dublin hotel, home or office and driven door to door, with a fixed price agreed before you pay.",
+    "Pre-booked taxi transfer from Dublin city to Belfast, collected from your hotel, home or office and driven door to door. Fixed price before you pay.",
   eyebrow: "Dublin city → Belfast · Private taxi",
   intro:
     "Travel from Dublin city to Belfast in one pre-booked private car, door to door. We collect you from your Dublin hotel, home, office or venue at the time you choose and drive you straight to your Belfast address. Your price is fixed and agreed before you pay, with no meter running and no change of bus or train on the way.",
