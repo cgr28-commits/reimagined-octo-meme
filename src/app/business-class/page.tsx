@@ -368,7 +368,7 @@ export default function BusinessClassPage() {
                     .
                   </p>
                   <p data-dublin-route-links>
-                    Business Class is an instant-price upgrade on{" "}
+                    Business Class is available on{" "}
                     <Link href="/transfers/belfast-to-dublin-airport/" className="font-semibold bc-c-em underline underline-offset-4">
                       Belfast to Dublin Airport
                     </Link>{" "}
