@@ -143,7 +143,10 @@ jobs:
           if has_receipt_secret "$receipt_list"; then
             echo "QUOTE_RECEIPT_SECRET already present on the preview Worker."
           else
-            openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
+            # A freshly (re)created preview Worker has an undeployed latest version, and wrangler
+          # refuses secret edits until it is deployed (failed run 23 Nov 2026). Deploy first.
+          npx wrangler deploy --env preview
+          openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
             echo "QUOTE_RECEIPT_SECRET created on the preview Worker."
           fi
           if [ "${GITHUB_REF_NAME:-}" = "claude/empty-run-discount" ]; then
