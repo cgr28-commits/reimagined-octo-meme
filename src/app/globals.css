@@ -5954,7 +5954,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   html[data-mobile-light] [data-d2="details"] #step3-payment-actions::before { display: flex; align-items: center; gap: .55rem; font-size: 1.05rem !important; font-weight: 800 !important; text-transform: none !important; letter-spacing: 0 !important; color: #071c38 !important; margin-bottom: .5rem; }
   html[data-mobile-light] [data-d2="details"] #step3-customer-details > p[data-booking-nav-heading]::before,
   html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p::before { content: counter(d2card); }
-  html[data-mobile-light] [data-d2="details"] #step3-payment-actions::before { content: counter(d2card) "  Payment"; white-space: pre; }
+  html[data-mobile-light] [data-d2="details"] #step3-payment-actions::before { content: "Secure Payment"; white-space: nowrap; }
   html[data-mobile-light] [data-d2="details"] #step3-customer-details > p[data-booking-nav-heading]::before,
   html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p::before { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: #071c38; color: #fff; font-size: .82rem; font-weight: 800; }
   html[data-mobile-light] [data-d2="details"] #step2-flight-details > div:first-child > p { font-size: 0 !important; }
@@ -6350,7 +6350,7 @@ mark[data-suggestion-match] { background: none; color: inherit; }
   /* Details & Payment */
   html[data-mobile-d3] [data-d2="details"] h2[data-site-nav-heading] { display: none !important; }
   html[data-mobile-d3] [data-d2="details"] #step2-journey-summary { display: none !important; }
-  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: counter(d2card) "  Payment" !important; white-space: pre; }
+  html[data-mobile-d3] [data-d2="details"] #step3-payment-actions::before { content: "Secure Payment" !important; white-space: nowrap; }
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details label[for="goingFlightNumber"],
   html[data-mobile-d3] [data-d2="details"] #step2-flight-details .quote-field > label { text-transform: none !important; letter-spacing: 0 !important; font-size: .875rem !important; font-weight: 700 !important; color: #071c38 !important; }
   html[data-mobile-d3] [data-d2="details"] #step3-payment-actions > button.w-full.text-center,
