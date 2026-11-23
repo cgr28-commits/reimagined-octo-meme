@@ -114,6 +114,9 @@ jobs:
               printf '%s' "$value" | npx wrangler secret put "$name" --env preview
             fi
           }
+          # wrangler refuses secret edits while the Worker's latest version is undeployed
+          # (preview run failed on this, 23 Nov 2026). Deploy first; the final deploy below still runs.
+          npx wrangler deploy --env preview
           put_secret GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
           put_secret IDEAL_POSTCODES_API_KEY "${IDEAL_POSTCODES_API_KEY:-}"
           put_secret GETADDRESS_API_KEY "${GETADDRESS_API_KEY:-}"
@@ -143,7 +146,10 @@ jobs:
           if has_receipt_secret "$receipt_list"; then
             echo "QUOTE_RECEIPT_SECRET already present on the preview Worker."
           else
-            openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
+            # A freshly (re)created preview Worker has an undeployed latest version, and wrangler
+          # refuses secret edits until it is deployed (failed run 23 Nov 2026). Deploy first.
+          npx wrangler deploy --env preview
+          openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put QUOTE_RECEIPT_SECRET --env preview
             echo "QUOTE_RECEIPT_SECRET created on the preview Worker."
           fi
           if [ "${GITHUB_REF_NAME:-}" = "claude/empty-run-discount" ]; then

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { seasonalBookingMessage } from "../../shared/seasonal-booking-message";
-import { DEMAND_BAR_SEGMENTS, demandIndicatorFor } from "../../shared/demand-indicator";
+import { DECEMBER_2026_DEMAND_HEADING, DEMAND_BAR_SEGMENTS, demandIndicatorFor } from "../../shared/demand-indicator";
 import { websiteEventIcon } from "../../shared/website-event-notices";
 
 type Props = {
@@ -65,13 +65,14 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
     demand.event || RED_SEASONS.includes(demand.season) ? "red" : AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
   const pct = demand.bookedPercent;
   const pctTone: "green" | "amber" | "red" = pct === null ? "green" : pct >= 80 ? "red" : pct >= 60 ? "amber" : "green";
-  const tone = RANK[pctTone] > RANK[dateTone] ? pctTone : dateTone;
+  // December 2026 estimates (60–90%) always use the red treatment (owner, 23 Nov 2026).
+  const tone = demand.estimated ? "red" : RANK[pctTone] > RANK[dateTone] ? pctTone : dateTone;
   const veryHigh = tone !== "green";
   const filledSegments =
     demand.bookedPercent !== null ? demand.filledSegments : tone === "red" ? 4 : tone === "amber" ? 3 : 2;
   const label = demand.bookedPercent !== null ? (demand.label ?? "") : tone === "red" ? "Very high" : tone === "amber" ? "High" : "Normal";
   const accent = tone === "red" ? "#D93025" : tone === "amber" ? "#E8A317" : "#2FBF4A";
-  const icon = demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
+  const icon = demand.estimated ? "✨" : demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
   return (
     <div
       data-seasonal-booking-message={placement}
@@ -97,10 +98,18 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
           <p className="mt-1.5 flex items-center justify-between gap-2 text-[0.8rem]">
             <span className={`inline-flex items-center gap-1.5 ${veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}`}>
               <span className="demand-pulse-dot" style={{ background: accent, color: accent }} aria-hidden="true" />
-              {demand.bookedPercent !== null ? "Bookings for your date" : "Expected demand for your date"}
+              {demand.estimated
+                ? DECEMBER_2026_DEMAND_HEADING
+                : demand.bookedPercent !== null
+                  ? "Bookings for your date"
+                  : "Expected demand for your date"}
             </span>
             <span className={`font-extrabold tabular-nums ${tone === "red" ? "text-[#B3261E]" : tone === "amber" ? "text-[#8A5A00]" : "text-[#0F6E56]"}`}>
-              {demand.bookedPercent !== null && shownPercent !== null ? `${shownPercent}% booked` : label}
+              {demand.bookedPercent !== null && shownPercent !== null
+                ? demand.estimated
+                  ? `${shownPercent}%`
+                  : `${shownPercent}% booked`
+                : label}
             </span>
           </p>
           {demand.bookedPercent !== null ? (
@@ -108,8 +117,9 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
               className="mt-1.5 h-1.5 overflow-hidden rounded-full"
               style={{ background: veryHigh ? "#e7dfcf" : "#e3e8ee" }}
               role="img"
-              aria-label={label}
+              aria-label={demand.estimated ? `${DECEMBER_2026_DEMAND_HEADING}: ${label}` : label}
               data-demand-bar
+              data-demand-percent={demand.bookedPercent}
             >
               <span
                 className="demand-bar-fill block h-full rounded-full"
