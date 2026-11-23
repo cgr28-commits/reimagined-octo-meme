@@ -11,7 +11,7 @@ import {
   seasonalBookingMessage,
   SEASONAL_CLOSING,
 } from "../shared/seasonal-booking-message";
-import { demandIndicatorFor } from "../shared/demand-indicator";
+import { DECEMBER_2026_DEMAND_BODY, decemberDemandPercentFor, demandIndicatorFor } from "../shared/demand-indicator";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -177,20 +177,42 @@ check("expected demand levels", () => {
   // Bar sizes, labels, and no "booked" wording outside December.
   const xmas = demandIndicatorFor({ tripDate: "2026-12-20" }, now)!;
   assert.equal(xmas.filledSegments, 4);
-  assert.equal(xmas.label, "80% booked");
-  // December booked levels (owner, 16 Nov 2026): 60% on 1–13 Dec, 80% from 14 Dec.
-  for (const [d, pct, segs] of [["2026-12-01", 60, 3], ["2026-12-13", 60, 3], ["2026-12-14", 80, 4], ["2026-12-31", 80, 4], ["2027-12-05", 60, 3]] as const) {
-    const ind = demandIndicatorFor({ tripDate: d }, now)!;
-    assert.equal(ind.bookedPercent, pct, d);
-    assert.equal(ind.label, `${pct}% booked`, d);
-    assert.equal(ind.filledSegments, segs, d);
+  assert.equal(xmas.label, "70%"); // Sunday 20 Dec 2026
+  // December 2026 (owner, 23 Nov 2026): estimated demand by weekday for every date 1–31 Dec.
+  const expectedByWeekday = [70, 60, 60, 70, 70, 80, 90]; // Sun … Sat
+  for (let day = 1; day <= 31; day++) {
+    const iso = `2026-12-${String(day).padStart(2, "0")}`;
+    const pct = expectedByWeekday[new Date(Date.UTC(2026, 11, day)).getUTCDay()];
+    const ind = demandIndicatorFor({ tripDate: iso }, now)!;
+    assert.equal(decemberDemandPercentFor(iso), pct, iso);
+    assert.equal(ind.bookedPercent, pct, iso);
+    assert.equal(ind.estimated, true, iso);
+    assert.equal(ind.label, `${pct}%`, iso);
+    assert.equal(ind.body, DECEMBER_2026_DEMAND_BODY, iso);
+    assert.doesNotMatch(ind.label ?? "", /booked/i, iso);
+  }
+  // Named dates: Thu 24 Dec, Fri 25 Dec, Sat 26 Dec, Thu 31 Dec 2026.
+  for (const [d, pct] of [["2026-12-01", 60], ["2026-12-02", 70], ["2026-12-24", 70], ["2026-12-25", 80], ["2026-12-26", 90], ["2026-12-31", 70]] as const) {
+    assert.equal(demandIndicatorFor({ tripDate: d }, now)!.bookedPercent, pct, d);
+  }
+  // Independent of the vehicle/route and of "today".
+  assert.equal(demandIndicatorFor({ tripDate: "2026-12-26", pickup: "Dublin", dropoff: "City Hall, Belfast BT1 5GS" }, now)!.bookedPercent, 90);
+  assert.equal(demandIndicatorFor({ tripDate: "2026-12-26" }, new Date("2026-12-26T23:30:00Z"))!.bookedPercent, 90);
+  // Outside December 2026 the earlier behaviour is unchanged (Dec 2027 still 60% booked).
+  assert.equal(decemberDemandPercentFor("2026-11-30"), null);
+  assert.equal(decemberDemandPercentFor("2027-01-01"), null);
+  assert.equal(decemberDemandPercentFor("2027-12-05"), null);
+  {
+    const ind = demandIndicatorFor({ tripDate: "2027-12-05" }, now)!;
+    assert.equal(ind.bookedPercent, 60);
+    assert.equal(ind.label, "60% booked");
+    assert.equal(ind.estimated, false);
   }
   assert.equal(demandIndicatorFor({ tripDate: "2026-11-30" }, now)!.bookedPercent, null);
   // New Year's Day 70%; rest of November 2026 Fri/Sat/Sun 70%; weekdays unchanged.
   for (const d of ["2027-01-01", "2026-11-20", "2026-11-21", "2026-11-22", "2026-11-27", "2026-11-29"]) {
     assert.equal(demandIndicatorFor({ tripDate: d }, now)!.label, "70% booked", d);
   }
-  assert.equal(demandIndicatorFor({ tripDate: "2026-12-31" }, now)!.label, "80% booked");
   for (const d of ["2026-11-19", "2026-11-24", "2027-01-02", "2027-11-26"]) {
     assert.equal(demandIndicatorFor({ tripDate: d }, now)!.bookedPercent, null, d);
   }
