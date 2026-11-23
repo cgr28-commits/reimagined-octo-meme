@@ -104,6 +104,8 @@ assert.match(worker, /quoteTransactionId: details\.quoteTransactionId\.trim\(\)\
 const handler = readFileSync(new URL("../workers/addresses/src/unfinished-payment.ts", import.meta.url), "utf8");
 assert.match(handler, /isSumUpCheckoutPaid/, "Never reminds someone who actually paid");
 assert.match(handler, /unfinishedAlertSentAt: stamp/);
+assert.match(handler, /pending\.a2aQuoteToken\) return \{ url: buildA2aQuotePayUrl/, "Personalised (A2A) quote reminders link back to the approved quote, not a re-priced fare");
+assert.ok(handler.indexOf("pending.a2aQuoteToken") < handler.indexOf("createPricedQuickQuote("), "A2A / owner-agreed prices are resolved before any engine re-pricing");
 const form = readFileSync(new URL("../src/lib/booking-message.ts", import.meta.url), "utf8");
 assert.match(form, /isUsableEmailAddress\(value\)/);
 console.log("OK  5-minute cron, SumUp paid check, once-only marker, funnel paid id, form typo check");

@@ -5,6 +5,7 @@
  */
 import { buildQuickQuoteCustomerUrl, parseQuickQuoteVehicleChoice } from "../shared/quick-quote";
 import { buildSavedQuoteCustomerUrl } from "../shared/saved-quote";
+import { buildA2aQuotePayUrl } from "./a2a-quote-handlers";
 import { getSumUpCheckout, isSumUpCheckoutPaid } from "../shared/sumup-checkout";
 import { isUsableEmailAddress } from "../shared/email-typo";
 import {
@@ -40,6 +41,11 @@ async function resumeLink(env: Env, pending: PendingCheckoutRecord): Promise<{ u
   const origin = site(env);
   if (pending.quickQuoteId) return { url: buildQuickQuoteCustomerUrl(pending.quickQuoteId, origin), priceLabel: `£${pending.amount}` };
   if (pending.savedQuoteToken) return { url: buildSavedQuoteCustomerUrl(pending.savedQuoteToken, origin), priceLabel: `£${pending.amount}` };
+  // Owner-approved personalised quote: send them back to that quote's own payment page, at the
+  // approved price. Never re-price it from the standard engine (that quoted £707 against an approved £825).
+  if (pending.a2aQuoteToken) return { url: buildA2aQuotePayUrl(origin, pending.a2aQuoteToken), priceLabel: `£${pending.amount}` };
+  // Other owner-agreed prices (short-notice approval, personal quote code): no price claim, no re-pricing.
+  if (pending.shortNoticeToken || pending.personalQuoteCode) return { url: `${origin}/#quote` };
   const b = pending.booking;
   const vehicle = String(b.vehicle ?? "");
   if (env.TRACKING_STORE && !/business|executive/i.test(vehicle)) {
