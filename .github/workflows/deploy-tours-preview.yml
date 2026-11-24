@@ -143,6 +143,14 @@ jobs:
           if [ "$CODE" != "200" ]; then
             echo "Last response body (first 300 characters, for diagnosis):"
             curl -sS -H "Origin: https://${SITE_HOST}" "$URL/events/public" | head -c 300 || true; echo
+            # Capture the Worker's own exception with a live tail while one request is made (staging Worker only).
+            (timeout 40 npx wrangler tail "$PREVIEW_WORKER_NAME" -c "$WRANGLER_CONFIG" --format json > /tmp/tail.json 2>/tmp/tail.err || true) &
+            sleep 15
+            curl -s -o /dev/null -H "Origin: https://${SITE_HOST}" "$URL/events/public" || true
+            sleep 8
+            echo "--- Worker exceptions ---"; grep -o '"exceptions":\[[^]]*\]' /tmp/tail.json | head -c 1500 || true
+            echo "--- Worker logs ---"; grep -o '"logs":\[[^]]*\]' /tmp/tail.json | head -c 1500 || true
+            echo "--- tail stderr ---"; head -c 400 /tmp/tail.err || true
           fi
           [ "$CODE" = "200" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
           # The live website must NOT be allowed to call the preview Worker.
