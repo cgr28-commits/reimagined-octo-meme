@@ -9,7 +9,7 @@
 # secret is used). No production secret is referenced here, directly or indirectly:
 #   STAGING_CLOUDFLARE_API_TOKEN       staging-account token
 #   "staging" environment: STAGING_STRIPE_SECRET_KEY / STAGING_STRIPE_PUBLISHABLE_KEY / STAGING_STRIPE_WEBHOOK_SECRET (Stripe TEST mode)
-# Optional (preview works without them): TOURS_PREVIEW_TESTER_EMAIL, TOURS_PREVIEW_OWNER_KEY, TOURS_PREVIEW_RESEND_API_KEY
+# Optional (preview works without them): TOURS_PREVIEW_ACCESS_CODE (own preview access code), TOURS_PREVIEW_TESTER_EMAIL, TOURS_PREVIEW_OWNER_KEY, TOURS_PREVIEW_RESEND_API_KEY
 # With no tester email every preview email is blocked. See docs/tours-preview.md.
 
 name: Deploy Tours Preview (isolated staging account)
@@ -156,6 +156,7 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         env:
           PREVIEW_WORKER_ORIGIN: ${{ steps.worker.outputs.url }}
+          TOURS_ACCESS_CODE: ${{ secrets.TOURS_PREVIEW_ACCESS_CODE }}
         run: |
           set -euo pipefail
           # next/font downloads can fail briefly: retry.
@@ -166,6 +167,20 @@ jobs:
           done
           # Private-link gate, no search engines, no live-domain marker.
           cp scripts/bespoke-preview-gate.js out/_worker.js
+          # Separate access code and cookie for this preview. The code is only ever a GitHub secret;
+          # the workflow stores just its SHA-256 in the deployed gate. Nothing is printed.
+          sed -i 's/const COOKIE = "matni_preview";/const COOKIE = "matni_tours_preview";/' out/_worker.js
+          grep -q 'const COOKIE = "matni_tours_preview";' out/_worker.js || { echo "::error::Could not set the tours preview cookie name."; exit 1; }
+          if [ -n "${TOURS_ACCESS_CODE:-}" ]; then
+            echo "::add-mask::$TOURS_ACCESS_CODE"
+            if [ "${#TOURS_ACCESS_CODE}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_ACCESS_CODE must be at least 24 characters."; exit 1; fi
+            HASH="$(printf '%s' "$TOURS_ACCESS_CODE" | sha256sum | cut -d' ' -f1)"
+            sed -i "s/^const ACCESS_CODE_SHA256 = \"[a-f0-9]*\";/const ACCESS_CODE_SHA256 = \"${HASH}\";/" out/_worker.js
+            grep -q "const ACCESS_CODE_SHA256 = \"${HASH}\";" out/_worker.js || { echo "::error::Could not set the tours preview access code hash."; exit 1; }
+            echo "::notice::Tours preview uses its own access code and cookie."
+          else
+            echo "::warning::No TOURS_PREVIEW_ACCESS_CODE secret: the tours preview still uses the bespoke preview access code. Add the secret to give it its own code."
+          fi
           printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
           rm -f out/CNAME out/sitemap.xml
 

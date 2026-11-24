@@ -54,7 +54,8 @@ The Stripe keys are read only by the small `stripe-sandbox` job, which runs in t
 
 ## Secure owner preview access procedure
 
-1. Open `https://matni-tours-preview.pages.dev/?k=<access code>` once, on your iPhone or laptop. The code is the existing preview access code; only its SHA-256 hash is in the repository, so the code itself is never committed, logged or shown in a run.
+0. **One-time: give the tours preview its own access code** (never typed into chat or committed). Generate a random code of at least 24 characters in your password manager (iPhone: Passwords app, Strong Password, or any random string). In GitHub: Settings, Secrets and variables, Actions, New repository secret, name `TOURS_PREVIEW_ACCESS_CODE`, paste the code, save. Keep the code in your password manager. Then run the "Deploy Tours Preview" workflow (Run workflow on `tours/wp-b0-preview-environment`). The workflow keeps only the code's SHA-256 inside the deployed gate, masks it in logs, and uses a separate cookie name (`matni_tours_preview`), so the bespoke preview's code and cookie no longer open this site. The existing bespoke preview code is not changed. Until the secret exists the run shows a warning and the tours preview falls back to the bespoke code.
+1. Open `https://matni-tours-preview.pages.dev/?k=<tours preview access code>` once, on your iPhone or laptop. Only the code's hash is ever deployed; the code itself is never committed, logged or shown in a run.
 2. The gate checks the code, sets a 30-day cookie (`matni_preview`) and removes the code from the address bar. After that, open the plain URL.
 3. Without the cookie every page answers 401 "Private preview" with `noindex`. Search engines are also blocked by `robots.txt`.
 4. Do not paste the link into email, WhatsApp, tickets or chat. Share it only in person with someone you trust and use a private browser tab on shared devices. To end access, clear the site's cookies.
@@ -90,7 +91,7 @@ Daily jobs (`daily-health-check`, `ots-pricing-check`) and `site-watchdog` must 
 
 ## Outstanding isolation concern: shared preview gate
 
-The tours preview uses the same private-link gate (`scripts/bespoke-preview-gate.js`) and the same access code hash as the bespoke preview, so one link and one cookie name open both. Anyone holding one link can open the other. Recommended before wider testing: give the tours preview its own access code, hash and cookie name. Not done in WP-B0, which reuses the gate unchanged.
+Resolved in WP-B0 once the owner adds the `TOURS_PREVIEW_ACCESS_CODE` secret: the tours preview then uses its own access code (hash derived in the workflow, never in the repository) and its own cookie name, and the bespoke preview is untouched. Until the secret is added the tours preview falls back to the bespoke code, so the concern stays open until then. A repository-level secret is readable by other workflows like any other repository secret, which is acceptable for a preview-only code but is covered by the production-secret isolation prerequisite.
 
 ## Running costs (estimate)
 
