@@ -1,0 +1,17 @@
+# WP-B1 tour settings: STAGING ONLY. Pinned to the staging account. No routes, no production bindings.
+name = "reimagined-octo-meme-tours-settings-preview"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+account_id = "ecad568dc411e28a3e435ef40b36c2b5"
+workers_dev = true
+
+[vars]
+TOURS_ENVIRONMENT = "staging"
+
+[[durable_objects.bindings]]
+name = "TOUR_SETTINGS"
+class_name = "TourSettingsDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TourSettingsDO"]

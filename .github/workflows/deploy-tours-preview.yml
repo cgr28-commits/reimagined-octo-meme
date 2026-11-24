@@ -31,6 +31,7 @@ env:
   STAGING_ACCOUNT_ID: ecad568dc411e28a3e435ef40b36c2b5
   PREVIEW_WORKER_NAME: reimagined-octo-meme-tours-preview
   PREVIEW_PAGES_PROJECT: matni-tours-preview
+  TOURS_SETTINGS_WORKER_NAME: reimagined-octo-meme-tours-settings-preview
   WRANGLER_CONFIG: wrangler.tours-preview.generated.toml
 
 jobs:
@@ -227,6 +228,99 @@ jobs:
           [ "$OWN" = "200" ] || { echo "::error::The tours preview cookie did not open the site (HTTP $OWN)."; exit 1; }
           echo "::notice::Access isolation verified: wrong code 401, own code accepted with its own cookie, bespoke cookie name refused."
           echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
+
+  # WP-B1: owner-only Tour Settings store (Durable Object) on the STAGING account only.
+  # Synthetic availability fixtures only. No production reads or writes, no routes, no KV.
+  tours-settings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No secrets are available to these steps.
+      - name: Tour settings unit tests
+        run: npm --prefix workers/tours test
+
+      - name: Isolation guard self-test and tours settings config check
+        run: |
+          node scripts/tours-preview-guard.mjs --self-test
+          node scripts/tours-preview-guard.mjs --check-workflow
+          node scripts/tours-preview-guard.mjs --check-tours-settings-config
+
+      - name: Check the staging token is available
+        id: ready
+        env:
+          STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::Tour settings Worker not deployed: GitHub secret STAGING_CLOUDFLARE_API_TOKEN is missing."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy tour settings Worker and smoke-test (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        working-directory: workers/tours
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          SETTINGS_OWNER_KEY: ${{ secrets.TOURS_PREVIEW_OWNER_KEY }}
+        run: |
+          set -euo pipefail
+          node ../../scripts/tours-preview-guard.mjs --check-tours-settings-config wrangler.toml
+          if [ -z "${SETTINGS_OWNER_KEY:-}" ]; then
+            SETTINGS_OWNER_KEY="$(openssl rand -hex 32)"
+            echo "::notice::No TOURS_PREVIEW_OWNER_KEY secret: a random owner key was generated for this deploy (smoke tests only)."
+          fi
+          echo "::add-mask::$SETTINGS_OWNER_KEY"
+          if [ "${#SETTINGS_OWNER_KEY}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_OWNER_KEY must be at least 24 characters."; exit 1; fi
+
+          OUTPUT="$(npx --yes wrangler@3.109.0 deploy -c wrangler.toml 2>&1)" || { echo "$OUTPUT"; exit 1; }
+          echo "$OUTPUT"
+          URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${TOURS_SETTINGS_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
+          if [ -z "$URL" ]; then echo "::error::Could not read the tours settings Worker URL."; exit 1; fi
+          printf '%s' "$SETTINGS_OWNER_KEY" | npx --yes wrangler@3.109.0 secret put TOURS_OWNER_KEY -c wrangler.toml >/dev/null
+          echo "secret set: TOURS_OWNER_KEY"
+
+          CODE=""
+          for attempt in $(seq 1 18); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)"
+            [ "$CODE" = "200" ] && break
+            sleep 10
+          done
+          [ "$CODE" = "200" ] || { echo "::error::Tours settings Worker did not answer (HTTP $CODE)."; exit 1; }
+
+          # Owner authentication is enforced server-side.
+          NOAUTH="$(curl -s -o /dev/null -w '%{http_code}' "$URL/settings")"
+          [ "$NOAUTH" = "401" ] || { echo "::error::Unauthenticated read was not refused (HTTP $NOAUTH)."; exit 1; }
+          BAD="$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings")"
+          [ "$BAD" = "401" ] || { echo "::error::A wrong owner key was not refused (HTTP $BAD)."; exit 1; }
+
+          AUTH="Authorization: Bearer ${SETTINGS_OWNER_KEY}"
+          GOT="$(curl -sS -H "$AUTH" "$URL/settings")"
+          printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!b.ok||!Number.isInteger(b.version)||!/^[a-f0-9]{64}$/.test(b.hash)||b.settings.mandatory.capacity.maxPassengers!==4||b.settings.publicLaunch.enabled!==false||b.settings.commercial.availability.source!=="synthetic-staging-fixture"){console.error("::error::Unexpected settings document.");process.exit(1)}; console.log("settings document ok, version "+b.version)'
+
+          # Mandatory rules are enforced by the deployed Worker (nothing is written by these checks).
+          BAD_SETTINGS="$(printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); b.settings.mandatory.capacity.maxPassengers=7; b.settings.mandatory.cruise.returnBufferMinutes.longDistance=60; b.settings.commercial.availability.source="production-kv"; process.stdout.write(JSON.stringify({settings:b.settings}))')"
+          VALIDATION="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d "$BAD_SETTINGS" "$URL/validate")"
+          printf '%s' "$VALIDATION" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); const c=b.errors.map(e=>e.code); for (const need of ["mandatory-capacity","mandatory-cruise-buffer","availability-source"]) if(!c.includes(need)){console.error("::error::Deployed validator missed "+need);process.exit(1)}; console.log("deployed validator rejects 7 passengers, short return buffer and non-synthetic availability")'
+          STALE="$(curl -s -o /dev/null -w '%{http_code}' -H "$AUTH" -H 'Content-Type: application/json' -d '{"baseVersion":0,"reason":"smoke test stale","settings":{}}' "$URL/publish")"
+          [ "$STALE" = "409" ] || { echo "::error::Stale baseVersion was not refused with 409 (HTTP $STALE)."; exit 1; }
+          VERIFY="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d '{"version":1}' "$URL/verify")"
+          printf '%s' "$VERIFY" | grep -q '"intact":true' || { echo "::error::Snapshot integrity check failed."; exit 1; }
+          echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified."
+
+      - name: Deployed bindings are staging-only (own Durable Object only)
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: node scripts/tours-preview-guard.mjs --check-tours-settings-deployed
 
   # Stripe TEST keys from the "staging" environment. Only this small job runs in that environment.
   # If the "staging" environment does not yet allow tours/** branches GitHub rejects this job before it
