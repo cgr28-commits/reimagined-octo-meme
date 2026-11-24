@@ -5,7 +5,7 @@
  * only tighten them (never loosen them), and the validator rejects any document that tries.
  * PROVISIONAL commercial settings live in the settings document and the owner may change them.
  */
-export const SCHEMA = "tour-settings/1";
+export const SCHEMA = "tour-settings/2"; // /2: gate split, variants, home positioning, vehicle-supply models
 
 export const MANDATORY = Object.freeze({
   /** Hard ceiling on passengers for every tour and every vehicle. */
@@ -17,22 +17,34 @@ export const MANDATORY = Object.freeze({
 /** Provisional starting point only (owner configurable). Not a safety floor; see validate.js for how it is treated. */
 export const DEFAULT_TRAFFIC_CONTINGENCY_MINUTES = 30;
 
-/** Launch gates. Every gate starts CLOSED (verified:false) and stays closed until the owner records evidence. */
-export const GATE_NAMES = Object.freeze([
+/**
+ * Launch gates. Every gate starts CLOSED (verified:false) and stays closed until the owner records evidence.
+ *
+ * MANDATORY launch prerequisites: must all be verified before any ordinary private-driver tour can be bookable
+ * or the public launch switched on.
+ * OPTIONAL feature gates: only block the specific feature they guard, and only while that feature is ENABLED.
+ * With the feature off, a closed feature gate does not stop ordinary private-driver tours from launching.
+ */
+export const MANDATORY_LAUNCH_GATES = Object.freeze([
   "insuranceVerified",
   "licensingVerified",
   "cancellationLegalReview",
   "icoRegistrationOrExemption",
-  "harbourPickupAccess",
   "photoLicensing",
   "competitorBenchmark",
   "pricingApproval",
-  "guidingQualifications",
-  "advertisingApproval",
-  "routingProvider",
 ]);
+export const FEATURE_GATES = Object.freeze({
+  advertisingApproval: "tour advertising and external conversions",
+  guidingQualifications: "guiding claims in wording",
+  harbourPickupAccess: "cruise tours (Belfast Harbour pick-up)",
+  routingProvider: "custom itineraries (routing)",
+});
+export const GATE_NAMES = Object.freeze([...MANDATORY_LAUNCH_GATES, ...Object.keys(FEATURE_GATES)]);
 
-export const OPERATING_MODELS = Object.freeze(["owner", "paidDriver", "subcontractor"]);
+/** Operating models. Vehicle cost sits with the business except where a subcontractor brings their own vehicle. */
+export const OPERATING_MODELS = Object.freeze(["owner", "paidDriver", "subcontractorOwnVehicle", "subcontractorSuppliedVehicle"]);
+export const VARIANT_KINDS = Object.freeze(["half-day", "full-day"]);
 
 /** Availability in WP-B1 is synthetic staging fixtures only: no production availability read or write. */
 export const AVAILABILITY_SOURCE = "synthetic-staging-fixture";

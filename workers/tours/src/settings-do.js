@@ -1,6 +1,7 @@
 import { canonicalize, constantTimeEqual, sha256Hex, snapshotHash, verifySnapshot } from "./canonical.js";
+import { SCHEMA } from "./constants.js";
 import { seedSettings } from "./seed.js";
-import { validate } from "./validate.js";
+import { launchReadiness, validate } from "./validate.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_FAILS = 5;
@@ -45,17 +46,24 @@ export class TourSettingsDO {
   }
 
   async ensureInitialised() {
-    if ((await this.state.storage.get("current")) !== undefined) return;
-    const settings = seedSettings();
-    await this.writeVersion(1, settings, "system", "Initial provisional seed (staging)", null);
+    const current = await this.state.storage.get("current");
+    if (current === undefined) {
+      await this.writeVersion(1, seedSettings(), "system", "Initial provisional seed (staging)", null);
+      return;
+    }
+    // Schema upgrade: staging holds synthetic data only. Append a freshly seeded version; earlier versions stay untouched.
+    const rec = await this.getVersion(current);
+    if (rec && rec.settings && rec.settings.schema !== SCHEMA) {
+      await this.writeVersion(current + 1, seedSettings(), "system", `Schema upgrade ${rec.settings.schema} to ${SCHEMA}: staging reseeded, previous versions retained`, null, "schema-upgrade");
+    }
   }
 
-  async writeVersion(version, settings, actor, reason, restoredFrom) {
+  async writeVersion(version, settings, actor, reason, restoredFrom, action = null) {
     const hash = await snapshotHash(version, settings);
     const record = { version, settings, hash, createdAt: new Date().toISOString(), actor, reason, restoredFrom };
     await this.state.storage.put(`v:${String(version).padStart(8, "0")}`, record);
     await this.state.storage.put("current", version);
-    await this.audit(restoredFrom ? "rollback" : version === 1 ? "seed" : "publish", actor, { version, hash, reason, restoredFrom });
+    await this.audit(action || (restoredFrom ? "rollback" : version === 1 ? "seed" : "publish"), actor, { version, hash, reason, restoredFrom });
     return record;
   }
 
@@ -92,6 +100,10 @@ export class TourSettingsDO {
     const current = await this.state.storage.get("current");
 
     if (method === "GET" && path === "/settings") return json({ ok: true, ...(await this.getVersion(current)) });
+    if (method === "GET" && path === "/readiness") {
+      const rec = await this.getVersion(current);
+      return json({ ok: true, version: rec.version, hash: rec.hash, ...launchReadiness(rec.settings) });
+    }
     if (method === "GET" && path === "/versions") {
       const list = await this.state.storage.list({ prefix: "v:" });
       return json({ ok: true, current, versions: [...list.values()].map(({ version, hash, createdAt, actor: by, reason, restoredFrom }) => ({ version, hash, createdAt, actor: by, reason, restoredFrom })) });

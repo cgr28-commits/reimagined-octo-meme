@@ -296,11 +296,21 @@ jobs:
           done
           [ "$CODE" = "200" ] || { echo "::error::Tours settings Worker did not answer (HTTP $CODE)."; exit 1; }
 
+          # A new deploy plus secret update can briefly reset the Durable Object (seen once as HTTP 500, 1 s after the
+          # secret was set). Retry ONLY 5xx, a few times, and log how many retries were needed. A persistent 5xx fails.
+          RETRIES=0
+          status() { # status <expected> <label> <curl args...>
+            local expected="$1" label="$2"; shift 2
+            local code="" attempt
+            for attempt in 1 2 3 4 5 6; do
+              code="$(curl -s -o /tmp/smoke.json -w '%{http_code}' "$@" || true)"
+              case "$code" in 5*) RETRIES=$((RETRIES+1)); echo "::warning::$label: HTTP $code on attempt $attempt: $(head -c 300 /tmp/smoke.json)"; sleep 5;; *) break;; esac
+            done
+            [ "$code" = "$expected" ] || { echo "::error::$label: expected HTTP $expected, got $code: $(head -c 300 /tmp/smoke.json)"; exit 1; }
+          }
           # Owner authentication is enforced server-side.
-          NOAUTH="$(curl -s -o /tmp/noauth.json -w '%{http_code}' "$URL/settings")"
-          [ "$NOAUTH" = "401" ] || { echo "::error::Unauthenticated read was not refused (HTTP $NOAUTH): $(head -c 300 /tmp/noauth.json)"; exit 1; }
-          BAD="$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings")"
-          [ "$BAD" = "401" ] || { echo "::error::A wrong owner key was not refused (HTTP $BAD)."; exit 1; }
+          status 401 "Unauthenticated read" "$URL/settings"
+          status 401 "Wrong owner key" -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings"
 
           AUTH="Authorization: Bearer ${SETTINGS_OWNER_KEY}"
           GOT="$(curl -sS -H "$AUTH" "$URL/settings")"
@@ -310,11 +320,13 @@ jobs:
           BAD_SETTINGS="$(printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); b.settings.mandatory.capacity.maxPassengers=7; b.settings.mandatory.cruise.returnBufferMinutes.longDistance=60; b.settings.commercial.availability.source="production-kv"; process.stdout.write(JSON.stringify({settings:b.settings}))')"
           VALIDATION="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d "$BAD_SETTINGS" "$URL/validate")"
           printf '%s' "$VALIDATION" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); const c=b.errors.map(e=>e.code); for (const need of ["mandatory-capacity","mandatory-cruise-buffer","availability-source"]) if(!c.includes(need)){console.error("::error::Deployed validator missed "+need);process.exit(1)}; console.log("deployed validator rejects 7 passengers, short return buffer and non-synthetic availability")'
-          STALE="$(curl -s -o /dev/null -w '%{http_code}' -H "$AUTH" -H 'Content-Type: application/json' -d '{"baseVersion":0,"reason":"smoke test stale","settings":{}}' "$URL/publish")"
-          [ "$STALE" = "409" ] || { echo "::error::Stale baseVersion was not refused with 409 (HTTP $STALE)."; exit 1; }
+          status 409 "Stale baseVersion" -H "$AUTH" -H 'Content-Type: application/json' -d '{"baseVersion":0,"reason":"smoke test stale","settings":{}}' "$URL/publish"
+          READY="$(curl -sS -H "$AUTH" "$URL/readiness")"
+          printf '%s' "$READY" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!b.ok||b.launchReady!==false||b.mandatoryGatesClosed.length!==7||b.features.advertisingApproval.blocking!==false||b.features.guidingQualifications.blocking!==false){console.error("::error::Unexpected readiness report.");process.exit(1)}; console.log("readiness: launch closed, 7 mandatory prerequisites open to verify, optional feature gates not blocking")'
+          printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); const t=Object.fromEntries(b.settings.commercial.tours.map(x=>[x.id,x])); const ok=t["giants-causeway"].provisionalPricePence.value===44500&&t["game-of-thrones"].provisionalPricePence.value===44500&&t["belfast-city"].provisionalPricePence.value===24500&&t["cruise-express"].provisionalPricePence.value===29500&&t["cruise-causeway"].provisionalPricePence.value===49500&&t["antrim-coast"].variants.length===2&&t["antrim-coast"].variants.find(v=>v.kind==="full-day").provisionalPricePence.value===42500&&b.settings.commercial.cancellation.partialRefundPercent.value===50; if(!ok){console.error("::error::Seeded prices or cancellation tier are not as agreed.");process.exit(1)}; console.log("seeded prices and 50% cancellation tier verified")' 
           VERIFY="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d '{"version":1}' "$URL/verify")"
           printf '%s' "$VERIFY" | grep -q '"intact":true' || { echo "::error::Snapshot integrity check failed."; exit 1; }
-          echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified."
+          echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${RETRIES})."
 
       - name: Deployed bindings are staging-only (own Durable Object only)
         if: steps.ready.outputs.ready == 'true'

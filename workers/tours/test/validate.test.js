@@ -235,10 +235,13 @@ test("margin floor enforced per tour and model unless owner override has a reaso
   t.provisionalPricePence = { value: 6000, provisional: true };
   t.durationHours = { value: 4, provisional: true };
   t.estimatedMiles = { value: 120, provisional: true };
+  t.homePositioningMiles = { value: 10, provisional: true };
+  t.homePositioningHours = { value: 0.5, provisional: true };
   const r = validate(s);
   assert.ok(r.errors.some((e) => e.code === "margin-below-floor"), JSON.stringify(r));
   f.marginOverrides.push({ tourId: t.id, model: "owner", reason: "Loss leader approved", recordedAt: new Date().toISOString() });
   f.marginOverrides.push({ tourId: t.id, model: "paidDriver", reason: "Loss leader approved", recordedAt: new Date().toISOString() });
-  f.marginOverrides.push({ tourId: t.id, model: "subcontractor", reason: "Loss leader approved", recordedAt: new Date().toISOString() });
+  f.marginOverrides.push({ tourId: t.id, model: "subcontractorOwnVehicle", reason: "Loss leader approved", recordedAt: new Date().toISOString() });
+  f.marginOverrides.push({ tourId: t.id, model: "subcontractorSuppliedVehicle", reason: "Loss leader approved", recordedAt: new Date().toISOString() });
   assert.ok(!validate(s).errors.some((e) => e.code === "margin-below-floor"));
 });

@@ -1,4 +1,4 @@
-import { AVAILABILITY_SOURCE, FORBIDDEN_REFERENCES, FORBIDDEN_WORDING, GATE_NAMES, GUIDING_CLAIM, MANDATORY, OPERATING_MODELS, SCHEMA, WORDING } from "./constants.js";
+import { AVAILABILITY_SOURCE, FEATURE_GATES, FORBIDDEN_REFERENCES, FORBIDDEN_WORDING, GATE_NAMES, GUIDING_CLAIM, MANDATORY, MANDATORY_LAUNCH_GATES, OPERATING_MODELS, SCHEMA, VARIANT_KINDS, WORDING } from "./constants.js";
 import { profitability } from "./profitability.js";
 import { seedSettings } from "./seed.js";
 
@@ -19,6 +19,24 @@ export function effectiveReturnBufferMinutes(settings, scope, engineContingencyM
     return mandatory.longDistance + Math.max(configured, engine); // engine can raise, never lower, the configured minimum
   }
   throw new Error("Unknown cruise scope");
+}
+
+/** Which gates block launch. Feature gates only block while their feature is ENABLED. Pure; assumes a validated shape. */
+export function launchReadiness(settings) {
+  const gates = settings.gates;
+  const open = (name) => gates[name]?.verified === true;
+  const c = settings.commercial;
+  const cruiseInUse = c.tours.some((t) => t.cruise && (t.active || t.bookable || t.variants.some((v) => v.active || v.bookable)));
+  const featureEnabled = {
+    advertisingApproval: c.advertising.tourAdsEnabled === true || c.advertising.externalConversionsEnabled === true,
+    guidingQualifications: c.wording.guidingClaimsAllowed === true,
+    harbourPickupAccess: cruiseInUse,
+    routingProvider: c.itinerary.customItinerariesEnabled === true,
+  };
+  const mandatoryGatesClosed = MANDATORY_LAUNCH_GATES.filter((g) => !open(g));
+  const features = Object.fromEntries(Object.entries(FEATURE_GATES).map(([gate, label]) => [gate, { feature: label, enabled: featureEnabled[gate], verified: open(gate), blocking: featureEnabled[gate] && !open(gate) }]));
+  const blockingFeatures = Object.keys(features).filter((g) => features[g].blocking);
+  return { launchReady: mandatoryGatesClosed.length === 0 && blockingFeatures.length === 0, mandatoryGatesClosed, blockingFeatures, features };
 }
 
 export function validate(settings) {
@@ -114,14 +132,15 @@ export function validate(settings) {
   const f = c.finance;
   leafCheck(f.marginFloorPercent, "commercial.finance.marginFloorPercent", { kind: "num", min: 0, max: 100, nullable: false });
   leafCheck(f.paidDriverHourlyPence, "commercial.finance.paidDriverHourlyPence", { kind: "int", min: 1 });
-  leafCheck(f.subcontractorCostCeilingPercent, "commercial.finance.subcontractorCostCeilingPercent", { kind: "num", min: 0, max: 100 });
+  leafCheck(f.subcontractorOwnVehicleCeilingPercent, "commercial.finance.subcontractorOwnVehicleCeilingPercent", { kind: "num", min: 0, max: 100 });
+  leafCheck(f.subcontractorSuppliedVehicleFeePercent, "commercial.finance.subcontractorSuppliedVehicleFeePercent", { kind: "num", min: 0, max: 100 });
   leafCheck(f.vehicleRunningCostPencePerMile, "commercial.finance.vehicleRunningCostPencePerMile", { kind: "num", min: 0 });
   leafCheck(f.paymentProcessingFeePercent, "commercial.finance.paymentProcessingFeePercent", { kind: "num", min: 0, max: 100 });
   leafCheck(f.paymentProcessingFeeFixedPence, "commercial.finance.paymentProcessingFeeFixedPence", { kind: "int", min: 0 });
   leafCheck(f.administrativeCostPencePerBooking, "commercial.finance.administrativeCostPencePerBooking", { kind: "int", min: 0 });
   leafCheck(f.advertisingAcquisitionCostPence, "commercial.finance.advertisingAcquisitionCostPence", { kind: "int", min: 0 });
   leafCheck(f.selfDrivingHourlyEarningsTargetPence, "commercial.finance.selfDrivingHourlyEarningsTargetPence", { kind: "int", min: 0 });
-  elementShape(f.marginOverrides, ["tourId", "model", "reason", "recordedAt"], "commercial.finance.marginOverrides");
+  elementShape(f.marginOverrides, ["tourId", "variantId", "model", "reason", "recordedAt"], "commercial.finance.marginOverrides");
 
   const cr = c.cruise;
   leafCheck(cr.trafficContingencyMinimumMinutes, "commercial.cruise.trafficContingencyMinimumMinutes", { kind: "int", min: 1, max: 600, nullable: false });
@@ -216,8 +235,8 @@ export function validate(settings) {
     }
     if (g.verified && !(typeof g.evidenceRef === "string" && g.evidenceRef.trim().length >= 3)) err(`gates.${name}`, "gate-evidence", "A gate can only be opened with a recorded evidence reference.");
   }
-  const allGatesOpen = GATE_NAMES.every((name) => gates[name]?.verified === true);
   const gateOpen = (name) => gates[name]?.verified === true;
+  const mandatoryGatesOpen = MANDATORY_LAUNCH_GATES.every(gateOpen);
 
   // ---- advertising and wording ----
   const ad = c.advertising;
@@ -236,51 +255,100 @@ export function validate(settings) {
     guiding(c, "commercial");
   }
 
+  if (typeof c.itinerary.customItinerariesEnabled !== "boolean") err("commercial.itinerary.customItinerariesEnabled", "type", "Must be true or false.");
+  else if (c.itinerary.customItinerariesEnabled && !gateOpen("routingProvider")) err("commercial.itinerary.customItinerariesEnabled", "gate-closed", "Custom itineraries stay off until the routingProvider gate is verified.");
+
   // ---- tours ----
   elementShape(c.tours, Object.keys(template.commercial.tours[0]), "commercial.tours");
   const ids = new Set();
   const enabledModels = OPERATING_MODELS.filter((model) => dr.models[model]);
+  const slugs = new Set();
+  const unitChecks = (u, p, { isVariant }) => {
+    leafCheck(u.provisionalPricePence, `${p}.provisionalPricePence`, { kind: "int", min: 1 });
+    leafCheck(u.durationHours, `${p}.durationHours`, { kind: "num", min: 0.5, max: 24 });
+    leafCheck(u.estimatedMiles, `${p}.estimatedMiles`, { kind: "num", min: 0 });
+    leafCheck(u.homePositioningMiles, `${p}.homePositioningMiles`, { kind: "num", min: 0 });
+    leafCheck(u.homePositioningHours, `${p}.homePositioningHours`, { kind: "num", min: 0, max: 24 });
+    for (const flag of ["active", "bookable", "instantBooking"]) if (typeof u[flag] !== "boolean") err(`${p}.${flag}`, "type", "Must be true or false.");
+    if (!(u.publishedPricePence === null || (isInt(u.publishedPricePence) && u.publishedPricePence > 0))) err(`${p}.publishedPricePence`, "price", "Price must be a positive whole number of pence.");
+    const dur = u.durationHours?.value;
+    const pos = u.homePositioningHours?.value ?? 0;
+    if (typeof dur === "number" && typeof av.minTourHours.value === "number" && typeof av.maxWorkingDayHours.value === "number") {
+      if (dur < av.minTourHours.value || dur > av.maxWorkingDayHours.value) err(`${p}.durationHours`, "duration-bounds", "Tour length must sit between the minimum tour length and the maximum working day.");
+      else if (dur + pos > av.maxWorkingDayHours.value) err(`${p}.homePositioningHours`, "duration-bounds", "Tour length plus home-to-home positioning exceeds the maximum working day.");
+    }
+    
+    if (u.bookable && !(mandatoryGatesOpen && u.provisionalPricePence.value !== null)) err(`${p}.bookable`, "gate-closed", "Not bookable until every mandatory launch prerequisite is verified and its price is set.");
+    if (u.bookable && isVariant === "cruise" && !gateOpen("harbourPickupAccess")) err(`${p}.bookable`, "gate-closed", "Cruise tours need the harbourPickupAccess gate.");
+    if (u.instantBooking && !(u.bookable && gateOpen("pricingApproval"))) err(`${p}.instantBooking`, "gate-closed", "Instant booking needs a bookable tour and the pricingApproval gate.");
+
+  };
+  const checkProfit = (t, u, unitId, p) => {
+    if (u.provisionalPricePence.value === null) return;
+    for (const model of enabledModels) {
+      const result = profitability(settings, t.id, model, unitId);
+      const where = `${p}.profitability.${model}`;
+      if (result.status === "unconfigured") warn(where, "unconfigured", `Profitability cannot be assessed yet: ${result.missing.length} input(s) unconfigured.`);
+      if (result.status === "ok" && result.belowMarginFloor) {
+        const override = f.marginOverrides.find((o) => o && o.tourId === t.id && o.model === model && (o.variantId ?? null) === unitId);
+        if (!override || typeof override.reason !== "string" || override.reason.trim().length < 5) err(where, "margin-below-floor", `Margin ${result.marginPercent}% is below the ${f.marginFloorPercent.value}% floor for ${model}. Record an owner override with a reason to publish.`);
+        else warn(where, "margin-override", "Below the margin floor: owner override recorded.");
+      }
+      if (result.status === "ok" && model === "owner" && result.belowHourlyEarningsTarget) warn(`${p}.profitability.owner`, "earnings-target", "Below the self-driving hourly earnings target.");
+    }
+  };
   c.tours.forEach((t, i) => {
     const p = `commercial.tours[${i}]`;
     if (typeof t.id !== "string" || !t.id || ids.has(t.id)) err(`${p}.id`, "id", "Needs a unique id.");
     ids.add(t.id);
     if (!(t.slug === null || (typeof t.slug === "string" && /^[a-z0-9-]+$/.test(t.slug)))) err(`${p}.slug`, "slug", "Slug must be lower-case letters, numbers and hyphens (existing URLs are preserved).");
+    if (typeof t.slug === "string") {
+      if (slugs.has(t.slug)) err(`${p}.slug`, "duplicate-product", "Another tour already uses this slug. Half-day and full-day options are variants of ONE tour, not separate products.");
+      slugs.add(t.slug);
+    }
     if (!(t.name === null || (typeof t.name === "string" && t.name.trim()))) err(`${p}.name`, "text", "Must be text.");
     if (typeof t.cruise !== "boolean") err(`${p}.cruise`, "type", "Must be true or false.");
     if (t.cruise ? !["unconfigured", "belfastOnly", "longDistance"].includes(t.cruiseScope) : t.cruiseScope !== null) err(`${p}.cruiseScope`, "cruise-scope", "Cruise tours need unconfigured, belfastOnly or longDistance; other tours need null.");
-    if (!(t.publishedPricePence === null || (isInt(t.publishedPricePence) && t.publishedPricePence > 0))) err(`${p}.publishedPricePence`, "price", "Price must be a positive whole number of pence.");
-    leafCheck(t.provisionalPricePence, `${p}.provisionalPricePence`, { kind: "int", min: 1 });
-    leafCheck(t.durationHours, `${p}.durationHours`, { kind: "num", min: 0.5, max: 24 });
-    leafCheck(t.estimatedMiles, `${p}.estimatedMiles`, { kind: "num", min: 0 });
     leafCheck(t.includedHours, `${p}.includedHours`, { kind: "num", min: 0.5, max: 24 });
     leafCheck(t.extraHourPence, `${p}.extraHourPence`, { kind: "int", min: 0 });
-    for (const flag of ["active", "bookable", "instantBooking", "provisional"]) if (typeof t[flag] !== "boolean") err(`${p}.${flag}`, "type", "Must be true or false.");
-    const dur = t.durationHours?.value;
-    if (typeof dur === "number" && typeof av.minTourHours.value === "number" && typeof av.maxWorkingDayHours.value === "number" && (dur < av.minTourHours.value || dur > av.maxWorkingDayHours.value)) err(`${p}.durationHours`, "duration-bounds", "Tour length must sit between the minimum tour length and the maximum working day.");
+    if (typeof t.provisional !== "boolean") err(`${p}.provisional`, "type", "Must be true or false.");
     if (t.active && t.cruise && t.cruiseScope === "unconfigured") err(`${p}.cruiseScope`, "cruise-scope", "An active cruise tour needs its scope set (belfastOnly or longDistance) so the right return buffer applies.");
-    if (t.bookable && !(allGatesOpen && t.provisionalPricePence.value !== null)) err(`${p}.bookable`, "gate-closed", "A tour cannot be bookable until every launch gate is verified and its price is set.");
-    if (t.instantBooking && !(t.bookable && gateOpen("pricingApproval"))) err(`${p}.instantBooking`, "gate-closed", "Instant booking needs a bookable tour and the pricingApproval gate.");
-
-    // Profitability per enabled operating model. Unknown inputs stay unconfigured (a warning, never a guess).
-    if (t.provisionalPricePence.value !== null) {
-      for (const model of enabledModels) {
-        const result = profitability(settings, t.id, model);
-        if (result.status === "unconfigured") warn(`${p}.profitability.${model}`, "unconfigured", `Profitability cannot be assessed yet: ${result.missing.length} input(s) unconfigured.`);
-        if (result.status === "ok" && result.belowMarginFloor) {
-          const override = f.marginOverrides.find((o) => o && o.tourId === t.id && o.model === model);
-          if (!override || typeof override.reason !== "string" || override.reason.trim().length < 5) err(`${p}.profitability.${model}`, "margin-below-floor", `Margin ${result.marginPercent}% is below the ${f.marginFloorPercent.value}% floor for ${model}. Record an owner override with a reason to publish.`);
-          else warn(`${p}.profitability.${model}`, "margin-override", "Below the margin floor: owner override recorded.");
-        }
-        if (result.status === "ok" && model === "owner" && result.belowHourlyEarningsTarget) warn(`${p}.profitability.owner`, "earnings-target", "Below the self-driving hourly earnings target.");
-      }
+    elementShape(t.variants, ["id", "kind", "publishedPricePence", "provisionalPricePence", "durationHours", "estimatedMiles", "homePositioningMiles", "homePositioningHours", "active", "bookable", "instantBooking"], `${p}.variants`);
+    const tag = t.cruise ? "cruise" : "tour";
+    unitChecks(t, p, { isVariant: tag });
+    if (t.variants.length) {
+      // One product, several durations: tour-level figures stay empty so there is no ambiguity about which one applies.
+      for (const key of ["provisionalPricePence", "durationHours", "estimatedMiles", "homePositioningMiles", "homePositioningHours"]) if (t[key]?.value !== null) err(`${p}.${key}`, "variant-level", "This tour has variants: set this figure on each variant, not on the tour.");
+      if (t.bookable || t.instantBooking) err(`${p}.bookable`, "variant-level", "This tour has variants: bookability is set per variant.");
+      const vIds = new Set();
+      const kinds = new Set();
+      t.variants.forEach((v, j) => {
+        const vp = `${p}.variants[${j}]`;
+        if (!isObj(v)) return;
+        if (typeof v.id !== "string" || !v.id || vIds.has(v.id)) err(`${vp}.id`, "id", "Needs an id unique within the tour.");
+        vIds.add(v.id);
+        if (!VARIANT_KINDS.includes(v.kind)) err(`${vp}.kind`, "variant-kind", `Must be one of ${VARIANT_KINDS.join(", ")}.`);
+        else if (kinds.has(v.kind)) err(`${vp}.kind`, "duplicate-variant", `The tour already has a ${v.kind} variant.`);
+        kinds.add(v.kind);
+        unitChecks(v, vp, { isVariant: tag });
+        checkProfit(t, v, v.id, vp);
+      });
+      const prices = t.variants.map((v) => v.publishedPricePence).filter((x) => isInt(x));
+      if (t.publishedPricePence !== null && prices.length === t.variants.length && prices.length && t.publishedPricePence !== Math.min(...prices)) err(`${p}.publishedPricePence`, "price", "The tour's published (from) price must equal its cheapest variant's published price.");
+    } else {
+      if (!(t.publishedPricePence === null || (isInt(t.publishedPricePence) && t.publishedPricePence > 0))) err(`${p}.publishedPricePence`, "price", "Price must be a positive whole number of pence.");
+      checkProfit(t, t, null, p);
     }
   });
   f.marginOverrides.forEach((o, i) => {
     const p = `commercial.finance.marginOverrides[${i}]`;
+    const tourOfOverride = c.tours.find((x) => isObj(o) && x.id === o.tourId);
+    if (isObj(o) && o.variantId !== undefined && o.variantId !== null && !tourOfOverride?.variants.some((v) => v.id === o.variantId)) return err(p, "override", "variantId must be a variant of that tour.");
     if (!isObj(o) || !ids.has(o.tourId) || !OPERATING_MODELS.includes(o.model) || typeof o.reason !== "string" || o.reason.trim().length < 5 || typeof o.recordedAt !== "string" || Number.isNaN(Date.parse(o.recordedAt))) err(p, "override", "Must be { tourId (existing), model, reason (5+ characters), recordedAt (date-time) }.");
   });
 
-  if (settings.publicLaunch.enabled !== false && !allGatesOpen) err("publicLaunch.enabled", "gate-closed", "Public launch stays off until every launch gate is verified.");
+  if (settings.publicLaunch.enabled !== false && !mandatoryGatesOpen) err("publicLaunch.enabled", "gate-closed", "Public launch stays off until every mandatory launch prerequisite is verified.");
+  if (settings.publicLaunch.enabled === true && launchReadiness(settings).blockingFeatures.length) err("publicLaunch.enabled", "gate-closed", "Public launch is blocked: an enabled feature still has a closed gate.");
   if (typeof settings.publicLaunch.enabled !== "boolean") err("publicLaunch.enabled", "type", "Must be true or false.");
 
   return finish(errors, warnings);
