@@ -160,6 +160,19 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview Worker (staging account): $URL"
 
+      - name: Diagnose a failed readiness check (staging account only, read-only)
+        if: failure()
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          NS=cede330386ad4b80a2b0462891837f54
+          A="https://api.cloudflare.com/client/v4/accounts/${STAGING_ACCOUNT_ID}"
+          echo "KV list keys:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/storage/kv/namespaces/$NS/keys?limit=3" | head -c 500; echo
+          echo "KV read missing key:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/storage/kv/namespaces/$NS/values/diag-probe" | head -c 300; echo
+          echo "Worker settings:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/workers/scripts/${PREVIEW_WORKER_NAME}/settings" | head -c 1500; echo
+          echo "Account usage model / subdomain:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/workers/subdomain" | head -c 200; echo
+
       - name: Deployed bindings are staging-only (no production KV or Durable Objects)
         if: steps.ready.outputs.ready == 'true'
         env:
