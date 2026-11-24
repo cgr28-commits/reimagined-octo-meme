@@ -32,13 +32,13 @@ const CONTENT = {
     start: "09:30", cruise: false, tags: ["city", "history"],
   },
   "cruise-express": {
-    name: "Cruise Port Express", kicker: "CRUISE GUESTS · BELFAST", photo: "belfast-city",
+    name: "Cruise Port Express", kicker: "CRUISE GUESTS · BELFAST", photo: "titanic-belfast",
     tagline: "Belfast's highlights in a relaxed port day, planned around your ship's all-aboard time with a generous return buffer.",
     stops: ["titanic-belfast", "city-hall", "cathedral-quarter"],
     start: "10:00", cruise: true, tags: ["city", "history"],
   },
   "cruise-causeway": {
-    name: "Cruise Causeway Day", kicker: "CRUISE GUESTS · CAUSEWAY COAST", photo: "giants-causeway",
+    name: "Cruise Causeway Day", kicker: "CRUISE GUESTS · CAUSEWAY COAST", photo: "carrick-a-rede-rope-bridge",
     tagline: "The Causeway Coast from your ship, for later sailings only: a larger return buffer protects your all-aboard time.",
     stops: ["ballintoy-harbour", "giants-causeway", "dunluce-castle"],
     start: "09:00", cruise: true, tags: ["coast", "scenery"],
