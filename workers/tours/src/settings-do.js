@@ -1,12 +1,11 @@
-import { canonicalize, constantTimeEqual, sha256Hex, snapshotHash, verifySnapshot } from "./canonical.js";
+import { authenticateOwner } from "./auth.js";
+import { canonicalize, snapshotHash, verifySnapshot } from "./canonical.js";
 import { SCHEMA } from "./constants.js";
 import { migrateSettings } from "./migrate.js";
 import { seedSettings } from "./seed.js";
 import { launchReadiness, validate, validateCruiseItinerary } from "./validate.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
-const MAX_FAILS = 5;
-const LOCKOUT_MS = 15 * 60 * 1000;
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
 
 /** Durable Object: settings, immutable versions, append-only audit log, optimistic concurrency. Staging only. */
@@ -28,22 +27,8 @@ export class TourSettingsDO {
     return run;
   }
 
-  async authenticate(request) {
-    const key = this.env.TOURS_OWNER_KEY;
-    if (typeof key !== "string" || key.length < 16) return { ok: false, status: 503, error: "owner-auth-not-configured" }; // fail closed
-    const now = Date.now();
-    const client = request.headers.get("x-client-id") || "unknown";
-    const lock = (await this.state.storage.get(`lock:${client}`)) || { count: 0, until: 0 };
-    if (lock.until > now) return { ok: false, status: 429, error: "locked-out" };
-    const supplied = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-    const [a, b] = await Promise.all([sha256Hex(supplied), sha256Hex(key)]); // equal-length digests
-    if (constantTimeEqual(a, b)) {
-      if (lock.count) await this.state.storage.delete(`lock:${client}`);
-      return { ok: true };
-    }
-    const count = lock.count + 1;
-    await this.state.storage.put(`lock:${client}`, { count, until: count >= MAX_FAILS ? now + LOCKOUT_MS : 0 });
-    return { ok: false, status: 401, error: "unauthorised" };
+  authenticate(request) {
+    return authenticateOwner(this.state, this.env, request);
   }
 
   /**
