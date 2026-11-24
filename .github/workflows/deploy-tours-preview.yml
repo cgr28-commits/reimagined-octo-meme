@@ -191,8 +191,11 @@ jobs:
           echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
 
   # Stripe TEST keys from the "staging" environment. Only this small job runs in that environment.
+  # If the "staging" environment does not yet allow tours/** branches GitHub rejects this job before it
+  # starts; that must not fail the whole preview (payments then simply stay unavailable on the preview).
   stripe-sandbox:
     needs: preview
+    continue-on-error: true
     if: needs.preview.outputs.worker_ready == 'true'
     runs-on: ubuntu-latest
     environment: staging

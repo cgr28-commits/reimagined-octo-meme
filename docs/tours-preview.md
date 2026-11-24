@@ -42,7 +42,7 @@ Run the guard offline at any time: `node scripts/tours-preview-guard.mjs --self-
 
 Allowlist (see `ALLOWED_SECRETS` in the guard): `STAGING_CLOUDFLARE_API_TOKEN`, `STAGING_STRIPE_SECRET_KEY`, `STAGING_STRIPE_PUBLISHABLE_KEY`, `STAGING_STRIPE_WEBHOOK_SECRET`, optional `TOURS_PREVIEW_TESTER_EMAIL`, `TOURS_PREVIEW_OWNER_KEY`, `TOURS_PREVIEW_RESEND_API_KEY`, and `GITHUB_TOKEN`.
 
-The Stripe keys are read only by the small `stripe-sandbox` job, which runs in the existing GitHub `staging` environment.
+The Stripe keys are read only by the small `stripe-sandbox` job, which runs in the existing GitHub `staging` environment. That environment currently allows only certain branches: **until the owner adds `tours/**` to the `staging` environment's deployment branches, GitHub rejects this job** ("Branch ... is not allowed to deploy to staging") and the preview runs without Stripe test keys (payments unavailable on the preview). The job is `continue-on-error` so this does not fail the preview deploy.
 
 ### Remaining credential isolation risks
 
