@@ -1,3 +1,4 @@
+import { TOURS_LIVE } from "@/lib/private-tours-mode";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -121,6 +122,17 @@ export default function ToursPage() {
                 description="See the Giant's Causeway, the Antrim Coast, Game of Thrones locations or Belfast itself in your own car with a local driver. Half days from £195 and full days from £395 — per car, for up to 4 passengers."
               />
             </div>
+
+            {TOURS_LIVE ? (
+              <Link
+                href="/private-tours/"
+                className="mt-10 block rounded-2xl border border-emerald/40 bg-white/[0.04] p-5 text-white transition-colors hover:border-emerald"
+              >
+                <span className="text-sm font-semibold uppercase tracking-widest text-emerald">New</span>
+                <span className="mt-1 block text-lg font-bold">Design your own private tour</span>
+                <span className="mt-1 block text-sm text-white/70">Choose attractions, see provisional timings and request a personal quote.</span>
+              </Link>
+            ) : null}
 
             <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {TOURS.map((tour) => (

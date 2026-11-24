@@ -10,6 +10,11 @@ const ADDRESS_TO_ADDRESS_ENABLED = true;
 const TRACKING_DEMO_ENABLED = false;
 const BELFAST_CITY_AIRPORT_ENABLED = true;
 // Keep in sync with src/lib/bespoke-public.ts (OFF unless explicitly enabled at build time).
+// Private Tours pages join the sitemap only when live (src/lib/private-tours-launch.json, or NEXT_PUBLIC_TOURS_MODE=live locally).
+const TOURS_LIVE =
+  process.env.NEXT_PUBLIC_TOURS_MODE === "live" ||
+  JSON.parse(readFileSync("src/lib/private-tours-launch.json", "utf8")).live === true;
+const PRIVATE_TOUR_SLUGS = ["giants-causeway","game-of-thrones","antrim-coast","belfast-city","cruise-express","cruise-causeway"];
 const BESPOKE_PUBLIC_PAGES_ENABLED = process.env.NEXT_PUBLIC_BESPOKE_PUBLIC_PAGES === "1";
 
 /** Europe/London civil date YYYY-MM-DD — matches shared/uk-time todayLondonDate. */
@@ -233,6 +238,15 @@ const pages = [
           path: `/tours/${slug}/`,
           source: "src/lib/tours.ts",
         })),
+      ]
+    : []),
+  ...(TOURS_LIVE
+    ? [
+        { path: "/private-tours/", source: "src/app/private-tours/page.tsx" },
+        { path: "/private-tours/attractions/", source: "src/app/private-tours/attractions/page.tsx" },
+        { path: "/private-tours/plan/", source: "src/app/private-tours/plan/page.tsx" },
+        { path: "/private-tours/cruise-excursions/", source: "src/app/private-tours/cruise-excursions/page.tsx" },
+        ...PRIVATE_TOUR_SLUGS.map((slug) => ({ path: `/private-tours/${slug}/`, source: "src/app/private-tours/[slug]/page.tsx" })),
       ]
     : []),
   ...(ADDRESS_TO_ADDRESS_ENABLED

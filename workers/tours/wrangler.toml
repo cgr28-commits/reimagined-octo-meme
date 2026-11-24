@@ -1,0 +1,37 @@
+# WP-B1 tour settings: STAGING ONLY. Pinned to the staging account. No routes, no production bindings.
+name = "reimagined-octo-meme-tours-settings-preview"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+account_id = "ecad568dc411e28a3e435ef40b36c2b5"
+workers_dev = true
+
+[vars]
+TOURS_ENVIRONMENT = "staging"
+# Staging preview origins only (never the production site).
+TOURS_ALLOWED_ORIGINS = "https://matni-tours-preview.pages.dev"
+
+[[durable_objects.bindings]]
+name = "TOUR_SETTINGS"
+class_name = "TourSettingsDO"
+
+[[durable_objects.bindings]]
+name = "TOUR_CONTROLS"
+class_name = "TourControlsDO"
+
+[[durable_objects.bindings]]
+name = "TOUR_ENQUIRIES"
+class_name = "TourEnquiriesDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TourSettingsDO"]
+
+# WP-B2: emergency controls (separate Durable Object, same Worker, staging only).
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["TourControlsDO"]
+
+# Private Tours site: enquiries and saved itineraries (separate Durable Object, staging only).
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["TourEnquiriesDO"]

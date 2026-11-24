@@ -1,0 +1,9 @@
+{
+  "name": "matni-tours-settings",
+  "private": true,
+  "type": "module",
+  "description": "WP-B1: owner-only Private Tours settings store. Staging preview only; never deployed by production workflows.",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

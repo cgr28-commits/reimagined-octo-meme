@@ -1,0 +1,38 @@
+# Private Tours enquiry Worker: PRODUCTION. Deployed ONLY by .github/workflows/deploy-tours-production.yml,
+# which is manual (workflow_dispatch) and needs the owner's approval. Nothing deploys it automatically.
+# Serves enquiries, saved plans, the owner enquiry view and the emergency controls. No bookings, payments or availability.
+name = "reimagined-octo-meme-tours"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+account_id = "36c5c88df4c1f0259413d555f2679f3c"
+workers_dev = true
+
+[vars]
+TOURS_ENVIRONMENT = "production"
+# The live website only. (The owner view is part of the same site.)
+TOURS_ALLOWED_ORIGINS = "https://www.myairporttaxini.co.uk,https://myairporttaxini.co.uk"
+TOURS_OWNER_URL = "https://www.myairporttaxini.co.uk/private-tours/owner/"
+
+[[durable_objects.bindings]]
+name = "TOUR_SETTINGS"
+class_name = "TourSettingsDO"
+
+[[durable_objects.bindings]]
+name = "TOUR_CONTROLS"
+class_name = "TourControlsDO"
+
+[[durable_objects.bindings]]
+name = "TOUR_ENQUIRIES"
+class_name = "TourEnquiriesDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TourSettingsDO"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["TourControlsDO"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["TourEnquiriesDO"]
