@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getSelection, setSelection, addToSelection } from "@/lib/private-tours-selection";
 import {
-  ATTRACTION_BY_ID, TAGS, TAG_LABELS, TOUR_BY_ID, ZONES, buildSchedule, durationLabel, formatPounds, parseHM, publicView, suggest, suggestAdditions, toHM,
+  ATTRACTION_BY_ID, TAGS, TAG_LABELS, TOUR_BY_ID, ZONES, buildSchedule, durationLabel, parseHM, publicView, suggest, suggestAdditions, toHM,
   toursApi, toursApiConfigured,
 } from "@/lib/private-tours";
 
@@ -195,7 +195,7 @@ export default function PlanBuilder() {
                 </div>
               ) : null}
               <div style={{ marginTop: 18 }}>
-                <div className="pt-price">{result.price.pence ? <>about {formatPounds(result.price.pence)}</> : "Price confirmed in your quote"}<small>{result.price.note}</small></div>
+                <div className="pt-price">Price confirmed in your personal quote<small>Our published private tour prices apply to the signature tours. A tailored route is priced personally, and nothing is booked or charged until you accept your quote.</small></div>
                 {result.reviewRequired ? <p className="pt-note" style={{ marginTop: 10 }}>We will review this plan personally before quoting.</p> : null}
               </div>
               <div className="pt-actions">

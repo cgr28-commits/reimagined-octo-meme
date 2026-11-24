@@ -104,9 +104,15 @@ export class TourEnquiriesDO {
       const tourId = (await import("./enquiries.js")).controlsTourFor({ tourId: value.tourId, cruiseScope: value.cruise ? cruiseScopeFor(value.stopIds) : null, durationMinutes: schedule.customer?.durationMinutes ?? 0 });
       const response = await stub.fetch(new Request("https://controls.internal/internal/enquiry-decision", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "enquiry", tourId, variantId: value.variantId || undefined, date: value.date }) }));
       const data = await response.json();
-      if (data?.ok && data.decision) return data.decision;
+      if (data?.ok && data.decision) return this.enquiryOnly(data.decision);
     } catch { /* fall through */ }
     return { kind: "enquiry", allowed: true, manualReview: true, failSafe: true, controlsVersion: null };
+  }
+
+  /** Production is enquiry-only: nothing is auto-quoted or reserved, whatever the controls say. Every enquiry is reviewed by the owner. */
+  enquiryOnly(decision) {
+    if (this.env.TOURS_ENVIRONMENT !== "production") return decision;
+    return { ...decision, manualReview: true, autoQuote: false, reserveAvailability: false };
   }
 
   async savePlan(request) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TOURS, formatPounds, tourPhoto } from "@/lib/private-tours";
+import { TOURS, guidePrice, tourPhoto } from "@/lib/private-tours";
 
 export default function PrivateToursHome() {
   return (
@@ -26,7 +26,7 @@ export default function PrivateToursHome() {
                 <h3>{t.name}</h3>
                 <p className="pt-muted">{t.tagline}</p>
                 <div className="meta">
-                  <div className="pt-price">{t.pricePence ? <>from {formatPounds(t.pricePence)}</> : "Quote"}<small>provisional · for the car, up to 4 guests</small></div>
+                  <div className="pt-price">{guidePrice(t.id).label}<small>{guidePrice(t.id).note}</small></div>
                   <Link className="pt-btn small" href={`/private-tours/${t.slug}/`}>View tour</Link>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TOURS, TOUR_BY_ID, buildSchedule, formatPounds, parseHM, publicView, tourPhoto, toHM, durationLabel } from "@/lib/private-tours";
+import { TOURS, TOUR_BY_ID, buildSchedule, guidePrice, parseHM, publicView, tourPhoto, toHM, durationLabel } from "@/lib/private-tours";
 
 export function generateStaticParams() {
   return TOURS.map((t) => ({ slug: t.slug }));
@@ -39,7 +39,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
             <p className="pt-kicker">{tour.kicker}</p>
             <h1 style={{ marginTop: 8 }}>{tour.name}</h1>
             <p className="lead">{tour.tagline}</p>
-            <div className="pt-price" style={{ marginTop: 18 }}>{tour.pricePence ? <>from {formatPounds(tour.pricePence)}</> : "Price in your quote"}<small>provisional guide price · for the car, up to 4 guests · about {durationLabel(sample.customer?.durationMinutes ?? 0)}</small></div>
+            <div className="pt-price" style={{ marginTop: 18 }}>{guidePrice(tour.id).label}<small>{guidePrice(tour.id).note} Provisional timing: about {durationLabel(sample.customer?.durationMinutes ?? 0)}.</small></div>
             <div className="pt-actions">
               <Link className="pt-btn green" href={planHref}>Customise this tour</Link>
               <Link className="pt-btn alt" href="/private-tours/plan/">Build from scratch</Link>

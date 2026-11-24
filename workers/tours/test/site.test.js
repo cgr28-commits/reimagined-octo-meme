@@ -244,3 +244,54 @@ test("live mode: pages stay noindex and unlinked unless the live switch is set; 
   assert.match(readFileSyncLaunch(new URL("src/lib/privacy.ts", root), "utf8"), /Private Tours enquiries/);
   assert.match(readFileSyncLaunch(new URL("src/app/private-tours/owner/page.tsx", root), "utf8"), /index: false/);
 });
+
+// ---- Final launch checks: prices, safe defaults, licences, no payments ----
+test("public guide prices equal the published /tours prices and are never raised; cruise tours show no figure", () => {
+  const root = new URL("../../../", import.meta.url);
+  const published = readFileSyncLaunch(new URL("src/lib/tours.ts", root), "utf8");
+  const mine = readFileSyncLaunch(new URL("src/lib/private-tours.ts", root), "utf8");
+  for (const [slug, from] of [["giants-causeway", 395], ["game-of-thrones", 395], ["belfast-city", 195], ["antrim-coast", 195]]) {
+    const block = published.split(`slug: "${slug}"`)[1].split("priceFrom:")[1];
+    assert.equal(Number(block.match(/\d+/)[0]), from, `${slug} published price`);
+    assert.match(mine, new RegExp(`"${slug}": \\{ from: ${from},`));
+  }
+  assert.ok(!/cruise-express|cruise-causeway/.test(mine.split("PUBLISHED_FROM_POUNDS")[1].split("export function guidePrice")[0]), "cruise tours have no public figure");
+  for (const f of ["src/app/private-tours/page.tsx", "src/app/private-tours/[slug]/page.tsx", "src/app/private-tours/cruise-excursions/page.tsx", "src/components/private-tours/PlanBuilder.tsx"]) {
+    const src = readFileSyncLaunch(new URL(f, root), "utf8");
+    assert.ok(!/pricePence\s*\?/.test(src) && !/result\.price\.pence/.test(src), `${f} must not show engine prices`);
+  }
+});
+
+test("production is enquiry-only: every enquiry is a manual review whatever the controls say; no payment or booking code in tours", async () => {
+  const { TourEnquiriesDO } = await import("../src/enquiries-do.js");
+  const prod = new TourEnquiriesDO({ storage: {} }, { TOURS_ENVIRONMENT: "production" });
+  assert.deepEqual(
+    { r: prod.enquiryOnly({ allowed: true, manualReview: false, autoQuote: true, reserveAvailability: true }).manualReview, a: prod.enquiryOnly({ autoQuote: true }).autoQuote, v: prod.enquiryOnly({ reserveAvailability: true }).reserveAvailability },
+    { r: true, a: false, v: false },
+  );
+  const staging = new TourEnquiriesDO({ storage: {} }, { TOURS_ENVIRONMENT: "staging" });
+  assert.equal(staging.enquiryOnly({ manualReview: false }).manualReview, false);
+  const root = new URL("../../../", import.meta.url);
+  for (const dir of ["workers/tours/src", "src/app/private-tours", "src/components/private-tours"]) {
+    const walk = (u) => readdirSyncLaunch(u, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(new URL(`${e.name}/`, u)) : [new URL(e.name, u)]));
+    for (const f of walk(new URL(`${dir}/`, root))) if (/\.(js|ts|tsx)$/.test(f.pathname) && !f.pathname.endsWith("/workers/tours/src/controls.js")) assert.ok(!/stripe|sumup|paymentIntent|checkout\.session|booking-confirm/i.test(readFileSyncLaunch(f, "utf8")), `${f.pathname} must not contain payment or booking code`);
+  }
+});
+
+test("photograph credits: every image has a credit with an allowed licence, author and source; attribution is shown", () => {
+  const root = new URL("../../../", import.meta.url);
+  const credits = JSON.parse(readFileSyncLaunch(new URL("src/lib/private-tours-photo-credits.json", root), "utf8"));
+  const ids = Object.keys(credits); assert.ok(ids.length >= 32);
+  for (const id of ids) {
+    const c = credits[id];
+    assert.match(c.licence, /^(CC0|CC BY(-SA)? [0-9.]+|Public domain|PDM)/i, `${id} licence ${c.licence}`);
+    assert.ok(c.author && c.source && c.licenceUrl && c.title, `${id} credit fields`);
+    assert.ok(readdirSyncLaunch(new URL("public/images/private-tours/", root)).includes(`${id}.webp`), `${id} image file`);
+  }
+});
+
+test("terms and privacy wording for tours appears only in the live build", () => {
+  const root = new URL("../../../", import.meta.url);
+  for (const f of ["src/lib/terms.ts", "src/lib/privacy.ts"]) assert.match(readFileSyncLaunch(new URL(f, root), "utf8"), /TOURS_LIVE \? \[\.\.\.BASE_/);
+  assert.match(readFileSyncLaunch(new URL("src/lib/terms.ts", root), "utf8"), /not a booking[\s\S]*Payment and cancellation terms for your tour are set out in your quote/);
+});

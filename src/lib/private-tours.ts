@@ -24,3 +24,21 @@ export async function toursApi<T = unknown>(path: string, init?: RequestInit): P
   }
 }
 export const tourPhoto = (name: string) => `/images/tours/${name}.webp`;
+
+/**
+ * Public guide prices for the signature tours are the prices already published on /tours. They are never raised here.
+ * The engine's own provisional figures stay in the Worker for the owner's reference only. Tours with no published price
+ * (the cruise excursions) show no figure: the price is given in the personal quote.
+ */
+const PUBLISHED_FROM_POUNDS: Record<string, { from: number; note: string }> = {
+  "giants-causeway": { from: 395, note: "full day · published price for the car, up to 4 guests" },
+  "game-of-thrones": { from: 395, note: "full day · published price for the car, up to 4 guests" },
+  "belfast-city": { from: 195, note: "half day · published price for the car, up to 4 guests" },
+  "antrim-coast": { from: 195, note: "half day from £195, full day from £395 · for the car, up to 4 guests" },
+};
+export function guidePrice(tourId: string): { label: string; note: string } {
+  const p = PUBLISHED_FROM_POUNDS[tourId];
+  return p
+    ? { label: `from £${p.from}`, note: `${p.note}. Your personal quote confirms the price for your exact route.` }
+    : { label: "Price in your personal quote", note: "Cruise excursions are priced personally around your all-aboard time." };
+}

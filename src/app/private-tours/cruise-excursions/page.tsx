@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TOURS, formatPounds, tourPhoto } from "@/lib/private-tours";
+import { TOURS, guidePrice, tourPhoto } from "@/lib/private-tours";
 
 export const metadata = { title: "Private cruise excursions from Belfast", description: "Private excursions for cruise guests in Belfast, planned around your all-aboard time and confirmed in a personal quote.", alternates: { canonical: "/private-tours/cruise-excursions/" } };
 
@@ -21,7 +21,7 @@ export default function CruisePage() {
               <div className="body">
                 <p className="pt-kicker">{t.kicker}</p><h3>{t.name}</h3><p className="pt-muted">{t.tagline}</p>
                 <p className="pt-muted"><b>{t.cruiseScope === "longDistance" ? "90-minute" : "60-minute"} return buffer</b> before all-aboard, plus a traffic margin.</p>
-                <div className="meta"><div className="pt-price">{t.pricePence ? <>from {formatPounds(t.pricePence)}</> : "Quote"}<small>provisional</small></div><Link className="pt-btn small" href={`/private-tours/${t.slug}/`}>View tour</Link></div>
+                <div className="meta"><div className="pt-price">{guidePrice(t.id).label}<small>{guidePrice(t.id).note}</small></div><Link className="pt-btn small" href={`/private-tours/${t.slug}/`}>View tour</Link></div>
               </div>
             </article>
           ))}
