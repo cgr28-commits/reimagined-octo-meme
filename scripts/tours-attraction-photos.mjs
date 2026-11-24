@@ -52,7 +52,7 @@ function evaluate(page, cfg, fromCategory) {
   if (ii.mime !== "image/jpeg") return null;
   if (!LICENCE_OK.test(lic) || /NC|ND/.test(lic)) return null;
   if (TITLE_BAD.test(page.title.replace(/^File:/, ""))) return null;
-  if (ii.width < 1600 || ii.height < 900) return null;
+  if (ii.width < (cfg.minWidth || 1600) || ii.height < 700) return null;
   const ratio = ii.width / ii.height;
   if (ratio < 1.25 || ratio > 2.0) return null;
   const text = `${page.title} ${strip(md.ImageDescription?.value)} ${strip(md.ObjectName?.value)}`.toLowerCase();
@@ -71,11 +71,11 @@ mkdirSync(OUT_DIR, { recursive: true });
 const credits = existsSync(CREDITS_FILE) ? JSON.parse(readFileSync(CREDITS_FILE, "utf8")) : {};
 const report = [];
 const RUN = existsSync("scripts/tours-attraction-photos.run.json") ? JSON.parse(readFileSync("scripts/tours-attraction-photos.run.json", "utf8")) : {};
-if (RUN.mode === "shortlist") {
+if (RUN.shortlist?.length) {
   // Review aid: top candidates per attraction as small thumbnails (committed to design/photo-shortlist, removed after review).
   const dir = "design/photo-shortlist"; mkdirSync(dir, { recursive: true });
   const index = {};
-  for (const id of RUN.ids || []) {
+  for (const id of RUN.shortlist) {
     const cfg = CONFIG[id]; if (!cfg) continue;
     const pool = [];
     for (const c of cfg.cats || []) { try { for (const p of await viaCategory(c)) pool.push(evaluate(p, cfg, true)); } catch { /* skip */ } await sleep(250); }
@@ -88,7 +88,6 @@ if (RUN.mode === "shortlist") {
     console.log(`${id}: ${index[id].length} candidates`);
   }
   writeFileSync(`${dir}/index.json`, JSON.stringify(index, null, 1));
-  process.exit(0);
 }
 const only = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : null;
 const force = process.env.FORCE === "1";
@@ -96,7 +95,7 @@ const taken = new Set(Object.values(credits).map((c) => c.title));
 
 for (const a of ATTRACTIONS) {
   if (only && !only.has(a.id)) continue;
-  if (credits[a.id] && !force) { report.push(`${a.id}: kept (${credits[a.id].title})`); continue; }
+  if (credits[a.id] && !force && !(RUN.force || []).includes(a.id)) { report.push(`${a.id}: kept (${credits[a.id].title})`); continue; }
   const cfg = CONFIG[a.id];
   if (!cfg) { report.push(`${a.id}: NO CONFIG`); continue; }
   try {

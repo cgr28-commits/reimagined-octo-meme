@@ -1,35 +1,397 @@
 {
-  "_note": "id -> Commons search. 'must' = a word that must appear in the file title or description (relevance gate). 'cats' = Commons categories to prefer.",
-  "titanic-belfast": { "q": ["Titanic Belfast museum exterior", "Titanic Belfast building"], "must": ["titanic"], "cats": ["Titanic Belfast"] },
-  "city-hall": { "q": ["Belfast City Hall"], "must": ["city hall"], "cats": ["Belfast City Hall"] },
-  "cathedral-quarter": { "q": ["Cathedral Quarter Belfast Commercial Court", "Cathedral Quarter Belfast Hill Street"], "must": ["cathedral quarter", "hill street", "commercial court", "duke of york"], "cats": ["Cathedral Quarter, Belfast"] },
-  "st-georges-market": { "q": ["St George's Market Belfast"], "must": ["george"], "cats": ["St George's Market"] },
-  "crumlin-road-gaol": { "q": ["Crumlin Road Gaol Belfast"], "must": ["crumlin"], "cats": ["Crumlin Road Gaol"] },
-  "belfast-castle": { "q": ["Belfast Castle Cave Hill"], "must": ["belfast castle"], "cats": ["Belfast Castle"] },
-  "botanic-ulster-museum": { "q": ["Ulster Museum Botanic Gardens Belfast", "Palm House Botanic Gardens Belfast"], "must": ["ulster museum", "botanic", "palm house"], "cats": ["Botanic Gardens, Belfast", "Ulster Museum"] },
-  "stormont-estate": { "q": ["Parliament Buildings Stormont Belfast"], "must": ["stormont"], "cats": ["Parliament Buildings, Stormont", "Stormont Estate"] },
-  "carrickfergus-castle": { "q": ["Carrickfergus Castle"], "must": ["carrickfergus"], "cats": ["Carrickfergus Castle"] },
-  "gobbins": { "q": ["The Gobbins cliff path Islandmagee"], "must": ["gobbins"], "cats": ["The Gobbins"] },
-  "larne-sandy-bay": { "q": ["Larne Harbour Antrim coast", "Sandy Bay Larne"], "must": ["larne"], "cats": ["Larne"] },
-  "glenarm": { "q": ["Glenarm village County Antrim", "Glenarm Castle walled garden"], "must": ["glenarm"], "cats": ["Glenarm"] },
-  "carnlough": { "q": ["Carnlough harbour County Antrim"], "must": ["carnlough"], "cats": ["Carnlough"] },
-  "glenariff": { "q": ["Glenariff Forest Park waterfall"], "must": ["glenariff"], "cats": ["Glenariff Forest Park", "Glenariff"] },
-  "cushendun": { "q": ["Cushendun County Antrim"], "must": ["cushendun"], "cats": ["Cushendun"] },
-  "ballycastle-fair-head": { "q": ["Fair Head County Antrim", "Ballycastle seafront"], "must": ["fair head", "ballycastle"], "cats": ["Fair Head", "Ballycastle"] },
-  "carrick-a-rede": { "q": ["Carrick-a-Rede rope bridge"], "must": ["carrick-a-rede", "carrick a rede"], "cats": ["Carrick-a-Rede Rope Bridge"] },
-  "ballintoy-harbour": { "q": ["Ballintoy Harbour"], "must": ["ballintoy"], "cats": ["Ballintoy"] },
-  "dark-hedges": { "q": ["Dark Hedges near Armoy"], "must": ["dark hedges"], "cats": ["Dark Hedges"] },
-  "giants-causeway": { "q": ["Giant's Causeway basalt columns"], "must": ["causeway"], "cats": ["Giant's Causeway"] },
-  "bushmills": { "q": ["Bushmills village County Antrim", "Bushmills Main Street"], "must": ["bushmills"], "cats": ["Bushmills"] },
-  "bushmills-distillery": { "q": ["Old Bushmills Distillery"], "must": ["bushmills"], "cats": ["Old Bushmills Distillery"] },
-  "dunluce-castle": { "q": ["Dunluce Castle"], "must": ["dunluce"], "cats": ["Dunluce Castle"] },
-  "portrush": { "q": ["Portrush seafront County Antrim", "Portrush harbour"], "must": ["portrush"], "cats": ["Portrush"] },
-  "downhill-demesne": { "q": ["Mussenden Temple Downhill"], "must": ["mussenden", "downhill"], "cats": ["Mussenden Temple", "Downhill Demesne"] },
-  "castle-ward": { "q": ["Castle Ward Strangford"], "must": ["castle ward"], "cats": ["Castle Ward"] },
-  "inch-abbey": { "q": ["Inch Abbey Downpatrick"], "must": ["inch abbey"], "cats": ["Inch Abbey"] },
-  "mount-stewart": { "q": ["Mount Stewart gardens County Down", "Mount Stewart house"], "must": ["mount stewart"], "cats": ["Mount Stewart"] },
-  "hillsborough-castle": { "q": ["Hillsborough Castle"], "must": ["hillsborough"], "cats": ["Hillsborough Castle"] },
-  "tollymore": { "q": ["Tollymore Forest Park"], "must": ["tollymore"], "cats": ["Tollymore Forest Park"] },
-  "newcastle": { "q": ["Newcastle County Down seafront Slieve Donard"], "must": ["newcastle"], "cats": ["Newcastle, County Down"] },
-  "silent-valley": { "q": ["Silent Valley Reservoir Mourne"], "must": ["silent valley", "mourne"], "cats": ["Silent Valley Reservoir"] }
+ "_note": "id -> Commons search. 'must' = a word that must appear in the file title or description (relevance gate). 'cats' = Commons categories to prefer.",
+ "titanic-belfast": {
+  "q": [
+   "Titanic Belfast museum exterior",
+   "Titanic Belfast building"
+  ],
+  "must": [
+   "titanic"
+  ],
+  "cats": [
+   "Titanic Belfast"
+  ]
+ },
+ "city-hall": {
+  "q": [
+   "Belfast City Hall"
+  ],
+  "must": [
+   "city hall"
+  ],
+  "cats": [
+   "Belfast City Hall"
+  ]
+ },
+ "cathedral-quarter": {
+  "q": [
+   "Cathedral Quarter Belfast Commercial Court",
+   "Cathedral Quarter Belfast Hill Street"
+  ],
+  "must": [
+   "cathedral quarter",
+   "hill street",
+   "commercial court",
+   "duke of york"
+  ],
+  "cats": [
+   "Cathedral Quarter, Belfast"
+  ]
+ },
+ "st-georges-market": {
+  "q": [
+   "St George's Market Belfast"
+  ],
+  "must": [
+   "george"
+  ],
+  "cats": [
+   "St George's Market"
+  ]
+ },
+ "crumlin-road-gaol": {
+  "q": [
+   "Crumlin Road Gaol Belfast"
+  ],
+  "must": [
+   "crumlin"
+  ],
+  "cats": [
+   "Crumlin Road Gaol"
+  ]
+ },
+ "belfast-castle": {
+  "q": [
+   "Belfast Castle Cave Hill"
+  ],
+  "must": [
+   "belfast castle"
+  ],
+  "cats": [
+   "Belfast Castle"
+  ]
+ },
+ "botanic-ulster-museum": {
+  "q": [
+   "Ulster Museum Botanic Gardens Belfast",
+   "Palm House Botanic Gardens Belfast"
+  ],
+  "must": [
+   "ulster museum",
+   "botanic",
+   "palm house"
+  ],
+  "cats": [
+   "Botanic Gardens, Belfast",
+   "Ulster Museum"
+  ],
+  "pick": "Belfast Botanic Gardens - panoramio (4).jpg"
+ },
+ "stormont-estate": {
+  "q": [
+   "Parliament Buildings Stormont Belfast",
+   "Stormont Parliament Buildings",
+   "Stormont Estate avenue Prince of Wales"
+  ],
+  "must": [
+   "stormont",
+   "parliament buildings"
+  ],
+  "cats": [
+   "Parliament Buildings, Stormont",
+   "Stormont Estate"
+  ],
+  "minWidth": 1000
+ },
+ "carrickfergus-castle": {
+  "q": [
+   "Carrickfergus Castle"
+  ],
+  "must": [
+   "carrickfergus"
+  ],
+  "cats": [
+   "Carrickfergus Castle"
+  ]
+ },
+ "gobbins": {
+  "q": [
+   "The Gobbins cliff path Islandmagee"
+  ],
+  "must": [
+   "gobbins"
+  ],
+  "cats": [
+   "The Gobbins"
+  ]
+ },
+ "larne-sandy-bay": {
+  "q": [
+   "Larne Harbour Antrim coast",
+   "Sandy Bay Larne"
+  ],
+  "must": [
+   "larne"
+  ],
+  "cats": [
+   "Larne"
+  ],
+  "pick": "Antrim Coast Road near Larne - geograph.org.uk - 3362106.jpg"
+ },
+ "glenarm": {
+  "q": [
+   "Glenarm village County Antrim",
+   "Glenarm Castle walled garden"
+  ],
+  "must": [
+   "glenarm"
+  ],
+  "cats": [
+   "Glenarm"
+  ],
+  "pick": "Embouchure de la rivière Glenarm dans la Glenarm Bay.jpg"
+ },
+ "carnlough": {
+  "q": [
+   "Carnlough harbour County Antrim"
+  ],
+  "must": [
+   "carnlough"
+  ],
+  "cats": [
+   "Carnlough"
+  ],
+  "pick": "Antrim Coast - Carnlough Harbour - Boats moored near Harbour Entrance - geograph.org.uk - 3717122.jpg"
+ },
+ "glenariff": {
+  "q": [
+   "Glenariff Forest Park waterfall"
+  ],
+  "must": [
+   "glenariff"
+  ],
+  "cats": [
+   "Glenariff Forest Park",
+   "Glenariff"
+  ],
+  "pick": "Glenariff Waterfall.jpg"
+ },
+ "cushendun": {
+  "q": [
+   "Cushendun County Antrim"
+  ],
+  "must": [
+   "cushendun"
+  ],
+  "cats": [
+   "Cushendun"
+  ],
+  "pick": "Cushendun (2) - geograph.org.uk - 5499921.jpg"
+ },
+ "ballycastle-fair-head": {
+  "q": [
+   "Fair Head County Antrim",
+   "Ballycastle seafront"
+  ],
+  "must": [
+   "fair head",
+   "ballycastle"
+  ],
+  "cats": [
+   "Fair Head",
+   "Ballycastle"
+  ]
+ },
+ "carrick-a-rede": {
+  "q": [
+   "Carrick-a-Rede rope bridge"
+  ],
+  "must": [
+   "carrick-a-rede",
+   "carrick a rede"
+  ],
+  "cats": [
+   "Carrick-a-Rede Rope Bridge"
+  ]
+ },
+ "ballintoy-harbour": {
+  "q": [
+   "Ballintoy Harbour"
+  ],
+  "must": [
+   "ballintoy"
+  ],
+  "cats": [
+   "Ballintoy"
+  ],
+  "pick": "Ballintoy Harbour (50338106486).jpg"
+ },
+ "dark-hedges": {
+  "q": [
+   "Dark Hedges near Armoy"
+  ],
+  "must": [
+   "dark hedges"
+  ],
+  "cats": [
+   "Dark Hedges"
+  ]
+ },
+ "giants-causeway": {
+  "q": [
+   "Giant's Causeway basalt columns"
+  ],
+  "must": [
+   "causeway"
+  ],
+  "cats": [
+   "Giant's Causeway"
+  ]
+ },
+ "bushmills": {
+  "q": [
+   "Bushmills village County Antrim",
+   "Bushmills Main Street"
+  ],
+  "must": [
+   "bushmills"
+  ],
+  "cats": [
+   "Bushmills"
+  ],
+  "pick": "BUSHMILLS - panoramio.jpg"
+ },
+ "bushmills-distillery": {
+  "q": [
+   "Old Bushmills Distillery"
+  ],
+  "must": [
+   "bushmills"
+  ],
+  "cats": [
+   "Old Bushmills Distillery"
+  ],
+  "pick": "Old Bushmills distillery, May 1986 (02).jpg"
+ },
+ "dunluce-castle": {
+  "q": [
+   "Dunluce Castle"
+  ],
+  "must": [
+   "dunluce"
+  ],
+  "cats": [
+   "Dunluce Castle"
+  ],
+  "pick": "Dunluce Castle (48307619537).jpg"
+ },
+ "portrush": {
+  "q": [
+   "Portrush seafront County Antrim",
+   "Portrush harbour"
+  ],
+  "must": [
+   "portrush"
+  ],
+  "cats": [
+   "Portrush"
+  ]
+ },
+ "downhill-demesne": {
+  "q": [
+   "Mussenden Temple Downhill"
+  ],
+  "must": [
+   "mussenden",
+   "downhill"
+  ],
+  "cats": [
+   "Mussenden Temple",
+   "Downhill Demesne"
+  ]
+ },
+ "castle-ward": {
+  "q": [
+   "Castle Ward Strangford"
+  ],
+  "must": [
+   "castle ward"
+  ],
+  "cats": [
+   "Castle Ward"
+  ],
+  "pick": "Castle Ward House, June 2011 (02).JPG"
+ },
+ "inch-abbey": {
+  "q": [
+   "Inch Abbey Downpatrick"
+  ],
+  "must": [
+   "inch abbey"
+  ],
+  "cats": [
+   "Inch Abbey"
+  ],
+  "pick": "Inch Abbey, Downpatrick, March 2010 (03).JPG"
+ },
+ "mount-stewart": {
+  "q": [
+   "Mount Stewart gardens County Down",
+   "Mount Stewart house"
+  ],
+  "must": [
+   "mount stewart"
+  ],
+  "cats": [
+   "Mount Stewart"
+  ]
+ },
+ "hillsborough-castle": {
+  "q": [
+   "Hillsborough Castle"
+  ],
+  "must": [
+   "hillsborough"
+  ],
+  "cats": [
+   "Hillsborough Castle"
+  ]
+ },
+ "tollymore": {
+  "q": [
+   "Tollymore Forest Park"
+  ],
+  "must": [
+   "tollymore"
+  ],
+  "cats": [
+   "Tollymore Forest Park"
+  ],
+  "pick": "Tollymore Forest Park, September 2010 (10).JPG"
+ },
+ "newcastle": {
+  "q": [
+   "Newcastle County Down seafront Slieve Donard"
+  ],
+  "must": [
+   "newcastle"
+  ],
+  "cats": [
+   "Newcastle, County Down"
+  ],
+  "pick": "South Promenade, Newcastle, County Down, May 2010 (01).JPG"
+ },
+ "silent-valley": {
+  "q": [
+   "Silent Valley Reservoir Mourne"
+  ],
+  "must": [
+   "silent valley",
+   "mourne"
+  ],
+  "cats": [
+   "Silent Valley Reservoir"
+  ],
+  "pick": "Silent Valley, County Down, April 2011 (01).JPG"
+ }
 }
