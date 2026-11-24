@@ -140,6 +140,10 @@ jobs:
             [ "$CODE" = "200" ] && break
             sleep 10
           done
+          if [ "$CODE" != "200" ]; then
+            echo "Last response body (first 300 characters, for diagnosis):"
+            curl -sS -H "Origin: https://${SITE_HOST}" "$URL/events/public" | head -c 300 || true; echo
+          fi
           [ "$CODE" = "200" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
           # The live website must NOT be allowed to call the preview Worker.
           if curl -sS -D - -o /dev/null -H "Origin: https://www.myairporttaxini.co.uk" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
