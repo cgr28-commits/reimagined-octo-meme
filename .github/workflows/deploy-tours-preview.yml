@@ -274,19 +274,31 @@ jobs:
         run: |
           set -euo pipefail
           node ../../scripts/tours-preview-guard.mjs --check-tours-settings-config wrangler.toml
-          if [ -z "${SETTINGS_OWNER_KEY:-}" ]; then
-            SETTINGS_OWNER_KEY="$(openssl rand -hex 32)"
-            echo "::notice::No TOURS_PREVIEW_OWNER_KEY secret: a random owner key was generated for this deploy (smoke tests only)."
-          fi
-          echo "::add-mask::$SETTINGS_OWNER_KEY"
-          if [ "${#SETTINGS_OWNER_KEY}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_OWNER_KEY must be at least 24 characters."; exit 1; fi
+          [ -n "${SETTINGS_OWNER_KEY:-}" ] && echo "::add-mask::$SETTINGS_OWNER_KEY"
+          # Persistent owner key: fails closed if TOURS_PREVIEW_OWNER_KEY is missing (no random fallback). The Worker's secret is
+          # updated only on the first deploy or when the GitHub secret changed; ordinary redeploys leave it untouched.
+          export TOURS_SETTINGS_WORKER_NAME
+          PLAN="$(node ../../scripts/tours-owner-key.mjs)"
+          ACTION="${PLAN%% *}"; KEY_ID="${PLAN##* }"
+          echo "owner key plan: $ACTION"
 
-          OUTPUT="$(npx --yes wrangler@3.109.0 deploy -c wrangler.toml 2>&1)" || { echo "$OUTPUT"; exit 1; }
+          deploy_worker() {
+            npx --yes wrangler@3.109.0 deploy -c wrangler.toml --var "TOURS_OWNER_KEY_ID:$1" 2>&1
+          }
+          CURRENT_ID="unset"; [ "$ACTION" = "skip" ] && CURRENT_ID="$KEY_ID"
+          OUTPUT="$(deploy_worker "$CURRENT_ID")" || { echo "$OUTPUT"; exit 1; }
           echo "$OUTPUT"
           URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${TOURS_SETTINGS_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
           if [ -z "$URL" ]; then echo "::error::Could not read the tours settings Worker URL."; exit 1; fi
-          printf '%s' "$SETTINGS_OWNER_KEY" | npx --yes wrangler@3.109.0 secret put TOURS_OWNER_KEY -c wrangler.toml >/dev/null
-          echo "secret set: TOURS_OWNER_KEY"
+          if [ "$ACTION" = "rotate" ]; then
+            printf '%s' "$SETTINGS_OWNER_KEY" | npx --yes wrangler@3.109.0 secret put TOURS_OWNER_KEY -c wrangler.toml >/dev/null
+            echo "secret set: TOURS_OWNER_KEY"
+            # Marker is written only AFTER the secret was stored, so a failure in between is retried on the next run.
+            OUTPUT="$(deploy_worker "$KEY_ID")" || { echo "$OUTPUT"; exit 1; }
+            sleep 20 # first use of a new key: give the secret time to reach the Durable Object (strict auth is never retried)
+          else
+            echo "secret unchanged: TOURS_OWNER_KEY (no update needed)"
+          fi
 
           CODE=""
           for attempt in $(seq 1 18); do

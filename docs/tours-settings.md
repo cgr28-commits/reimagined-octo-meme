@@ -87,3 +87,21 @@ Changes made: the Durable Object now returns and logs a structured internal erro
 
 ## Not in WP-B1
 No owner dashboard UI, itinerary engine, quote creation, booking, payment, public pages, live availability or production deployment.
+
+## Staging owner key (persistent)
+
+The tours settings Worker's owner key is the GitHub repository secret `TOURS_PREVIEW_OWNER_KEY` (24+ random characters). It is
+**not** generated per deployment any more, and there is **no random fallback**: if the secret is missing or too short, the
+`tours-settings` job fails closed before deploying (`scripts/tours-owner-key.mjs`).
+
+- The Worker's `TOURS_OWNER_KEY` secret is updated only on the first deploy or when the GitHub secret changes. Ordinary redeploys
+  leave it untouched, so a redeploy cannot leave the Worker holding a different key from the one the smoke tests use.
+- To know whether an update is needed, the deploy compares a plain-text binding `TOURS_OWNER_KEY_ID` (16 hex characters of a
+  domain-separated SHA-256 of the key) on the deployed Worker with the GitHub secret. It is visible only in the staging Worker's
+  settings with the staging token. **No endpoint serves it**; `/health` returns only `ok`, `service` and `environment`.
+  The marker is written only after the secret was stored, so an interrupted update is simply repeated next run.
+- Authentication and lockout are unchanged (constant-time comparison, 5 failures → 15-minute lockout, 503 if no key is configured).
+  Strict `401` smoke checks are never retried; the bounded retry still covers only 5xx / no response.
+- Rotating the key: change the GitHub secret; the next deploy updates the Worker once and waits 20 s before the first login.
+- The same GitHub secret is also the preview Owner Dashboard access key. Sharing one credential across both staging Workers is
+  accepted for now; use a separate secret if they should ever be independent.
