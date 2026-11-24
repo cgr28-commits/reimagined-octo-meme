@@ -216,10 +216,14 @@ jobs:
           printf '%s' "$HEADERS" | head -1 | grep -q ' 302' || { echo "::error::The tours preview access code was not accepted."; exit 1; }
           printf '%s' "$HEADERS" | grep -qi '^set-cookie: matni_tours_preview=' || { echo "::error::The tours preview did not set its own cookie."; exit 1; }
           printf '%s' "$HEADERS" | grep -qi '^set-cookie: matni_preview=' && { echo "::error::The tours preview set the bespoke cookie name."; exit 1; }
+          # Use the cookie value exactly as the gate issued it (URL-encoded); never print it.
+          VALUE="$(printf '%s' "$HEADERS" | tr -d '\r' | sed -n 's/^[Ss]et-[Cc]ookie: matni_tours_preview=\([^;]*\);.*/\1/p' | head -1)"
+          [ -n "$VALUE" ] || { echo "::error::Could not read the tours preview cookie value."; exit 1; }
+          echo "::add-mask::$VALUE"
           # A cookie carrying the bespoke cookie name must not open the site.
-          CROSS="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_preview=${TOURS_ACCESS_CODE}" "https://${SITE_HOST}/")"
+          CROSS="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_preview=${VALUE}" "https://${SITE_HOST}/")"
           [ "$CROSS" = "401" ] || { echo "::error::The bespoke cookie name opened the tours preview (HTTP $CROSS)."; exit 1; }
-          OWN="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_tours_preview=${TOURS_ACCESS_CODE}" "https://${SITE_HOST}/")"
+          OWN="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_tours_preview=${VALUE}" "https://${SITE_HOST}/")"
           [ "$OWN" = "200" ] || { echo "::error::The tours preview cookie did not open the site (HTTP $OWN)."; exit 1; }
           echo "::notice::Access isolation verified: wrong code 401, own code accepted with its own cookie, bespoke cookie name refused."
           echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
