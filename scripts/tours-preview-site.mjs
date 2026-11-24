@@ -8,7 +8,7 @@
  * Usage: PREVIEW_WORKER_ORIGIN=https://reimagined-octo-meme-tours-preview.<sub>.workers.dev node scripts/tours-preview-site.mjs
  */
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PRODUCTION_WORKER_HOST = "reimagined-octo-meme.cgr28.workers.dev";
@@ -43,15 +43,29 @@ console.log(`Preview Worker: ${worker}`);
 execFileSync("rm", ["-rf", ".next"], { stdio: "inherit" });
 execFileSync("npm", ["run", "build"], { stdio: "inherit", env });
 
-function walk(dir) {
+function walk(dir, extensions) {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
-    return statSync(path).isDirectory() ? walk(path) : path.endsWith(".js") ? [path] : [];
+    return statSync(path).isDirectory() ? walk(path, extensions) : extensions.some((e) => path.endsWith(e)) ? [path] : [];
   });
 }
-const bundles = walk("out/_next/static");
+
+// Compiled-in fallbacks (src/lib/*-api.ts DEFAULT_WORKER_BASE, owner GPS test, contact card) still name the
+// production Worker even though the env override wins at runtime. Defence in depth: rewrite every such
+// reference in the built output to the preview Worker, then require that none remain.
+const TEXT_EXTENSIONS = [".js", ".html", ".txt", ".json", ".css", ".xml", ".map"];
+let rewritten = 0;
+for (const file of walk("out", TEXT_EXTENSIONS)) {
+  const text = readFileSync(file, "utf8");
+  if (!text.includes(PRODUCTION_WORKER_HOST)) continue;
+  writeFileSync(file, text.replaceAll(PRODUCTION_WORKER_HOST, host));
+  rewritten += 1;
+}
+console.log(`Rewrote the production Worker host to the preview Worker in ${rewritten} built file(s).`);
+
+const bundles = walk("out/_next/static", [".js"]);
 const withPreview = bundles.filter((f) => readFileSync(f, "utf8").includes(host));
 if (withPreview.length === 0) fail("Built JavaScript does not reference the preview Worker: do NOT deploy this build.");
-const withProduction = bundles.filter((f) => readFileSync(f, "utf8").includes(PRODUCTION_WORKER_HOST));
-console.log(`Built site references the preview Worker in ${withPreview.length} bundle(s) and the production Worker in ${withProduction.length} bundle(s).`);
-if (withProduction.length > 0) fail("Built JavaScript still references the PRODUCTION Worker: do NOT deploy this build.");
+const leaks = walk("out", TEXT_EXTENSIONS).filter((f) => readFileSync(f, "utf8").includes(PRODUCTION_WORKER_HOST));
+console.log(`Built output: preview Worker referenced in ${withPreview.length} bundle(s); production Worker referenced in ${leaks.length} file(s).`);
+if (leaks.length > 0) fail("Built output still references the PRODUCTION Worker: do NOT deploy this build.");
