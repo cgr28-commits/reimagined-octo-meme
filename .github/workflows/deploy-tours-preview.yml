@@ -343,6 +343,31 @@ jobs:
           smoke_call 200 "Verify snapshot" -H "$AUTH" -H 'Content-Type: application/json' -d '{"version":1}' "$URL/verify"
           VERIFY="$(cat "$SMOKE_BODY")"
           printf '%s' "$VERIFY" | grep -q '"intact":true' || { echo "::error::Snapshot integrity check failed."; exit 1; }
+          # ---- WP-B2 emergency controls (staging only). The test pause auto-resumes after 10 minutes, so a failed run cannot leave it behind.
+          jget() { node -e 'const b=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const v=process.argv[2].split(".").reduce((o,k)=>o==null?o:o[k],b);process.stdout.write(String(v))' "$SMOKE_BODY" "$1"; }
+          smoke_call 200 "Public status (no key)" "$URL/status"
+          node -e 'const b=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); const t=JSON.stringify(b); if(!b.ok||b.informational!==true||/reason|pause|audit|owner|hash/i.test(t)||Object.keys(b).sort().join()!=="generatedAt,informational,ok,tours"){console.error("::error::Public status is not minimal.");process.exit(1)}' "$SMOKE_BODY"
+          smoke_call 401 "Controls need the owner key" "$URL/controls"
+          smoke_call 200 "Read controls" -H "$AUTH" "$URL/controls"
+          V="$(jget version)"
+          RESUME_AT="$(date -u -d '+10 minutes' +%Y-%m-%dT%H:%M:%SZ)"
+          smoke_call 200 "Create test pause" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"expectedVersion\":$V,\"scope\":{\"kind\":\"tour\",\"tourId\":\"belfast-city\"},\"effect\":\"payments\",\"reason\":\"Staging smoke test (auto-resumes)\",\"resumeAt\":\"$RESUME_AT\"}" "$URL/controls/pause"
+          PAUSE_ID="$(jget pause.id)"
+          smoke_call 409 "Stale controls version" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"expectedVersion\":$V,\"scope\":{\"kind\":\"all\"},\"effect\":\"both\",\"reason\":\"Stale write must be refused\"}" "$URL/controls/pause"
+          smoke_call 200 "Check payment while paused" -H "$AUTH" -H 'Content-Type: application/json' -d '{"kind":"new-payment","tourId":"belfast-city","mandatory":{"launchGatesPassed":true,"availabilityConfirmed":true,"safetyApproved":true}}' "$URL/controls/check"
+          [ "$(jget decision.allowed)" = "false" ] || { echo "::error::A new tour payment was allowed during a payment pause."; exit 1; }
+          smoke_call 200 "Check other tour while paused" -H "$AUTH" -H 'Content-Type: application/json' -d '{"kind":"new-payment","tourId":"giants-causeway","mandatory":{"launchGatesPassed":true,"availabilityConfirmed":true,"safetyApproved":true}}' "$URL/controls/check"
+          [ "$(jget decision.allowed)" = "true" ] || { echo "::error::A pause on one tour blocked another tour."; exit 1; }
+          smoke_call 200 "Check refund while paused" -H "$AUTH" -H 'Content-Type: application/json' -d '{"kind":"refund","tourId":"belfast-city"}' "$URL/controls/check"
+          [ "$(jget decision.unaffected)" = "true" ] || { echo "::error::A refund was affected by emergency controls."; exit 1; }
+          smoke_call 200 "Public status while paused" "$URL/status"
+          [ "$(jget tours.belfast-city)" = "limited" ] || { echo "::error::Public status did not reflect the pause."; exit 1; }
+          smoke_call 200 "Resume test pause" -H "$AUTH" -H 'Content-Type: application/json' -d "{\"expectedVersion\":$((V+1)),\"pauseId\":\"$PAUSE_ID\",\"reason\":\"Staging smoke test finished\"}" "$URL/controls/resume"
+          smoke_call 200 "Check payment after resume" -H "$AUTH" -H 'Content-Type: application/json' -d '{"kind":"new-payment","tourId":"belfast-city","mandatory":{"launchGatesPassed":true,"availabilityConfirmed":true,"safetyApproved":true}}' "$URL/controls/check"
+          [ "$(jget decision.allowed)" = "true" ] || { echo "::error::Payments were still blocked after resume."; exit 1; }
+          smoke_call 200 "Controls audit" -H "$AUTH" "$URL/controls/audit"
+          node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).entries.map(e=>e.action); if(!a.includes("pause")||!a.includes("resume")||!a.includes("conflict")){console.error("::error::Controls audit is missing entries.");process.exit(1)}' "$SMOKE_BODY"
+          echo "emergency controls verified on the deployed Worker (pause, conflict, check, public status, resume, audit)"
           echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${SMOKE_RETRIES})."
 
       - name: Deployed bindings are staging-only (own Durable Object only)

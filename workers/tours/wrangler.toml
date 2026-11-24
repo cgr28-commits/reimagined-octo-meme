@@ -12,6 +12,15 @@ TOURS_ENVIRONMENT = "staging"
 name = "TOUR_SETTINGS"
 class_name = "TourSettingsDO"
 
+[[durable_objects.bindings]]
+name = "TOUR_CONTROLS"
+class_name = "TourControlsDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TourSettingsDO"]
+
+# WP-B2: emergency controls (separate Durable Object, same Worker, staging only).
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["TourControlsDO"]
