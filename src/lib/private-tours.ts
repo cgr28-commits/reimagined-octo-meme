@@ -9,7 +9,8 @@ export {
   buildSchedule, publicView, suggest, suggestAdditions, bestOrder, formatPounds, toHM, parseHM, durationLabel,
 } from "../../workers/tours/src/engine/index.js";
 
-export const TOURS_API = (process.env.NEXT_PUBLIC_TOURS_API_URL || "").replace(/\/+$/, "");
+import { TOURS_LAUNCH_API_URL } from "./private-tours-mode";
+export const TOURS_API = (process.env.NEXT_PUBLIC_TOURS_API_URL || TOURS_LAUNCH_API_URL || "").replace(/\/+$/, "");
 export const toursApiConfigured = TOURS_API.length > 0;
 
 export async function toursApi<T = unknown>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T | null }> {

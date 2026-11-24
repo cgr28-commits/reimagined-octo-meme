@@ -78,14 +78,6 @@ jobs:
           # Cloudflare Turnstile SITE key ("MATNI request forms", www.myairporttaxini.co.uk).
           # Public by design; the secret lives only on the Worker (TURNSTILE_SECRET_KEY).
           export NEXT_PUBLIC_TURNSTILE_SITE_KEY="0x4AAAAAAGBKrbtGGZCpRapy"
-          # Private Tours stays in staging mode (noindex, banner, no API) until the owner sets these after final approval.
-          if [ "${{ vars.TOURS_LAUNCH }}" = "live" ] && [ -n "${{ vars.TOURS_API_URL }}" ]; then
-            export NEXT_PUBLIC_TOURS_MODE="live"
-            export NEXT_PUBLIC_TOURS_API_URL="${{ vars.TOURS_API_URL }}"
-            echo "Private Tours: LIVE build"
-          else
-            echo "Private Tours: staging mode (not indexed)"
-          fi
           export NEXT_PUBLIC_GOOGLE_ADS_ID="$GOOGLE_ADS_ID"
           export NEXT_PUBLIC_GOOGLE_ADS_QUOTE_CONVERSION_LABEL="$GOOGLE_ADS_QUOTE_CONVERSION_LABEL"
           export NEXT_PUBLIC_GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL="$GOOGLE_ADS_BOOKING_REQUEST_CONVERSION_LABEL"

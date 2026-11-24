@@ -234,11 +234,14 @@ test("production config and workflow: separate Worker, manual deploy only, no ai
 
 test("live mode: pages stay noindex and unlinked unless the live switch is set; sitemap and privacy cover tours", () => {
   const root = new URL("../../../", import.meta.url);
+  const launch0 = JSON.parse(readFileSyncLaunch(new URL("src/lib/private-tours-launch.json", root), "utf8"));
   const layout = readFileSyncLaunch(new URL("src/app/private-tours/layout.tsx", root), "utf8");
   assert.match(layout, /TOURS_LIVE\s*\?\s*\{[\s\S]*index: true[\s\S]*\}\s*:\s*\{[\s\S]*index: false/);
   assert.match(readFileSyncLaunch(new URL("src/lib/private-tours-mode.ts", root), "utf8"), /NEXT_PUBLIC_TOURS_MODE === "live"/);
-  const pages = readFileSyncLaunch(new URL(".github/workflows/deploy-pages.yml", root), "utf8");
-  assert.match(pages, /vars\.TOURS_LAUNCH.*= "live"/); assert.match(pages, /staging mode \(not indexed\)/);
+  assert.equal(launch0.live, false, "the committed default must stay hidden until the go-live pull request");
+  const launch = JSON.parse(readFileSyncLaunch(new URL("src/lib/private-tours-launch.json", root), "utf8"));
+  assert.deepEqual(Object.keys(launch).sort(), ["apiUrl", "live"]);
+  assert.match(readFileSyncLaunch(new URL("src/lib/private-tours-mode.ts", root), "utf8"), /launch\.live === true/);
   assert.match(readFileSyncLaunch(new URL("scripts/generate-sitemap.mjs", root), "utf8"), /TOURS_LIVE\s*\n?\s*\? \[/);
   assert.match(readFileSyncLaunch(new URL("src/app/robots.ts", root), "utf8"), /\/private-tours\/owner\//);
   assert.match(readFileSyncLaunch(new URL("src/lib/privacy.ts", root), "utf8"), /Private Tours enquiries/);

@@ -46,7 +46,7 @@ jobs:
           [ -n "${RESEND_API_KEY:-}" ] && printf '%s' "$RESEND_API_KEY" | npx --yes wrangler@3 secret put RESEND_API_KEY -c wrangler.production.toml >/dev/null || true
           [ -n "${TOURS_NOTIFY_EMAIL:-}" ] && printf '%s' "$TOURS_NOTIFY_EMAIL" | npx --yes wrangler@3 secret put TOURS_NOTIFY_EMAIL -c wrangler.production.toml >/dev/null || true
           echo "TOURS_API_URL=$URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice::Set the repository variable TOURS_API_URL to $URL"
+          echo "::notice::Put this address in src/lib/private-tours-launch.json (apiUrl) in the go-live pull request: $URL"
           for i in $(seq 1 12); do C="$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)"; [ "$C" = 200 ] && break; sleep 5; done
           [ "$C" = 200 ] || { echo "::error::Health check failed (HTTP $C)."; exit 1; }
           curl -s "$URL/health" | grep -q '"environment":"production"' || { echo "::error::Not in production mode."; exit 1; }
