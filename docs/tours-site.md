@@ -25,3 +25,8 @@ Emergency controls decide every enquiry through an internal-only Durable Object 
 - Mobility preferences are stored only with explicit consent, only inside the owner-only enquiry record, never in a public response or analytics.
 - Customers only ever receive a reference and a message. No driver data, working time or owner flags.
 - Luggage limits are unset, so any luggage sends the enquiry to owner review.
+
+## Attraction library (photos, search, itinerary)
+- Search, filters, expandable details, add/remove with a clear "In your itinerary" state, and a floating My Itinerary button with the count. The selection is a per-visitor convenience in the browser (localStorage) and feeds the planner.
+- Photographs: openly licensed (CC0, CC BY, CC BY-SA, public domain) from Wikimedia Commons, fetched and credited by `scripts/tours-attraction-photos.mjs` through the one-off `tours-attraction-photos` workflow. Credits (photographer, licence, source) live in `src/lib/private-tours-photo-credits.json` and show on each card's More info and in the page's credits list. Picks were reviewed by eye; override one with `pick` in `scripts/tours-attraction-photos.config.json`.
+- The library never states opening hours, admission prices or accessibility. The engine's hours and walking levels are provisional placeholders used only for fit checks, and every message that depends on them says so; the owner confirms real data later.
