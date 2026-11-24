@@ -95,7 +95,7 @@
 .pt-more dd{margin:0;color:var(--ink2)}
 .pt-credit{font-size:.74rem;color:var(--ink2)}
 .pt-credit a{color:var(--ink2)}
-.pt-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));z-index:40;display:inline-flex;align-items:center;gap:10px;min-height:54px;padding:0 10px 0 20px;border-radius:999px;background:var(--ink);color:#fff!important;font:700 .95rem var(--sans);text-decoration:none;box-shadow:0 10px 30px rgba(7,28,56,.35);border:2px solid #fff}
+.pt-fab{white-space:nowrap;position:fixed;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));z-index:40;display:inline-flex;align-items:center;gap:10px;min-height:54px;padding:0 10px 0 20px;border-radius:999px;background:var(--ink);color:#fff!important;font:700 .95rem var(--sans);text-decoration:none;box-shadow:0 10px 30px rgba(7,28,56,.35);border:2px solid #fff}
 .pt-fab b{display:grid;place-items:center;min-width:34px;height:34px;border-radius:999px;background:#3b4f6e;color:#fff;font-size:.9rem}
 .pt-fab b.on{background:var(--green)}
 .pt-fab:hover{background:#0c2d57}

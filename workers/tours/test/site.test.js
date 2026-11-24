@@ -168,3 +168,22 @@ test("worker routes: public enquiry route is CORS-limited to the preview origin;
   assert.equal((await worker.fetch(new Request("https://w.test/internal/enquiry-decision", { method: "POST", body: "{}" }), env)).status, 404);
   assert.deepEqual(seen, ["/submit", "/submit"]);
 });
+
+test("attraction photographs: every credit is openly licensed with a Commons source, and every card has its file", async () => {
+  const { readFileSync, existsSync } = await import("node:fs");
+  const credits = JSON.parse(readFileSync(new URL("../../../src/lib/private-tours-photo-credits.json", import.meta.url), "utf8"));
+  for (const a of ATTRACTIONS) {
+    const c = credits[a.id];
+    assert.ok(c, `${a.id} has a credit`);
+    assert.match(c.licence, /^(CC0|CC BY(-SA)? \d\.\d|Public domain)/i, a.id);
+    assert.ok(!/NC|ND/.test(c.licence), a.id);
+    assert.match(c.source, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/, a.id);
+    assert.ok(c.author.length > 1, a.id);
+    assert.ok(existsSync(new URL(`../../../public/images/private-tours/${a.id}.webp`, import.meta.url)), `${a.id} file`);
+  }
+});
+
+test("library copy states no opening hours, admission prices or accessibility facts", () => {
+  const text = ATTRACTIONS.map((a) => a.blurb).join(" ");
+  assert.ok(!/£|\bfree\b|opens? at|closes? at|wheelchair|step-free|accessible|Friday|Monday|Sunday/i.test(text));
+});
