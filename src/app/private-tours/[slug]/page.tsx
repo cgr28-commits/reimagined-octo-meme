@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ATTRACTION_BY_ID, TOURS, TOUR_BY_ID, buildSchedule, formatPounds, parseHM, publicView, tourPhoto, toHM, durationLabel } from "@/lib/private-tours";
+import { TOURS, TOUR_BY_ID, buildSchedule, formatPounds, parseHM, publicView, tourPhoto, toHM, durationLabel } from "@/lib/private-tours";
 
 export function generateStaticParams() {
   return TOURS.map((t) => ({ slug: t.slug }));
@@ -50,7 +50,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
                   <div>
                     {i.driveMinutes ? <div className="drive">{i.driveMinutes} min drive</div> : null}
                     <div className="name">{i.name}</div>
-                    {i.minutes ? <div className="pt-muted">{i.minutes} minutes{i.type === "stop" && ATTRACTION_BY_ID.get(i.id)?.ticketed ? " · entry ticket not included" : ""}</div> : null}
+                    {i.minutes ? <div className="pt-muted">{i.minutes} minutes</div> : null}
                   </div>
                 </li>
               ))}
@@ -64,7 +64,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
                 <li>Flexible pace: tell us what to linger over</li>
                 <li>Hotel or harbour pick-up in Greater Belfast</li>
               </ul>
-              <p className="pt-muted" style={{ marginTop: 10 }}>Entry tickets and meals are paid separately. Your driver is a private local driver; tours are driven, not guided.</p>
+              <p className="pt-muted" style={{ marginTop: 10 }}>Entry tickets and meals are not included unless your quote says so. Your driver is a private local driver; tours are driven, not guided.</p>
             </div>
             {half?.customer ? (
               <div className="pt-panel"><h3>Half-day option</h3><p className="pt-muted" style={{ marginTop: 8 }}>About {durationLabel(half.customer.durationMinutes)}. The half-day price is confirmed in your private quote.</p></div>

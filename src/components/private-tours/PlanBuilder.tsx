@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { getSelection, setSelection, addToSelection } from "@/lib/private-tours-selection";
 import {
   ATTRACTION_BY_ID, TAGS, TAG_LABELS, TOUR_BY_ID, ZONES, buildSchedule, durationLabel, formatPounds, parseHM, publicView, suggest, suggestAdditions, toHM,
   toursApi, toursApiConfigured,
@@ -35,6 +36,7 @@ export default function PlanBuilder() {
   const [tourId, setTourId] = useState<string | null>(null);
   const [saved, setSaved] = useState<{ token: string; expiresAt: string } | null>(null);
   const [saveMsg, setSaveMsg] = useState("");
+  const [hydrated, setHydrated] = useState(false);
 
   // Starting points: ?tour=, ?add=, ?cruise=1, ?plan=<token>
   useEffect(() => {
@@ -45,7 +47,8 @@ export default function PlanBuilder() {
     if (t && tour) {
       setTourId(t); setStopIds([...tour.stops]); setStartTime(tour.start);
       if (tour.cruise) { setCruiseOn(true); setPickup("belfast-harbour"); }
-    } else if (add && ATTRACTION_BY_ID.has(add)) setStopIds([add]);
+    } else if (add && ATTRACTION_BY_ID.has(add)) { addToSelection(add); setStopIds(getSelection().filter((id) => ATTRACTION_BY_ID.has(id))); }
+    else if (getSelection().length) setStopIds(getSelection().filter((id) => ATTRACTION_BY_ID.has(id)));
     const token = params.get("plan");
     if (token) {
       toursApi<{ ok: boolean; plan: { stopIds: string[]; date: string | null; startTime: string; guests: number; pickupZoneId: string; interests: string[]; pace: string } }>(`/itinerary/saved/${encodeURIComponent(token)}`).then((r) => {
@@ -56,8 +59,10 @@ export default function PlanBuilder() {
         } else setNote("That saved plan has expired or was deleted.");
       });
     }
+    setHydrated(true);
   }, [params]);
 
+  useEffect(() => { if (hydrated) setSelection(stopIds); }, [stopIds, hydrated]);
   const startMinutes = parseHM(startTime);
   const result: Result | null = useMemo(() => {
     if (stopIds.length === 0 || startMinutes === null) return null;
@@ -120,7 +125,7 @@ export default function PlanBuilder() {
         </div>
         <div className="pt-two">
           <div><label htmlFor="pace">Pace</label><select id="pace" value={pace} onChange={(e) => setPace(e.target.value)}><option value="relaxed">Relaxed (fewer stops)</option><option value="balanced">Balanced</option><option value="full">Full (more stops)</option></select></div>
-          <div><label htmlFor="mob">Walking and steps</label><select id="mob" value={stepFree} onChange={(e) => setStepFree(e.target.value)}><option value="any">No preference</option><option value="avoid-steep">Avoid steep paths</option><option value="level-only">Level, easy access only</option></select></div>
+          <div><label htmlFor="mob">Walking preference (a provisional guide only)</label><select id="mob" value={stepFree} onChange={(e) => setStepFree(e.target.value)}><option value="any">No preference</option><option value="avoid-steep">Prefer gentler walking</option><option value="level-only">Prefer the least walking</option></select></div>
         </div>
         <div><label htmlFor="b">Flexible budget for the day, £ (optional)</label><input id="b" inputMode="numeric" value={budget} placeholder="e.g. 450" onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ""))} /><p className="pt-muted" style={{ marginTop: 6 }}>A budget only steers suggestions. It never changes our prices or removes safety checks.</p></div>
         <label className="check"><input type="checkbox" checked={cruiseOn} onChange={(e) => { setCruiseOn(e.target.checked); if (e.target.checked) setPickup("belfast-harbour"); }} /> I am on a cruise and must be back for all-aboard</label>
@@ -169,7 +174,7 @@ export default function PlanBuilder() {
                       <div>
                         {i.driveMinutes ? <div className="drive">{i.driveMinutes} min drive (estimate)</div> : null}
                         <div className="name">{i.name}</div>
-                        {i.minutes ? <div className="pt-muted">{i.minutes} min{i.ticketed ? ` · ${i.ticketNote || "entry ticket not included"}` : ""}</div> : null}
+                        {i.minutes ? <div className="pt-muted">{i.minutes} min</div> : null}
                         {i.type === "stop" ? (
                           <div className="pt-row">
                             <button type="button" className="pt-chip" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label={`Move ${i.name} earlier`}>↑</button>

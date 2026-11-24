@@ -42,7 +42,7 @@ async function viaCategory(cat) {
 }
 
 const LICENCE_OK = /^(CC0|CC BY(-SA)? \d\.\d|Public domain|PD)/i;
-const TITLE_BAD = /\b(map|plan|logo|diagram|sign|signage|poster|coat of arms|flag|svg|panorama|interior|ticket|stamp|painting|drawing|engraving|postcard|statue|memorial|plaque|night|mosaic)\b/i;
+const TITLE_BAD = /\b(map|plan|logo|diagram|sign|signage|poster|coat of arms|flag|svg|panorama|interior|ticket|stamp|painting|drawing|engraving|postcard|statue|memorial|plaque|night|mosaic|chart|admiralty|car|cars|cat|bmw|bus|lorry|van|tractor|portrait|selfie|wedding|bike|bicycle)\b/i;
 
 function evaluate(page, cfg, fromCategory) {
   const ii = page.imageinfo?.[0];
@@ -70,6 +70,26 @@ function evaluate(page, cfg, fromCategory) {
 mkdirSync(OUT_DIR, { recursive: true });
 const credits = existsSync(CREDITS_FILE) ? JSON.parse(readFileSync(CREDITS_FILE, "utf8")) : {};
 const report = [];
+const RUN = existsSync("scripts/tours-attraction-photos.run.json") ? JSON.parse(readFileSync("scripts/tours-attraction-photos.run.json", "utf8")) : {};
+if (RUN.mode === "shortlist") {
+  // Review aid: top candidates per attraction as small thumbnails (committed to design/photo-shortlist, removed after review).
+  const dir = "design/photo-shortlist"; mkdirSync(dir, { recursive: true });
+  const index = {};
+  for (const id of RUN.ids || []) {
+    const cfg = CONFIG[id]; if (!cfg) continue;
+    const pool = [];
+    for (const c of cfg.cats || []) { try { for (const p of await viaCategory(c)) pool.push(evaluate(p, cfg, true)); } catch { /* skip */ } await sleep(250); }
+    for (const s2 of [...(cfg.q || []), ...(RUN.extraQueries?.[id] || [])]) { try { for (const p of await viaSearch(s2)) pool.push(evaluate(p, cfg, false)); } catch { /* skip */ } await sleep(250); }
+    const seen = new Set(); const top = [];
+    for (const c of pool.filter(Boolean).sort((x, y) => y.score - x.score)) { if (seen.has(c.page.title)) continue; seen.add(c.page.title); top.push(c); if (top.length >= 8) break; }
+    index[id] = [];
+    let n = 0;
+    for (const c of top) { n += 1; try { const b = await get(c.ii.thumburl, true); await sharp(b).resize({ width: 420 }).jpeg({ quality: 70 }).toFile(`${dir}/${id}__${n}.jpg`); index[id].push({ n, title: c.page.title.replace(/^File:/, ""), author: c.artist, licence: c.lic }); } catch { /* skip */ } }
+    console.log(`${id}: ${index[id].length} candidates`);
+  }
+  writeFileSync(`${dir}/index.json`, JSON.stringify(index, null, 1));
+  process.exit(0);
+}
 const only = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : null;
 const force = process.env.FORCE === "1";
 const taken = new Set(Object.values(credits).map((c) => c.title));
@@ -81,6 +101,7 @@ for (const a of ATTRACTIONS) {
   if (!cfg) { report.push(`${a.id}: NO CONFIG`); continue; }
   try {
     const pool = [];
+    if (cfg.pick) { const d = await get(q({ action: "query", titles: `File:${cfg.pick}`, ...INFO })); for (const p of d.query?.pages ?? []) { const r = evaluate(p, { ...cfg, must: [""] }, true); if (r) { r.score += 100; pool.push(r); } else report.push(`  ${a.id}: picked file failed the licence/size checks`); } }
     for (const c of cfg.cats || []) { try { for (const p of await viaCategory(c)) pool.push(evaluate(p, cfg, true)); } catch (e) { report.push(`  ${a.id}: category ${c} failed (${e.message})`); } await sleep(250); }
     for (const s of cfg.q || []) { try { for (const p of await viaSearch(s)) pool.push(evaluate(p, cfg, false)); } catch (e) { report.push(`  ${a.id}: search failed (${e.message})`); } await sleep(250); }
     const ranked = pool.filter(Boolean).filter((c) => !taken.has(c.page.title)).sort((x, y) => y.score - x.score);

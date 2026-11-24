@@ -1,0 +1,49 @@
+{
+ "mode": "shortlist",
+ "ids": [
+  "botanic-ulster-museum",
+  "bushmills",
+  "bushmills-distillery",
+  "carnlough",
+  "cushendun",
+  "dunluce-castle",
+  "glenariff",
+  "glenarm",
+  "inch-abbey",
+  "larne-sandy-bay",
+  "newcastle",
+  "silent-valley",
+  "stormont-estate",
+  "castle-ward",
+  "ballintoy-harbour",
+  "tollymore",
+  "cathedral-quarter",
+  "giants-causeway"
+ ],
+ "extraQueries": {
+  "larne-sandy-bay": [
+   "Larne harbour",
+   "Larne Antrim Coast Road",
+   "Sandy Bay Larne beach"
+  ],
+  "newcastle": [
+   "Newcastle County Down promenade",
+   "Newcastle Slieve Donard beach",
+   "Newcastle Co Down harbour"
+  ],
+  "stormont-estate": [
+   "Stormont Parliament Buildings"
+  ],
+  "silent-valley": [
+   "Silent Valley Mourne Mountains reservoir"
+  ],
+  "cushendun": [
+   "Cushendun village",
+   "Cushendun bay"
+  ],
+  "carnlough": [
+   "Carnlough harbour",
+   "Carnlough bay"
+  ]
+ }
+}

@@ -87,17 +87,17 @@ export function buildSchedule(input) {
     driving += leg.minutes;
     stopTime += ESTIMATOR.stopOverheadMinutes;
     const arrive = t;
-    if (s.seasonMonths && mo !== null && (mo < s.seasonMonths[0] || mo > s.seasonMonths[1])) issues.push(issue("seasonal", "block", `${s.name} is closed or limited at this time of year.`, { stopId: s.id }));
-    if (wd !== null && s.closedDays.includes(wd)) issues.push(issue("closed-day", "block", `${s.name} is closed on this day of the week.`, { stopId: s.id }));
+    if (s.seasonMonths && mo !== null && (mo < s.seasonMonths[0] || mo > s.seasonMonths[1])) issues.push(issue("seasonal", "block", `${s.name} may be closed or limited at this time of year. Our guide is provisional and we confirm availability for your date in your quote.`, { stopId: s.id }));
+    if (wd !== null && s.closedDays.includes(wd)) issues.push(issue("closed-day", "block", `${s.name} may not be open on this day of the week. Our guide is provisional and we confirm availability for your date in your quote.`, { stopId: s.id }));
     let begin = arrive;
     if (begin < s.open[0]) {
       const wait = s.open[0] - begin;
-      if (wait > 20) issues.push(issue("opens-later", "warn", `${s.name} opens at ${toHM(s.open[0])}; you would wait about ${wait} minutes. Reorder or start later.`, { stopId: s.id }));
+      if (wait > 20) issues.push(issue("opens-later", "warn", `${s.name} may not be open yet when you would arrive (about ${wait} minutes early on our provisional timings). Try reordering or starting later. We confirm opening times in your quote.`, { stopId: s.id }));
       waiting += wait;
       begin = s.open[0];
     }
     const minutes = visit(s);
-    if (begin + minutes > s.open[1]) issues.push(issue("closes-early", "block", `${s.name} closes at ${toHM(s.open[1])}, before this visit would finish.`, { stopId: s.id }));
+    if (begin + minutes > s.open[1]) issues.push(issue("closes-early", "block", `${s.name} may close before this visit would finish on our provisional timings. Try an earlier start or a shorter day. We confirm opening times in your quote.`, { stopId: s.id }));
     items.push({ type: "stop", id: s.id, name: s.name, arriveMinutes: arrive, startMinutes: begin, minutes, driveMinutes: leg.minutes, ticketed: s.ticketed, ticketNote: s.ticketNote, mobility: s.mobility, blurb: s.blurb, tags: s.tags, minMinutes: s.minMinutes, maxMinutes: s.maxMinutes });
     t = begin + minutes;
     stopTime += minutes;
