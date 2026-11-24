@@ -10,6 +10,8 @@
  *   --check-stripe              STRIPE_SECRET_KEY / STRIPE_PUBLISHABLE_KEY env must be Stripe TEST keys (or empty)
  *   --probe-token               the staging API token must NOT reach the production account
  *   --check-deployed            the deployed preview Worker's bindings must be staging-only
+ *   --check-tours-settings-config [file]   WP-B1 tours settings Worker config must be staging-only
+ *   --check-tours-settings-deployed        the deployed tours settings Worker owns only its Durable Object
  *
  * Exit code 0 = pass, 1 = fail.
  */
@@ -22,6 +24,8 @@ export const STAGING_ACCOUNT_ID = "ecad568dc411e28a3e435ef40b36c2b5";
 export const PRODUCTION_ACCOUNT_ID = "36c5c88df4c1f0259413d555f2679f3c";
 export const PREVIEW_WORKER_NAME = "reimagined-octo-meme-tours-preview";
 export const PRODUCTION_WORKER_NAME = "reimagined-octo-meme";
+export const TOURS_SETTINGS_WORKER_NAME = "reimagined-octo-meme-tours-settings-preview";
+export const TOURS_SETTINGS_WRANGLER = `${REPO_ROOT}workers/tours/wrangler.toml`;
 export const WORKFLOW_FILE = `${REPO_ROOT}.github/workflows/deploy-tours-preview.yml`;
 export const PRODUCTION_WRANGLER = `${REPO_ROOT}workers/addresses/wrangler.toml`;
 /** Public ids already committed in the repository (production account + production KV). */
@@ -77,6 +81,28 @@ export function assertConfigIsStagingOnly({ config, accountIdEnv = "", stripeKey
   if (!/^PREVIEW_ENVIRONMENT\s*=\s*"bespoke-preview"$/m.test(active)) problems.push("PREVIEW_ENVIRONMENT missing (the Worker refuses to run without it).");
   if (!/^PAYMENT_PROVIDER\s*=\s*"stripe-test"$/m.test(active)) problems.push("PAYMENT_PROVIDER must be stripe-test.");
   if (stripeKey && !/^(sk|rk)_test_/.test(stripeKey)) problems.push("Stripe key is not a TEST key (sk_test_/rk_test_).");
+  return problems;
+}
+
+/** Pure: WP-B1 tours-settings Worker config must be staging-only, route-free and own only its Durable Object. */
+export function assertToursSettingsConfigIsStagingOnly({ config, productionWrangler = "" }) {
+  const problems = [];
+  const active = config.split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
+  const lower = active.toLowerCase();
+  const accountLine = /^account_id\s*=\s*"([^"]+)"$/m.exec(active);
+  if (!accountLine) problems.push("Config has no account_id pin.");
+  else if (accountLine[1] !== STAGING_ACCOUNT_ID) problems.push(`Config account_id is not the staging account (${accountLine[1] === PRODUCTION_ACCOUNT_ID ? "PRODUCTION account id" : "unknown"}).`);
+  for (const id of productionIds(productionWrangler)) if (lower.includes(id.toLowerCase())) problems.push(`Production resource id ${id} appears in the tours settings config.`);
+  if (!new RegExp(`^name\\s*=\\s*"${TOURS_SETTINGS_WORKER_NAME}"$`, "m").test(active)) problems.push(`Worker name must be ${TOURS_SETTINGS_WORKER_NAME}.`);
+  if (new RegExp(`^name\\s*=\\s*"${PRODUCTION_WORKER_NAME}"$`, "m").test(active)) problems.push("Config uses the production Worker name.");
+  if (/^\s*(routes?|custom_domains?)\s*=|\[\[?(env\.[^\]]+\.)?routes?\]\]/m.test(active)) problems.push("Config declares routes or custom domains.");
+  if (lower.includes("myairporttaxini.co.uk")) problems.push("Config mentions the production domain.");
+  if (/script_name\s*=/.test(active)) problems.push("A binding points at another Worker script (script_name): shared Durable Objects are not allowed.");
+  if (/\[\[(services|d1_databases|r2_buckets|queues\.producers|hyperdrive|vectorize|analytics_engine_datasets|kv_namespaces|send_email)\]\]/.test(active)) problems.push("Unexpected binding type (only this Worker's own Durable Object is allowed).");
+  const bindings = [...active.matchAll(/^\[\[durable_objects\.bindings\]\]/gm)].length;
+  if (bindings !== 1) problems.push(`Expected exactly one Durable Object binding, found ${bindings}.`);
+  if (!/^TOURS_ENVIRONMENT\s*=\s*"staging"$/m.test(active)) problems.push('TOURS_ENVIRONMENT must be "staging".');
+  if (/availability|AVAILABILITY_KV|BOOKING/i.test(active.replace(/^name\s*=.*$/m, ""))) problems.push("Config references availability or booking resources (synthetic fixtures only in WP-B1).");
   return problems;
 }
 
@@ -143,6 +169,18 @@ export function selfTest(goodConfig, productionWrangler) {
   expectFail("workflow with secrets: inherit", assertWorkflowIsStagingOnly(goodWorkflow + "\n    secrets: inherit\n"), "inherit");
   expectFail("workflow calling a reusable workflow", assertWorkflowIsStagingOnly(goodWorkflow + "\n    uses: ./.github/workflows/deploy-worker.yml\n"), "non-allowlisted");
   expectFail("workflow reading all secrets", assertWorkflowIsStagingOnly(goodWorkflow + "\n      X: ${{ toJSON(secrets) }}\n"), "dynamically");
+  // WP-B1 tours-settings Worker config negative tests.
+  const toursConfig = readFileSync(TOURS_SETTINGS_WRANGLER, "utf8");
+  const tb = assertToursSettingsConfigIsStagingOnly({ config: toursConfig, productionWrangler });
+  results.push(tb.length === 0);
+  console.log(`${tb.length === 0 ? "✓" : "✗"} baseline tours settings config passes${tb.length ? ": " + tb.join(" | ") : ""}`);
+  expectFail("tours settings: production account id", assertToursSettingsConfigIsStagingOnly({ config: toursConfig.replace(STAGING_ACCOUNT_ID, PRODUCTION_ACCOUNT_ID), productionWrangler }), "account_id");
+  expectFail("tours settings: route on the production domain", assertToursSettingsConfigIsStagingOnly({ config: toursConfig + '\nroutes = [{ pattern = "www.myairporttaxini.co.uk/*", zone_name = "myairporttaxini.co.uk" }]\n', productionWrangler }), "routes");
+  expectFail("tours settings: production KV namespace", assertToursSettingsConfigIsStagingOnly({ config: toursConfig + `\n[[kv_namespaces]]\nbinding = "X"\nid = "${prodKv}"\n`, productionWrangler }), "Production resource id");
+  expectFail("tours settings: shared Durable Object from another script", assertToursSettingsConfigIsStagingOnly({ config: toursConfig + '\n[[durable_objects.bindings]]\nname = "X"\nclass_name = "Y"\nscript_name = "reimagined-octo-meme"\n', productionWrangler }), "script_name");
+  expectFail("tours settings: production Worker name", assertToursSettingsConfigIsStagingOnly({ config: toursConfig.replace(TOURS_SETTINGS_WORKER_NAME, PRODUCTION_WORKER_NAME), productionWrangler }), "Worker name");
+  expectFail("tours settings: production environment flag", assertToursSettingsConfigIsStagingOnly({ config: toursConfig.replace('"staging"', '"production"'), productionWrangler }), "TOURS_ENVIRONMENT");
+  expectFail("tours settings: live availability binding", assertToursSettingsConfigIsStagingOnly({ config: toursConfig + '\n[[kv_namespaces]]\nbinding = "AVAILABILITY_KV"\nid = "' + "c".repeat(32) + '"\n', productionWrangler }), "Unexpected binding");
   return results.every(Boolean);
 }
 
@@ -206,6 +244,23 @@ async function checkDeployed() {
   return problems;
 }
 
+/** The deployed tours settings Worker may only own its Durable Object; no KV/service/D1/R2 etc. */
+async function checkToursSettingsDeployed() {
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+  const settings = await cf(`/accounts/${STAGING_ACCOUNT_ID}/workers/scripts/${TOURS_SETTINGS_WORKER_NAME}/settings`, token);
+  if (!settings.success) return [`Could not read the deployed tours settings Worker (HTTP ${settings.status}).`];
+  const problems = [];
+  const summary = {};
+  for (const binding of settings.result?.bindings ?? []) {
+    summary[binding.type] = (summary[binding.type] ?? 0) + 1;
+    if (binding.type === "durable_object_namespace") {
+      if (binding.script_name && binding.script_name !== TOURS_SETTINGS_WORKER_NAME) problems.push(`Durable Object binding ${binding.name} belongs to another Worker (${binding.script_name}).`);
+    } else if (!["plain_text", "secret_text"].includes(binding.type)) problems.push(`Unexpected ${binding.type} binding ${binding.name}.`);
+  }
+  console.log(`Deployed tours settings bindings by type: ${JSON.stringify(summary)}`);
+  return problems;
+}
+
 async function main() {
   const [mode, arg] = process.argv.slice(2);
   const productionWrangler = readFileSync(PRODUCTION_WRANGLER, "utf8");
@@ -221,6 +276,10 @@ async function main() {
     ok = report("workflow uses staging secrets only", assertWorkflowIsStagingOnly(readFileSync(WORKFLOW_FILE, "utf8")));
   } else if (mode === "--check-config") {
     ok = report("preview config is staging-only", assertConfigIsStagingOnly({ config: readFileSync(arg, "utf8"), accountIdEnv: process.env.CLOUDFLARE_ACCOUNT_ID || "", stripeKey: process.env.STRIPE_SECRET_KEY || "", productionWrangler }));
+  } else if (mode === "--check-tours-settings-config") {
+    ok = report("tours settings config is staging-only", assertToursSettingsConfigIsStagingOnly({ config: readFileSync(arg || TOURS_SETTINGS_WRANGLER, "utf8"), productionWrangler }));
+  } else if (mode === "--check-tours-settings-deployed") {
+    ok = report("deployed tours settings Worker is staging-only", await checkToursSettingsDeployed());
   } else if (mode === "--check-stripe") {
     const problems = [];
     const secret = process.env.STRIPE_SECRET_KEY || "";
