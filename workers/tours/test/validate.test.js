@@ -65,7 +65,9 @@ test("cruise all-aboard must be customer-confirmed; active cruise tour needs a s
   s.mandatory.cruise.allAboardTimeCustomerConfirmed = false;
   assert.ok(codes(s).includes("mandatory-cruise"));
   const t = fresh();
+  t.gates.harbourPickupAccess = { verified: true, evidenceRef: "HARBOUR-1" };
   const cruise = t.commercial.tours.find((x) => x.cruise);
+  cruise.cruiseScope = "unconfigured";
   cruise.active = true;
   assert.ok(codes(t).includes("cruise-scope"));
   cruise.cruiseScope = "longDistance";

@@ -2,7 +2,7 @@ export { TourSettingsDO } from "./settings-do.js";
 
 const ROUTES = new Map([
   ["GET /settings", true], ["GET /readiness", true], ["GET /versions", true], ["GET /audit", true],
-  ["POST /validate", true], ["POST /publish", true], ["POST /rollback", true], ["POST /verify", true],
+  ["POST /validate", true], ["POST /validate-itinerary", true], ["POST /publish", true], ["POST /rollback", true], ["POST /verify", true],
 ]);
 const json = (body, status) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 

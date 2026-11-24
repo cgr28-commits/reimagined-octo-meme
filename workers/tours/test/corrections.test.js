@@ -50,7 +50,7 @@ test("enabling a feature while its gate is closed is still refused and blocks la
   assert.deepEqual(launchReadiness(a).blockingFeatures, ["advertisingApproval"]);
   const g = openMandatory(fresh()); g.commercial.wording.guidingClaimsAllowed = true;
   assert.ok(codes(g).includes("gate-closed"));
-  const r = openMandatory(fresh()); r.commercial.itinerary.customItinerariesEnabled = true;
+  const r = openMandatory(fresh()); r.commercial.itinerary.smartItineraryBuilderEnabled = true;
   assert.ok(codes(r).includes("gate-closed"));
   a.gates.advertisingApproval = { verified: true, evidenceRef: "ADS-OK" };
   assert.ok(!codes(a).includes("gate-closed"));
@@ -107,7 +107,7 @@ test("50% cancellation refund tier is seeded and validated", () => {
 });
 test("genuinely unapproved durations, mileage, positioning and costs stay unconfigured", () => {
   const s = fresh();
-  for (const t of s.commercial.tours) for (const u of [t, ...t.variants]) for (const k of ["durationHours", "estimatedMiles", "homePositioningMiles", "homePositioningHours"]) assert.equal(u[k].value, null, `${t.id}.${k}`);
+  for (const t of s.commercial.tours) for (const u of [t, ...t.variants]) for (const k of ["estimatedMiles", "homePositioningMiles", "homePositioningHours"]) assert.equal(u[k].value, null, `${t.id}.${k}`);
   for (const k of ["paymentProcessingFeePercent", "paymentProcessingFeeFixedPence", "administrativeCostPencePerBooking", "advertisingAcquisitionCostPence", "selfDrivingHourlyEarningsTargetPence", "subcontractorSuppliedVehicleFeePercent"]) assert.equal(s.commercial.finance[k].value, null, k);
   assert.equal(s.commercial.finance.vehicleRunningCostPencePerMile.value, 38);
 });
@@ -196,19 +196,3 @@ test("margin override can be recorded per variant", () => {
   assert.ok(codes(s).includes("override"));
 });
 
-// ---- schema upgrade of data stored by the first WP-B1 deploy ----
-test("a settings document stored under the old schema is upgraded by appending a new version", async () => {
-  const { call, storage } = makeDO();
-  await call("GET", "/settings"); // seeds v1 under the current schema
-  const old = storage.map.get("v:00000001");
-  old.settings.schema = "tour-settings/1";
-  const { snapshotHash } = await import("../src/canonical.js");
-  old.hash = await snapshotHash(1, old.settings);
-  const r = await call("GET", "/settings");
-  assert.equal(r.body.version, 2);
-  assert.equal(r.body.settings.schema, "tour-settings/2");
-  assert.equal((await call("GET", "/versions/1")).body.settings.schema, "tour-settings/1"); // history retained
-  const entries = (await call("GET", "/audit")).body.entries;
-  assert.equal(entries[entries.length - 1].action, "schema-upgrade");
-  assert.equal((await call("POST", "/rollback", { baseVersion: 2, targetVersion: 1, reason: "try old schema" })).status, 422); // old schema cannot be restored
-});

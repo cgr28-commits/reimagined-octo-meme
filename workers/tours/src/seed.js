@@ -19,14 +19,46 @@ const AGREED_PROVISIONAL_PRICE_PENCE = Object.freeze({
 });
 const priceLeaf = (key) => (AGREED_PROVISIONAL_PRICE_PENCE[key] ? leaf(AGREED_PROVISIONAL_PRICE_PENCE[key]) : unconfigured());
 
+/** Agreed PROVISIONAL durations (hours). Antrim Coast 8h is the full-day variant; the half-day duration is not agreed. */
+const AGREED_PROVISIONAL_DURATION_HOURS = Object.freeze({
+  "giants-causeway": 9,
+  "game-of-thrones": 9,
+  "antrim-coast:full-day": 8,
+  "belfast-city": 5,
+  "cruise-express": 6,
+  "cruise-causeway": 9,
+});
+const durationLeaf = (key) => (AGREED_PROVISIONAL_DURATION_HOURS[key] ? leaf(AGREED_PROVISIONAL_DURATION_HOURS[key]) : unconfigured());
+
+/** Durations as currently published on the website (src/lib/tours.ts). Preserved verbatim; never changed by WP-B1. */
+const PUBLISHED_DURATION = Object.freeze({
+  "giants-causeway": "Full day (~8 hours)",
+  "belfast-city": "Half day (~4 hours)",
+  "game-of-thrones": "Full day (~8 hours)",
+  "antrim-coast": "Half or full day (~4–8 hours)",
+  "antrim-coast:half-day": "Half day (~4 hours)",
+  "antrim-coast:full-day": "Full day (~8 hours)",
+});
+
 function seedUnit(key) {
   return {
+    publishedDurationLabel: PUBLISHED_DURATION[key] ?? null,
     provisionalPricePence: priceLeaf(key),
-    durationHours: unconfigured(),
+    durationHours: durationLeaf(key),
     estimatedMiles: unconfigured(),
     homePositioningMiles: unconfigured(), // home (Glengormley) to first pick-up and last drop-off back home
     homePositioningHours: unconfigured(),
   };
+}
+
+const CRUISE_SCOPE = Object.freeze({ "cruise-express": "belfastOnly", "cruise-causeway": "longDistance" });
+
+/** An empty tour of the current shape (used by migration for owner-added tours). */
+export function blankTour() {
+  return { id: "", slug: null, name: null, cruise: false, cruiseScope: null, publishedPricePence: null, ...seedUnit("none"), includedHours: unconfigured(), extraHourPence: unconfigured(), variants: [], active: false, bookable: false, instantBooking: false, provisional: true };
+}
+export function blankVariant() {
+  return { id: "", kind: "half-day", publishedPricePence: null, ...seedUnit("none"), active: false, bookable: false, instantBooking: false };
 }
 
 function seedTours() {
@@ -58,13 +90,14 @@ function seedTours() {
       bookable: false,
       instantBooking: false,
     }));
-    const unit = variants.length ? seedUnit(`${tour.id}:none`) : seedUnit(tour.id);
+    // With variants the tour-level figures stay empty; only the published "from" duration label lives on the tour.
+    const unit = variants.length ? { ...seedUnit(`${tour.id}:none`), publishedDurationLabel: PUBLISHED_DURATION[tour.id] ?? null } : seedUnit(tour.id);
     return {
       id: tour.id,
       slug: tour.slug,
       name: tour.name ?? null,
       cruise: tour.id.startsWith("cruise-"),
-      cruiseScope: tour.id.startsWith("cruise-") ? "unconfigured" : null, // "belfastOnly" | "longDistance" once the owner sets it
+      cruiseScope: CRUISE_SCOPE[tour.id] ?? null, // Cruise Express Belfast-only, Cruise Causeway long-distance (owner decision)
       publishedPricePence: tour.publishedPricePence ?? null, // existing published price, preserved
       ...unit, // with variants, these tour-level figures stay unconfigured: each variant carries its own
       includedHours: unconfigured(),
@@ -153,7 +186,7 @@ export function seedSettings() {
       content: { photoLibrary: [], reviews: { source: "google-reviews-integration", distinguishAirportAndTourReviews: true, approvedReviewIds: [] } },
       advertising: { tourAdsEnabled: false, externalConversionsEnabled: false, googleAdsApiEnabled: false, excludeFromAirportConversions: true },
       wording: { driverTerm: WORDING.driverTerm, guidingClaimsAllowed: false },
-      itinerary: { reservedForWpB4b: true, customItinerariesEnabled: false },
+      itinerary: { reservedForWpB4b: true, smartItineraryBuilderEnabled: false },
     },
     gates: Object.fromEntries(GATE_NAMES.map((name) => [name, { verified: false, evidenceRef: null }])),
     publicLaunch: { enabled: false },

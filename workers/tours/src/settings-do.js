@@ -1,7 +1,8 @@
 import { canonicalize, constantTimeEqual, sha256Hex, snapshotHash, verifySnapshot } from "./canonical.js";
 import { SCHEMA } from "./constants.js";
+import { migrateSettings } from "./migrate.js";
 import { seedSettings } from "./seed.js";
-import { launchReadiness, validate } from "./validate.js";
+import { launchReadiness, validate, validateCruiseItinerary } from "./validate.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MAX_FAILS = 5;
@@ -45,32 +46,59 @@ export class TourSettingsDO {
     return { ok: false, status: 401, error: "unauthorised" };
   }
 
-  async ensureInitialised() {
-    const current = await this.state.storage.get("current");
-    if (current === undefined) {
-      await this.writeVersion(1, seedSettings(), "system", "Initial provisional seed (staging)", null);
-      return;
-    }
-    // Schema upgrade: staging holds synthetic data only. Append a freshly seeded version; earlier versions stay untouched.
-    const rec = await this.getVersion(current);
-    if (rec && rec.settings && rec.settings.schema !== SCHEMA) {
-      await this.writeVersion(current + 1, seedSettings(), "system", `Schema upgrade ${rec.settings.schema} to ${SCHEMA}: staging reseeded, previous versions retained`, null, "schema-upgrade");
-    }
-  }
-
-  async writeVersion(version, settings, actor, reason, restoredFrom, action = null) {
+  /**
+   * ATOMIC: the version record, the current-version pointer and the audit entry are written in ONE storage transaction.
+   * If anything fails or throws, none of them is persisted (no version without its pointer or audit entry, and no audit
+   * entry for a version that does not exist). The transaction also re-checks that this really is the next version.
+   */
+  async commitVersion(version, settings, actor, reason, restoredFrom, action, extraDetail = {}) {
     const hash = await snapshotHash(version, settings);
     const record = { version, settings, hash, createdAt: new Date().toISOString(), actor, reason, restoredFrom };
-    await this.state.storage.put(`v:${String(version).padStart(8, "0")}`, record);
-    await this.state.storage.put("current", version);
-    await this.audit(action || (restoredFrom ? "rollback" : version === 1 ? "seed" : "publish"), actor, { version, hash, reason, restoredFrom });
+    await this.state.storage.transaction(async (txn) => {
+      const current = await txn.get("current");
+      if (version !== (current === undefined ? 1 : current + 1)) throw new Error("version-sequence");
+      const key = `v:${String(version).padStart(8, "0")}`;
+      if ((await txn.get(key)) !== undefined) throw new Error("version-exists");
+      const seq = ((await txn.get("auditSeq")) || 0) + 1;
+      await txn.put(key, record);
+      await txn.put("current", version);
+      await txn.put(`a:${String(seq).padStart(8, "0")}`, { seq, at: record.createdAt, action, actor, detail: { version, hash, reason, restoredFrom, ...extraDetail } });
+      await txn.put("auditSeq", seq);
+    });
     return record;
   }
 
-  async audit(action, actor, detail) {
-    const seq = ((await this.state.storage.get("auditSeq")) || 0) + 1;
-    await this.state.storage.put(`a:${String(seq).padStart(8, "0")}`, { seq, at: new Date().toISOString(), action, actor, detail });
-    await this.state.storage.put("auditSeq", seq);
+  /** Audit-only writes (conflicts, rejections, failures) are also a single transaction. */
+  async audit(action, actor, detail, extra = {}) {
+    await this.state.storage.transaction(async (txn) => {
+      const seq = ((await txn.get("auditSeq")) || 0) + 1;
+      for (const [k, v] of Object.entries(extra)) await txn.put(k, v);
+      await txn.put(`a:${String(seq).padStart(8, "0")}`, { seq, at: new Date().toISOString(), action, actor, detail });
+      await txn.put("auditSeq", seq);
+    });
+  }
+
+  async writeVersion(version, settings, actor, reason, restoredFrom) {
+    return this.commitVersion(version, settings, actor, reason, restoredFrom, restoredFrom ? "rollback" : version === 1 ? "seed" : "publish");
+  }
+
+  async ensureInitialised() {
+    const current = await this.state.storage.get("current");
+    if (current === undefined) {
+      await this.commitVersion(1, seedSettings(), "system", "Initial provisional seed (staging)", null, "seed");
+      return;
+    }
+    const rec = await this.getVersion(current);
+    if (!rec || !rec.settings || rec.settings.schema === SCHEMA) return;
+    if ((await this.state.storage.get("migrationBlockedAt")) === current) return; // already reported; owner must publish a fix
+    // Schema upgrade that PRESERVES saved owner settings (see migrate.js). Applied only if the result is valid.
+    const { settings, notes, fromSchema } = migrateSettings(rec.settings);
+    const result = settings ? validate(settings) : { ok: false, errors: [] };
+    if (result.ok) {
+      await this.commitVersion(current + 1, settings, "system", `Schema upgrade ${fromSchema} to ${SCHEMA}: saved owner settings preserved`, null, "schema-upgrade", { fromVersion: current, fromSchema, notes: notes.slice(0, 50) });
+    } else {
+      await this.audit("schema-upgrade-failed", "system", { fromVersion: current, fromSchema, errorCodes: result.errors.map((e) => `${e.path}:${e.code}`).slice(0, 20), notes: notes.slice(0, 20) }, { migrationBlockedAt: current });
+    }
   }
 
   async getVersion(n) {
@@ -126,6 +154,12 @@ export class TourSettingsDO {
     if (path === "/validate") {
       const result = validate(body.settings);
       return json({ ok: true, valid: result.ok, errors: result.errors, warnings: result.warnings });
+    }
+
+    if (path === "/validate-itinerary") {
+      const rec = await this.getVersion(current);
+      const result = validateCruiseItinerary(rec.settings, body.itinerary);
+      return json({ ok: true, valid: result.ok, version: rec.version, ...result });
     }
 
     if (path === "/publish") {

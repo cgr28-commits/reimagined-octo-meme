@@ -3,12 +3,28 @@ import { seedSettings } from "../src/seed.js";
 
 export const KEY = "test-owner-key-0123456789abcdef";
 
+/**
+ * In-memory stand-in for Durable Object storage. transaction() has the same contract as Cloudflare's
+ * storage.transaction(): if the callback throws, every write made inside it is rolled back.
+ * failOnPut(n) makes the nth put() throw, to prove atomicity under mid-write failure.
+ */
 export function fakeStorage() {
   const map = new Map();
-  return {
+  let puts = 0;
+  let failAt = null;
+  const api = {
     map,
+    failOnPut(n) { failAt = puts + n; },
     async get(k) { return map.has(k) ? structuredClone(map.get(k)) : undefined; },
-    async put(k, v) { map.set(k, structuredClone(v)); },
+    async put(k, v) {
+      puts += 1;
+      if (failAt !== null && puts === failAt) { failAt = null; throw new Error("injected storage failure"); }
+      map.set(k, structuredClone(v));
+    },
+    async transaction(fn) {
+      const snapshot = new Map([...map].map(([k, v]) => [k, structuredClone(v)]));
+      try { return await fn(api); } catch (error) { map.clear(); for (const [k, v] of snapshot) map.set(k, v); throw error; }
+    },
     async delete(k) { return map.delete(k); },
     async list({ prefix = "" } = {}) {
       const out = new Map();
@@ -16,6 +32,7 @@ export function fakeStorage() {
       return out;
     },
   };
+  return api;
 }
 
 export function makeDO(env = { TOURS_OWNER_KEY: KEY, TOURS_ENVIRONMENT: "staging" }) {

@@ -31,10 +31,10 @@ export function launchReadiness(settings) {
     advertisingApproval: c.advertising.tourAdsEnabled === true || c.advertising.externalConversionsEnabled === true,
     guidingQualifications: c.wording.guidingClaimsAllowed === true,
     harbourPickupAccess: cruiseInUse,
-    routingProvider: c.itinerary.customItinerariesEnabled === true,
+    routingProvider: c.itinerary.smartItineraryBuilderEnabled === true,
   };
   const mandatoryGatesClosed = MANDATORY_LAUNCH_GATES.filter((g) => !open(g));
-  const features = Object.fromEntries(Object.entries(FEATURE_GATES).map(([gate, label]) => [gate, { feature: label, enabled: featureEnabled[gate], verified: open(gate), blocking: featureEnabled[gate] && !open(gate) }]));
+  const features = Object.fromEntries(Object.entries(FEATURE_GATES).map(([gate, meta]) => [gate, { feature: meta.feature, requirement: meta.mandatory ? "mandatory-when-used" : "optional", enabled: featureEnabled[gate], verified: open(gate), blocking: featureEnabled[gate] && !open(gate) }]));
   const blockingFeatures = Object.keys(features).filter((g) => features[g].blocking);
   return { launchReady: mandatoryGatesClosed.length === 0 && blockingFeatures.length === 0, mandatoryGatesClosed, blockingFeatures, features };
 }
@@ -255,8 +255,8 @@ export function validate(settings) {
     guiding(c, "commercial");
   }
 
-  if (typeof c.itinerary.customItinerariesEnabled !== "boolean") err("commercial.itinerary.customItinerariesEnabled", "type", "Must be true or false.");
-  else if (c.itinerary.customItinerariesEnabled && !gateOpen("routingProvider")) err("commercial.itinerary.customItinerariesEnabled", "gate-closed", "Custom itineraries stay off until the routingProvider gate is verified.");
+  if (typeof c.itinerary.smartItineraryBuilderEnabled !== "boolean") err("commercial.itinerary.smartItineraryBuilderEnabled", "type", "Must be true or false.");
+  else if (c.itinerary.smartItineraryBuilderEnabled && !gateOpen("routingProvider")) err("commercial.itinerary.smartItineraryBuilderEnabled", "gate-closed", "The Smart Itinerary Builder needs the routingProvider gate (routing provider approval) to be verified.");
 
   // ---- tours ----
   elementShape(c.tours, Object.keys(template.commercial.tours[0]), "commercial.tours");
@@ -269,6 +269,7 @@ export function validate(settings) {
     leafCheck(u.estimatedMiles, `${p}.estimatedMiles`, { kind: "num", min: 0 });
     leafCheck(u.homePositioningMiles, `${p}.homePositioningMiles`, { kind: "num", min: 0 });
     leafCheck(u.homePositioningHours, `${p}.homePositioningHours`, { kind: "num", min: 0, max: 24 });
+    if (!(u.publishedDurationLabel === undefined || u.publishedDurationLabel === null || typeof u.publishedDurationLabel === "string")) err(`${p}.publishedDurationLabel`, "text", "Must be text or null.");
     for (const flag of ["active", "bookable", "instantBooking"]) if (typeof u[flag] !== "boolean") err(`${p}.${flag}`, "type", "Must be true or false.");
     if (!(u.publishedPricePence === null || (isInt(u.publishedPricePence) && u.publishedPricePence > 0))) err(`${p}.publishedPricePence`, "price", "Price must be a positive whole number of pence.");
     const dur = u.durationHours?.value;
@@ -279,7 +280,7 @@ export function validate(settings) {
     }
     
     if (u.bookable && !(mandatoryGatesOpen && u.provisionalPricePence.value !== null)) err(`${p}.bookable`, "gate-closed", "Not bookable until every mandatory launch prerequisite is verified and its price is set.");
-    if (u.bookable && isVariant === "cruise" && !gateOpen("harbourPickupAccess")) err(`${p}.bookable`, "gate-closed", "Cruise tours need the harbourPickupAccess gate.");
+    if ((u.bookable || u.active) && isVariant === "cruise" && !gateOpen("harbourPickupAccess")) err(`${p}.${u.bookable ? "bookable" : "active"}`, "gate-closed", "Cruise tours need harbour pick-up approval (harbourPickupAccess) before they can be active or bookable. No other tour is affected.");
     if (u.instantBooking && !(u.bookable && gateOpen("pricingApproval"))) err(`${p}.instantBooking`, "gate-closed", "Instant booking needs a bookable tour and the pricingApproval gate.");
 
   };
@@ -313,7 +314,7 @@ export function validate(settings) {
     leafCheck(t.extraHourPence, `${p}.extraHourPence`, { kind: "int", min: 0 });
     if (typeof t.provisional !== "boolean") err(`${p}.provisional`, "type", "Must be true or false.");
     if (t.active && t.cruise && t.cruiseScope === "unconfigured") err(`${p}.cruiseScope`, "cruise-scope", "An active cruise tour needs its scope set (belfastOnly or longDistance) so the right return buffer applies.");
-    elementShape(t.variants, ["id", "kind", "publishedPricePence", "provisionalPricePence", "durationHours", "estimatedMiles", "homePositioningMiles", "homePositioningHours", "active", "bookable", "instantBooking"], `${p}.variants`);
+    elementShape(t.variants, ["id", "kind", "publishedPricePence", "publishedDurationLabel", "provisionalPricePence", "durationHours", "estimatedMiles", "homePositioningMiles", "homePositioningHours", "active", "bookable", "instantBooking"], `${p}.variants`);
     const tag = t.cruise ? "cruise" : "tour";
     unitChecks(t, p, { isVariant: tag });
     if (t.variants.length) {
@@ -356,4 +357,41 @@ export function validate(settings) {
 
 function finish(errors, warnings) {
   return { ok: errors.length === 0, errors, warnings };
+}
+
+const REGIONS = ["belfast", "outside-belfast"];
+const SCOPE_RANK = { belfastOnly: 1, longDistance: 2 };
+
+/**
+ * Itinerary-level validation of the applicable cruise return scope (pure; settings must already be valid).
+ * The applicable scope is the tour's configured scope, raised to longDistance if any stop is outside Belfast. It is never
+ * reduced: a long-distance tour with only Belfast stops still gets the long-distance buffer, and a Belfast-only tour whose
+ * itinerary leaves Belfast is rejected (it needs a different, long-distance product).
+ * itinerary = { tourId, stops: [{ id, region }], allAboardAt (ISO), allAboardConfirmedByCustomer, plannedPortReturnAt (ISO),
+ *               engineContingencyMinutes? (engine may only increase) }
+ */
+export function validateCruiseItinerary(settings, itinerary) {
+  const errors = [];
+  const err = (path, code, message) => errors.push({ path, code, message });
+  if (!isObj(itinerary)) return { ok: false, errors: [{ path: "", code: "type", message: "Itinerary must be an object." }] };
+  const tour = settings.commercial.tours.find((t) => t.id === itinerary.tourId);
+  if (!tour) return { ok: false, errors: [{ path: "tourId", code: "unknown-tour", message: "Unknown tour." }] };
+  if (!tour.cruise) return { ok: true, errors: [], applicable: false }; // return buffers are a cruise-only rule
+  if (!SCOPE_RANK[tour.cruiseScope]) err("tourId", "cruise-scope", "This cruise tour has no return scope configured (belfastOnly or longDistance).");
+  if (!Array.isArray(itinerary.stops) || !itinerary.stops.length || !itinerary.stops.every((x) => isObj(x) && typeof x.id === "string" && REGIONS.includes(x.region))) err("stops", "stops", `Stops must be a non-empty list of { id, region: ${REGIONS.join(" | ")} }.`);
+  if (itinerary.allAboardConfirmedByCustomer !== true) err("allAboardConfirmedByCustomer", "all-aboard", "The all-aboard time must be confirmed by the customer, never inferred.");
+  const aboard = Date.parse(itinerary.allAboardAt);
+  const back = Date.parse(itinerary.plannedPortReturnAt);
+  if (Number.isNaN(aboard)) err("allAboardAt", "all-aboard", "allAboardAt must be a date-time.");
+  if (Number.isNaN(back)) err("plannedPortReturnAt", "return-time", "plannedPortReturnAt must be a date-time.");
+  if (errors.length) return { ok: false, errors };
+  const leaves = Array.isArray(itinerary.stops) && itinerary.stops.some((x) => x.region === "outside-belfast");
+  if (tour.cruiseScope === "belfastOnly" && leaves) err("stops", "scope-exceeded", "This itinerary leaves Belfast but the tour is configured Belfast-only. It needs a long-distance tour; the 60-minute buffer cannot be used.");
+  const applicable = leaves || tour.cruiseScope === "longDistance" ? "longDistance" : "belfastOnly";
+  const engine = itinerary.engineContingencyMinutes;
+  if (!(engine === undefined || (typeof engine === "number" && Number.isFinite(engine) && engine >= 0))) err("engineContingencyMinutes", "engine", "Engine contingency must be a number of minutes (0 or more); it can only increase the buffer.");
+  const needed = effectiveReturnBufferMinutes(settings, applicable, engine ?? 0);
+  const available = Math.floor((aboard - back) / 60000);
+  if (available < needed) err("plannedPortReturnAt", "return-buffer", `Return to port leaves ${available} minutes before all-aboard; ${applicable} requires at least ${needed}.`);
+  return { ok: errors.length === 0, errors, applicable: true, applicableScope: applicable, requiredBufferMinutes: needed, availableBufferMinutes: available };
 }

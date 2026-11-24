@@ -5,7 +5,7 @@
  * only tighten them (never loosen them), and the validator rejects any document that tries.
  * PROVISIONAL commercial settings live in the settings document and the owner may change them.
  */
-export const SCHEMA = "tour-settings/2"; // /2: gate split, variants, home positioning, vehicle-supply models
+export const SCHEMA = "tour-settings/3"; // /3: smartItineraryBuilderEnabled, published duration labels, itinerary scope validation (/2: gate split, variants, positioning, vehicle-supply models)
 
 export const MANDATORY = Object.freeze({
   /** Hard ceiling on passengers for every tour and every vehicle. */
@@ -35,10 +35,12 @@ export const MANDATORY_LAUNCH_GATES = Object.freeze([
   "pricingApproval",
 ]);
 export const FEATURE_GATES = Object.freeze({
-  advertisingApproval: "tour advertising and external conversions",
-  guidingQualifications: "guiding claims in wording",
-  harbourPickupAccess: "cruise tours (Belfast Harbour pick-up)",
-  routingProvider: "custom itineraries (routing)",
+  // Optional: only needed if the owner switches the feature on.
+  advertisingApproval: Object.freeze({ feature: "tour advertising and external conversions", mandatory: false }),
+  guidingQualifications: Object.freeze({ feature: "guiding claims in wording", mandatory: false }),
+  // Mandatory, but ONLY for the area they guard: cruise tours (harbour) and the Smart Itinerary Builder (routing).
+  harbourPickupAccess: Object.freeze({ feature: "cruise tours (Belfast Harbour pick-up)", mandatory: true }),
+  routingProvider: Object.freeze({ feature: "Smart Itinerary Builder (routing)", mandatory: true }),
 });
 export const GATE_NAMES = Object.freeze([...MANDATORY_LAUNCH_GATES, ...Object.keys(FEATURE_GATES)]);
 
