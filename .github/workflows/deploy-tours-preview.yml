@@ -32,6 +32,8 @@ env:
   PREVIEW_WORKER_NAME: reimagined-octo-meme-tours-preview
   PREVIEW_PAGES_PROJECT: matni-tours-preview
   TOURS_SETTINGS_WORKER_NAME: reimagined-octo-meme-tours-settings-preview
+  # The Private Tours site talks to the staging tours Worker (enquiries, saved plans). Pinned; the build script refuses any other host.
+  TOURS_API_ORIGIN: https://reimagined-octo-meme-tours-settings-preview.my-airport-taxi-ni-staging.workers.dev
   WRANGLER_CONFIG: wrangler.tours-preview.generated.toml
 
 jobs:
@@ -157,6 +159,7 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         env:
           PREVIEW_WORKER_ORIGIN: ${{ steps.worker.outputs.url }}
+          TOURS_API_ORIGIN: ${{ env.TOURS_API_ORIGIN }}
           TOURS_ACCESS_CODE: ${{ secrets.TOURS_PREVIEW_ACCESS_CODE }}
         run: |
           set -euo pipefail
@@ -368,6 +371,18 @@ jobs:
           smoke_call 200 "Controls audit" -H "$AUTH" "$URL/controls/audit"
           node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).entries.map(e=>e.action); if(!a.includes("pause")||!a.includes("resume")||!a.includes("conflict")){console.error("::error::Controls audit is missing entries.");process.exit(1)}' "$SMOKE_BODY"
           echo "emergency controls verified on the deployed Worker (pause, conflict, check, public status, resume, audit)"
+          # Private Tours site: public enquiry and saved-plan routes, CORS and owner-only enquiry reads.
+          ORIGIN='https://matni-tours-preview.pages.dev'
+          smoke_call 401 "Enquiries list needs the owner key" "$URL/owner/enquiries"
+          smoke_call 404 "Internal controls route is not public" -X POST -H 'Content-Type: application/json' -d '{}' "$URL/internal/enquiry-decision"
+          smoke_call 400 "Invalid enquiry is rejected" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -d '{"name":"x"}' "$URL/enquiries"
+          smoke_call 201 "Save a plan" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -d '{"plan":{"stopIds":["titanic-belfast","city-hall"],"guests":2}}' "$URL/itinerary/save"
+          PLAN_TOKEN="$(jget token)"
+          [ -n "$PLAN_TOKEN" ] || { echo "::error::No saved-plan token returned."; exit 1; }
+          smoke_call 200 "Read the saved plan" "$URL/itinerary/saved/$PLAN_TOKEN"
+          smoke_call 200 "Delete the saved plan" -X DELETE "$URL/itinerary/saved/$PLAN_TOKEN"
+          smoke_call 404 "Deleted plan is gone" "$URL/itinerary/saved/$PLAN_TOKEN"
+          echo "private tours site routes verified on the deployed Worker (validation, save, read, delete, owner-only list)"
           echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${SMOKE_RETRIES})."
 
       - name: Deployed bindings are staging-only (own Durable Object only)

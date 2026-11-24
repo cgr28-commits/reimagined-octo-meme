@@ -7,6 +7,8 @@ workers_dev = true
 
 [vars]
 TOURS_ENVIRONMENT = "staging"
+# Staging preview origins only (never the production site).
+TOURS_ALLOWED_ORIGINS = "https://matni-tours-preview.pages.dev"
 
 [[durable_objects.bindings]]
 name = "TOUR_SETTINGS"
@@ -16,6 +18,10 @@ class_name = "TourSettingsDO"
 name = "TOUR_CONTROLS"
 class_name = "TourControlsDO"
 
+[[durable_objects.bindings]]
+name = "TOUR_ENQUIRIES"
+class_name = "TourEnquiriesDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TourSettingsDO"]
@@ -24,3 +30,8 @@ new_sqlite_classes = ["TourSettingsDO"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["TourControlsDO"]
+
+# Private Tours site: enquiries and saved itineraries (separate Durable Object, staging only).
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["TourEnquiriesDO"]

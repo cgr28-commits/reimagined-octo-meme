@@ -403,14 +403,16 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
 });
 
 // ===== Staging isolation =====
-test("AC9: configuration stays staging-only (two own Durable Objects, no other bindings, no routes, no production)", () => {
+test("AC9: configuration stays staging-only (three own Durable Objects, no other bindings, no routes, no production)", () => {
   const config = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
   const production = readFileSync(new URL("../../addresses/wrangler.toml", import.meta.url), "utf8");
   assert.deepEqual(assertToursSettingsConfigIsStagingOnly({ config, productionWrangler: production }), []);
-  assert.equal((config.match(/^\[\[durable_objects\.bindings\]\]/gm) || []).length, 2);
+  assert.equal((config.match(/^\[\[durable_objects\.bindings\]\]/gm) || []).length, 3);
   assert.match(config, /tag = "v2"\nnew_sqlite_classes = \["TourControlsDO"\]/);
   const third = assertToursSettingsConfigIsStagingOnly({ config: config + '\n[[durable_objects.bindings]]\nname = "X"\nclass_name = "Y"\n', productionWrangler: production });
-  assert.ok(third.some((p) => /exactly two/.test(p)));
+  assert.ok(third.some((p) => /exactly three/.test(p)));
+  const prodOrigin = assertToursSettingsConfigIsStagingOnly({ config: config.replace(/TOURS_ALLOWED_ORIGINS = "[^"]*"/, 'TOURS_ALLOWED_ORIGINS = "https://www.myairporttaxini.co.uk"'), productionWrangler: production });
+  assert.ok(prodOrigin.some((p) => /ALLOWED_ORIGINS/.test(p)));
   const kv = assertToursSettingsConfigIsStagingOnly({ config: config + '\n[[kv_namespaces]]\nbinding = "K"\nid = "' + "a".repeat(32) + '"\n', productionWrangler: production });
   assert.ok(kv.length > 0);
   assert.ok(!/availability|booking|payment|stripe|resend|push/i.test(config.replace(/^name\s*=.*$/m, "").replace(/^#.*$/gm, "")));

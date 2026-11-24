@@ -178,12 +178,13 @@ test("caller-supplied x-client-id cannot be used to dodge the lockout", async ()
 // ---- Isolation: no production or airport coupling in WP-B1 code ----
 test("WP-B1 source has no network calls, no KV/production bindings and no airport/production references", () => {
   const dir = new URL("../src/", import.meta.url);
-  for (const f of readdirSync(dir)) {
+  const files = readdirSync(dir, { recursive: true }).filter((f) => f.endsWith(".js"));
+  for (const f of files) {
     if (f === "constants.js") continue; // holds the forbidden-pattern list itself
     const text = readFileSync(new URL(f, dir), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
     assert.ok(!/\bfetch\s*\(\s*["'`]http/.test(text), `${f} makes an outbound request`);
     assert.ok(!/(env\.[A-Z_]*KV|kv_namespace|AVAILABILITY_KV|SUMUP|STRIPE_SECRET|36c5c88df4c1f0259413d555f2679f3c)/.test(text), `${f} references a production resource`);
-    for (const m of text.matchAll(/from\s+["']([^"']+)["']/g)) assert.ok(m[1].startsWith("./"), `${f} imports outside workers/tours/src: ${m[1]}`);
+    for (const m of text.matchAll(/from\s+["']([^"']+)["']/g)) assert.ok(m[1].startsWith(".") && new URL(m[1], new URL(f, dir)).href.startsWith(dir.href), `${f} imports outside workers/tours/src: ${m[1]}`);
   }
   const wrangler = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
   assert.ok(!/routes?\s*=|kv_namespaces|36c5c88df4c1f0259413d555f2679f3c/.test(wrangler));

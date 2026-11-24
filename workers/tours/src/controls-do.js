@@ -93,6 +93,9 @@ export class TourControlsDO {
       return json(status, 200, { "cache-control": "public, max-age=30", "x-status-informational": "true" });
     }
 
+    // Internal only: reachable solely through the TOUR_CONTROLS binding (the public Worker never forwards this path). Always answers; failure is fail-safe.
+    if (method === "POST" && path === "/internal/enquiry-decision") return this.check(request);
+
     const auth = await authenticateOwner(this.state, this.env, request);
     if (!auth.ok) return json({ ok: false, error: auth.error }, auth.status);
 
