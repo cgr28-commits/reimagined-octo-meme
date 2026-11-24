@@ -40,6 +40,9 @@ function corsFor(request, env) {
 const withCors = (response, cors) => { const r = new Response(response.body, response); for (const [k, v] of Object.entries(cors)) r.headers.set(k, v); return r; };
 const json = (body, status) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
+/** Environments this Worker will run in. Production serves enquiries, saved plans and the owner's emergency controls only. */
+const ENVIRONMENTS = new Set(["staging", "production"]);
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -50,12 +53,12 @@ export default {
     const publicTarget = matchSite(PUBLIC_SITE, request.method, path);
     const ownerTarget = publicTarget ? null : matchSite(OWNER_SITE, request.method, path);
     if (publicTarget || ownerTarget) {
-      if (env.TOURS_ENVIRONMENT !== "staging") return json({ ok: false, error: "staging-only" }, 503);
+      if (!ENVIRONMENTS.has(env.TOURS_ENVIRONMENT)) return json({ ok: false, error: "not-configured" }, 503);
       const headers = new Headers(request.headers);
       headers.set("x-client-id", (request.headers.get("cf-connecting-ip") || "unknown").slice(0, 64));
       const body = request.method === "GET" || request.method === "DELETE" ? undefined : await request.text();
       if (body !== undefined && body.length > 32 * 1024) return withCors(json({ ok: false, error: "too-large" }, 413), cors);
-      const stub = env.TOUR_ENQUIRIES.get(env.TOUR_ENQUIRIES.idFromName("tour-enquiries-staging"));
+      const stub = env.TOUR_ENQUIRIES.get(env.TOUR_ENQUIRIES.idFromName(`tour-enquiries-${env.TOURS_ENVIRONMENT}`));
       const res = await stub.fetch(new Request(new URL(publicTarget || ownerTarget, request.url), { method: request.method, headers, body }));
       return withCors(res, cors);
     }
@@ -63,16 +66,18 @@ export default {
     const isControls = CONTROLS_ROUTES.has(`${request.method} ${path}`) || (request.method === "GET" && /^\/controls\/versions\/\d{1,8}$/.test(path));
     const allowed = isStatus || isControls || ROUTES.has(`${request.method} ${path}`) || (request.method === "GET" && /^\/versions\/\d{1,8}$/.test(path));
     if (!allowed) return json({ ok: false, error: "not-found" }, 404);
-    if (env.TOURS_ENVIRONMENT !== "staging") return json({ ok: false, error: "staging-only" }, 503); // refuses to run anywhere else
+    if (!ENVIRONMENTS.has(env.TOURS_ENVIRONMENT)) return json({ ok: false, error: "not-configured" }, 503); // refuses to run anywhere else
+    // The settings editor (publish, validate, versions) is staging only. Production has the status read and the owner's emergency controls.
+    if (env.TOURS_ENVIRONMENT !== "staging" && !isStatus && !isControls) return json({ ok: false, error: "staging-only" }, 503);
     const clientId = (request.headers.get("cf-connecting-ip") || "unknown").slice(0, 64);
     const headers = new Headers(request.headers);
     headers.set("x-client-id", clientId); // overwrite any caller-supplied value
     if (isStatus || isControls) {
       const target = isStatus ? "/public-status" : path;
-      const controls = env.TOUR_CONTROLS.get(env.TOUR_CONTROLS.idFromName("tour-controls-staging"));
+      const controls = env.TOUR_CONTROLS.get(env.TOUR_CONTROLS.idFromName(`tour-controls-${env.TOURS_ENVIRONMENT}`));
       return controls.fetch(new Request(new URL(target, request.url), { method: request.method, headers, body: request.method === "GET" ? undefined : await request.text() }));
     }
-    const stub = env.TOUR_SETTINGS.get(env.TOUR_SETTINGS.idFromName("tour-settings-staging"));
+    const stub = env.TOUR_SETTINGS.get(env.TOUR_SETTINGS.idFromName(`tour-settings-${env.TOURS_ENVIRONMENT}`));
     return stub.fetch(new Request(request, { headers }));
   },
 };

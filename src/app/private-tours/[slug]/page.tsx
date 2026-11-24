@@ -7,6 +7,17 @@ export function generateStaticParams() {
 }
 export const dynamicParams = false;
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const tour = TOUR_BY_ID.get(slug);
+  if (!tour) return {};
+  return {
+    title: `${tour.name} private tour from Belfast`,
+    description: `${tour.name}: a private tour from Belfast with a private local driver. Journey times and the guide price are provisional until your personal quote is confirmed.`,
+    alternates: { canonical: `/private-tours/${tour.slug}/` },
+  };
+}
+
 export default async function TourPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const tour = TOUR_BY_ID.get(slug);
@@ -28,7 +39,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
             <p className="pt-kicker">{tour.kicker}</p>
             <h1 style={{ marginTop: 8 }}>{tour.name}</h1>
             <p className="lead">{tour.tagline}</p>
-            <div className="pt-price" style={{ marginTop: 18 }}>{tour.pricePence ? <>from {formatPounds(tour.pricePence)}</> : "Price in your quote"}<small>provisional staging price · for the car, up to 4 guests · about {durationLabel(sample.customer?.durationMinutes ?? 0)}</small></div>
+            <div className="pt-price" style={{ marginTop: 18 }}>{tour.pricePence ? <>from {formatPounds(tour.pricePence)}</> : "Price in your quote"}<small>provisional guide price · for the car, up to 4 guests · about {durationLabel(sample.customer?.durationMinutes ?? 0)}</small></div>
             <div className="pt-actions">
               <Link className="pt-btn green" href={planHref}>Customise this tour</Link>
               <Link className="pt-btn alt" href="/private-tours/plan/">Build from scratch</Link>

@@ -187,3 +187,60 @@ test("library copy states no opening hours, admission prices or accessibility fa
   const text = ATTRACTIONS.map((a) => a.blurb).join(" ");
   assert.ok(!/£|\bfree\b|opens? at|closes? at|wheelchair|step-free|accessible|Friday|Monday|Sunday/i.test(text));
 });
+
+// ---- Production launch readiness (enquiry-only) ----
+import { notifyOwner, buildOwnerNotification } from "../src/notify.js";
+import { readFileSync as readFileSyncLaunch, readdirSync as readdirSyncLaunch } from "node:fs";
+
+test("owner notification: reference, date and guests only; no customer details; skipped when not configured", async () => {
+  const record = { id: "TE-ABC12345", request: { date: "2027-06-10", guests: 2 }, contact: { name: "Secret Name", email: "secret@example.com", phone: "07000000000" }, request2: null, cruise: null, controls: { manualReview: true } };
+  const mail = buildOwnerNotification({ ...record, request: { ...record.request, notes: "private note" }, mobility: { preferences: ["step-free"] } }, { TOURS_OWNER_URL: "https://example.test/owner/" });
+  for (const secret of ["Secret Name", "secret@example.com", "07000000000", "private note", "step-free"]) assert.ok(!(mail.subject + mail.text).includes(secret), secret);
+  assert.match(mail.text, /TE-ABC12345/); assert.match(mail.text, /2027-06-10/); assert.match(mail.text, /manual review/i);
+  assert.deepEqual(await notifyOwner({}, record), { sent: false, reason: "not-configured" });
+  const calls = [];
+  const res = await notifyOwner({ RESEND_API_KEY: "k", TOURS_NOTIFY_EMAIL: "owner@example.com" }, record, async (url, init) => { calls.push([url, JSON.parse(init.body)]); return { ok: true, status: 200 }; });
+  assert.equal(res.sent, true); assert.equal(calls[0][0], "https://api.resend.com/emails"); assert.deepEqual(calls[0][1].to, ["owner@example.com"]);
+  assert.equal((await notifyOwner({ RESEND_API_KEY: "k", TOURS_NOTIFY_EMAIL: "o@example.com" }, record, async () => { throw new Error("down"); })).sent, false);
+});
+
+test("production Worker mode: enquiries and controls only, settings editor stays staging-only, own storage names", async () => {
+  const worker = (await import("../src/index.js")).default;
+  const seen = [];
+  const stub = (kind) => ({ idFromName: (n) => { seen.push(`${kind}:${n}`); return n; }, get: () => ({ fetch: async () => new Response("{}", { headers: { "content-type": "application/json" } }) }) });
+  const env = { TOURS_ENVIRONMENT: "production", TOURS_ALLOWED_ORIGINS: "https://www.myairporttaxini.co.uk", TOUR_ENQUIRIES: stub("e"), TOUR_CONTROLS: stub("c"), TOUR_SETTINGS: stub("s") };
+  const call = (method, path, extra = {}) => worker.fetch(new Request(`https://w.test${path}`, { method, ...extra }), env);
+  assert.equal((await call("GET", "/health")).status, 200);
+  assert.equal((await call("GET", "/settings")).status, 503, "settings editor is not available in production");
+  assert.equal((await call("POST", "/publish", { body: "{}" })).status, 503);
+  assert.equal((await call("GET", "/itinerary/saved/" + "a".repeat(32))).status, 200);
+  assert.equal((await call("GET", "/status")).status, 200);
+  assert.ok(seen.includes("e:tour-enquiries-production") && seen.includes("c:tour-controls-production"));
+  assert.ok(!seen.some((s) => s.startsWith("s:")), "settings storage untouched");
+  assert.equal((await worker.fetch(new Request("https://w.test/itinerary/saved/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), { ...env, TOURS_ENVIRONMENT: "development" })).status, 503);
+});
+
+test("production config and workflow: separate Worker, manual deploy only, no airport bindings", () => {
+  const toml = readFileSyncLaunch(new URL("../wrangler.production.toml", import.meta.url), "utf8");
+  assert.match(toml, /name = "reimagined-octo-meme-tours"/); assert.match(toml, /TOURS_ENVIRONMENT = "production"/);
+  assert.ok(!/kv_namespaces|TRACKING_STORE|BOOKING_COUNTER|\[\[routes|route =|pages\.dev/.test(toml), "no KV, routes or preview origins");
+  assert.deepEqual([...toml.matchAll(/class_name = "(\w+)"/g)].map((m) => m[1]).sort(), ["TourControlsDO", "TourEnquiriesDO", "TourSettingsDO"]);
+  const wf = readFileSyncLaunch(new URL("../../../.github/workflows/deploy-tours-production.yml", import.meta.url), "utf8").replace(/^\s*#.*$/gm, "");
+  assert.match(wf, /on:\s*\n\s*workflow_dispatch:/); assert.ok(!/\bpush:|\bschedule:|pull_request/.test(wf));
+  assert.match(wf, /DEPLOY TOURS WORKER/); assert.match(wf, /environment: tours-production/);
+  const dir = new URL("../../../.github/workflows/", import.meta.url);
+  for (const f of readdirSyncLaunch(dir)) if (f !== "deploy-tours-production.yml") assert.ok(!readFileSyncLaunch(new URL(f, dir), "utf8").includes("wrangler.production.toml") || !f.includes("worker"), `${f} must not deploy the tours production config`);
+});
+
+test("live mode: pages stay noindex and unlinked unless the live switch is set; sitemap and privacy cover tours", () => {
+  const root = new URL("../../../", import.meta.url);
+  const layout = readFileSyncLaunch(new URL("src/app/private-tours/layout.tsx", root), "utf8");
+  assert.match(layout, /TOURS_LIVE\s*\?\s*\{[\s\S]*index: true[\s\S]*\}\s*:\s*\{[\s\S]*index: false/);
+  assert.match(readFileSyncLaunch(new URL("src/lib/private-tours-mode.ts", root), "utf8"), /NEXT_PUBLIC_TOURS_MODE === "live"/);
+  const pages = readFileSyncLaunch(new URL(".github/workflows/deploy-pages.yml", root), "utf8");
+  assert.match(pages, /vars\.TOURS_LAUNCH.*= "live"/); assert.match(pages, /staging mode \(not indexed\)/);
+  assert.match(readFileSyncLaunch(new URL("scripts/generate-sitemap.mjs", root), "utf8"), /TOURS_LIVE\s*\n?\s*\? \[/);
+  assert.match(readFileSyncLaunch(new URL("src/app/robots.ts", root), "utf8"), /\/private-tours\/owner\//);
+  assert.match(readFileSyncLaunch(new URL("src/lib/privacy.ts", root), "utf8"), /Private Tours enquiries/);
+  assert.match(readFileSyncLaunch(new URL("src/app/private-tours/owner/page.tsx", root), "utf8"), /index: false/);
+});

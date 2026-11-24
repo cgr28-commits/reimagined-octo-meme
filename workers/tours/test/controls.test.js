@@ -385,7 +385,7 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
   const env = (e = "staging") => ({ TOURS_ENVIRONMENT: e, TOURS_OWNER_KEY: KEY, TOUR_CONTROLS: { idFromName: () => "i", get: () => doInstance }, TOUR_SETTINGS: { idFromName: () => "s", get: () => ({ fetch: async () => new Response("{}") }) } });
   const req = (m, p, headers = {}, body) => new Request(`https://w.test${p}`, { method: m, headers, body });
   assert.equal((await worker.fetch(req("GET", "/status"), env())).status, 200);
-  assert.equal((await worker.fetch(req("GET", "/status"), env("production"))).status, 503);
+  assert.equal((await worker.fetch(req("GET", "/status"), env("development"))).status, 503);
   assert.equal((await worker.fetch(req("GET", "/status"), env(null))).status, 503);
   assert.equal((await worker.fetch(req("GET", "/public-status"), env())).status, 404); // internal path is not routable
   assert.equal((await worker.fetch(req("POST", "/status"), env())).status, 404);
@@ -393,7 +393,7 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
   assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env())).status, 200);
   assert.equal((await worker.fetch(req("DELETE", "/controls"), env())).status, 404);
   assert.equal((await worker.fetch(req("GET", "/controls/secret-admin"), env())).status, 404);
-  assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env("production"))).status, 503);
+  assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env("development"))).status, 503);
   // a caller cannot choose its own client id to dodge lockout
   for (let i = 0; i < 5; i++) await worker.fetch(req("GET", "/controls", { authorization: "Bearer wrong-key-0123456789abcdefgh", "x-client-id": `spoof${i}`, "cf-connecting-ip": "9.9.9.9" }), env());
   assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}`, "cf-connecting-ip": "9.9.9.9" }), env())).status, 429);

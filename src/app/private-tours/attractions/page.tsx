@@ -4,6 +4,8 @@ import { ATTRACTIONS } from "@/lib/private-tours";
 
 type Credit = { title: string; author: string; licence: string; licenceUrl: string; source: string };
 
+export const metadata = { title: "Northern Ireland attractions for a private tour", description: "Search Northern Ireland attractions, add them to your itinerary and request a personal private tour quote.", alternates: { canonical: "/private-tours/attractions/" } };
+
 export default function AttractionsPage() {
   const list = credits as Record<string, Credit>;
   return (

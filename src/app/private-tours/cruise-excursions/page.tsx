@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { TOURS, formatPounds, tourPhoto } from "@/lib/private-tours";
 
+export const metadata = { title: "Private cruise excursions from Belfast", description: "Private excursions for cruise guests in Belfast, planned around your all-aboard time and confirmed in a personal quote.", alternates: { canonical: "/private-tours/cruise-excursions/" } };
+
 export default function CruisePage() {
   const cruise = TOURS.filter((t: { cruise: boolean }) => t.cruise);
   return (

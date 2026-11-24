@@ -140,7 +140,7 @@ jobs:
             [ "$CODE" = "204" ] && break
             sleep 10
           done
-          if [ "$CODE" != "200" ]; then
+          if [ "$CODE" != "204" ]; then
             echo "Last response body (first 300 characters, for diagnosis):"
             curl -sS -H "Origin: https://${SITE_HOST}" "$URL/events/public" | head -c 300 || true; echo
             # Capture the Worker's own exception with a live tail while one request is made (staging Worker only).

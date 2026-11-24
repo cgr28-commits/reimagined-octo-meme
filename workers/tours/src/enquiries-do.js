@@ -1,3 +1,4 @@
+import { notifyOwner } from "./notify.js";
 import { authenticateOwner } from "./auth.js";
 import { STATUSES, MAX_BODY_BYTES, RETENTION_DAYS, buildEnquiryRecord, receipt, validateEnquiry } from "./enquiries.js";
 import { buildSchedule, cruiseScopeFor } from "./engine/itinerary.js";
@@ -90,13 +91,15 @@ export class TourEnquiriesDO {
     const { record } = buildEnquiryRecord(checked.value, { id, now: Date.now(), controlsDecision: decision });
     await this.state.storage.put(`e:${record.createdAt}:${id}`, record);
     await this.scheduleAlarm();
+    // Tell the owner a request has arrived. Best effort: the enquiry is already stored and a failure never reaches the customer.
+    await notifyOwner(this.env, record).catch(() => {});
     return json(receipt(record), 201);
   }
 
   /** Emergency controls always get the last word: the decision is read for this exact request, never cached. Failure is fail-safe (manual review). */
   async controlsDecision(value) {
     try {
-      const stub = this.env.TOUR_CONTROLS.get(this.env.TOUR_CONTROLS.idFromName("tour-controls-staging"));
+      const stub = this.env.TOUR_CONTROLS.get(this.env.TOUR_CONTROLS.idFromName(`tour-controls-${this.env.TOURS_ENVIRONMENT || "staging"}`));
       const schedule = buildSchedule({ stopIds: value.stopIds, date: value.date, startMinutes: value.startMinutes, pickupZoneId: value.pickupZoneId, guests: value.guests, cruise: value.cruise });
       const tourId = (await import("./enquiries.js")).controlsTourFor({ tourId: value.tourId, cruiseScope: value.cruise ? cruiseScopeFor(value.stopIds) : null, durationMinutes: schedule.customer?.durationMinutes ?? 0 });
       const response = await stub.fetch(new Request("https://controls.internal/internal/enquiry-decision", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "enquiry", tourId, variantId: value.variantId || undefined, date: value.date }) }));
