@@ -385,7 +385,7 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
   const env = (e = "staging") => ({ TOURS_ENVIRONMENT: e, TOURS_OWNER_KEY: KEY, TOUR_CONTROLS: { idFromName: () => "i", get: () => doInstance }, TOUR_SETTINGS: { idFromName: () => "s", get: () => ({ fetch: async () => new Response("{}") }) } });
   const req = (m, p, headers = {}, body) => new Request(`https://w.test${p}`, { method: m, headers, body });
   assert.equal((await worker.fetch(req("GET", "/status"), env())).status, 200);
-  assert.equal((await worker.fetch(req("GET", "/status"), env("production"))).status, 503);
+  assert.equal((await worker.fetch(req("GET", "/status"), env("development"))).status, 503);
   assert.equal((await worker.fetch(req("GET", "/status"), env(null))).status, 503);
   assert.equal((await worker.fetch(req("GET", "/public-status"), env())).status, 404); // internal path is not routable
   assert.equal((await worker.fetch(req("POST", "/status"), env())).status, 404);
@@ -393,7 +393,7 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
   assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env())).status, 200);
   assert.equal((await worker.fetch(req("DELETE", "/controls"), env())).status, 404);
   assert.equal((await worker.fetch(req("GET", "/controls/secret-admin"), env())).status, 404);
-  assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env("production"))).status, 503);
+  assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}` }), env("development"))).status, 503);
   // a caller cannot choose its own client id to dodge lockout
   for (let i = 0; i < 5; i++) await worker.fetch(req("GET", "/controls", { authorization: "Bearer wrong-key-0123456789abcdefgh", "x-client-id": `spoof${i}`, "cf-connecting-ip": "9.9.9.9" }), env());
   assert.equal((await worker.fetch(req("GET", "/controls", { authorization: `Bearer ${KEY}`, "cf-connecting-ip": "9.9.9.9" }), env())).status, 429);
@@ -403,14 +403,16 @@ test("Worker routes: /status is public, controls need the owner key, nothing els
 });
 
 // ===== Staging isolation =====
-test("AC9: configuration stays staging-only (two own Durable Objects, no other bindings, no routes, no production)", () => {
+test("AC9: configuration stays staging-only (three own Durable Objects, no other bindings, no routes, no production)", () => {
   const config = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8");
   const production = readFileSync(new URL("../../addresses/wrangler.toml", import.meta.url), "utf8");
   assert.deepEqual(assertToursSettingsConfigIsStagingOnly({ config, productionWrangler: production }), []);
-  assert.equal((config.match(/^\[\[durable_objects\.bindings\]\]/gm) || []).length, 2);
+  assert.equal((config.match(/^\[\[durable_objects\.bindings\]\]/gm) || []).length, 3);
   assert.match(config, /tag = "v2"\nnew_sqlite_classes = \["TourControlsDO"\]/);
   const third = assertToursSettingsConfigIsStagingOnly({ config: config + '\n[[durable_objects.bindings]]\nname = "X"\nclass_name = "Y"\n', productionWrangler: production });
-  assert.ok(third.some((p) => /exactly two/.test(p)));
+  assert.ok(third.some((p) => /exactly three/.test(p)));
+  const prodOrigin = assertToursSettingsConfigIsStagingOnly({ config: config.replace(/TOURS_ALLOWED_ORIGINS = "[^"]*"/, 'TOURS_ALLOWED_ORIGINS = "https://www.myairporttaxini.co.uk"'), productionWrangler: production });
+  assert.ok(prodOrigin.some((p) => /ALLOWED_ORIGINS/.test(p)));
   const kv = assertToursSettingsConfigIsStagingOnly({ config: config + '\n[[kv_namespaces]]\nbinding = "K"\nid = "' + "a".repeat(32) + '"\n', productionWrangler: production });
   assert.ok(kv.length > 0);
   assert.ok(!/availability|booking|payment|stripe|resend|push/i.test(config.replace(/^name\s*=.*$/m, "").replace(/^#.*$/gm, "")));

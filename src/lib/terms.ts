@@ -1,3 +1,4 @@
+import { TOURS_LIVE } from "./private-tours-mode";
 import {
   CANCELLATION_POLICY_PAGE_INTRO,
   COMPANY_CANCEL_REFUND,
@@ -13,7 +14,7 @@ import {
 
 export const TERMS_LAST_UPDATED = "September 2026 v2";
 
-export const TERMS_SECTIONS = [
+const BASE_TERMS_SECTIONS = [
   {
     title: "Introduction",
     content: [
@@ -312,3 +313,18 @@ export const TERMS_SECTIONS = [
     ],
   },
 ] as const;
+
+/** Private Tours wording appears only in the live build, together with the tours pages themselves. */
+const PRIVATE_TOURS_TERMS_SECTIONS = [
+  {
+    title: "Private Tours (quote requests)",
+    content: [
+      "A Private Tours request is a request for a personal quote, not a booking. Nothing is booked or charged until we confirm your quote with you in writing.",
+      "Journey times and any guide prices on the website are provisional. Your quote confirms the price, pick-up, route and timings for your day. We may decline or change a request, for example for safety, timing or availability reasons, including cruise all-aboard times.",
+      "Your driver is a private local driver. Private tours are driven, not guided. Entry tickets, food and drink are not included unless your quote says so. Opening times and entry details are set by each attraction and should be checked before you travel.",
+      "Payment and cancellation terms for your tour are set out in your quote. The cancellation terms for airport transfers above do not apply to a Private Tour unless your quote says so.",
+    ],
+  },
+] as const;
+
+export const TERMS_SECTIONS = TOURS_LIVE ? [...BASE_TERMS_SECTIONS, ...PRIVATE_TOURS_TERMS_SECTIONS] : [...BASE_TERMS_SECTIONS];

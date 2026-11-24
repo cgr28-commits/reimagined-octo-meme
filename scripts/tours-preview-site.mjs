@@ -29,8 +29,17 @@ try {
 if (host === PRODUCTION_WORKER_HOST || host.endsWith("myairporttaxini.co.uk")) fail(`Refusing to build the preview site against production (${host}).`);
 if (!host.startsWith("reimagined-octo-meme-tours-preview.")) fail(`Unexpected preview Worker host: ${host}`);
 
+// Private Tours site: the staging tours Worker (enquiries, saved plans). Must be the staging tours-settings preview Worker, never production.
+const toursApi = (process.env.TOURS_API_ORIGIN || "").replace(/\/+$/, "");
+if (toursApi) {
+  let toursHost = "";
+  try { toursHost = new URL(toursApi).hostname; } catch { fail("TOURS_API_ORIGIN is invalid."); }
+  if (!toursHost.startsWith("reimagined-octo-meme-tours-settings-preview.") || !toursHost.endsWith(".workers.dev")) fail(`Unexpected tours API host: ${toursHost}`);
+}
+
 const env = {
   ...process.env,
+  NEXT_PUBLIC_TOURS_API_URL: toursApi,
   GITHUB_PAGES: "true",
   NEXT_PUBLIC_BOOKINGS_API_URL: `${worker}/bookings`,
   NEXT_PUBLIC_ADDRESSES_API_URL: `${worker}/addresses`,

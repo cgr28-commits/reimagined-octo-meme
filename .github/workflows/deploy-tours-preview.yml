@@ -32,6 +32,8 @@ env:
   PREVIEW_WORKER_NAME: reimagined-octo-meme-tours-preview
   PREVIEW_PAGES_PROJECT: matni-tours-preview
   TOURS_SETTINGS_WORKER_NAME: reimagined-octo-meme-tours-settings-preview
+  # The Private Tours site talks to the staging tours Worker (enquiries, saved plans). Pinned; the build script refuses any other host.
+  TOURS_API_ORIGIN: https://reimagined-octo-meme-tours-settings-preview.my-airport-taxi-ni-staging.workers.dev
   WRANGLER_CONFIG: wrangler.tours-preview.generated.toml
 
 jobs:
@@ -134,17 +136,42 @@ jobs:
           # A new workers.dev address can take a minute to start answering.
           CODE=""
           for attempt in $(seq 1 18); do
-            CODE="$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: https://${SITE_HOST}" "$URL/events/public" || true)"
-            [ "$CODE" = "200" ] && break
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Origin: https://${SITE_HOST}" -H "Access-Control-Request-Method: GET" "$URL/events/public" || true)"
+            [ "$CODE" = "204" ] && break
             sleep 10
           done
-          [ "$CODE" = "200" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
+          if [ "$CODE" != "204" ]; then
+            echo "Last response body (first 300 characters, for diagnosis):"
+            curl -sS -H "Origin: https://${SITE_HOST}" "$URL/events/public" | head -c 300 || true; echo
+            # Capture the Worker's own exception with a live tail while one request is made (staging Worker only).
+            (timeout 40 npx wrangler tail "$PREVIEW_WORKER_NAME" -c "$WRANGLER_CONFIG" --format json > /tmp/tail.json 2>/tmp/tail.err || true) &
+            sleep 15
+            curl -s -o /dev/null -H "Origin: https://${SITE_HOST}" "$URL/events/public" || true
+            sleep 8
+            echo "--- Worker exceptions ---"; grep -o '"exceptions":\[[^]]*\]' /tmp/tail.json | head -c 1500 || true
+            echo "--- Worker logs ---"; grep -o '"logs":\[[^]]*\]' /tmp/tail.json | head -c 1500 || true
+            echo "--- tail stderr ---"; head -c 400 /tmp/tail.err || true
+          fi
+          [ "$CODE" = "204" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
           # The live website must NOT be allowed to call the preview Worker.
-          if curl -sS -D - -o /dev/null -H "Origin: https://www.myairporttaxini.co.uk" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
+          if curl -sS -D - -o /dev/null -X OPTIONS -H "Origin: https://www.myairporttaxini.co.uk" -H "Access-Control-Request-Method: GET" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
             echo "::error::Preview Worker accepts the live website origin."; exit 1
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "::notice::Preview Worker (staging account): $URL"
+
+      - name: Diagnose a failed readiness check (staging account only, read-only)
+        if: failure()
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          NS=cede330386ad4b80a2b0462891837f54
+          A="https://api.cloudflare.com/client/v4/accounts/${STAGING_ACCOUNT_ID}"
+          echo "KV list keys:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/storage/kv/namespaces/$NS/keys?limit=3" | head -c 500; echo
+          echo "KV read missing key:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/storage/kv/namespaces/$NS/values/diag-probe" | head -c 300; echo
+          echo "Worker settings:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/workers/scripts/${PREVIEW_WORKER_NAME}/settings" | head -c 1500; echo
+          echo "Account usage model / subdomain:"; curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$A/workers/subdomain" | head -c 200; echo
 
       - name: Deployed bindings are staging-only (no production KV or Durable Objects)
         if: steps.ready.outputs.ready == 'true'
@@ -157,6 +184,7 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         env:
           PREVIEW_WORKER_ORIGIN: ${{ steps.worker.outputs.url }}
+          TOURS_API_ORIGIN: ${{ env.TOURS_API_ORIGIN }}
           TOURS_ACCESS_CODE: ${{ secrets.TOURS_PREVIEW_ACCESS_CODE }}
         run: |
           set -euo pipefail
@@ -368,6 +396,18 @@ jobs:
           smoke_call 200 "Controls audit" -H "$AUTH" "$URL/controls/audit"
           node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).entries.map(e=>e.action); if(!a.includes("pause")||!a.includes("resume")||!a.includes("conflict")){console.error("::error::Controls audit is missing entries.");process.exit(1)}' "$SMOKE_BODY"
           echo "emergency controls verified on the deployed Worker (pause, conflict, check, public status, resume, audit)"
+          # Private Tours site: public enquiry and saved-plan routes, CORS and owner-only enquiry reads.
+          ORIGIN='https://matni-tours-preview.pages.dev'
+          smoke_call 401 "Enquiries list needs the owner key" "$URL/owner/enquiries"
+          smoke_call 404 "Internal controls route is not public" -X POST -H 'Content-Type: application/json' -d '{}' "$URL/internal/enquiry-decision"
+          smoke_call 400 "Invalid enquiry is rejected" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -d '{"name":"x"}' "$URL/enquiries"
+          smoke_call 201 "Save a plan" -H "Origin: $ORIGIN" -H 'Content-Type: application/json' -d '{"plan":{"stopIds":["titanic-belfast","city-hall"],"guests":2}}' "$URL/itinerary/save"
+          PLAN_TOKEN="$(jget token)"
+          [ -n "$PLAN_TOKEN" ] || { echo "::error::No saved-plan token returned."; exit 1; }
+          smoke_call 200 "Read the saved plan" "$URL/itinerary/saved/$PLAN_TOKEN"
+          smoke_call 200 "Delete the saved plan" -X DELETE "$URL/itinerary/saved/$PLAN_TOKEN"
+          smoke_call 404 "Deleted plan is gone" "$URL/itinerary/saved/$PLAN_TOKEN"
+          echo "private tours site routes verified on the deployed Worker (validation, save, read, delete, owner-only list)"
           echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${SMOKE_RETRIES})."
 
       - name: Deployed bindings are staging-only (own Durable Object only)

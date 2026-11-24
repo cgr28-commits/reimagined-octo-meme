@@ -1,8 +1,9 @@
+import { TOURS_LIVE } from "./private-tours-mode";
 import { BUSINESS_LEGAL } from "@/lib/business-legal";
 
-export const PRIVACY_LAST_UPDATED = "16 November 2026";
+export const PRIVACY_LAST_UPDATED = "24 November 2026";
 
-export const PRIVACY_SECTIONS = [
+const BASE_PRIVACY_SECTIONS = [
   {
     title: "Quote and booking attempts",
     content: [
@@ -157,3 +158,17 @@ export const PRIVACY_SECTIONS = [
     ],
   },
 ] as const;
+
+/** Private Tours wording appears only in the live build, together with the tours pages themselves. */
+const PRIVATE_TOURS_PRIVACY_SECTIONS = [
+  {
+    title: "Private Tours enquiries",
+    content: [
+      "If you ask for a private tour quote, we keep the details you send (your name, email, phone number, the date, guests, your chosen attractions and any notes) so we can prepare and send your personal quote. They are visible only to us and are deleted automatically after 30 days.",
+      "If you tell us about mobility preferences and tick the box to agree, we keep them with your enquiry only to plan the day around them. We do not use them for advertising or analytics.",
+      "A saved Private Tours itinerary holds your chosen attractions, date and preferences only, with no contact details, and is deleted after 30 days. Your attraction selection while browsing is kept in your own browser. Sending an enquiry is not a booking and nothing is charged.",
+    ],
+  },
+] as const;
+
+export const PRIVACY_SECTIONS = TOURS_LIVE ? [...BASE_PRIVACY_SECTIONS, ...PRIVATE_TOURS_PRIVACY_SECTIONS] : [...BASE_PRIVACY_SECTIONS];

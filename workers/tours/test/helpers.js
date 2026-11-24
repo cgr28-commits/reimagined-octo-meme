@@ -25,7 +25,7 @@ export function fakeStorage() {
       const snapshot = new Map([...map].map(([k, v]) => [k, structuredClone(v)]));
       try { return await fn(api); } catch (error) { map.clear(); for (const [k, v] of snapshot) map.set(k, v); throw error; }
     },
-    async delete(k) { return map.delete(k); },
+    async delete(k) { if (Array.isArray(k)) { let n = 0; for (const key of k) if (map.delete(key)) n += 1; return n; } return map.delete(k); },
     async list({ prefix = "" } = {}) {
       const out = new Map();
       for (const k of [...map.keys()].sort()) if (k.startsWith(prefix)) out.set(k, structuredClone(map.get(k)));

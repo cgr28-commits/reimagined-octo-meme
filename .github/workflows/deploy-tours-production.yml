@@ -1,0 +1,59 @@
+# Private Tours enquiry Worker: PRODUCTION deploy. MANUAL ONLY, after the owner's final approval.
+# Never runs on push or schedule. The "tours-production" environment should require the owner as reviewer.
+# Deploys only workers/tours/wrangler.production.toml (enquiries, saved plans, owner view, emergency controls).
+# It does not touch the airport Worker, bookings, payments, KV or any existing Durable Object.
+name: Deploy Private Tours Worker (production, manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY TOURS WORKER to confirm'
+        required: true
+
+concurrency:
+  group: tours-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.inputs.confirm == 'DEPLOY TOURS WORKER' }}
+    runs-on: ubuntu-latest
+    environment: tours-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tests must pass first
+        run: npm --prefix workers/tours test
+      - name: Deploy the Private Tours Worker and set secrets
+        working-directory: workers/tours
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TOURS_OWNER_KEY: ${{ secrets.TOURS_PRODUCTION_OWNER_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TOURS_NOTIFY_EMAIL: ${{ vars.TOURS_NOTIFY_EMAIL }}
+        run: |
+          set -euo pipefail
+          [ "${#TOURS_OWNER_KEY}" -ge 24 ] || { echo "::error::Set the TOURS_PRODUCTION_OWNER_KEY secret (at least 24 characters) first."; exit 1; }
+          echo "::add-mask::$TOURS_OWNER_KEY"
+          OUT="$(npx --yes wrangler@3 deploy -c wrangler.production.toml 2>&1)"; echo "$OUT" | tail -8
+          URL="$(printf '%s\n' "$OUT" | grep -Eo 'https://reimagined-octo-meme-tours\.[a-z0-9-]+\.workers\.dev' | head -1)"
+          [ -n "$URL" ] || { echo "::error::Could not find the Worker address."; exit 1; }
+          printf '%s' "$TOURS_OWNER_KEY" | npx --yes wrangler@3 secret put TOURS_OWNER_KEY -c wrangler.production.toml >/dev/null
+          [ -n "${RESEND_API_KEY:-}" ] && printf '%s' "$RESEND_API_KEY" | npx --yes wrangler@3 secret put RESEND_API_KEY -c wrangler.production.toml >/dev/null || true
+          [ -n "${TOURS_NOTIFY_EMAIL:-}" ] && printf '%s' "$TOURS_NOTIFY_EMAIL" | npx --yes wrangler@3 secret put TOURS_NOTIFY_EMAIL -c wrangler.production.toml >/dev/null || true
+          echo "TOURS_API_URL=$URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Put this address in src/lib/private-tours-launch.json (apiUrl) in the go-live pull request: $URL"
+          for i in $(seq 1 12); do C="$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)"; [ "$C" = 200 ] && break; sleep 5; done
+          [ "$C" = 200 ] || { echo "::error::Health check failed (HTTP $C)."; exit 1; }
+          curl -s "$URL/health" | grep -q '"environment":"production"' || { echo "::error::Not in production mode."; exit 1; }
+          OK="https://www.myairporttaxini.co.uk"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/owner/enquiries")" = 401 ] || { echo "::error::Owner list is not protected."; exit 1; }
+          [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Origin: $OK" -H 'content-type: application/json' -d '{}' "$URL/enquiries")" = 400 ] || { echo "::error::Invalid enquiry not rejected."; exit 1; }
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/settings")" != 200 ] || { echo "::error::Settings editor must not be open in production."; exit 1; }
+          curl -s -D - -o /dev/null -X OPTIONS -H "Origin: https://evil.example" -H "Access-Control-Request-Method: POST" "$URL/enquiries" | head -1 | grep -q 403 || { echo "::error::Foreign origin not refused."; exit 1; }
+          curl -s -D - -o /dev/null -X OPTIONS -H "Origin: $OK" -H "Access-Control-Request-Method: POST" "$URL/enquiries" | grep -qi "access-control-allow-origin: $OK" || { echo "::error::Live site origin not allowed."; exit 1; }
+          echo "Production smoke checks passed."

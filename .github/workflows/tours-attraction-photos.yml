@@ -1,0 +1,44 @@
+name: Tours attraction photos (staging, one-off)
+
+# Fetches openly licensed Commons photographs for the Private Tours attraction library and commits them to the same tours/** branch.
+# Runs only when its own config changes on a tours/** branch. No secrets, no deployment, no production access.
+on:
+  push:
+    branches: ["tours/**"]
+    paths:
+      - scripts/tours-attraction-photos.config.json
+      - scripts/tours-attraction-photos.mjs
+      - scripts/tours-attraction-photos.run.json
+      - .github/workflows/tours-attraction-photos.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tours-attraction-photos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  photos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install sharp (isolated)
+        run: |
+          mkdir -p /tmp/photo-tools && cd /tmp/photo-tools && npm init -y >/dev/null && npm install sharp@0.33 --silent
+          echo "SHARP_PATH=/tmp/photo-tools/node_modules/sharp" >> "$GITHUB_ENV"
+      - name: Fetch photographs
+        run: node scripts/tours-attraction-photos.mjs | tee /tmp/photo-report.txt
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/images/private-tours src/lib/private-tours-photo-credits.json
+          if [ -d design/photo-shortlist ]; then git add design/photo-shortlist; fi
+          if git diff --cached --quiet; then echo "No changes."; exit 0; fi
+          git commit -q -m "Private Tours: attraction photographs (openly licensed, Wikimedia Commons)"
+          git pull --rebase -q origin "${GITHUB_REF_NAME}" || true
+          git push -q origin "HEAD:${GITHUB_REF_NAME}"

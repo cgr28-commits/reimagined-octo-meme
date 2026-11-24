@@ -100,7 +100,9 @@ export function assertToursSettingsConfigIsStagingOnly({ config, productionWrang
   if (/script_name\s*=/.test(active)) problems.push("A binding points at another Worker script (script_name): shared Durable Objects are not allowed.");
   if (/\[\[(services|d1_databases|r2_buckets|queues\.producers|hyperdrive|vectorize|analytics_engine_datasets|kv_namespaces|send_email)\]\]/.test(active)) problems.push("Unexpected binding type (only this Worker's own Durable Object is allowed).");
   const bindings = [...active.matchAll(/^\[\[durable_objects\.bindings\]\]/gm)].length;
-  if (bindings !== 2) problems.push(`Expected exactly two Durable Object bindings (TOUR_SETTINGS and TOUR_CONTROLS), found ${bindings}.`);
+  if (bindings !== 3) problems.push(`Expected exactly three Durable Object bindings (TOUR_SETTINGS, TOUR_CONTROLS and TOUR_ENQUIRIES), found ${bindings}.`);
+  const origins = active.match(/^TOURS_ALLOWED_ORIGINS\s*=\s*"([^"]*)"/m);
+  if (origins && origins[1].split(",").some((o) => o.trim() && !/^https:\/\/[a-z0-9-]+\.pages\.dev$/.test(o.trim()))) problems.push("TOURS_ALLOWED_ORIGINS may only list staging *.pages.dev origins (never the production site).");
   if (!/^TOURS_ENVIRONMENT\s*=\s*"staging"$/m.test(active)) problems.push('TOURS_ENVIRONMENT must be "staging".');
   if (/availability|AVAILABILITY_KV|BOOKING/i.test(active.replace(/^name\s*=.*$/m, ""))) problems.push("Config references availability or booking resources (synthetic fixtures only in WP-B1).");
   return problems;

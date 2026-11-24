@@ -67,6 +67,9 @@ export function renderTourPreviewConfig(source, { trackingId, counterId, siteHos
     .replace("REPLACE_WITH_BESPOKE_PREVIEW_BOOKING_COUNTER_ID", counterId)
     .replaceAll("REPLACE_WITH_TESTER_EMAIL", testerEmails)
     .replaceAll(TEMPLATE_SITE, siteHost)
+    // The tours preview needs no booking cron. Every 5 minutes it listed the staging KV and, with repeated deploys,
+    // used up the free daily KV list allowance (Cloudflare error 10048), which made the Worker throw (1101).
+    .replace('crons = ["*/5 * * * *"]', "crons = []")
     .replace("Deployed ONLY by .github/workflows/deploy-bespoke-preview.yml", "Rendered for the TOURS preview by .github/workflows/deploy-tours-preview.yml");
 }
 
