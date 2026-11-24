@@ -1,0 +1,228 @@
+# WP-B0: isolated PRIVATE preview for Private Tours work (branches tours/**).
+#
+# Deploys ONLY to the separate "My Airport Taxi NI Staging" Cloudflare account
+# (ecad568dc411e28a3e435ef40b36c2b5): its own Worker, KV, Durable Objects and Pages project.
+# It never touches the live Worker, live KV, live Durable Objects, GitHub Pages, the custom domain
+# or any production route, and it never runs for main or cursor/* branches.
+#
+# Secrets: STAGING credentials only (allowlist enforced by scripts/tours-preview-guard.mjs before any
+# secret is used). No production secret is referenced here, directly or indirectly:
+#   STAGING_CLOUDFLARE_API_TOKEN       staging-account token
+#   "staging" environment: STAGING_STRIPE_SECRET_KEY / STAGING_STRIPE_PUBLISHABLE_KEY / STAGING_STRIPE_WEBHOOK_SECRET (Stripe TEST mode)
+# Optional (preview works without them): TOURS_PREVIEW_TESTER_EMAIL, TOURS_PREVIEW_OWNER_KEY, TOURS_PREVIEW_RESEND_API_KEY
+# With no tester email every preview email is blocked. See docs/tours-preview.md.
+
+name: Deploy Tours Preview (isolated staging account)
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - "tours/**"
+
+concurrency:
+  group: tours-preview
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  STAGING_ACCOUNT_ID: ecad568dc411e28a3e435ef40b36c2b5
+  PREVIEW_WORKER_NAME: reimagined-octo-meme-tours-preview
+  PREVIEW_PAGES_PROJECT: matni-tours-preview
+  WRANGLER_CONFIG: wrangler.tours-preview.generated.toml
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    outputs:
+      worker_ready: ${{ steps.worker.outputs.url != '' }}
+      stripe_set: ${{ steps.worker.outputs.stripe_set }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # No secrets are available to these two steps.
+      - name: Isolation guard self-test (must fail on production inputs)
+        run: node scripts/tours-preview-guard.mjs --self-test
+
+      - name: Workflow uses staging secrets only
+        run: node scripts/tours-preview-guard.mjs --check-workflow
+
+      - name: Check the staging token is available
+        id: ready
+        env:
+          STAGING_CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
+            echo "::warning::Tours preview not deployed: GitHub secret STAGING_CLOUDFLARE_API_TOKEN is missing."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Staging token has no production access
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+        run: node scripts/tours-preview-guard.mjs --probe-token
+
+      # Installs run without any secret in their environment.
+      - name: Install dependencies
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm --prefix workers/addresses ci
+
+      - name: Prepare isolated storage and config (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        id: prepare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          TOURS_PREVIEW_TESTER_EMAIL: ${{ secrets.TOURS_PREVIEW_TESTER_EMAIL }}
+        run: |
+          # Keep tester addresses out of the run log.
+          for address in $(printf '%s' "${TOURS_PREVIEW_TESTER_EMAIL:-}" | tr ',' ' '); do echo "::add-mask::$address"; done
+          node scripts/tours-preview-prepare.mjs
+
+      - name: Deploy preview Worker (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        id: worker
+        working-directory: workers/addresses
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          PREVIEW_OWNER_KEY: ${{ secrets.TOURS_PREVIEW_OWNER_KEY }}
+          PREVIEW_RESEND_API_KEY: ${{ secrets.TOURS_PREVIEW_RESEND_API_KEY }}
+          SITE_HOST: ${{ steps.prepare.outputs.site_host }}
+        run: |
+          set -euo pipefail
+          # Last gate before anything reaches Cloudflare.
+          node ../../scripts/tours-preview-guard.mjs --check-config "$WRANGLER_CONFIG"
+          if [ -z "${PREVIEW_OWNER_KEY:-}" ]; then
+            PREVIEW_OWNER_KEY="$(openssl rand -hex 32)"
+            echo "::add-mask::$PREVIEW_OWNER_KEY"
+            echo "::notice::No TOURS_PREVIEW_OWNER_KEY secret: the preview Owner Dashboard cannot be signed in to."
+          fi
+          if [ "${#PREVIEW_OWNER_KEY}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_OWNER_KEY must be at least 24 characters."; exit 1; fi
+
+          OUTPUT="$(npx wrangler deploy -c "$WRANGLER_CONFIG" 2>&1)" || { echo "$OUTPUT" | grep -v -i "tester\|EMAIL"; exit 1; }
+          echo "$OUTPUT" | grep -v -i "tester\|EMAIL" || true
+          URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${PREVIEW_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
+          if [ -z "$URL" ]; then echo "::error::Could not read the preview Worker URL."; exit 1; fi
+
+          put_secret() { if [ -n "$2" ]; then printf '%s' "$2" | npx wrangler secret put "$1" -c "$WRANGLER_CONFIG" >/dev/null; echo "secret set: $1"; fi; }
+          put_secret OWNER_ACCESS_KEY "$PREVIEW_OWNER_KEY"
+          # Cloudflare's published always-pass Turnstile TEST secret (not a real secret).
+          put_secret TURNSTILE_SECRET_KEY "1x0000000000000000000000000000000AA"
+          put_secret RESEND_API_KEY "${PREVIEW_RESEND_API_KEY:-}"
+          # Nothing live may ever be set on this Worker.
+          SECRETS="$(npx wrangler secret list -c "$WRANGLER_CONFIG")"
+          for forbidden in SUMUP_API_KEY SUMUP_MERCHANT_CODE DRIVER_ACCESS_KEY D360_API_KEY WHATSAPP_ACCESS_TOKEN GOOGLE_ADS_DEVELOPER_TOKEN GOOGLE_PLACES_API_KEY STRIPE_WEBHOOK_SECRET_LIVE; do
+            if printf '%s' "$SECRETS" | grep -q "\"$forbidden\""; then echo "::error::Forbidden secret on the preview Worker: $forbidden"; exit 1; fi
+          done
+
+          # A new workers.dev address can take a minute to start answering.
+          CODE=""
+          for attempt in $(seq 1 18); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: https://${SITE_HOST}" "$URL/events/public" || true)"
+            [ "$CODE" = "200" ] && break
+            sleep 10
+          done
+          [ "$CODE" = "200" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
+          # The live website must NOT be allowed to call the preview Worker.
+          if curl -sS -D - -o /dev/null -H "Origin: https://www.myairporttaxini.co.uk" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
+            echo "::error::Preview Worker accepts the live website origin."; exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Preview Worker (staging account): $URL"
+
+      - name: Deployed bindings are staging-only (no production KV or Durable Objects)
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          EXPECTED_KV_IDS: ${{ steps.prepare.outputs.kv_ids }}
+        run: node scripts/tours-preview-guard.mjs --check-deployed
+
+      - name: Build the preview website against the preview Worker
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          PREVIEW_WORKER_ORIGIN: ${{ steps.worker.outputs.url }}
+        run: |
+          set -euo pipefail
+          # next/font downloads can fail briefly: retry.
+          for attempt in 1 2 3; do
+            if node scripts/tours-preview-site.mjs; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 15
+          done
+          # Private-link gate, no search engines, no live-domain marker.
+          cp scripts/bespoke-preview-gate.js out/_worker.js
+          printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
+          rm -f out/CNAME out/sitemap.xml
+
+      - name: Deploy the preview website (staging account only)
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          SITE_HOST: ${{ steps.prepare.outputs.site_host }}
+        run: |
+          set -euo pipefail
+          npm install --no-save wrangler@3.109.0
+          npx wrangler pages deploy out --project-name="$PREVIEW_PAGES_PROJECT" --branch=preview --commit-hash="${GITHUB_SHA}" --commit-dirty=true
+          # Without the private link the site must answer 401, never the pages.
+          CODE=""
+          for attempt in $(seq 1 12); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' "https://${SITE_HOST}/" || true)"
+            [ "$CODE" = "401" ] && break
+            sleep 10
+          done
+          if [ "$CODE" != "401" ]; then echo "::error::Preview site is not behind the private link (HTTP $CODE)."; exit 1; fi
+          curl -sS -D - -o /dev/null "https://${SITE_HOST}/" | grep -qi '^x-robots-tag:.*noindex' || { echo "::error::Preview site is missing the noindex header."; exit 1; }
+          echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
+
+  # Stripe TEST keys from the "staging" environment. Only this small job runs in that environment.
+  stripe-sandbox:
+    needs: preview
+    if: needs.preview.outputs.worker_ready == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Add Stripe test keys to the preview Worker (staging account only)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STRIPE_SECRET_KEY:-}" ] || [ -z "${STRIPE_PUBLISHABLE_KEY:-}" ]; then
+            echo "::notice::No Stripe test keys in the staging environment: payments stay unavailable on the preview."
+            exit 0
+          fi
+          # TEST keys only. Anything else stops here and nothing is sent to Cloudflare.
+          node scripts/tours-preview-guard.mjs --check-stripe
+          # Run from an empty folder so no repository config (and no live account id) can be picked up.
+          cd "$RUNNER_TEMP"
+          printf '%s' "$STRIPE_SECRET_KEY" | npx --yes wrangler@3.109.0 secret put STRIPE_SECRET_KEY --name "$PREVIEW_WORKER_NAME" >/dev/null
+          printf '%s' "$STRIPE_PUBLISHABLE_KEY" | npx --yes wrangler@3.109.0 secret put STRIPE_PUBLISHABLE_KEY --name "$PREVIEW_WORKER_NAME" >/dev/null
+          if [ -n "${STRIPE_WEBHOOK_SECRET:-}" ]; then
+            printf '%s' "$STRIPE_WEBHOOK_SECRET" | npx --yes wrangler@3.109.0 secret put STRIPE_WEBHOOK_SECRET --name "$PREVIEW_WORKER_NAME" >/dev/null
+          fi
+          echo "::notice::Stripe test keys added to the preview Worker. Test cards can now be used."
