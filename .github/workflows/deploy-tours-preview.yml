@@ -136,8 +136,8 @@ jobs:
           # A new workers.dev address can take a minute to start answering.
           CODE=""
           for attempt in $(seq 1 18); do
-            CODE="$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: https://${SITE_HOST}" "$URL/events/public" || true)"
-            [ "$CODE" = "200" ] && break
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS -H "Origin: https://${SITE_HOST}" -H "Access-Control-Request-Method: GET" "$URL/events/public" || true)"
+            [ "$CODE" = "204" ] && break
             sleep 10
           done
           if [ "$CODE" != "200" ]; then
@@ -152,9 +152,9 @@ jobs:
             echo "--- Worker logs ---"; grep -o '"logs":\[[^]]*\]' /tmp/tail.json | head -c 1500 || true
             echo "--- tail stderr ---"; head -c 400 /tmp/tail.err || true
           fi
-          [ "$CODE" = "200" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
+          [ "$CODE" = "204" ] || { echo "::error::Preview Worker did not answer (HTTP $CODE)."; exit 1; }
           # The live website must NOT be allowed to call the preview Worker.
-          if curl -sS -D - -o /dev/null -H "Origin: https://www.myairporttaxini.co.uk" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
+          if curl -sS -D - -o /dev/null -X OPTIONS -H "Origin: https://www.myairporttaxini.co.uk" -H "Access-Control-Request-Method: GET" "$URL/events/public" | grep -i '^access-control-allow-origin:' | grep -qi "myairporttaxini"; then
             echo "::error::Preview Worker accepts the live website origin."; exit 1
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
