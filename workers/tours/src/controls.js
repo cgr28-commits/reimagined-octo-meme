@@ -14,6 +14,10 @@ export const EFFECTS = ["enquiries", "payments", "both"]; // enquiries = manual 
 export const SCOPE_KINDS = ["all", "tour", "date", "cruise"];
 export const CRUISE_SCOPES = ["all", "belfastOnly", "longDistance"];
 export const MANDATORY_FLAGS = ["launchGatesPassed", "availabilityConfirmed", "safetyApproved"];
+/** Also mandatory for cruise tours: all-aboard return buffer, harbour pickup access and itinerary scope validated by the settings engine. */
+export const CRUISE_FLAG = "cruiseRequirementsMet";
+/** An owner override can lift ONLY open-ended emergency pauses on all tours or one tour/variant. Date and cruise pauses are never overridable. */
+export const OVERRIDABLE_SCOPE_KINDS = ["all", "tour"];
 /** Things emergency controls can never block. */
 export const UNAFFECTED_KINDS = ["confirmed-booking", "payment-in-progress", "stripe-webhook", "refund", "customer-booking-access"];
 export const MAX_ACTIVE_PAUSES = 100;
@@ -127,37 +131,43 @@ export function scopeMatches(scope, ctx) {
 const activeMatching = (doc, ctx, now, test) => doc.pauses.filter((p) => pauseIsActive(p, now) && test(p) && scopeMatches(p.scope, ctx));
 
 // ---------------------------------------------------------------- decisions (server-side, authoritative)
-export function failSafeDecision(kind) {
+/** Every decision is a point-in-time answer: callers must NOT cache it and must re-ask immediately before the transaction. */
+const meta = (now) => ({ decidedAt: new Date(now).toISOString(), cacheable: false, recheckBeforeTransaction: true });
+
+export function failSafeDecision(kind, now = Date.now()) {
   return kind === "enquiry"
-    ? { kind, allowed: true, manualReview: true, autoQuote: false, reserveAvailability: false, blockedBy: ["controls-unreadable"], failSafe: true }
-    : { kind, allowed: false, blockedBy: ["controls-unreadable"], failSafe: true };
+    ? { kind, allowed: true, manualReview: true, autoQuote: false, reserveAvailability: false, blockedBy: ["controls-unreadable"], failSafe: true, ...meta(now) }
+    : { kind, allowed: false, blockedBy: ["controls-unreadable"], failSafe: true, ...meta(now) };
 }
 
 /** New enquiries are ALWAYS accepted. While a matching pause is active they are flagged for manual review: no automatic quote, no availability reservation. */
 export function evaluateEnquiry(doc, ctx, now = Date.now(), controlsVersion = null) {
   const matching = activeMatching(doc, ctx, now, effectReview);
   const review = matching.length > 0;
-  return { kind: "enquiry", allowed: true, manualReview: review, autoQuote: !review, reserveAvailability: !review, blockedBy: matching.map((p) => `pause:${p.id}`), controlsVersion, failSafe: false };
+  return { kind: "enquiry", allowed: true, manualReview: review, autoQuote: !review, reserveAvailability: !review, blockedBy: matching.map((p) => `pause:${p.id}`), controlsVersion, failSafe: false, ...meta(now) };
 }
 
 /** A NEW payment needs: no matching payment pause (unless an audited owner override exists for this quote) AND every mandatory gate true. */
 export function evaluatePayment(doc, ctx, now = Date.now(), controlsVersion = null) {
   const blockedBy = [];
   const mandatory = isObj(ctx.mandatory) ? ctx.mandatory : {};
-  for (const flag of MANDATORY_FLAGS) if (mandatory[flag] !== true) blockedBy.push(`mandatory:${flag}`); // missing = blocked
-  if (!TOUR_CATALOGUE.has(ctx.tourId)) blockedBy.push("unknown-tour");
+  const tour = TOUR_CATALOGUE.get(ctx.tourId);
+  const flags = tour && tour.cruiseScope ? [...MANDATORY_FLAGS, CRUISE_FLAG] : MANDATORY_FLAGS;
+  for (const flag of flags) if (mandatory[flag] !== true) blockedBy.push(`mandatory:${flag}`); // missing = blocked
+  if (!tour) blockedBy.push("unknown-tour");
   const pauses = activeMatching(doc, ctx, now, effectPayments);
   let overrideId = null;
   if (pauses.length > 0) {
     const override = typeof ctx.quoteId === "string" ? doc.overrides.find((o) => overrideIsValid(o, ctx.quoteId, now)) : undefined;
-    if (override) overrideId = override.id; // lifts PAUSES only; mandatory gates above still apply
-    else for (const p of pauses) blockedBy.push(`pause:${p.id}`);
+    const notOverridable = pauses.filter((p) => !OVERRIDABLE_SCOPE_KINDS.includes(p.scope.kind));
+    if (override && notOverridable.length === 0) overrideId = override.id; // lifts open-ended all/tour PAUSES only; every mandatory flag above still applies
+    else for (const p of pauses) blockedBy.push(`pause:${p.id}`); // date and cruise pauses can never be overridden
   }
-  return { kind: "payment", allowed: blockedBy.length === 0, blockedBy, overrideId, controlsVersion, failSafe: false };
+  return { kind: "payment", allowed: blockedBy.length === 0, blockedBy, overrideId, controlsVersion, failSafe: false, ...meta(now) };
 }
 
 export function evaluateKind(doc, kind, ctx, now, controlsVersion) {
-  if (UNAFFECTED_KINDS.includes(kind)) return { kind, allowed: true, unaffected: true, blockedBy: [], controlsVersion, failSafe: false };
+  if (UNAFFECTED_KINDS.includes(kind)) return { kind, allowed: true, unaffected: true, blockedBy: [], controlsVersion, failSafe: false, ...meta(now) };
   if (kind === "enquiry") return evaluateEnquiry(doc, ctx, now, controlsVersion);
   if (kind === "new-payment") return evaluatePayment(doc, ctx, now, controlsVersion);
   return null;

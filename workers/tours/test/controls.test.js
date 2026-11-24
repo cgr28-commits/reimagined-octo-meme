@@ -17,7 +17,8 @@ const REASON = "Driver unavailable (test)";
 let n = 0;
 const id = () => `p${++n}`;
 const withPause = (input, doc = initialControls()) => { const r = createPause(doc, { reason: REASON, ...input }, NOW, id()); assert.ok(r.ok, JSON.stringify(r.errors)); return r.doc; };
-const payOk = (doc, ctx) => evaluatePayment(doc, { mandatory: GATES, ...ctx }, NOW);
+const isCruise = (tourId) => Boolean(TOUR_CATALOGUE.get(tourId)?.cruiseScope);
+const payOk = (doc, ctx) => evaluatePayment(doc, { mandatory: { ...GATES, ...(isCruise(ctx.tourId) ? { cruiseRequirementsMet: true } : {}) }, ...ctx }, NOW);
 const enq = (doc, ctx) => evaluateEnquiry(doc, ctx, NOW);
 
 function makeControls(env = { TOURS_OWNER_KEY: KEY, TOURS_ENVIRONMENT: "staging" }) {
@@ -204,8 +205,10 @@ test("public status is minimal and leaks nothing", () => {
 });
 
 test("fail-safe decisions pause NEW tour enquiries (manual review) and payments only", () => {
-  assert.deepEqual(failSafeDecision("enquiry"), { kind: "enquiry", allowed: true, manualReview: true, autoQuote: false, reserveAvailability: false, blockedBy: ["controls-unreadable"], failSafe: true });
-  assert.deepEqual(failSafeDecision("new-payment"), { kind: "new-payment", allowed: false, blockedBy: ["controls-unreadable"], failSafe: true });
+  const strip = ({ decidedAt, cacheable, recheckBeforeTransaction, ...rest }) => rest;
+  assert.deepEqual(strip(failSafeDecision("enquiry")), { kind: "enquiry", allowed: true, manualReview: true, autoQuote: false, reserveAvailability: false, blockedBy: ["controls-unreadable"], failSafe: true });
+  assert.deepEqual(strip(failSafeDecision("new-payment")), { kind: "new-payment", allowed: false, blockedBy: ["controls-unreadable"], failSafe: true });
+  assert.equal(failSafeDecision("new-payment").cacheable, false);
 });
 
 test("structural validation rejects malformed or reserved fields", () => {
@@ -420,4 +423,89 @@ test("staging workflow exercises the controls end to end and stays staging-only"
   assert.match(job, /resumeAt/); // test pause cannot be left behind
   const docs = readFileSync(new URL("../../../docs/tours-controls.md", import.meta.url), "utf8");
   for (const needle of ["Europe/London", "366", "90", "failSafe", "notification intents", "ledgerReservationPause"]) assert.ok(docs.includes(needle), needle);
+});
+
+// ===== Pre-merge confirmations =====
+test("CONFIRM 1a: an owner override can never lift a date or cruise pause", () => {
+  const ctx = { tourId: "cruise-express", quoteId: "Q-1001", date: "2027-07-05" };
+  for (const scope of [{ kind: "date", from: "2027-07-01", to: "2027-07-10" }, { kind: "cruise", cruiseScope: "belfastOnly" }, { kind: "cruise", cruiseScope: "all" }]) {
+    let doc = withPause({ scope, effect: "payments" });
+    doc = createOverride(doc, { quoteId: "Q-1001", reason: "Owner wants this one through" }, NOW, "ov").doc;
+    const d = payOk(doc, ctx);
+    assert.equal(d.allowed, false, JSON.stringify(scope));
+    assert.equal(d.overrideId, null);
+    assert.ok(d.blockedBy.some((b) => b.startsWith("pause:")));
+  }
+  // mixed: an overridable tour pause AND a date pause -> still blocked; only the tour pause -> allowed
+  let mixed = withPause({ scope: { kind: "tour", tourId: "belfast-city" }, effect: "payments" });
+  mixed = withPause({ scope: { kind: "date", from: "2027-07-01", to: "2027-07-10" }, effect: "payments" }, mixed);
+  mixed = createOverride(mixed, { quoteId: "Q-1001", reason: "Owner wants this one through" }, NOW, "ov").doc;
+  assert.equal(payOk(mixed, { tourId: "belfast-city", quoteId: "Q-1001", date: "2027-07-05" }).allowed, false);
+  assert.equal(payOk(mixed, { tourId: "belfast-city", quoteId: "Q-1001", date: "2027-08-05" }).allowed, true); // outside the date range
+  // global and single-tour pauses remain overridable (owner decision 1)
+  for (const scope of [{ kind: "all" }, { kind: "tour", tourId: "belfast-city" }]) {
+    let doc = withPause({ scope, effect: "payments" });
+    doc = createOverride(doc, { quoteId: "Q-1001", reason: "Owner wants this one through" }, NOW, "ov").doc;
+    assert.equal(payOk(doc, { tourId: "belfast-city", quoteId: "Q-1001" }).allowed, true);
+  }
+});
+
+test("CONFIRM 1b: cruise safety requirements and authoritative availability are mandatory and cannot be overridden or auto-resumed", () => {
+  let doc = withPause({ scope: { kind: "tour", tourId: "cruise-causeway" }, effect: "payments" });
+  doc = createOverride(doc, { quoteId: "Q-3003", reason: "Owner wants this one through" }, NOW, "ov").doc;
+  const base = { tourId: "cruise-causeway", quoteId: "Q-3003", mandatory: { ...GATES, cruiseRequirementsMet: true } };
+  assert.equal(evaluatePayment(doc, base, NOW).allowed, true); // pause overridden, everything verified
+  for (const flag of ["cruiseRequirementsMet", "availabilityConfirmed", "safetyApproved", "launchGatesPassed"]) {
+    const d = evaluatePayment(doc, { ...base, mandatory: { ...base.mandatory, [flag]: false } }, NOW);
+    assert.equal(d.allowed, false, flag);
+    assert.ok(d.blockedBy.includes(`mandatory:${flag}`));
+  }
+  assert.equal(evaluatePayment(doc, { ...base, mandatory: GATES }, NOW).allowed, false); // cruise flag missing = blocked
+  const open = evaluatePayment(initialControls(), { tourId: "cruise-express", mandatory: GATES }, NOW); // no pause at all, no cruise flag
+  assert.ok(open.blockedBy.includes("mandatory:cruiseRequirementsMet") && !open.allowed);
+  assert.equal(evaluatePayment(initialControls(), { tourId: "belfast-city", mandatory: GATES }, NOW).allowed, true); // non-cruise tours do not need it
+  // auto-resume cannot satisfy them either
+  const timed = withPause({ scope: { kind: "tour", tourId: "cruise-causeway" }, effect: "payments", resumeAt: new Date(NOW + 3600e3).toISOString() });
+  assert.equal(evaluatePayment(timed, { tourId: "cruise-causeway", mandatory: { ...GATES, availabilityConfirmed: false, cruiseRequirementsMet: true } }, NOW + 7200e3).allowed, false);
+});
+
+test("CONFIRM 2: decisions are point-in-time and uncacheable; a pause created after an earlier answer changes the next answer", async () => {
+  for (const d of [evaluateEnquiry(initialControls(), { tourId: "belfast-city" }, NOW), evaluatePayment(initialControls(), { tourId: "belfast-city", mandatory: GATES }, NOW), failSafeDecision("new-payment", NOW)]) {
+    assert.equal(d.cacheable, false);
+    assert.equal(d.recheckBeforeTransaction, true);
+    assert.equal(d.decidedAt, new Date(NOW).toISOString());
+  }
+  const c = makeControls();
+  const ask = async () => (await c.call("POST", "/controls/check", { kind: "new-payment", tourId: "belfast-city", mandatory: GATES })).body.decision;
+  const before = await ask();
+  assert.equal(before.allowed, true);
+  await c.pause({ scope: { kind: "tour", tourId: "belfast-city" }, effect: "payments" });
+  const after = await ask();
+  assert.equal(after.allowed, false); // the earlier "allowed" must not be reused
+  assert.ok(after.controlsVersion > before.controlsVersion);
+  assert.match((await c.call("POST", "/controls/check", { kind: "new-payment", tourId: "belfast-city" })).headers.get("cache-control"), /no-store/);
+  const pub = await c.call("GET", "/public-status", undefined, { key: null });
+  assert.equal(pub.body.informational, true); // the cached public status is never a substitute for the check
+});
+
+test("CONFIRM 3: a global pause never touches pages, SEO, confirmed bookings or customer booking access", async () => {
+  const c = makeControls();
+  await c.pause({ scope: { kind: "all" }, effect: "both", reason: "Global emergency stop" });
+  for (const kind of ["confirmed-booking", "customer-booking-access", "payment-in-progress", "stripe-webhook", "refund"]) {
+    const d = (await c.call("POST", "/controls/check", { kind, tourId: "giants-causeway" })).body.decision;
+    assert.deepEqual([d.allowed, d.unaffected], [true, true], kind);
+  }
+  const pub = (await c.call("GET", "/public-status", undefined, { key: null })).body;
+  // the status vocabulary can only describe availability to buy; it has no "closed" / "removed" / "hidden" state
+  assert.deepEqual([...new Set(Object.values(pub.tours))], ["enquiry-only"]);
+  // the Worker serves no tour pages at all, so it cannot remove, redirect or noindex them
+  const index = readFileSync(new URL("../src/index.js", import.meta.url), "utf8") + readFileSync(new URL("../src/controls-do.js", import.meta.url), "utf8");
+  assert.ok(!/x-robots-tag|noindex|sitemap|robots\.txt|rel=.?canonical|status:\s*(301|302|307|308|410)|["'`]location["'`]/i.test(index), "controls must not touch SEO or redirect pages");
+});
+
+test("CONFIRM 4: the safeguards are documented as a contract for the later integration packages", () => {
+  const docs = readFileSync(new URL("../../../docs/tours-controls.md", import.meta.url), "utf8");
+  const section = docs.slice(docs.indexOf("## Contract for later integration packages"));
+  assert.ok(section.length > 500, "contract section missing");
+  for (const needle of ["immediately before", "cacheable:false", "never rely on", "/status", "fail closed", "cruiseRequirementsMet", "availabilityConfirmed", "date and cruise pauses", "never overridable", "HTTP 200", "noindex", "customer-booking-access", "reservation"]) assert.ok(section.toLowerCase().includes(needle.toLowerCase()), `contract is missing: ${needle}`);
 });

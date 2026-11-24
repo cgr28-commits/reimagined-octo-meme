@@ -129,7 +129,7 @@ export class TourControlsDO {
     const { kind, tourId, variantId, date, quoteId, mandatory } = parsed.body;
     const known = ["enquiry", "new-payment", ...UNAFFECTED_KINDS];
     if (!known.includes(kind)) return json({ ok: false, error: "invalid", errors: ["kind"] }, 400);
-    if (UNAFFECTED_KINDS.includes(kind)) return json({ ok: true, decision: { kind, allowed: true, unaffected: true, blockedBy: [], failSafe: false } });
+    if (UNAFFECTED_KINDS.includes(kind)) return json({ ok: true, decision: evaluateKind(initialControls(), kind, {}, Date.now(), null) });
     if (typeof tourId !== "string") return json({ ok: false, error: "invalid", errors: ["tourId"] }, 400);
     try {
       await this.ensureInitialised();
