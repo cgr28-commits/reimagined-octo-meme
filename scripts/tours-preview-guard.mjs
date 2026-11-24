@@ -16,12 +16,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+
 export const STAGING_ACCOUNT_ID = "ecad568dc411e28a3e435ef40b36c2b5";
 export const PRODUCTION_ACCOUNT_ID = "36c5c88df4c1f0259413d555f2679f3c";
 export const PREVIEW_WORKER_NAME = "reimagined-octo-meme-tours-preview";
 export const PRODUCTION_WORKER_NAME = "reimagined-octo-meme";
-export const WORKFLOW_FILE = ".github/workflows/deploy-tours-preview.yml";
-export const PRODUCTION_WRANGLER = "workers/addresses/wrangler.toml";
+export const WORKFLOW_FILE = `${REPO_ROOT}.github/workflows/deploy-tours-preview.yml`;
+export const PRODUCTION_WRANGLER = `${REPO_ROOT}workers/addresses/wrangler.toml`;
 /** Public ids already committed in the repository (production account + production KV). */
 const KNOWN_PRODUCTION_IDS = [PRODUCTION_ACCOUNT_ID, "53fa3cc2bd46436f90ae19200e599ea1", "869e2c2e02004d4a88c9cfbf563f1d6a"];
 
@@ -208,7 +210,7 @@ async function main() {
   const productionWrangler = readFileSync(PRODUCTION_WRANGLER, "utf8");
   let ok = true;
   if (mode === "--self-test") {
-    const template = readFileSync("workers/addresses/wrangler.bespoke-preview.toml", "utf8")
+    const template = readFileSync(`${REPO_ROOT}workers/addresses/wrangler.bespoke-preview.toml`, "utf8")
       .replace('name = "reimagined-octo-meme-bespoke-preview"', `name = "${PREVIEW_WORKER_NAME}"`)
       .replaceAll(/REPLACE_WITH_BESPOKE_PREVIEW_TRACKING_STORE_ID/g, "a".repeat(32))
       .replaceAll(/REPLACE_WITH_BESPOKE_PREVIEW_BOOKING_COUNTER_ID/g, "b".repeat(32))
