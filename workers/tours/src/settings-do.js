@@ -18,8 +18,11 @@ export class TourSettingsDO {
 
   /** Serialise every request so version numbers and audit sequence cannot race. */
   async fetch(request) {
-    const run = this.chain.then(() => this.handle(request));
-    this.chain = run.catch(() => undefined);
+    const run = this.chain.then(() => this.handle(request)).catch((error) => {
+      console.error("tours-settings internal error", error && error.name);
+      return json({ ok: false, error: "internal-error", detail: `${error && error.name}: ${String((error && error.message) || "").slice(0, 200)}` }, 500);
+    });
+    this.chain = run.then(() => undefined, () => undefined);
     return run;
   }
 

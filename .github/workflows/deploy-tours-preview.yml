@@ -297,8 +297,8 @@ jobs:
           [ "$CODE" = "200" ] || { echo "::error::Tours settings Worker did not answer (HTTP $CODE)."; exit 1; }
 
           # Owner authentication is enforced server-side.
-          NOAUTH="$(curl -s -o /dev/null -w '%{http_code}' "$URL/settings")"
-          [ "$NOAUTH" = "401" ] || { echo "::error::Unauthenticated read was not refused (HTTP $NOAUTH)."; exit 1; }
+          NOAUTH="$(curl -s -o /tmp/noauth.json -w '%{http_code}' "$URL/settings")"
+          [ "$NOAUTH" = "401" ] || { echo "::error::Unauthenticated read was not refused (HTTP $NOAUTH): $(head -c 300 /tmp/noauth.json)"; exit 1; }
           BAD="$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings")"
           [ "$BAD" = "401" ] || { echo "::error::A wrong owner key was not refused (HTTP $BAD)."; exit 1; }
 
