@@ -296,43 +296,42 @@ jobs:
           done
           [ "$CODE" = "200" ] || { echo "::error::Tours settings Worker did not answer (HTTP $CODE)."; exit 1; }
 
-          # A new deploy plus secret update can briefly reset the Durable Object (seen once as HTTP 500, 1 s after the
-          # secret was set). Retry ONLY 5xx, a few times, and log how many retries were needed. A persistent 5xx fails.
-          RETRIES=0
-          status() { # status <expected> <label> <curl args...>
-            local expected="$1" label="$2"; shift 2
-            local code="" attempt
-            for attempt in 1 2 3 4 5 6; do
-              code="$(curl -s -o /tmp/smoke.json -w '%{http_code}' "$@" || true)"
-              case "$code" in 5*) RETRIES=$((RETRIES+1)); echo "::warning::$label: HTTP $code on attempt $attempt: $(head -c 300 /tmp/smoke.json)"; sleep 5;; *) break;; esac
-            done
-            [ "$code" = "$expected" ] || { echo "::error::$label: expected HTTP $expected, got $code: $(head -c 300 /tmp/smoke.json)"; exit 1; }
-          }
+          # A new deploy plus secret update can briefly reset the Durable Object (seen as transient HTTP 500, within about a
+          # second of the secret update). smoke_call retries ONLY 5xx or no response, up to 6 attempts 5 s apart, logs each
+          # retry with a sanitised body and counts them; any persistent or non-5xx unexpected result still fails the job.
+          . ../../scripts/tours-smoke-http.sh
+          SMOKE_SECRET="$SETTINGS_OWNER_KEY"
           # Owner authentication is enforced server-side.
-          status 401 "Unauthenticated read" "$URL/settings"
-          status 401 "Wrong owner key" -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings"
+          smoke_call 401 "Unauthenticated read" "$URL/settings"
+          smoke_call 401 "Wrong owner key" -H 'Authorization: Bearer not-the-owner-key-000000000' "$URL/settings"
 
           AUTH="Authorization: Bearer ${SETTINGS_OWNER_KEY}"
-          GOT="$(curl -sS -H "$AUTH" "$URL/settings")"
+          smoke_call 200 "Read settings" -H "$AUTH" "$URL/settings"
+          GOT="$(cat "$SMOKE_BODY")"
           printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!b.ok||!Number.isInteger(b.version)||!/^[a-f0-9]{64}$/.test(b.hash)||b.settings.mandatory.capacity.maxPassengers!==4||b.settings.publicLaunch.enabled!==false||b.settings.commercial.availability.source!=="synthetic-staging-fixture"){console.error("::error::Unexpected settings document.");process.exit(1)}; console.log("settings document ok, version "+b.version)'
 
           # Mandatory rules are enforced by the deployed Worker (nothing is written by these checks).
           BAD_SETTINGS="$(printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); b.settings.mandatory.capacity.maxPassengers=7; b.settings.mandatory.cruise.returnBufferMinutes.longDistance=60; b.settings.commercial.availability.source="production-kv"; process.stdout.write(JSON.stringify({settings:b.settings}))')"
-          VALIDATION="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d "$BAD_SETTINGS" "$URL/validate")"
+          smoke_call 200 "Validate settings" -H "$AUTH" -H 'Content-Type: application/json' -d "$BAD_SETTINGS" "$URL/validate"
+          VALIDATION="$(cat "$SMOKE_BODY")"
           printf '%s' "$VALIDATION" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); const c=b.errors.map(e=>e.code); for (const need of ["mandatory-capacity","mandatory-cruise-buffer","availability-source"]) if(!c.includes(need)){console.error("::error::Deployed validator missed "+need);process.exit(1)}; console.log("deployed validator rejects 7 passengers, short return buffer and non-synthetic availability")'
-          status 409 "Stale baseVersion" -H "$AUTH" -H 'Content-Type: application/json' -d '{"baseVersion":0,"reason":"smoke test stale","settings":{}}' "$URL/publish"
-          READY="$(curl -sS -H "$AUTH" "$URL/readiness")"
+          smoke_call 409 "Stale baseVersion" -H "$AUTH" -H 'Content-Type: application/json' -d '{"baseVersion":0,"reason":"smoke test stale","settings":{}}' "$URL/publish"
+          smoke_call 200 "Read readiness" -H "$AUTH" "$URL/readiness"
+          READY="$(cat "$SMOKE_BODY")"
           printf '%s' "$READY" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); if(!b.ok||b.launchReady!==false||b.mandatoryGatesClosed.length!==7||b.features.advertisingApproval.blocking!==false||b.features.guidingQualifications.blocking!==false){console.error("::error::Unexpected readiness report.");process.exit(1)}; console.log("readiness: launch closed, 7 mandatory prerequisites open to verify, optional feature gates not blocking")'
           printf '%s' "$GOT" | node -e 'const b=JSON.parse(require("fs").readFileSync(0,"utf8")); const t=Object.fromEntries(b.settings.commercial.tours.map(x=>[x.id,x])); const ok=t["giants-causeway"].provisionalPricePence.value===44500&&t["game-of-thrones"].provisionalPricePence.value===44500&&t["belfast-city"].provisionalPricePence.value===24500&&t["cruise-express"].provisionalPricePence.value===29500&&t["cruise-causeway"].provisionalPricePence.value===49500&&t["antrim-coast"].variants.length===2&&t["antrim-coast"].variants.find(v=>v.kind==="full-day").provisionalPricePence.value===42500&&b.settings.commercial.cancellation.partialRefundPercent.value===50&&t["giants-causeway"].durationHours.value===9&&t["game-of-thrones"].durationHours.value===9&&t["belfast-city"].durationHours.value===5&&t["cruise-express"].durationHours.value===6&&t["cruise-causeway"].durationHours.value===9&&t["antrim-coast"].variants.find(v=>v.kind==="full-day").durationHours.value===8&&t["cruise-express"].cruiseScope==="belfastOnly"&&t["cruise-causeway"].cruiseScope==="longDistance"&&b.settings.schema==="tour-settings/3"; if(!ok){console.error("::error::Seeded prices, durations, cruise scopes or cancellation tier are not as agreed.");process.exit(1)}; console.log("seeded prices, durations, cruise scopes and 50% cancellation tier verified")' 
           # Itinerary-level cruise scope validation on the deployed Worker (read-only).
-          GOODI="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d '{"itinerary":{"tourId":"cruise-express","stops":[{"id":"titanic","region":"belfast"}],"allAboardAt":"2027-06-01T17:00:00Z","allAboardConfirmedByCustomer":true,"plannedPortReturnAt":"2027-06-01T15:30:00Z"}}' "$URL/validate-itinerary")"
-          BADI="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d '{"itinerary":{"tourId":"cruise-causeway","stops":[{"id":"causeway","region":"outside-belfast"}],"allAboardAt":"2027-06-01T17:00:00Z","allAboardConfirmedByCustomer":true,"plannedPortReturnAt":"2027-06-01T15:30:00Z"}}' "$URL/validate-itinerary")"
+          smoke_call 200 "Itinerary (accepted case)" -H "$AUTH" -H 'Content-Type: application/json' -d '{"itinerary":{"tourId":"cruise-express","stops":[{"id":"titanic","region":"belfast"}],"allAboardAt":"2027-06-01T17:00:00Z","allAboardConfirmedByCustomer":true,"plannedPortReturnAt":"2027-06-01T15:30:00Z"}}' "$URL/validate-itinerary"
+          GOODI="$(cat "$SMOKE_BODY")"
+          smoke_call 200 "Itinerary (refused case)" -H "$AUTH" -H 'Content-Type: application/json' -d '{"itinerary":{"tourId":"cruise-causeway","stops":[{"id":"causeway","region":"outside-belfast"}],"allAboardAt":"2027-06-01T17:00:00Z","allAboardConfirmedByCustomer":true,"plannedPortReturnAt":"2027-06-01T15:30:00Z"}}' "$URL/validate-itinerary"
+          BADI="$(cat "$SMOKE_BODY")"
           printf '%s' "$GOODI" | grep -q '"valid":true' || { echo "::error::Belfast-only itinerary with a 90 minute buffer was not accepted."; exit 1; }
           printf '%s' "$BADI" | grep -q '"valid":false' || { echo "::error::Long-distance itinerary with a 90 minute buffer was not refused."; exit 1; }
           echo "itinerary scope validation verified on the deployed Worker"
-          VERIFY="$(curl -sS -H "$AUTH" -H 'Content-Type: application/json' -d '{"version":1}' "$URL/verify")"
+          smoke_call 200 "Verify snapshot" -H "$AUTH" -H 'Content-Type: application/json' -d '{"version":1}' "$URL/verify"
+          VERIFY="$(cat "$SMOKE_BODY")"
           printf '%s' "$VERIFY" | grep -q '"intact":true' || { echo "::error::Snapshot integrity check failed."; exit 1; }
-          echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${RETRIES})."
+          echo "::notice::Tours settings Worker (staging account): $URL. Auth, validation, concurrency and snapshot integrity verified (5xx retries needed: ${SMOKE_RETRIES})."
 
       - name: Deployed bindings are staging-only (own Durable Object only)
         if: steps.ready.outputs.ready == 'true'
