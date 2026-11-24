@@ -98,6 +98,7 @@ export default function LongDistanceTransfersPage() {
               <div className="mt-4 flex flex-wrap gap-4 font-semibold text-emerald">
                 <Link href="/transfers/belfast-to-dublin-city/" className="underline underline-offset-4">Belfast to Dublin City Taxi</Link>
                 <Link href="/transfers/dublin-to-belfast/" className="underline underline-offset-4">Dublin to Belfast Taxi</Link>
+                <Link href="/transfers/belfast-dublin-christmas-taxi/" className="underline underline-offset-4">Christmas &amp; New Year Trips</Link>
               </div>
             </section>
             <section className="mt-10">

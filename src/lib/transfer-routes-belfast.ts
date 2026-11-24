@@ -134,6 +134,11 @@ export const TRANSFER_ROUTE_BELFAST: TransferRouteContent[] = [
           "Yes. Pre-book a private taxi on this page and we collect you from your Belfast address and drive you straight to Dublin Airport, door to door. It usually takes around two hours, the price is fixed before you pay, and M1 tolls are included.",
       },
       {
+        question: "What's the best way to get from Belfast to Dublin Airport?",
+        answer:
+          "Coaches run from Belfast to Dublin Airport, which suits you if you're travelling light and live near a stop. A private taxi transfer suits families, groups, plenty of luggage and early flights: we collect you at your own door, including overnight for early departures, and drive you straight to your terminal with no changes on the way. The fixed price is for the whole car, not per person, and M1 tolls are included.",
+      },
+      {
         question: "How much is a taxi from Belfast to Dublin Airport?",
         answer:
           "Prices start from £241, with M1 tolls included. Enter your Belfast address in the quote box at the top of this page and you'll see your exact fixed price straight away. The price depends on exactly where we collect you.",

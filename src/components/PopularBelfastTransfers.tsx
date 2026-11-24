@@ -32,6 +32,14 @@ export default function PopularBelfastTransfers() {
             </li>
           ))}
         </ul>
+        {/* Christmas season link (Nov–Dec 2026). After Christmas, reword to "days out, shopping and nights out" when the page is repurposed. */}
+        <p className="mt-6 text-sm leading-relaxed text-white/70">
+          Heading to Dublin city rather than the airport? Book a{" "}
+          <Link href="/transfers/belfast-to-dublin-city/" className="text-emerald underline underline-offset-4">Belfast to Dublin taxi, door to door in either direction</Link>
+          , or plan a{" "}
+          <Link href="/transfers/belfast-dublin-christmas-taxi/" className="text-emerald underline underline-offset-4">Christmas shopping trip, market day or work night out between Belfast and Dublin</Link>
+          .
+        </p>
         <p className="mt-6 text-sm leading-relaxed text-white/70">
           For departures from Aldergrove (BFS), see our{" "}
           <Link href="/airports/belfast-international/" className="text-emerald underline underline-offset-4">Belfast International Airport taxi guide</Link>{" "}

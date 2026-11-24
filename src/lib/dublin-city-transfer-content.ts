@@ -30,14 +30,24 @@ export const DUBLIN_CITY_TRANSFER_PAGE = {
     "Enter your pickup and drop-off addresses, then the number of passengers and suitcases. Where an instant fare is shown you can book and pay online in minutes. Otherwise send the request and we confirm a fixed price and availability before you pay.",
   faqs: [
     {
+      question: "Can I get a taxi from Belfast to Dublin?",
+      answer:
+        "Yes. Book a private taxi on this page and we drive you from your Belfast address straight to your Dublin hotel, home, office or venue in the same car. It usually takes around two hours, and the price is fixed before you pay.",
+    },
+    {
       question: "How much is a taxi from Belfast to Dublin city?",
       answer:
         "The price depends on the exact pickup and drop-off addresses, the vehicle and the journey time. Enter both addresses in the quote form to see your fixed price. The price is for the car, not per passenger, and it is agreed before you pay.",
     },
     {
-      question: "Can you collect me in Dublin and take me to Belfast?",
+      question: "Can I get a taxi from Dublin to Belfast?",
       answer:
-        "Yes. Enter your Dublin hotel, home or office as the pickup and your Belfast address as the drop-off. We confirm the collection time and the fixed price before you book.",
+        "Yes. Enter your Dublin hotel, home or office as the pickup and your Belfast address as the drop-off. Your pre-booked driver collects you at the time you choose and takes you straight to your Belfast door, and we confirm the fixed price before you book.",
+    },
+    {
+      question: "I'm going to Dublin Airport, not the city. Which page do I use?",
+      answer:
+        "Use our Belfast to Dublin Airport page for flights out, or Dublin Airport to Belfast if you are landing. Airport fares include the M1 tolls, and on airport pickups your driver meets you in Arrivals with up to 60 minutes' waiting included.",
     },
     {
       question: "How long is the journey between Belfast and Dublin?",
