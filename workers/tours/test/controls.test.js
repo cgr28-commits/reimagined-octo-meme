@@ -505,7 +505,7 @@ test("CONFIRM 3: a global pause never touches pages, SEO, confirmed bookings or 
 
 test("CONFIRM 4: the safeguards are documented as a contract for the later integration packages", () => {
   const docs = readFileSync(new URL("../../../docs/tours-controls.md", import.meta.url), "utf8");
-  const section = docs.slice(docs.indexOf("## Contract for later integration packages"));
+  const section = docs.slice(docs.indexOf("## Contract for later integration packages")).replace(/\s+/g, " ");
   assert.ok(section.length > 500, "contract section missing");
   for (const needle of ["immediately before", "cacheable:false", "never rely on", "/status", "fail closed", "cruiseRequirementsMet", "availabilityConfirmed", "date and cruise pauses", "never overridable", "HTTP 200", "noindex", "customer-booking-access", "reservation"]) assert.ok(section.toLowerCase().includes(needle.toLowerCase()), `contract is missing: ${needle}`);
 });
