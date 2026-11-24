@@ -1,0 +1,15 @@
+# Code owners for files where a mistake reaches production or changes payments,
+# availability or deployment. GitHub asks the owner to review changes to these
+# paths. It is only ENFORCED when a branch rule requires code owner review (see
+# docs/branch-rules.md); until then it is a visible marker on pull requests.
+
+/.github/workflows/ @cgr28-commits
+/.github/CODEOWNERS @cgr28-commits
+/.github/scripts/ @cgr28-commits
+/workers/addresses/wrangler.toml @cgr28-commits
+/shared/ @cgr28-commits
+/workers/addresses/src/payment-provider.ts @cgr28-commits
+/workers/addresses/src/paid-booking-store.ts @cgr28-commits
+/workers/addresses/src/booking-job-store.ts @cgr28-commits
+/workers/addresses/src/smart-ops-handlers.ts @cgr28-commits
+/docs/branch-rules.md @cgr28-commits

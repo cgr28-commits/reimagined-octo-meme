@@ -36,10 +36,19 @@ jobs:
               await new Promise((resolve) => setTimeout(resolve, ms));
             }
 
+            // Only cursor/* branches are ever auto-merged. tours/* (Private Tours work) is
+            // denied explicitly as a second guard: it must never be merged or deployed
+            // automatically. For cursor/* branches this behaves exactly as before.
+            function isAutoMergeBranch(ref) {
+              const name = String(ref || "");
+              if (name.startsWith("tours/")) return false;
+              return name.startsWith("cursor/");
+            }
+
             async function findCursorPulls() {
               const pulls = [];
 
-              if (context.payload.pull_request?.head?.ref?.startsWith("cursor/")) {
+              if (isAutoMergeBranch(context.payload.pull_request?.head?.ref)) {
                 pulls.push(context.payload.pull_request);
                 return pulls;
               }
@@ -57,7 +66,7 @@ jobs:
                   per_page: 50,
                 });
                 for (const pr of data) {
-                  if (pr.head.ref.startsWith("cursor/") && pr.head.sha === headSha) {
+                  if (isAutoMergeBranch(pr.head.ref) && pr.head.sha === headSha) {
                     pulls.push(pr);
                   }
                 }
@@ -74,7 +83,7 @@ jobs:
                 pull_number,
               });
 
-              if (prDetails.merged || !prDetails.head.ref.startsWith("cursor/")) {
+              if (prDetails.merged || !isAutoMergeBranch(prDetails.head.ref)) {
                 return "done";
               }
 

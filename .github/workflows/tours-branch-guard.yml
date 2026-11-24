@@ -1,0 +1,66 @@
+# Tours branch guard (Private Tours roadmap, WP-A1).
+#
+# Only pull requests from branches named tours/* are checked; every other pull request
+# passes immediately and nothing about existing airport work changes.
+# A tours/* pull request fails this check if it
+#   - changes the production deploy / auto-merge workflows, CODEOWNERS or this guard, or
+#   - targets main without the "tours-go-live-approved" label (the owner adds the label).
+#
+# Safety: runs on pull_request_target but checks out ONLY the base branch (the trusted
+# copy of the rules) and never runs code from the pull request. It reads the list of
+# changed file names through the API and needs read-only permissions.
+# Make "Tours branch guard" a required check in the GitHub branch rule (docs/branch-rules.md).
+
+name: Tours branch guard
+
+"on":
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: tours-branch-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Tours branch guard
+    runs-on: ubuntu-latest
+    steps:
+      # Default ref for pull_request_target is the base branch: trusted rules only.
+      - uses: actions/checkout@v4
+
+      - name: Evaluate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { evaluate } = require("./.github/scripts/tours-branch-guard.cjs");
+            const pr = context.payload.pull_request;
+            const headRef = pr.head.ref;
+            if (!headRef.startsWith("tours/")) {
+              core.info(`Not a tours/* branch (${headRef}); nothing to check.`);
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const changedFiles = files.flatMap((file) =>
+              file.previous_filename ? [file.filename, file.previous_filename] : [file.filename],
+            );
+            const result = evaluate({
+              headRef,
+              baseRef: pr.base.ref,
+              labels: pr.labels,
+              changedFiles,
+            });
+            if (!result.ok) {
+              core.setFailed(`Tours branch guard: ${result.reasons.join("; ")}`);
+              return;
+            }
+            core.info("Tours branch guard passed.");
