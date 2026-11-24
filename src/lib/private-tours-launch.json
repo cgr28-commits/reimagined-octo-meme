@@ -1,4 +1,4 @@
 {
-  "live": false,
-  "apiUrl": ""
+  "live": true,
+  "apiUrl": "https://reimagined-octo-meme-tours.cgr28.workers.dev"
 }
