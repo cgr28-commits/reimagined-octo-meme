@@ -171,16 +171,20 @@ jobs:
           # the workflow stores just its SHA-256 in the deployed gate. Nothing is printed.
           sed -i 's/const COOKIE = "matni_preview";/const COOKIE = "matni_tours_preview";/' out/_worker.js
           grep -q 'const COOKIE = "matni_tours_preview";' out/_worker.js || { echo "::error::Could not set the tours preview cookie name."; exit 1; }
-          if [ -n "${TOURS_ACCESS_CODE:-}" ]; then
-            echo "::add-mask::$TOURS_ACCESS_CODE"
-            if [ "${#TOURS_ACCESS_CODE}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_ACCESS_CODE must be at least 24 characters."; exit 1; fi
-            HASH="$(printf '%s' "$TOURS_ACCESS_CODE" | sha256sum | cut -d' ' -f1)"
-            sed -i "s/^const ACCESS_CODE_SHA256 = \"[a-f0-9]*\";/const ACCESS_CODE_SHA256 = \"${HASH}\";/" out/_worker.js
-            grep -q "const ACCESS_CODE_SHA256 = \"${HASH}\";" out/_worker.js || { echo "::error::Could not set the tours preview access code hash."; exit 1; }
-            echo "::notice::Tours preview uses its own access code and cookie."
-          else
-            echo "::warning::No TOURS_PREVIEW_ACCESS_CODE secret: the tours preview still uses the bespoke preview access code. Add the secret to give it its own code."
+          # Fail closed: the tours preview must never be served with the shared bespoke access code.
+          if [ -z "${TOURS_ACCESS_CODE:-}" ]; then
+            echo "::error::TOURS_PREVIEW_ACCESS_CODE secret is missing. The tours preview is not deployed with the shared bespoke access code."
+            exit 1
           fi
+          echo "::add-mask::$TOURS_ACCESS_CODE"
+          if [ "${#TOURS_ACCESS_CODE}" -lt 24 ]; then echo "::error::TOURS_PREVIEW_ACCESS_CODE must be at least 24 characters."; exit 1; fi
+          HASH="$(printf '%s' "$TOURS_ACCESS_CODE" | sha256sum | cut -d' ' -f1)"
+          BESPOKE_HASH="$(sed -n 's/^const ACCESS_CODE_SHA256 = "\([a-f0-9]*\)";/\1/p' scripts/bespoke-preview-gate.js)"
+          if [ "$HASH" = "$BESPOKE_HASH" ]; then echo "::error::TOURS_PREVIEW_ACCESS_CODE must differ from the bespoke preview access code."; exit 1; fi
+          sed -i "s/^const ACCESS_CODE_SHA256 = \"[a-f0-9]*\";/const ACCESS_CODE_SHA256 = \"${HASH}\";/" out/_worker.js
+          grep -q "const ACCESS_CODE_SHA256 = \"${HASH}\";" out/_worker.js || { echo "::error::Could not set the tours preview access code hash."; exit 1; }
+          if grep -q "$BESPOKE_HASH" out/_worker.js; then echo "::error::The bespoke access code hash is still present in the tours gate."; exit 1; fi
+          echo "::notice::Tours preview uses its own access code and cookie."
           printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
           rm -f out/CNAME out/sitemap.xml
 
@@ -190,8 +194,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
           SITE_HOST: ${{ steps.prepare.outputs.site_host }}
+          TOURS_ACCESS_CODE: ${{ secrets.TOURS_PREVIEW_ACCESS_CODE }}
         run: |
           set -euo pipefail
+          echo "::add-mask::$TOURS_ACCESS_CODE"
           npm install --no-save wrangler@3.109.0
           npx wrangler pages deploy out --project-name="$PREVIEW_PAGES_PROJECT" --branch=preview --commit-hash="${GITHUB_SHA}" --commit-dirty=true
           # Without the private link the site must answer 401, never the pages.
@@ -203,6 +209,19 @@ jobs:
           done
           if [ "$CODE" != "401" ]; then echo "::error::Preview site is not behind the private link (HTTP $CODE)."; exit 1; fi
           curl -sS -D - -o /dev/null "https://${SITE_HOST}/" | grep -qi '^x-robots-tag:.*noindex' || { echo "::error::Preview site is missing the noindex header."; exit 1; }
+          # Access-code and cookie isolation, proven against the deployed site.
+          WRONG="$(curl -s -o /dev/null -w '%{http_code}' "https://${SITE_HOST}/?k=not-the-code-$(date +%s)")"
+          [ "$WRONG" = "401" ] || { echo "::error::A wrong access code was not refused (HTTP $WRONG)."; exit 1; }
+          HEADERS="$(curl -sS -D - -o /dev/null --get --data-urlencode "k=${TOURS_ACCESS_CODE}" "https://${SITE_HOST}/")"
+          printf '%s' "$HEADERS" | head -1 | grep -q ' 302' || { echo "::error::The tours preview access code was not accepted."; exit 1; }
+          printf '%s' "$HEADERS" | grep -qi '^set-cookie: matni_tours_preview=' || { echo "::error::The tours preview did not set its own cookie."; exit 1; }
+          printf '%s' "$HEADERS" | grep -qi '^set-cookie: matni_preview=' && { echo "::error::The tours preview set the bespoke cookie name."; exit 1; }
+          # A cookie carrying the bespoke cookie name must not open the site.
+          CROSS="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_preview=${TOURS_ACCESS_CODE}" "https://${SITE_HOST}/")"
+          [ "$CROSS" = "401" ] || { echo "::error::The bespoke cookie name opened the tours preview (HTTP $CROSS)."; exit 1; }
+          OWN="$(curl -s -o /dev/null -w '%{http_code}' -H "Cookie: matni_tours_preview=${TOURS_ACCESS_CODE}" "https://${SITE_HOST}/")"
+          [ "$OWN" = "200" ] || { echo "::error::The tours preview cookie did not open the site (HTTP $OWN)."; exit 1; }
+          echo "::notice::Access isolation verified: wrong code 401, own code accepted with its own cookie, bespoke cookie name refused."
           echo "::notice::Private preview website: https://${SITE_HOST}/ (open with the private link)"
 
   # Stripe TEST keys from the "staging" environment. Only this small job runs in that environment.
