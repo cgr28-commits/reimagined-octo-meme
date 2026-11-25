@@ -10714,7 +10714,6 @@ function QuoteCard({
                                 <button
                                   type="button"
                                   data-d3-sticky-send-quote
-                                  aria-label="Save my quote. Not ready to book? Save your quote for later."
                                   onClick={() => handleSaveQuoteClick()}
                                 >
                                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false">
