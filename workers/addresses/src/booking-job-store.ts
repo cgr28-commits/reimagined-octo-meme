@@ -41,10 +41,28 @@ async function addIdToDayIndex(
   }
 }
 
+async function removeIdFromDayIndex(
+  store: KVNamespace,
+  indexKey: string,
+  jobId: string,
+): Promise<void> {
+  const existing = await store.get<string[]>(indexKey, "json");
+  if (!Array.isArray(existing) || !existing.includes(jobId)) return;
+  await store.put(indexKey, JSON.stringify(existing.filter((id) => id !== jobId)), {
+    expirationTtl: DAY_INDEX_TTL,
+  });
+}
+
 export async function saveBookingJob(
   store: KVNamespace,
   job: BookingJobRecord,
 ): Promise<void> {
+  // A date change must move the job between day indexes, not leave it under the old date.
+  const previous = await store.get<BookingJobRecord>(bookingJobKey(job.id), "json");
+  const previousDate = previous?.tripDate?.trim() || "";
+  if (previousDate && previousDate !== (job.tripDate?.trim() || "")) {
+    await removeIdFromDayIndex(store, bookingJobDayIndexKey(previousDate), job.id);
+  }
   await store.put(bookingJobKey(job.id), JSON.stringify(job), {
     expirationTtl: DAY_INDEX_TTL,
   });
@@ -114,7 +132,9 @@ async function listBookingJobsForIndexKey(
   const jobs: BookingJobRecord[] = [];
   for (const id of ids) {
     const job = await getBookingJob(store, id);
-    if (job) {
+    // Skip records whose date has since moved (stale entry from before the index was kept in step).
+    const isDayIndex = indexKey.startsWith("booking-job-day:");
+    if (job && (!isDayIndex || bookingJobDayIndexKey(job.tripDate?.trim() || "") === indexKey)) {
       jobs.push(job);
     }
   }
