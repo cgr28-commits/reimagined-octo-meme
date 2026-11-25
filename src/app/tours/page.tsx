@@ -1,14 +1,13 @@
-import { TOURS_LIVE } from "@/lib/private-tours-mode";
+import { TOURS as PRIVATE_TOURS, guidePrice, tourPhoto } from "@/lib/private-tours";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import SectionHeading from "@/components/SectionHeading";
-import TourCard from "@/components/TourCard";
 import TourBookingForm from "@/components/TourBookingForm";
 import { SERVICE_FLAGS, SITE } from "@/lib/data";
-import { TOUR_BENEFITS, TOURS } from "@/lib/tours";
+import { TOUR_BENEFITS } from "@/lib/tours";
 import { getBreadcrumbJsonLd, getFaqPageJsonLd, getTourItemListJsonLd } from "@/lib/structured-data";
 
 const TITLE = "Private Tours from Belfast | Giant's Causeway from £395";
@@ -113,30 +112,63 @@ export default function ToursPage() {
               Back to home
             </Link>
 
-            <div className="mt-8">
-              <SectionHeading
-                as="h1"
-                align="left"
-                eyebrow="Private Day Trips"
-                title="Private Tours from Belfast"
-                description="See the Giant's Causeway, the Antrim Coast, Game of Thrones locations or Belfast itself in your own car with a local driver. Half days from £195 and full days from £395 — per car, for up to 4 passengers."
-              />
+            <div className="mt-8 max-w-3xl">
+              <p className="flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.2em] text-emerald">
+                <span className="h-px w-8 bg-emerald" aria-hidden="true" />
+                Private Tours
+              </p>
+              <h1 className="mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl">
+                Private Northern Ireland Tours from Dublin &amp; Belfast
+              </h1>
+              <p className="mt-6 text-lg leading-relaxed text-white/80">
+                Discover Northern Ireland at your own pace with a private driver and a personalised itinerary.
+              </p>
+              <p className="mt-4 leading-relaxed text-white/70">
+                Whether you&rsquo;re staying in Dublin or Belfast, arriving on a cruise ship or visiting Northern Ireland on holiday, enjoy comfortable, door-to-door travel without the crowds or restrictions of a coach tour.
+              </p>
+              <ul className="mt-6 space-y-2 text-white/80">
+                {[
+                  "Private tours for up to 4 passengers",
+                  "Dublin and Belfast hotel collection",
+                  "Flexible itineraries",
+                  "Return transport included",
+                  "Exclusive vehicle for your group",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3">
+                    <svg className="mt-1 h-4 w-4 shrink-0 text-emerald" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/private-tours/plan/"
+                className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-emerald px-8 text-base font-bold text-navy transition-colors hover:bg-emerald-light"
+              >
+                Get Your Private Tour Quote
+              </Link>
             </div>
 
-            {TOURS_LIVE ? (
-              <Link
-                href="/private-tours/"
-                className="mt-10 block rounded-2xl border border-emerald/40 bg-white/[0.04] p-5 text-white transition-colors hover:border-emerald"
-              >
-                <span className="text-sm font-semibold uppercase tracking-widest text-emerald">New</span>
-                <span className="mt-1 block text-lg font-bold">Design your own private tour</span>
-                <span className="mt-1 block text-sm text-white/70">Choose attractions, see provisional timings and request a personal quote.</span>
-              </Link>
-            ) : null}
-
             <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {TOURS.map((tour) => (
-                <TourCard key={tour.slug} tour={tour} />
+              {PRIVATE_TOURS.map((tour: { id: string; slug: string; name: string; kicker: string; tagline: string; photo: string }) => (
+                <Link
+                  key={tour.id}
+                  href={`/private-tours/${tour.slug}/`}
+                  className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-colors hover:border-emerald/60"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={tourPhoto(tour.photo)} alt="" loading="lazy" className="aspect-[3/2] w-full object-cover" />
+                  <div className="p-5">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-emerald">{tour.kicker}</p>
+                    <h2 className="mt-2 text-xl font-bold text-white">{tour.name}</h2>
+                    <p className="mt-2 text-sm leading-relaxed text-white/70">{tour.tagline}</p>
+                    <p className="mt-4 text-sm font-semibold text-white">
+                      {guidePrice(tour.id).label}
+                      <span className="ml-2 font-normal text-emerald group-hover:underline">View tour &rarr;</span>
+                    </p>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
