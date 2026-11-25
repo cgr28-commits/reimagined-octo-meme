@@ -28,6 +28,8 @@ export type BookingJobRecord = {
   customerName: string;
   customerEmail: string;
   customerMobile: string;
+  /** Validated international form of customerMobile (derived on save). */
+  customerMobileE164?: string;
   tripLabel: string;
   pickupLabel: string;
   dropoffLabel: string;

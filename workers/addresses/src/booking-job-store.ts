@@ -5,6 +5,7 @@ import {
   driverAcceptKey,
   type BookingJobRecord,
 } from "../shared/booking-job";
+import { toE164 } from "../shared/phone-e164";
 
 const DAY_INDEX_TTL = 60 * 60 * 24 * 90;
 const ACCEPT_TTL = 60 * 60 * 24 * 60;
@@ -57,6 +58,9 @@ export async function saveBookingJob(
   store: KVNamespace,
   job: BookingJobRecord,
 ): Promise<void> {
+  const e164 = toE164(job.customerMobile);
+  if (e164) job.customerMobileE164 = e164;
+  else delete job.customerMobileE164;
   // A date change must move the job between day indexes, not leave it under the old date.
   const previous = await store.get<BookingJobRecord>(bookingJobKey(job.id), "json");
   const previousDate = previous?.tripDate?.trim() || "";

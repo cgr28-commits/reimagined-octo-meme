@@ -3,6 +3,7 @@
  * Never import this from public customer pages.
  */
 
+import { whatsAppDigitsFor } from "./phone-e164";
 import { getServedAirport, matchServedAirportCode } from "./served-airports";
 import { formatUkDate, formatUkTime } from "./uk-time";
 
@@ -111,44 +112,8 @@ function storedCoords(
  * UK 07… → 44…; +44 / 0044 do not get a second 44; other international numbers kept.
  */
 export function ownerWhatsAppDigits(raw: string | null | undefined): string {
-  if (!raw) return "";
-  let value = raw.trim();
-  if (!value) return "";
-
-  if (/^00\d/.test(value)) {
-    value = `+${value.slice(2)}`;
-  }
-
-  value = value.replace(/^\+44\s*\(?0\)?\s*/, "+44");
-
-  const hasPlus = value.startsWith("+");
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-
-  if (digits.startsWith("440") && digits.length >= 13 && digits.length <= 16) {
-    const stripped = `44${digits.slice(3)}`;
-    if (stripped.length >= E164_MIN && stripped.length <= E164_MAX) return stripped;
-  }
-
-  if (hasPlus) {
-    return digits.length >= E164_MIN && digits.length <= E164_MAX ? digits : "";
-  }
-
-  if (/^07\d{8,10}$/.test(digits)) {
-    const intl = `44${digits.slice(1)}`;
-    return intl.length <= E164_MAX ? intl : "";
-  }
-
-  if (/^0\d{9,10}$/.test(digits)) {
-    const intl = `44${digits.slice(1)}`;
-    return intl.length >= E164_MIN && intl.length <= E164_MAX ? intl : "";
-  }
-
-  if (!digits.startsWith("0") && digits.length >= E164_MIN && digits.length <= E164_MAX) {
-    return digits;
-  }
-
-  return "";
+  // One shared reading of UK, Irish and other international numbers (see shared/phone-e164.ts).
+  return whatsAppDigitsFor(raw, null);
 }
 
 export function ownerCustomerContactActions(

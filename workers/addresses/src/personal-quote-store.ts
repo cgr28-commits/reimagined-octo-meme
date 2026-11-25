@@ -1,3 +1,4 @@
+import { toE164 } from "../shared/phone-e164";
 import { RETURN_JOURNEY_DISCOUNT_RATE } from "../shared/return-journey-discount";
 /**
  * KV store for Personal Quote Codes (individually agreed fares).
@@ -44,7 +45,7 @@ export type PersonalQuoteRecentCustomer = {
 function recentCustomerKey(c: Pick<PersonalQuoteRecentCustomer, "customerName" | "customerEmail" | "customerMobile">): string {
   const email = c.customerEmail?.trim().toLowerCase();
   if (email) return `e:${email}`;
-  const mobile = c.customerMobile?.replace(/\D/g, "");
+  const mobile = toE164(c.customerMobile).replace(/\D/g, "") || c.customerMobile?.replace(/\D/g, "");
   if (mobile) return `m:${mobile}`;
   return `n:${c.customerName.trim().toLowerCase()}`;
 }

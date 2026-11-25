@@ -33,7 +33,8 @@ export function toDispatchBooking(job: BookingJobRecord): DispatchBooking {
     suitcases: Number(job.suitcases) || 0,
     vehicle: job.vehicle || "",
     customerFirstName: (job.customerName || "").trim().split(/\s+/)[0] ?? "",
-    customerMobile: job.customerMobile || "",
+    // Drivers get the validated international number so tel:/WhatsApp links work for any country.
+    customerMobile: job.customerMobileE164 || job.customerMobile || "",
     notes: [job.sailingDetails?.trim() ? `Cruise ship / ferry: ${job.sailingDetails.trim()}` : "", job.portPickupNote?.trim() ? `Pickup point: ${job.portPickupNote.trim()}` : "", (job.message || "").trim()]
       .filter(Boolean)
       .join(" — ")

@@ -157,6 +157,8 @@ export type PaidBookingRecord = {
   customerName: string;
   customerEmail: string;
   mobileNumber: string;
+  /** Validated international form of mobileNumber (derived on every save; the entered number is kept as typed). */
+  mobileE164?: string;
   tripLabel: string;
   pickupLabel: string;
   dropoffLabel: string;

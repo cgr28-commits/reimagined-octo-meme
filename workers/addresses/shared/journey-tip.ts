@@ -1,3 +1,4 @@
+import { toWhatsAppDigits } from "./arrival-whatsapp";
 /**
  * Post-journey tips. Separate from the journey fare, airport access charge,
  * return discount, and the original SumUp checkout.
@@ -421,13 +422,8 @@ export function publicTipState(
 }
 
 export function whatsAppHrefForMobile(mobile: string, message: string): string | null {
-  const digits = mobile.replace(/\D/g, "");
-  if (digits.length < 10) return null;
-  const waNumber = digits.startsWith("44")
-    ? digits
-    : digits.startsWith("0")
-      ? `44${digits.slice(1)}`
-      : digits;
+  const waNumber = toWhatsAppDigits(mobile);
+  if (!waNumber) return null;
   return `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
 }
 

@@ -20,6 +20,7 @@ import {
 } from "../shared/manage-booking-token";
 import { bookingInUpcomingHorizon, isOwnerOperationalTestBooking } from "../shared/upcoming-jobs";
 import { indexPaidBookingForCustomer } from "./customer-account-store";
+import { toE164 } from "../shared/phone-e164";
 
 const RECORD_TTL = 60 * 60 * 24 * 400;
 const DAY_INDEX_TTL = 60 * 60 * 24 * 400;
@@ -89,6 +90,10 @@ export async function savePaidBookingRecord(
   record: PaidBookingRecord,
   options?: { previousTripDate?: string; previousReturnDate?: string },
 ): Promise<void> {
+  // Keep a validated international copy beside the number as typed (never replaces it).
+  const e164 = toE164(record.mobileNumber);
+  if (e164) record.mobileE164 = e164;
+  else delete record.mobileE164;
   await store.put(paidBookingRefKey(record.paymentReference), JSON.stringify(record), {
     expirationTtl: RECORD_TTL,
   });
