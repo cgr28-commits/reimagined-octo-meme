@@ -451,7 +451,7 @@
     border-color: var(--matni-green-panel-border) !important;
   }
   /* Primary booking actions match "Get My Fixed Price" */
-  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote :is(#quote-book-now-button, .btn-pay):not(:disabled) {
+  html:root:root:root:root:root:root:root:root[data-mobile-d3] #quote#quote#quote :is(#quote-book-now-button, .btn-pay, [data-d3-sticky-send-quote]):not(:disabled) {
     background: var(--matni-cta) !important;
     box-shadow: var(--matni-cta-shadow) !important;
     border: 0 !important;
