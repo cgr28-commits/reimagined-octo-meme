@@ -66,7 +66,7 @@
   }
 
   /* Primary booking actions. Secondary and outline buttons keep their own styles. */
-  [data-mobile-d3] :is(button[data-get-fixed-price], [data-d2-sticky] [data-d3-sticky-send-quote], #quote #quote-book-now-button, [data-d2-sticky] #quote-book-now-button, :is(#quote, .quote-flow) .btn-pay, .quote-result-card .btn-primary, [data-quote-result-main-action] .btn-primary):not(:disabled) {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, [data-d2-sticky] #quote-book-now-button, :is(#quote, .quote-flow) .btn-pay, .quote-result-card .btn-primary, [data-quote-result-main-action] .btn-primary):not(:disabled) {
     border: 0 !important;
     background: var(--matni-cta) !important;
     background-color: #08a201 !important;
@@ -76,18 +76,18 @@
     text-shadow: 0 1px 1px rgba(0, 70, 0, 0.35) !important;
     box-shadow: var(--matni-cta-shadow) !important;
   }
-  [data-mobile-d3] :is(button[data-get-fixed-price], [data-d2-sticky] [data-d3-sticky-send-quote], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled) * {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled) * {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
   }
-  [data-mobile-d3] :is(button[data-get-fixed-price], [data-d2-sticky] [data-d3-sticky-send-quote], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):hover {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):hover {
     filter: brightness(1.05) !important;
   }
-  [data-mobile-d3] :is(button[data-get-fixed-price], [data-d2-sticky] [data-d3-sticky-send-quote], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):active {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):not(:disabled):active {
     filter: brightness(0.97) !important;
     transform: translateY(1px) !important;
   }
-  [data-mobile-d3] :is(button[data-get-fixed-price], [data-d2-sticky] [data-d3-sticky-send-quote], #quote #quote-book-now-button, #quote .btn-pay):focus-visible {
+  [data-mobile-d3] :is(button[data-get-fixed-price], #quote #quote-book-now-button, #quote .btn-pay):focus-visible {
     outline: 3px solid #071c38 !important;
     outline-offset: 3px !important;
   }

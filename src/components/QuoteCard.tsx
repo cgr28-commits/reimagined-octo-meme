@@ -10710,14 +10710,14 @@ function QuoteCard({
                               /* Design 3 (phones and tablets): send the quote link to the customer's WhatsApp
                                  or email so they can finish booking later. Same save-quote handler as before. */
                               <div data-d3-sticky-save-quote>
-                                <p data-d3-sticky-save-quote-note>Not ready to book yet? Save your quote for later.</p>
+                                <p data-d3-sticky-save-quote-note>Not ready to book?</p>
                                 <button
                                   type="button"
-                                  className="btn-primary"
                                   data-d3-sticky-send-quote
+                                  aria-label="Send me my quote. Not ready to book? Save your quote for later."
                                   onClick={() => handleSaveQuoteClick()}
                                 >
-                                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false">
+                                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false">
                                     <path d="M22 2 11 13" />
                                     <path d="M22 2 15 22l-4-9-9-4 20-7z" />
                                   </svg>
