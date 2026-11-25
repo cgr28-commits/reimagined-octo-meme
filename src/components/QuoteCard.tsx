@@ -10714,14 +10714,13 @@ function QuoteCard({
                                 <button
                                   type="button"
                                   data-d3-sticky-send-quote
-                                  aria-label="Send me my quote. Not ready to book? Save your quote for later."
+                                  aria-label="Save my quote. Not ready to book? Save your quote for later."
                                   onClick={() => handleSaveQuoteClick()}
                                 >
                                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden focusable="false">
-                                    <path d="M22 2 11 13" />
-                                    <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+                                    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
                                   </svg>
-                                  Send me my quote
+                                  Save my quote
                                 </button>
                               </div>
                             ) : null}
