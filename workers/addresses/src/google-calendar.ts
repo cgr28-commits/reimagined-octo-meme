@@ -34,6 +34,7 @@ export type TransferBookingEvent = {
   paid?: boolean;
   returnFlightNumber?: string;
   sailingDetails?: string;
+  portPickupNote?: string;
   marketingOptIn?: boolean;
   marketingOptInAt?: string;
   marketingConsentVersion?: string;
@@ -271,6 +272,7 @@ function buildTransferDescription(booking: TransferBookingEvent, message?: strin
     booking.flightNumber ? `Flight for going: ${booking.flightNumber}` : "",
     booking.returnFlightNumber ? `Flight for collection: ${booking.returnFlightNumber}` : "",
     booking.sailingDetails ? `Cruise ship / ferry: ${booking.sailingDetails}` : "",
+    booking.portPickupNote ? `Pickup point: ${booking.portPickupNote}` : "",
     typeof booking.passengers === "number" ? `Passengers: ${booking.passengers}` : "",
     typeof booking.suitcases === "number" ? `Suitcases: ${booking.suitcases}` : "",
     typeof booking.childSeats === "number" && booking.childSeats > 0

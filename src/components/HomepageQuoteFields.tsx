@@ -721,13 +721,18 @@ export default function HomepageQuoteFields({
             <>
               <p data-d2-caption>No payment needed for a quote · Instant price</p>
               <ul data-d2-benefits>
-                {DESIGN2_BENEFITS.map(({ label, icon: Icon }) => (
+                {DESIGN2_BENEFITS.map(({ label: baseLabel, icon: Icon }) => {
+                  const label = ports?.length
+                    ? baseLabel === "Flight monitoring" ? "Airport flight tracking" : baseLabel === "60 mins free airport waiting" ? "Free waiting included" : baseLabel
+                    : baseLabel;
+                  return (
                   <li key={label}>
                     <Check size={16} strokeWidth={2.6} aria-hidden="true" data-d2-benefit-check />
                     <Icon size={22} strokeWidth={2.2} aria-hidden="true" data-d2-benefit-icon />
                     <span>{label}</span>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </>
           ) : (

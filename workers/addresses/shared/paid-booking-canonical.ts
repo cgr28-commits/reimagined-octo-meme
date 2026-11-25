@@ -32,6 +32,7 @@ export function paidBookingRecordToDetails(record: PaidBookingRecord): PaidBooki
     flightNumber: record.flightNumber ?? "",
     returnFlightNumber: record.returnFlightNumber ?? "",
     sailingDetails: record.sailingDetails || undefined,
+    portPickupNote: record.portPickupNote || undefined,
     passengers: record.passengers ?? 1,
     suitcases: record.suitcases ?? 0,
     vehicle: record.vehicle ?? "Saloon",

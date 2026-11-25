@@ -2285,6 +2285,12 @@ export default function OwnerPaidBookingsPanel({
               <dd className="font-semibold text-white">{booking.sailingDetails.trim()}</dd>
             </div>
           ) : null}
+          {booking.portPickupNote?.trim() ? (
+            <div className="col-span-2">
+              <dt className="text-[11px] text-white/40">Pickup point</dt>
+              <dd className="font-semibold text-white">{booking.portPickupNote.trim()}</dd>
+            </div>
+          ) : null}
           {airportAccessLabel ? (
             <div className="col-span-2">
               <dt className="text-[11px] text-white/40">Airport access</dt>

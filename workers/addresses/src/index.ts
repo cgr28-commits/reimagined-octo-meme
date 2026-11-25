@@ -1301,6 +1301,7 @@ async function logPaidBookingCalendar(
         flightNumber: booking.flightNumber,
         returnFlightNumber: booking.returnFlightNumber,
         sailingDetails: booking.sailingDetails,
+        portPickupNote: booking.portPickupNote,
         passengers: booking.passengers,
         suitcases: booking.suitcases,
         childSeats: booking.childSeats,
@@ -1395,6 +1396,7 @@ function parsePaidBookingDetails(body: Record<string, unknown>): PaidBookingDeta
     flightNumber: String(details.flightNumber ?? "").trim(),
     returnFlightNumber: String(details.returnFlightNumber ?? "").trim() || undefined,
     sailingDetails: String(details.sailingDetails ?? "").trim().slice(0, 200) || undefined,
+    portPickupNote: String(details.portPickupNote ?? "").trim().slice(0, 600) || undefined,
     passengers,
     suitcases,
     ...(details.suitcasesExact === false
@@ -2716,6 +2718,7 @@ async function handlePaymentRequest(
       flightNumber: booking.flightNumber || j.flightNumber || "",
       returnFlightNumber: booking.returnFlightNumber || j.returnFlightNumber || "",
       sailingDetails: booking.sailingDetails,
+      portPickupNote: booking.portPickupNote,
       vehicle: j.vehicleType || booking.vehicle,
       isAirportTrip: Boolean(j.airportCode),
       airportCode: j.airportCode ?? booking.airportCode,
@@ -2835,6 +2838,7 @@ async function handlePaymentRequest(
         flightNumber: booking.flightNumber || sj.flightNumber || "",
         returnFlightNumber: booking.returnFlightNumber || sj.returnFlightNumber || "",
         sailingDetails: booking.sailingDetails,
+        portPickupNote: booking.portPickupNote,
         vehicle: sj.vehicle || booking.vehicle,
         isAirportTrip: Boolean(sj.isAirportTrip || sj.airportCode),
         airportCode: sj.airportCode ?? booking.airportCode,
@@ -4107,7 +4111,6 @@ async function handlePaymentRequest(
           returnJourney: Boolean(booking.returnJourney),
           flightNumber: booking.flightNumber,
           returnFlightNumber: booking.returnFlightNumber,
-          sailingDetails: booking.sailingDetails,
           allowMissing: true,
         });
         if (flightBlockers.length > 0) {

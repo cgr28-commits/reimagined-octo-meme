@@ -9,6 +9,7 @@ import { LandingPageStickyQuoteCta } from "@/components/LandingPageQuoteCta";
 import { SITE } from "@/lib/data";
 import { LANDING_PAGE_MAIN_WITH_QUOTE_HERO_CLASS } from "@/lib/landing-page-layout";
 import {
+  CRUISE_FERRY_HEADING,
   CRUISE_TERMINAL_BOOKING_DETAILS,
   CRUISE_TERMINAL_FAQS,
   CRUISE_TERMINAL_H1,
@@ -41,6 +42,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
     path: CRUISE_TERMINAL_PATH,
     areaServed: [
       "Belfast Cruise Terminal",
+      "Belfast and Dublin ferry terminals",
       "Belfast",
       "Belfast International Airport",
       "George Best Belfast City Airport",
@@ -69,8 +71,8 @@ export default function BelfastCruiseTerminalTransfersPage() {
         {/* Quote tool first: the same quote hero as the homepage, with this page's heading.
             Nothing is pre-filled — customers pick the cruise terminal or their own address. */}
         <HeroSlideshow
-          heading={CRUISE_TERMINAL_H1}
-          headingSubject="Belfast Cruise Terminal"
+          heading={CRUISE_FERRY_HEADING}
+          headingSubject="Cruise & Ferry"
           intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal and the Belfast and Dublin ferry terminals — airports, hotels and onward journeys."
           portPicker
           journey={{
@@ -85,7 +87,7 @@ export default function BelfastCruiseTerminalTransfersPage() {
 
           <header className="mt-6">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald">
-              Cruise transfers
+              Belfast Cruise Terminal &amp; ferry transfers
             </p>
             <p className="mt-4 text-lg leading-relaxed text-white/70">{CRUISE_TERMINAL_INTRO}</p>
             <LandingCtaRow whatsappMessage={CRUISE_TERMINAL_WHATSAPP_MESSAGE} />

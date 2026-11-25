@@ -75,6 +75,7 @@ export type OwnerPaidBookingSummary = Pick<
   flightNumber?: string;
   returnFlightNumber?: string;
   sailingDetails?: string;
+  portPickupNote?: string;
   airportCode?: string;
   isFromAirport?: boolean;
   /** Explicit Express vs free airport access — present on bookings after option was offered. */
@@ -682,6 +683,7 @@ export type OwnerEditBookingInput = {
   flightNumber?: string;
   returnFlightNumber?: string;
   sailingDetails?: string;
+  portPickupNote?: string;
   dublinArrivalTerminal?: "T1" | "T2" | "" | null;
   returnDublinArrivalTerminal?: "T1" | "T2" | "" | null;
   passengers?: number;

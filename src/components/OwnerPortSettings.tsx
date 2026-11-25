@@ -21,6 +21,7 @@ type Props = {
 
 const EDITABLE: ReadonlyArray<keyof PortOverride> = [
   "name",
+  "shortName",
   "operator",
   "sailsTo",
   "terminal",
@@ -173,6 +174,7 @@ export default function OwnerPortSettings({ ownerKey, settings, onSaved }: Props
               {open ? (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <Field label="Name" value={port.name} onChange={(value) => change(port.id, { name: value })} />
+                  <Field label="Short label (quote tool tile)" value={port.shortName ?? ""} onChange={(value) => change(port.id, { shortName: value })} />
                   <Field label="Operator" value={port.operator ?? ""} onChange={(value) => change(port.id, { operator: value || null })} />
                   <Field label="Sails to" value={port.sailsTo ?? ""} onChange={(value) => change(port.id, { sailsTo: value || null })} />
                   <Field label="Terminal" value={port.terminal ?? ""} onChange={(value) => change(port.id, { terminal: value || null })} />

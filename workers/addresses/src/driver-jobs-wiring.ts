@@ -34,10 +34,10 @@ export function toDispatchBooking(job: BookingJobRecord): DispatchBooking {
     vehicle: job.vehicle || "",
     customerFirstName: (job.customerName || "").trim().split(/\s+/)[0] ?? "",
     customerMobile: job.customerMobile || "",
-    notes: [job.sailingDetails?.trim() ? `Cruise ship / ferry: ${job.sailingDetails.trim()}` : "", (job.message || "").trim()]
+    notes: [job.sailingDetails?.trim() ? `Cruise ship / ferry: ${job.sailingDetails.trim()}` : "", job.portPickupNote?.trim() ? `Pickup point: ${job.portPickupNote.trim()}` : "", (job.message || "").trim()]
       .filter(Boolean)
       .join(" — ")
-      .slice(0, 500),
+      .slice(0, 800),
     assignedOutsidePortal: active && !(job.driverAccountId || "").trim(),
   };
 }

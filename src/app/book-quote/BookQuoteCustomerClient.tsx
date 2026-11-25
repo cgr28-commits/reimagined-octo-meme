@@ -177,21 +177,23 @@ function BookQuoteInner() {
 
   const journey = quote?.journey;
   const activePorts = usePorts();
-  const nearPort = (lat?: number, lng?: number) =>
-    typeof lat === "number" &&
-    typeof lng === "number" &&
-    [...DEFAULT_PORTS, ...activePorts].some(
-      (port) =>
-        typeof port.lat === "number" &&
-        typeof port.lng === "number" &&
-        Math.abs(port.lat - lat) < 0.0015 &&
-        Math.abs(port.lng - lng) < 0.0025,
-    );
-  const isPortJourney = Boolean(
-    journey &&
-      (nearPort(journey.diaryRoute?.pickupLat, journey.diaryRoute?.pickupLng) ||
-        nearPort(journey.diaryRoute?.dropoffLat, journey.diaryRoute?.dropoffLng)),
-  );
+  const findNearPort = (lat?: number, lng?: number) =>
+    typeof lat === "number" && typeof lng === "number"
+      ? [...DEFAULT_PORTS, ...activePorts].find(
+          (port) =>
+            typeof port.lat === "number" &&
+            typeof port.lng === "number" &&
+            Math.abs(port.lat - lat) < 0.0015 &&
+            Math.abs(port.lng - lng) < 0.0025,
+        ) ?? null
+      : null;
+  const journeyPort = journey
+    ? findNearPort(journey.diaryRoute?.pickupLat, journey.diaryRoute?.pickupLng) ??
+      findNearPort(journey.diaryRoute?.dropoffLat, journey.diaryRoute?.dropoffLng)
+    : null;
+  const isPortJourney = Boolean(journeyPort);
+  // Pickup instructions shown here and in confirmations (kept out of the quote tool).
+  const portPickupNote = journeyPort?.pickupInstructions?.trim() ?? "";
 
   // Changing the pickup date/time re-prices the quote (night, evening, weekend and
   // Christmas surcharges) before payment.
@@ -365,6 +367,7 @@ function BookQuoteInner() {
       ...(isPortJourney && sailingDetails.trim()
         ? { sailingDetails: sailingDetails.trim().slice(0, 200) }
         : {}),
+      ...(isPortJourney && portPickupNote ? { portPickupNote: portPickupNote.slice(0, 600) } : {}),
       passengers: journey.passengers,
       suitcases: journey.suitcases,
       vehicle: journey.vehicleType || "Standard Saloon (1–4 passengers)",
@@ -394,6 +397,7 @@ function BookQuoteInner() {
     returnFlightNumber,
     sailingDetails,
     isPortJourney,
+    portPickupNote,
     childSeatRequired,
     termsAccepted,
     tripDate,
@@ -812,6 +816,16 @@ function BookQuoteInner() {
               Helps your driver find you at the right terminal. Add the ship or ferry name, and the
               arrival or departure time if you know it.
             </p>
+            {portPickupNote ? (
+              <p
+                data-port-pickup-note
+                className="rounded-lg px-3 py-2 text-xs leading-snug"
+                style={{ backgroundColor: "#e8fde1", color: "#071c38", WebkitTextFillColor: "#071c38" }}
+              >
+                <span className="font-bold">Where we meet you: </span>
+                {portPickupNote}
+              </p>
+            ) : null}
           </div>
         ) : null}
         {journey.returnJourney && !journey.fromAirport ? (

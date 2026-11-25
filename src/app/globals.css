@@ -10570,3 +10570,30 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
   html:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 [data-hero-green] { color: #2fbf4a !important; }
 }
 }
+
+/* Cruise & ferry port picker (owner, 25 Nov 2026): compact two-column chips that match the airport
+   quick-pick buttons (white, navy text, soft border + shadow); pale green once the terminal is chosen. */
+@layer base {
+  html:root:root:root:root:root:root:root #quote [data-port-picker] button[data-port-tile] {
+    min-height: 2.6rem; padding: .3rem .5rem; border-radius: .6rem;
+    background: #ffffff; border: 1px solid rgba(7, 28, 56, .16); color: #071c38; -webkit-text-fill-color: #071c38;
+    font-size: .76rem; font-weight: 700; letter-spacing: -.005em; line-height: 1.15; text-align: center; text-wrap: balance;
+    box-shadow: 0 1px 2px rgba(7, 28, 56, .08), 0 3px 8px rgba(7, 28, 56, .08); border-bottom-width: 2px; border-bottom-color: rgba(7, 28, 56, .22);
+    transition: border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+  }
+  html:root:root:root:root:root:root:root #quote [data-port-picker] button[data-port-tile]:hover { border-color: #071c38; }
+  html:root:root:root:root:root:root:root #quote [data-port-picker] button[data-port-tile]:active { transform: scale(.98); }
+  html:root:root:root:root:root:root:root #quote [data-port-picker] button[data-port-tile]:focus-visible { outline: 2px solid #071c38; outline-offset: 2px; }
+  html:root:root:root:root:root:root:root #quote [data-port-picker] button[data-port-tile][data-port-selected] {
+    border-color: #2fc30a; background: #e8fde1; box-shadow: inset 0 0 0 1px #2fc30a, 0 2px 6px -2px rgba(47, 195, 10, .35);
+  }
+  /* Desktop: the picker sits straight under the address boxes, before passengers/date/time and the
+     price button (rows after the addresses shift down one). Specificity matches the premium layout. */
+  @media (min-width: 1200px) {
+    html:root:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has([data-port-picker]) [data-port-picker] { grid-column: 1 / -1 !important; grid-row: 3 !important; }
+    html:root:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has([data-port-picker]) #passenger-luggage-section > div { grid-row: 4 !important; }
+    html:root:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has([data-port-picker]) #quote-section-schedule { grid-row: 4 !important; }
+    html:root:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has([data-port-picker]) [data-quote-price-action] { grid-row: 4 !important; }
+    html:root:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields]:has([data-port-picker]) #homepage-quote-requirements { grid-row: 5 !important; }
+  }
+}

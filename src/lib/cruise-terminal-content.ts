@@ -4,10 +4,17 @@ export const CRUISE_TERMINAL_PATH = "/belfast-cruise-terminal-transfers/";
 
 export const CRUISE_TERMINAL_H1 = "Belfast Cruise Terminal Transfers";
 
-export const CRUISE_TERMINAL_SEO_TITLE = "Belfast Cruise Terminal Transfers";
+/**
+ * Visible page heading (owner, 25 Nov 2026). The H1 on the page is broader, but the title tag,
+ * breadcrumb, schema name and copy keep "Belfast Cruise Terminal Transfers" first so the existing
+ * Belfast cruise search value is protected. The URL is unchanged.
+ */
+export const CRUISE_FERRY_HEADING = "Cruise & Ferry Port Transfers";
+
+export const CRUISE_TERMINAL_SEO_TITLE = "Belfast Cruise Terminal Transfers & Ferry Ports";
 
 export const CRUISE_TERMINAL_SEO_DESCRIPTION =
-  "Pre-book a private Belfast cruise transfer between Belfast Cruise Terminal, airports, hotels and onward destinations. Cars for up to 4 passengers; ask about a 7-seater.";
+  "Pre-book private Belfast Cruise Terminal transfers and Belfast and Dublin ferry port transfers to airports, hotels and onward destinations. Cars for up to 4 passengers.";
 
 export const CRUISE_TERMINAL_INTRO =
   "My Airport Taxi NI provides pre-booked private transfers for passengers arriving at or departing from Belfast Cruise Terminal. If you need a Belfast cruise port taxi after you leave the ship, or a morning collection from a hotel to the cruise port, we reserve a Saloon or Estate for your party rather than leaving you to find a car at the harbour.";

@@ -43,17 +43,24 @@ const BENEFITS = [
 ] as const;
 
 /** Four-column hero trust row — labels stay real HTML text. */
-export default function HeroBenefitsRow() {
+/** Cruise & ferry page: flight monitoring and the 60-minute wait only apply to airport pickups. */
+const PORT_PAGE_LABELS: Record<string, { label: string; lines: readonly [string, string] }> = {
+  "Flight monitoring": { label: "Airport flight tracking", lines: ["Airport flight", "tracking"] },
+  "Airport waiting included": { label: "Free waiting included", lines: ["Free waiting", "included"] },
+};
+
+export default function HeroBenefitsRow({ portPage = false }: { portPage?: boolean } = {}) {
   return (
     <ul
       className="hero-benefits-row mt-2.5 mb-[18px] grid grid-cols-4 md:mt-0 md:mb-5"
       aria-label="Why book with My Airport Taxi NI"
     >
-      {BENEFITS.map((benefit, index) => {
-        const waiting = benefit.label === "Airport waiting included";
+      {BENEFITS.map((base, index) => {
+        const waiting = base.label === "Airport waiting included";
+        const benefit = portPage && PORT_PAGE_LABELS[base.label] ? { ...base, ...PORT_PAGE_LABELS[base.label] } : base;
         return (
           <li
-            key={benefit.label}
+            key={base.label}
             className={`flex min-w-0 flex-col items-center px-0.5 text-center sm:px-1 ${
               index > 0 ? "hero-benefit-divider" : ""
             }${waiting ? " hero-benefit-waiting" : ""}`}

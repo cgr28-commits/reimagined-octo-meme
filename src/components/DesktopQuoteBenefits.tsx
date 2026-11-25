@@ -14,12 +14,20 @@ const BENEFITS: ReadonlyArray<{ title: string; text: string; icon: LucideIcon }>
   { title: "Free cancellation up to 24 hrs", text: "Full refund if you cancel at least 24 hours before pickup.", icon: CalendarCheck },
 ];
 
-export default function DesktopQuoteBenefits() {
+const PORT_PAGE_BENEFITS: typeof BENEFITS = BENEFITS.map((item) =>
+  item.title === "Flight monitoring"
+    ? { ...item, title: "Airport flight tracking", text: "On airport pickups we track your flight and adjust to the actual landing time." }
+    : item.title === "60 mins free airport waiting"
+      ? { ...item, title: "Free waiting included", text: "Up to 60 minutes at airport pickups; 10 minutes at ports and other pickups." }
+      : item,
+);
+
+export default function DesktopQuoteBenefits({ portPage = false }: { portPage?: boolean } = {}) {
   return (
     <aside className="hidden" data-desktop-quote-benefits aria-label="Why travel with My Airport Taxi NI">
       <p data-desktop-benefits-heading>Why travel with us</p>
       <ul data-desktop-benefits-list>
-        {BENEFITS.map(({ title, text, icon: Icon }) => (
+        {(portPage ? PORT_PAGE_BENEFITS : BENEFITS).map(({ title, text, icon: Icon }) => (
           <li key={title}>
             <span data-desktop-benefit-icon aria-hidden="true">
               <Icon strokeWidth={2.2} />

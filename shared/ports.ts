@@ -23,8 +23,10 @@ export type PortKind = "cruise" | "ferry";
 
 export type PortEntry = {
   id: string;
-  /** Customer-facing name on the tile and in the address box. */
+  /** Customer-facing name in the address box and on emails. */
   name: string;
+  /** Short label on the quote-tool tile, e.g. "Stena Belfast VT4 — Cairnryan". Falls back to name. */
+  shortName?: string;
   region: PortRegion;
   kind: PortKind;
   /** Ferry operator, e.g. "Stena Line". Null for cruise ports. */
@@ -56,6 +58,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "belfast-cruise-terminal",
     name: "Belfast Cruise Terminal",
+    shortName: "Belfast Cruise",
     region: "NI",
     kind: "cruise",
     operator: null,
@@ -75,6 +78,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "stena-belfast-cairnryan-vt4",
     name: "Stena Line Belfast — Victoria Terminal 4",
+    shortName: "Stena Belfast VT4 — Cairnryan",
     region: "NI",
     kind: "ferry",
     operator: "Stena Line",
@@ -94,6 +98,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "stena-belfast-liverpool-vt2",
     name: "Stena Line Belfast — Victoria Terminal 2",
+    shortName: "Stena Belfast VT2 — Liverpool",
     region: "NI",
     kind: "ferry",
     operator: "Stena Line",
@@ -113,6 +118,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "po-larne-cairnryan",
     name: "P&O Ferries Larne",
+    shortName: "P&O Larne — Cairnryan",
     region: "NI",
     kind: "ferry",
     operator: "P&O Ferries",
@@ -131,6 +137,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "warrenpoint-port",
     name: "Warrenpoint Port",
+    shortName: "Warrenpoint Port",
     region: "NI",
     kind: "cruise",
     operator: null,
@@ -149,6 +156,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "foyle-port-lisahally",
     name: "Foyle Port — Lisahally",
+    shortName: "Foyle Port — Derry",
     region: "NI",
     kind: "cruise",
     operator: null,
@@ -167,6 +175,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "fort-george-derry",
     name: "Fort George cruise berth, Derry",
+    shortName: "Fort George — Derry",
     region: "NI",
     kind: "cruise",
     operator: null,
@@ -185,6 +194,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "bangor-harbour",
     name: "Bangor Harbour",
+    shortName: "Bangor Harbour",
     region: "NI",
     kind: "cruise",
     operator: null,
@@ -203,6 +213,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "irish-ferries-dublin-t1",
     name: "Irish Ferries Dublin — Terminal 1",
+    shortName: "Irish Ferries T1 — Dublin",
     region: "DUBLIN",
     kind: "ferry",
     operator: "Irish Ferries",
@@ -222,6 +233,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "stena-dublin-t2",
     name: "Stena Line Dublin — Terminal 2",
+    shortName: "Stena Line T2 — Dublin",
     region: "DUBLIN",
     kind: "ferry",
     operator: "Stena Line",
@@ -241,6 +253,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "dublin-cruise-port",
     name: "Dublin Cruise Port",
+    shortName: "Dublin Cruise Port",
     region: "DUBLIN",
     kind: "cruise",
     operator: null,
@@ -260,6 +273,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
   {
     id: "dun-laoghaire-harbour",
     name: "Dún Laoghaire Harbour",
+    shortName: "Dún Laoghaire",
     region: "DUBLIN",
     kind: "cruise",
     operator: null,
@@ -282,6 +296,7 @@ export type PortOverride = Partial<
   Pick<
     PortEntry,
     | "name"
+    | "shortName"
     | "operator"
     | "sailsTo"
     | "terminal"
@@ -337,6 +352,8 @@ function sanitiseOverride(raw: unknown): PortOverride {
   const out: PortOverride = {};
   const name = cleanText(source.name, 80);
   if (name) out.name = name;
+  const shortName = cleanText(source.shortName, 40);
+  if (shortName) out.shortName = shortName;
   const operator = cleanNullableText(source.operator, 60);
   if (operator !== undefined) out.operator = operator;
   const sailsTo = cleanNullableText(source.sailsTo, 60);
@@ -383,6 +400,7 @@ function sanitiseCustom(raw: unknown, takenIds: Set<string>): PortEntry | null {
   return {
     id: unique,
     name: override.name,
+    ...(override.shortName ? { shortName: override.shortName } : {}),
     region,
     kind,
     operator: override.operator ?? null,
@@ -469,6 +487,11 @@ export function findPortByPlaceId(
 ): (typeof ports)[number] | null {
   if (!placeId) return null;
   return ports.find((port) => port.placeId === placeId) ?? null;
+}
+
+/** Tile label: the short customer-facing name, falling back to the full name. */
+export function portTileLabel(port: Pick<PortEntry, "name" | "shortName">): string {
+  return port.shortName?.trim() || port.name;
 }
 
 /** One-line description of a port for tiles, dashboards, drivers and emails. */

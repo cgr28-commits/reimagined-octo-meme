@@ -73,7 +73,7 @@ export type BookingSettings = {
   /** Post-journey tip and Google review messages. Missing saved values use the defaults. */
   postJourneyRequests: PostJourneyRequestSettings;
   /** Cruise & ferry port edits layered over the built-in catalogue (owner, 25 Nov 2026). */
-  ports: PortSettings;
+  ports?: PortSettings;
   updatedAt: string;
 };
 

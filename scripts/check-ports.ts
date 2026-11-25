@@ -12,6 +12,7 @@ import {
   isPortPlaceId,
   normalizePortSettings,
   portHasVerifiedLocation,
+  portTileLabel,
   portRouteConflict,
   resolvePorts,
   toPublicPorts,
@@ -115,6 +116,28 @@ for (const [file, needle] of [
 ] as const) {
   assert.ok(read(file).includes(needle), `${file} missing ${needle}`);
 }
+// Owner-approved short tile labels.
+const labels: Record<string, string> = {
+  "belfast-cruise-terminal": "Belfast Cruise",
+  "stena-belfast-cairnryan-vt4": "Stena Belfast VT4 — Cairnryan",
+  "stena-belfast-liverpool-vt2": "Stena Belfast VT2 — Liverpool",
+  "po-larne-cairnryan": "P&O Larne — Cairnryan",
+  "irish-ferries-dublin-t1": "Irish Ferries T1 — Dublin",
+  "stena-dublin-t2": "Stena Line T2 — Dublin",
+};
+for (const [id, label] of Object.entries(labels)) {
+  assert.equal(portTileLabel(defaults.find((p) => p.id === id)!), label, id);
+}
+console.log("OK  short tile labels");
+
+// Long pickup instructions stay out of the quote tool; they live at booking details + confirmations.
+assert.ok(!read("src/components/PortPicker.tsx").includes("pickupInstructions"));
+assert.ok(read("src/app/book-quote/BookQuoteCustomerClient.tsx").includes("data-port-pickup-note"));
+for (const f of ["shared/booking-notifications.ts", "workers/addresses/src/driver-jobs-wiring.ts", "workers/addresses/src/google-calendar.ts"]) {
+  assert.ok(read(f).includes("Pickup point"), `${f} missing Pickup point`);
+}
+console.log("OK  pickup instructions moved to booking details, confirmations, driver");
+
 // Sailing details must never gate the instant quote.
 assert.ok(!read("src/components/QuoteCard.tsx").includes("sailingDetails"));
 console.log("OK  sailing details wired end to end, not required before the quote");

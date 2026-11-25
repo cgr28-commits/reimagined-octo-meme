@@ -223,7 +223,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
           className="homepage-hero-quote order-2 min-w-0 w-full scroll-mt-20 md:order-1 md:scroll-mt-28 lg:order-2 lg:justify-self-stretch"
           id="quote"
         >
-          <HeroBenefitsRow />
+          <HeroBenefitsRow portPage={portPicker} />
           <QuoteCard
             presentation="homepage"
             homepagePolish
@@ -253,7 +253,7 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
           <div className="mt-4 flex justify-center" data-hero-reviews-badge>
             <GoogleReviewsBadge />
           </div>
-          <DesktopQuoteBenefits />
+          <DesktopQuoteBenefits portPage={portPicker} />
         </div>
       </div>
     </section>

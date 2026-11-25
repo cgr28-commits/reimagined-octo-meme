@@ -185,6 +185,8 @@ export type PaidBookingRecord = {
   returnFlightNumber?: string;
   /** Cruise ship / ferry sailing details for port transfers. */
   sailingDetails?: string;
+  /** Pickup-point instructions for the chosen cruise/ferry port. */
+  portPickupNote?: string;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;

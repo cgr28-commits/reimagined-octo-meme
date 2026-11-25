@@ -764,6 +764,7 @@ export type PaidBookingUpdateFields = Partial<
     | "flightNumber"
     | "returnFlightNumber"
     | "sailingDetails"
+    | "portPickupNote"
     | "passengers"
     | "suitcases"
     | "childSeats"
