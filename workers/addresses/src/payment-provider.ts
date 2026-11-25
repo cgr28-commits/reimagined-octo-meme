@@ -23,6 +23,7 @@ import {
   cleanSecretValue,
 } from "../shared/stripe-payments";
 import { BUSINESS_WEBSITE } from "../shared/business-email";
+import { STAGING_SANDBOX } from "./staging-sandbox";
 
 export type PaymentProviderEnv = {
   PAYMENT_PROVIDER?: string;
@@ -39,6 +40,9 @@ export type PaymentProviderEnv = {
 export function stripeActiveFor(env: PaymentProviderEnv, customerEmail?: string | null): boolean {
   const key = cleanSecretValue(env.STRIPE_SECRET_KEY);
   if (!key) return false;
+  // Isolated staging: every booking uses Stripe TEST mode (no real customers exist there), and a
+  // non-test key never activates Stripe at all. Production never defines the staging flag.
+  if (STAGING_SANDBOX) return stripeModeFromKey(key) === "test";
   const provider = cleanSecretValue(env.PAYMENT_PROVIDER).toLowerCase().replace(/[\s_]+/g, "-");
   // Live switch: anything except a test key goes to Stripe (a bad key then fails loudly
   // at Stripe instead of quietly sending customers to SumUp).

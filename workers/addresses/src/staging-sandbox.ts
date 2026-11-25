@@ -11,6 +11,13 @@
  * FormSubmit), WhatsApp messages, Stripe calls, Google Ads uploads and any other
  * third-party side effect, even if a secret is added by mistake.
  *
+ * Two narrow exceptions let the staging build be genuinely tested end to end:
+ *  1. Stripe TEST mode: https://api.stripe.com/v1/... only when the request itself carries a
+ *     Stripe TEST secret (sk_test_ / rk_test_). A live key is refused, so a mistake cannot
+ *     reach real money. Stripe test mode never charges a card.
+ *  2. Google address look-ups (Places + Geocoding). These are read-only and have no side effects.
+ * Everything else (email, WhatsApp, calendar, Google Ads, SumUp…) stays blocked.
+ *
  * Internal Durable Object stub calls do not use globalThis.fetch and still work.
  * This module must be the first import in src/index.ts.
  */
@@ -29,8 +36,50 @@ export function recentBlockedOutbound(): BlockedOutboundRecord[] {
   return blockedLog.slice(-50);
 }
 
-export function makeSandboxFetch(): typeof fetch {
+export type SandboxDecision = "allow_stripe_test" | "allow_google_lookup" | "block";
+
+const STRIPE_TEST_KEY = /^Bearer (sk|rk)_test_[A-Za-z0-9_]{8,}$/;
+const GOOGLE_LOOKUP_PATHS: Array<[string, RegExp]> = [
+  ["places.googleapis.com", /^\/v1\/places(:autocomplete|:searchText|\/[A-Za-z0-9_-]+)$/],
+  ["maps.googleapis.com", /^\/maps\/api\/geocode\/json$/],
+];
+
+/** Pure decision used by the sandbox fetch (exported so it can be tested without a network). */
+export function sandboxDecision(rawUrl: string, method: string, headers: Headers): SandboxDecision {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return "block";
+  }
+  if (parsed.protocol !== "https:" || parsed.port) return "block";
+  const verb = method.toUpperCase();
+  if (parsed.hostname === "api.stripe.com") {
+    return parsed.pathname.startsWith("/v1/") && STRIPE_TEST_KEY.test((headers.get("authorization") ?? "").trim())
+      ? "allow_stripe_test"
+      : "block";
+  }
+  if (verb === "GET" || verb === "POST") {
+    for (const [host, path] of GOOGLE_LOOKUP_PATHS) {
+      if (parsed.hostname === host && path.test(parsed.pathname)) return "allow_google_lookup";
+    }
+  }
+  return "block";
+}
+
+export function makeSandboxFetch(realFetch?: typeof fetch): typeof fetch {
   const sandboxFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (realFetch) {
+      try {
+        const asRequest = input instanceof Request ? input : null;
+        const rawUrl = asRequest ? asRequest.url : String(input);
+        const verb = init?.method || asRequest?.method || "GET";
+        const headers = new Headers(init?.headers ?? asRequest?.headers ?? undefined);
+        if (sandboxDecision(rawUrl, verb, headers) !== "block") return realFetch(input as RequestInfo, init);
+      } catch {
+        /* fall through to the block */
+      }
+    }
     let url = "";
     let method = init?.method || "GET";
     try {
@@ -64,5 +113,6 @@ export function makeSandboxFetch(): typeof fetch {
 }
 
 if (STAGING_SANDBOX) {
-  (globalThis as { fetch: typeof fetch }).fetch = makeSandboxFetch();
+  const original = globalThis.fetch.bind(globalThis);
+  (globalThis as { fetch: typeof fetch }).fetch = makeSandboxFetch(original);
 }

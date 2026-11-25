@@ -116,3 +116,30 @@ npx tsx scripts/check-driver-jobs.ts       # Node 22 — full Stage 2 flow on re
 npx tsx scripts/check-driver-accounts.ts   # Node 22 (node:sqlite) — full Stage 1 flow on real SQLite
 npx tsx scripts/check-staging-sandbox.ts
 ```
+
+## Stripe TEST mode and address look-ups on staging (optional)
+
+By default staging blocks every outbound request. Two narrow exceptions exist so the public
+cruise & ferry page can be tested end to end. Both are decided in `workers/addresses/src/staging-sandbox.ts`
+and are covered by `scripts/check-staging-stripe-sandbox.ts`:
+
+1. **Stripe TEST mode** – only `https://api.stripe.com/v1/...` and only when the request carries
+   an `sk_test_` / `rk_test_` key. A live key is refused before it leaves Cloudflare. Staging only
+   ever uses Stripe when the key is a test key. Test mode cannot move real money.
+2. **Google Places + Geocoding look-ups** – read-only, needed for address search and route pricing.
+
+Email, WhatsApp, calendar, SumUp and Google Ads stay blocked, so no customer or driver is contacted
+and no calendar event is created.
+
+GitHub secrets (all optional; the workflow rejects live keys and refuses partial Stripe setups):
+
+| Secret | Value |
+| --- | --- |
+| `STAGING_STRIPE_SECRET_KEY` | Stripe TEST secret key `sk_test_…` from a Stripe *sandbox/test* account |
+| `STAGING_STRIPE_PUBLISHABLE_KEY` | matching `pk_test_…` |
+| `STAGING_STRIPE_WEBHOOK_SECRET` | `whsec_…` of a TEST-mode webhook endpoint |
+| `STAGING_GOOGLE_PLACES_API_KEY` | a separate Google key restricted to Places API (New) + Geocoding API |
+
+Webhook endpoint (Stripe Dashboard, TEST mode): `https://matni-dashboard-staging.<subdomain>.workers.dev/payments/stripe-webhook`
+with events `checkout.session.completed`, `checkout.session.expired`, `payment_intent.succeeded`,
+`payment_intent.payment_failed`, `charge.refunded`. Test card: `4242 4242 4242 4242`, any future date, any CVC.

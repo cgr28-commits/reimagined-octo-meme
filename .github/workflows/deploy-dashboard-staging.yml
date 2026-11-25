@@ -10,8 +10,17 @@
 #                                   Cloudflare Pages:Edit, Account Settings:Read
 #   STAGING_OWNER_ACCESS_KEY      — a NEW owner key for staging. Must not equal the live key.
 #
-# Safety: the staging Worker is built with __MATNI_STAGING_SANDBOX__ (all outbound HTTP
-# blocked: no email, WhatsApp, Stripe or Google Ads), has no crons and no other secrets.
+# Optional secrets for end-to-end testing (all TEST-only, validated below; leave unset to skip):
+#   STAGING_STRIPE_SECRET_KEY       — Stripe TEST secret key (sk_test_…, never sk_live_)
+#   STAGING_STRIPE_PUBLISHABLE_KEY  — Stripe TEST publishable key (pk_test_…)
+#   STAGING_STRIPE_WEBHOOK_SECRET   — signing secret (whsec_…) of a TEST-mode webhook pointing at the
+#                                     staging Worker's /payments/stripe-webhook
+#   STAGING_GOOGLE_PLACES_API_KEY   — a SEPARATE Google key restricted to Places + Geocoding
+#
+# Safety: the staging Worker is built with __MATNI_STAGING_SANDBOX__. All outbound HTTP is blocked
+# (no email, WhatsApp, calendar, SumUp or Google Ads) except Stripe TEST-mode calls (refused unless
+# they carry an sk_test_/rk_test_ key) and read-only Google Places/Geocoding look-ups.
+# No crons. No secrets other than the ones listed here.
 
 name: Deploy Dashboard Staging (isolated account)
 
@@ -51,7 +60,33 @@ jobs:
           STAGING_OWNER_ACCESS_KEY: ${{ secrets.STAGING_OWNER_ACCESS_KEY }}
           LIVE_OWNER_ACCESS_KEY: ${{ secrets.OWNER_ACCESS_KEY }}
           LIVE_DRIVER_ACCESS_KEY: ${{ secrets.DRIVER_ACCESS_KEY }}
+          STAGING_STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STAGING_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          STAGING_STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          LIVE_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
         run: |
+          # Stripe: TEST keys only. A live key (or a copy of a production key) fails the run.
+          if [ -n "$STAGING_STRIPE_SECRET_KEY" ]; then
+            case "$STAGING_STRIPE_SECRET_KEY" in
+              sk_test_*|rk_test_*) ;;
+              *) echo "::error::STAGING_STRIPE_SECRET_KEY must be a Stripe TEST key (sk_test_…). Live keys are never allowed on staging."; exit 1 ;;
+            esac
+            if [ -n "$LIVE_STRIPE_SECRET_KEY" ] && [ "$STAGING_STRIPE_SECRET_KEY" = "$LIVE_STRIPE_SECRET_KEY" ]; then
+              echo "::error::STAGING_STRIPE_SECRET_KEY equals the production Stripe key."; exit 1
+            fi
+          fi
+          if [ -n "$STAGING_STRIPE_PUBLISHABLE_KEY" ]; then
+            case "$STAGING_STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::STAGING_STRIPE_PUBLISHABLE_KEY must be a TEST key (pk_test_…)."; exit 1 ;; esac
+          fi
+          if [ -n "$STAGING_STRIPE_WEBHOOK_SECRET" ]; then
+            case "$STAGING_STRIPE_WEBHOOK_SECRET" in whsec_*) ;; *) echo "::error::STAGING_STRIPE_WEBHOOK_SECRET must start whsec_."; exit 1 ;; esac
+          fi
+          if [ -n "$STAGING_STRIPE_SECRET_KEY$STAGING_STRIPE_PUBLISHABLE_KEY$STAGING_STRIPE_WEBHOOK_SECRET" ]; then
+            if [ -z "$STAGING_STRIPE_SECRET_KEY" ] || [ -z "$STAGING_STRIPE_PUBLISHABLE_KEY" ] || [ -z "$STAGING_STRIPE_WEBHOOK_SECRET" ]; then
+              echo "::error::Set all three STAGING_STRIPE_* secrets together (secret key, publishable key, webhook secret)."; exit 1
+            fi
+          fi
+          echo "::notice::Deploying branch ${GITHUB_REF_NAME} at ${GITHUB_SHA}."
           if [ -z "$STAGING_CLOUDFLARE_API_TOKEN" ]; then
             echo "::warning::Staging not deployed: add GitHub secret STAGING_CLOUDFLARE_API_TOKEN (see docs/dashboard-staging.md)."
             echo "ready=false" >> "$GITHUB_OUTPUT"
@@ -107,6 +142,7 @@ jobs:
           npx --yes tsx@4 scripts/check-staging-sandbox.ts
           npx --yes tsx@4 scripts/check-driver-accounts.ts
           npx --yes tsx@4 scripts/check-driver-jobs.ts
+          npx --yes tsx@4 scripts/check-staging-stripe-sandbox.ts
 
       - name: Deploy staging Worker (staging account only)
         if: steps.secrets.outputs.ready == 'true'
@@ -115,6 +151,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.STAGING_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ env.STAGING_ACCOUNT_ID }}
+          STAGING_STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STAGING_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          STAGING_STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          STAGING_GOOGLE_PLACES_API_KEY: ${{ secrets.STAGING_GOOGLE_PLACES_API_KEY }}
         run: |
           STAGING_OWNER_ACCESS_KEY="$STAGING_OWNER_KEY_EFFECTIVE"
           npx wrangler d1 migrations apply dashboard-staging-drivers --remote -c "$WRANGLER_CONFIG"
@@ -123,9 +163,22 @@ jobs:
           URL="$(printf '%s\n' "$OUTPUT" | grep -Eo "https://${STAGING_WORKER_NAME}\.[a-z0-9-]+\.workers\.dev" | head -1)"
           if [ -z "$URL" ]; then echo "::error::Could not read the staging Worker URL."; exit 1; fi
           printf '%s' "$STAGING_OWNER_ACCESS_KEY" | npx wrangler secret put OWNER_ACCESS_KEY -c "$WRANGLER_CONFIG"
-          # Only the staging owner key may exist on this Worker.
+          # Optional TEST-only secrets (validated in the isolation step).
+          if [ -n "$STAGING_STRIPE_SECRET_KEY" ]; then
+            printf '%s' "$STAGING_STRIPE_SECRET_KEY" | npx wrangler secret put STRIPE_SECRET_KEY -c "$WRANGLER_CONFIG"
+            printf '%s' "$STAGING_STRIPE_PUBLISHABLE_KEY" | npx wrangler secret put STRIPE_PUBLISHABLE_KEY -c "$WRANGLER_CONFIG"
+            printf '%s' "$STAGING_STRIPE_WEBHOOK_SECRET" | npx wrangler secret put STRIPE_WEBHOOK_SECRET -c "$WRANGLER_CONFIG"
+          else
+            for name in STRIPE_SECRET_KEY STRIPE_PUBLISHABLE_KEY STRIPE_WEBHOOK_SECRET; do npx wrangler secret delete "$name" -c "$WRANGLER_CONFIG" 2>/dev/null || true; done
+          fi
+          if [ -n "$STAGING_GOOGLE_PLACES_API_KEY" ]; then
+            printf '%s' "$STAGING_GOOGLE_PLACES_API_KEY" | npx wrangler secret put GOOGLE_PLACES_API_KEY -c "$WRANGLER_CONFIG"
+          else
+            npx wrangler secret delete GOOGLE_PLACES_API_KEY -c "$WRANGLER_CONFIG" 2>/dev/null || true
+          fi
+          # Only the staging owner key and the optional TEST secrets may exist on this Worker.
           SECRETS="$(npx wrangler secret list -c "$WRANGLER_CONFIG")"
-          EXTRA="$(printf '%s' "$SECRETS" | grep -o '"name": *"[A-Z0-9_]*"' | grep -v '"OWNER_ACCESS_KEY"' || true)"
+          EXTRA="$(printf '%s' "$SECRETS" | grep -o '"name": *"[A-Z0-9_]*"' | grep -Ev '"(OWNER_ACCESS_KEY|STRIPE_SECRET_KEY|STRIPE_PUBLISHABLE_KEY|STRIPE_WEBHOOK_SECRET|GOOGLE_PLACES_API_KEY)"' || true)"
           if [ -n "$EXTRA" ]; then
             echo "::error::Unexpected secrets on the staging Worker: $EXTRA"
             exit 1
@@ -180,6 +233,12 @@ jobs:
           GITHUB_PAGES=true npm run build
           node scripts/fix-github-pages-paths.mjs
           grep -rqs "$WORKER_URL" out/_next || { echo "::error::Build does not point at the staging Worker."; exit 1; }
+          # The public cruise & ferry page (port picker + quote) must be part of this build.
+          test -f out/belfast-cruise-terminal-transfers/index.html || { echo "::error::Cruise & ferry page missing from the build."; exit 1; }
+          grep -q "Cruise" out/belfast-cruise-terminal-transfers/index.html || { echo "::error::Cruise & ferry page is empty."; exit 1; }
+          # The build uses the real website fonts (fetched from Google Fonts at build time).
+          grep -rqs "fonts.gstatic\|/_next/static/media/.*\.woff2" out || { echo "::error::Website fonts are not in the build."; exit 1; }
+          echo "::notice::Build includes the cruise & ferry page and the production fonts."
           # Keep staging out of search engines.
           printf '/*\n  X-Robots-Tag: noindex, nofollow\n' > out/_headers
           printf 'User-agent: *\nDisallow: /\n' > out/robots.txt
