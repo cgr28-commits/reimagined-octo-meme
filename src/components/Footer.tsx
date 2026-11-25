@@ -103,7 +103,7 @@ export default function Footer() {
           {SERVICE_FLAGS.dayTrips ? (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">
-                Day Trips
+                Tours
               </h3>
               <ul className="mt-4 space-y-2">
                 <li>
