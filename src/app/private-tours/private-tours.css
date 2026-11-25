@@ -16,7 +16,7 @@
 .pt-nav nav a{text-decoration:none;padding:6px 0;border-bottom:2px solid transparent}
 .pt-nav nav a:hover{border-color:var(--green)}
 .pt-kicker{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--green)}
-.pt-hero{padding:48px 0 36px}
+.pt-hero{padding-block:48px 36px}
 .pt-hero p.lead{font-size:1.15rem;color:var(--ink2);max-width:640px;margin-top:16px}
 .pt-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
 .pt-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 24px;border-radius:999px;border:1.5px solid var(--ink);background:var(--ink);color:#fff!important;font:700 .95rem var(--sans);text-decoration:none;cursor:pointer}
@@ -25,7 +25,7 @@
 .pt-btn.green{background:var(--green);border-color:var(--green)}
 .pt-btn:disabled{opacity:.5;cursor:not-allowed}
 .pt-btn.small{min-height:38px;padding:0 16px;font-size:.85rem}
-.pt-section{padding:36px 0}
+.pt-section{padding-block:36px}
 .pt-grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .pt-card{background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
 .pt-card img{width:100%;aspect-ratio:3/2;object-fit:cover;display:block}
@@ -42,7 +42,7 @@
 .pt-form{display:grid;gap:14px}
 .pt-two{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .pt label,.pt .lbl{display:block;font-weight:700;font-size:.85rem;margin-bottom:6px}
-.pt input,.pt select,.pt textarea{width:100%;min-height:48px;padding:10px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font:500 1rem var(--sans);color:var(--ink)}
+.pt input,.pt select,.pt textarea{width:100%;min-width:0;max-width:100%;min-height:48px;padding:10px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font:500 1rem var(--sans);color:var(--ink)}
 .pt textarea{min-height:90px}
 .pt input:focus,.pt select:focus,.pt textarea:focus,.pt-chip:focus-visible,.pt-btn:focus-visible{outline:3px solid #6EE7B7;outline-offset:1px}
 .pt .check{display:flex;gap:10px;align-items:flex-start;font-weight:500;font-size:.9rem}
@@ -104,3 +104,7 @@
 .pt-brand{display:inline-flex;align-items:center}
 .pt-brand img{height:42px;width:auto;display:block}
 @media(min-width:700px){.pt-brand img{height:50px}}
+
+/* Phones: grid children may shrink, and iOS date/time inputs stay inside the panel. */
+.pt-form>*,.pt-two>*,.pt-panel{min-width:0}
+.pt input[type=date],.pt input[type=time]{-webkit-appearance:none;appearance:none;display:block;text-align:left}
