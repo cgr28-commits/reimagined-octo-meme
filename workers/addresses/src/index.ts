@@ -2797,6 +2797,7 @@ async function handlePaymentRequest(
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
         // Saved before the 5% return discount was retired? Re-price with the rate it was quoted at.
         pricing: savedQuotePricingFor(await loadOwnerPricingOrDefault(env), sq),
+        env,
       });
       if (!priced.ok) {
         return json({ error: priced.message }, 422, origin);
@@ -5644,6 +5645,7 @@ export default {
         clientSubmittedAmount: Number(body.clientAmount) || undefined,
         googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
         pricing: savedQuotePricingFor(await loadOwnerPricingOrDefault(env), latest),
+        env,
       });
       if (!priced.ok) {
         return json({ error: priced.message, reason: priced.reason }, 422, origin);

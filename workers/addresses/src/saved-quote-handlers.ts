@@ -27,6 +27,7 @@ import {
   type SavedQuoteJourneySnapshot,
   type SavedQuotePricingSnapshot,
   type SavedQuoteRecord,
+  savedQuotePickupPassed,
 } from "../shared/saved-quote";
 import {
   attributionForSavedQuoteStorage,
@@ -41,7 +42,7 @@ import {
 } from "../shared/quick-quote";
 import { createPricedQuickQuote } from "./quick-quote-handlers";
 import { saveQuickQuote } from "./quick-quote-store";
-import type { MainQuoteEnv } from "./main-quote-pricing";
+import { mainQuoteRequestBody, priceWithMainQuoteTool, type MainQuoteEnv } from "./main-quote-pricing";
 import {
   buildSavedQuoteFinalReminderEmail,
   buildSavedQuoteFirstReminderEmail,
@@ -222,6 +223,12 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
   googlePlacesApiKey?: string;
   getAddressApiKey?: string;
   pricing?: OwnerPricingSettings | null;
+  /**
+   * Worker env. When present the transfer fare comes from the public quote tool
+   * itself (exactly what the website showed, as Quick Quotes do), so a saved quote can
+   * never price differently from the website. Omitted only by offline unit tests.
+   */
+  env?: MainQuoteEnv;
 }): Promise<
   | { ok: true; pricing: SavedQuotePricingSnapshot; quote: Extract<QuoteServiceResult, { ok: true }> }
   | { ok: false; message: string; reason: string }
@@ -289,7 +296,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
         returnTime: journey.returnTime,
       });
 
-  const quote = calculateAuthoritativeWebsiteQuote({
+  const localQuote = calculateAuthoritativeWebsiteQuote({
     positioningChargeGbp: positioning.chargeGbp,
     corridorEndpoints: {
       pickup: paymentRoute?.ok ? paymentRoute.pickup ?? null : null,
@@ -312,11 +319,62 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     pricing: input.pricing,
   });
 
-  if (!quote.ok) {
-    return { ok: false, message: quote.message, reason: quote.reason };
+  if (!localQuote.ok) {
+    return { ok: false, message: localQuote.message, reason: localQuote.reason };
+  }
+
+  // Single source of truth: the website's own quote tool prices the journey.
+  let quote: typeof localQuote = localQuote;
+  if (input.env) {
+    const main = await priceWithMainQuoteTool(
+      mainQuoteRequestBody({
+        pickupAddress: journey.pickupLabel,
+        dropoffAddress: journey.dropoffLabel,
+        pickupPlaceId: journey.pickupPlaceId,
+        dropoffPlaceId: journey.dropoffPlaceId,
+        airportCode: journey.airportCode ?? null,
+        fromAirport: typeof journey.isFromAirport === "boolean" ? journey.isFromAirport : undefined,
+        returnJourney: Boolean(journey.returnJourney),
+        outboundDate: journey.tripDate,
+        outboundTime: journey.tripTime,
+        returnDate: journey.returnDate,
+        returnTime: journey.returnTime,
+        passengers: journey.passengers,
+        suitcases: journey.suitcases,
+        vehicleType: journey.vehicle,
+      }),
+      input.env,
+    );
+    if (!main.ok) return { ok: false, message: main.message, reason: main.reason ?? "quote_unavailable" };
+    const mainDiagnostics = (main.payload.diagnostics ?? {}) as { distanceKm?: number; routeMetricsSource?: string };
+    console.log(
+      JSON.stringify({
+        event: "saved_quote_pricing_compare",
+        websiteToolAmount: main.amount,
+        savedQuoteEngineAmount: localQuote.amount,
+        differs: Math.abs(main.amount - localQuote.amount) >= 0.005,
+        websiteToolKm: mainDiagnostics.distanceKm ?? null,
+        websiteToolRouteSource: mainDiagnostics.routeMetricsSource ?? null,
+        savedQuoteEngineKm: routeMetrics ? Math.round(routeMetrics.distanceKm * 100) / 100 : null,
+        airportCode: airportCode ?? null,
+      }),
+    );
+    quote = {
+      ...localQuote,
+      amount: main.amount,
+      vehicleType: (main.vehicleType || localQuote.vehicleType) as typeof localQuote.vehicleType,
+      returnJourney: main.returnJourney,
+      journeyFareGbp: main.journeyFareGbp ?? main.amount,
+      nightWeekendSurchargeGbp: main.nightWeekendSurchargeGbp,
+      airportFixedCostsGbp: main.airportFixedCostsGbp,
+      outboundOneWayBeforeAccessGbp: main.outboundOneWayBeforeAccessGbp,
+      returnOneWayBeforeAccessGbp: main.returnOneWayBeforeAccessGbp,
+      preserveBfsMinimumPence: main.preserveBfsMinimumPence === true,
+    };
   }
 
   let serverAmount = quote.amount;
+  let airportAccessChargeGbp = 0;
   {
     const options = ownerPricingEngineOptions(input.pricing);
     const express = resolveExpressDropOff({
@@ -339,6 +397,7 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
       outboundChoice: journey.optionalMeetGreetSelected && airportCode !== "DUB" ? "meet-greet" : journey.outboundAirportAccessChoice,
       returnChoice: journey.returnAirportAccessChoice,
     });
+    airportAccessChargeGbp = access.airportAccessChargeGbp;
     serverAmount = composeWebsiteFareBreakdown({
       preserveFixedFarePence: quote.preserveBfsMinimumPence === true,
       journeyFareBeforeAirportAccessGbp: quote.journeyFareGbp ?? quote.amount,
@@ -376,7 +435,10 @@ export async function buildAuthoritativeSavedQuotePricing(input: {
     },
   });
 
-  pricing.airportChargesGbp = Math.round((serverAmount - quote.amount + (quote.airportFixedCostsGbp ?? 0)) * 100) / 100;
+  // Airport charges = the engine's real fixed costs (e.g. GBP 9 at Dublin) plus any
+  // optional access fee. Never derive it by subtracting rounded totals (that gave 8.97).
+  pricing.airportChargesGbp =
+    Math.round(((quote.airportFixedCostsGbp ?? 0) + airportAccessChargeGbp + (airportCode === "DUB" ? optionalMeetGreet.feeGbp : 0)) * 100) / 100;
   pricing.returnSavingGbp = journey.returnJourney ? getReturnJourneySavingGbp(
     Math.max(0, (quote.journeyFareGbp ?? quote.amount) - (quote.nightWeekendSurchargeGbp ?? 0)),
     ownerPricingEngineOptions(input.pricing).returnDiscountRate,
@@ -607,6 +669,7 @@ export async function handleCreateSavedQuote(
     googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
     getAddressApiKey: env.GETADDRESS_API_KEY,
     pricing: ownerPricing,
+    env,
   });
   if (!priced.ok) {
     return jsonResponse(
@@ -714,6 +777,7 @@ export async function handleCreateSavedQuote(
     const held = toSavedQuotePublicSummary(record, siteOrigin(env)).heldPrice;
     if (!held) {
       whatsappUnavailableReason = "no_held_price";
+      console.log(JSON.stringify({ event: "saved_quote_whatsapp_not_sent", reference: record.reference, reason: "no_held_price" }));
     } else {
       const fareShare = eventFareShareLabel(held.amount, record.journey);
       const sent = await sendWebQuoteLinkWhatsApp(env as unknown as WhatsAppTemplateEnv, {
@@ -727,7 +791,12 @@ export async function handleCreateSavedQuote(
       whatsappSent = sent.sent;
       if (!sent.sent) {
         whatsappUnavailableReason = sent.reason;
-        console.log(JSON.stringify({ event: "saved_quote_whatsapp_not_sent", reference: record.reference, reason: sent.reason }));
+        console.log(JSON.stringify({
+          event: "saved_quote_whatsapp_not_sent",
+          reference: record.reference,
+          reason: sent.reason,
+          ...("error" in sent && sent.error ? { error: sent.error } : {}),
+        }));
       }
     }
   }
@@ -823,7 +892,9 @@ export async function handleGetSavedQuote(
           access.error === "booked"
             ? "This journey has already been booked."
             : access.error === "expired"
-              ? "This quote has expired."
+              ? savedQuotePickupPassed(record.journey)
+                ? "The pickup time for this quote has passed. Please get a new quote."
+                : "This quote has expired."
               : "Quote not found.",
       },
       access.error === "not_found" ? 404 : 409,
@@ -873,8 +944,9 @@ export async function resolveSavedQuoteForPayment(
     if (access.error === "expired") {
       return {
         ok: false,
-        error:
-          "This saved quote has expired. Please get a new quote to see the current price.",
+        error: savedQuotePickupPassed(record.journey)
+          ? "The pickup time for this saved quote has passed. Please get a new quote."
+          : "This saved quote has expired. Please get a new quote to see the current price.",
         status: 410,
       };
     }

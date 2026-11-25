@@ -111,7 +111,10 @@ async function main() {
   assert.ok(String(mail.text).includes('Add your date and time to see your fixed price.'));
   assert.doesNotMatch(String(mail.text),/held until|book-quote|surcharge/i);
   data.set('owner:pricing-settings',JSON.stringify(changed));
+  // The website quote tool caches owner pricing for a few seconds; step past it like production does.
+  const realNow=Date.now;Date.now=()=>realNow()+120000;
   const requote=await worker.fetch(new Request(origin+'/saved-quotes/requote',{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({token:saved.token})}),env as never);
+  Date.now=realNow;
   assert.equal(requote.status,200,await requote.clone().text());
   assert.equal((await requote.json() as any).amount,after.pricing.totalAmount);
   assert.equal(JSON.parse(data.get(savedQuoteTokenKey(saved.token))!).pricing.totalAmount,saved.amount,'original snapshot unchanged');
