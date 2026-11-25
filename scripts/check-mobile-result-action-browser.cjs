@@ -227,7 +227,7 @@ async function main() {
     await page.locator(`[data-vehicle-category="${category}"]`).tap();
     await bar.getByText(expectedPrice, { exact: true }).waitFor();
     assert.match(await bar.locator('[data-d2-sticky-label]').innerText(), new RegExp(label, 'i'));
-    const save = page.getByRole('button', { name: 'Send me my quote', exact: true });
+    const save = page.getByRole('button', { name: 'Save my quote', exact: true });
     assert.equal(await save.isVisible(), category !== 'executive', 'Only priced vehicles can be saved');
     const button = bar.locator('#quote-book-now-button');
     assert.ok(await button.isEnabled());

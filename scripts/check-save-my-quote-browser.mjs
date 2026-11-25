@@ -54,7 +54,7 @@ try {
   const reminder=page.locator('[data-save-quote-reminder]');
   assert.equal(await reminder.count(),0,'no timed save-quote pop-up');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal overflow');
-  await page.getByRole('button', {name:/^(send me my quote|email (?:my )?quote)$/i}).first().click();
+  await page.getByRole('button', {name:/^(send me my quote|save my quote|email (?:my )?quote)$/i}).first().click();
   const dialog=page.getByRole('dialog',{name:'Send Me My Quote',exact:true});await dialog.waitFor();
   await page.screenshot({path:`test-results/save-my-quote/${width}-save-options.png`});
   await dialog.getByLabel('Mobile number (WhatsApp)').fill('07700900123');
