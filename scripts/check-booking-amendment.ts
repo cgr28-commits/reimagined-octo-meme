@@ -178,7 +178,7 @@ function run() {
   assert.match(record, /amendmentHistory/);
   assert.match(handlers, /dateTimeAmendmentHistory/);
   assert.match(handlers, /changedBy: \"Customer\"/);
-  assert.match(handlers, /calculateAuthoritativeWebsiteQuote/);
+  assert.match(handlers, /buildAuthoritativeSavedQuotePricing/);
   assert.match(handlers, /describeFareDifference/);
   assert.match(handlers, /sendUpdatedConfirmationForPaymentReference/);
   assert.match(handlers, /lower_fare_contact_required/);

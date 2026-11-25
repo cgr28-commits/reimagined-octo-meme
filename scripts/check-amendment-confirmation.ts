@@ -216,7 +216,7 @@ function run() {
     path.join(root, "workers/addresses/src/booking-amendment-handlers.ts"),
     "utf8",
   );
-  assert.match(amendHandlers, /calculateAuthoritativeWebsiteQuote/);
+  assert.match(amendHandlers, /buildAuthoritativeSavedQuotePricing/);
   assert.match(amendHandlers, /additional_payment_required/);
   assert.match(amendHandlers, /lower_fare_contact_required/);
   assert.match(amendHandlers, /sendUpdatedConfirmationForPaymentReference/);

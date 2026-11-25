@@ -41,7 +41,6 @@ import { matchServedAirportCode } from "../shared/served-airports";
 import type { PaidBookingAmendmentEvent, PaidBookingRecord } from "../shared/paid-booking-record";
 import { buildPickupDateTimeLocal, journeyStatusOf } from "../shared/tracking";
 import {
-  calculateAuthoritativeWebsiteQuote,
   type QuoteServiceAirportCode,
 } from "../../../src/lib/quote-service";
 import {
@@ -70,8 +69,14 @@ import {
 import { type WorkerEmailEnv } from "./worker-email";
 import { sendUpdatedConfirmationForPaymentReference } from "./send-updated-confirmation";
 import { createOrReuseAmendmentTopUpCheckout } from "./amendment-topup";
+import { VEHICLE_TYPES } from "../../../src/lib/data";
+import { buildAuthoritativeSavedQuotePricing } from "./saved-quote-handlers";
+import { loadOwnerPricingOrDefault } from "./owner-pricing-handlers";
+import type { MainQuoteEnv } from "./main-quote-pricing";
 
-type Env = WorkerEmailEnv & {
+type Env = WorkerEmailEnv & NonNullable<MainQuoteEnv> & {
+  GOOGLE_PLACES_API_KEY?: string;
+  GETADDRESS_API_KEY?: string;
   TRACKING_STORE?: KVNamespace;
   GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_CALENDAR_ID?: string;
@@ -731,20 +736,36 @@ export async function handleCustomerAmendSchedule(
   let fareDiff = describeFareDifference(previousFare, newFare);
 
   if (burnsFreeQuota) {
-    const quote = calculateAuthoritativeWebsiteQuote({
-      airportCode:
-        resolvedIsAirportTrip || resolvedAirportCode ? resolvedAirportCode : null,
-      fromAirport: resolvedFromAirport,
-      pickupAddress: merged.pickupLabel,
-      dropoffAddress: merged.dropoffLabel,
-      returnJourney: Boolean(record.returnJourney),
-      outboundDate: merged.tripDate,
-      outboundTime: merged.tripTime,
-      returnDate: record.returnDate,
-      returnTime: record.returnTime,
-      passengers: merged.passengers,
-      suitcases: merged.suitcases,
+    // Price exactly as the website quote tool does: the road route for the NEW
+    // address is measured server-side, then the authoritative engine prices it.
+    const priced = await buildAuthoritativeSavedQuotePricing({
+      journey: {
+        pickupLabel: merged.pickupLabel,
+        dropoffLabel: merged.dropoffLabel,
+        pickupPlaceId: record.pickupLabel === merged.pickupLabel ? record.pickupPlaceId : undefined,
+        dropoffPlaceId: record.dropoffLabel === merged.dropoffLabel ? record.dropoffPlaceId : undefined,
+        airportCode: resolvedAirportCode || undefined,
+        isAirportTrip: resolvedIsAirportTrip,
+        isFromAirport: resolvedFromAirport,
+        tripDate: merged.tripDate,
+        tripTime: merged.tripTime,
+        returnJourney: Boolean(record.returnJourney),
+        returnDate: record.returnDate,
+        returnTime: record.returnTime,
+        passengers: merged.passengers,
+        suitcases: merged.suitcases,
+        childSeats: merged.childSeats,
+        vehicle: record.vehicle || VEHICLE_TYPES[0],
+        tripLabel: "Airport transfer",
+      },
+      googlePlacesApiKey: env.GOOGLE_PLACES_API_KEY,
+      getAddressApiKey: env.GETADDRESS_API_KEY,
+      pricing: await loadOwnerPricingOrDefault(env),
+      env,
     });
+    const quote = priced.ok
+      ? ({ ok: true, amount: priced.quote.amount } as const)
+      : ({ ok: false, message: priced.message } as const);
 
     if (!quote.ok) {
       return jsonResponse(
@@ -761,7 +782,9 @@ export async function handleCustomerAmendSchedule(
       );
     }
 
-    newFare = quote.amount;
+    // Owner rule: a cheaper recalculated fare is never offered to the customer.
+    // The agreed fare stands; only a higher fare creates a difference to pay.
+    newFare = Math.max(quote.amount, previousFare);
     fareDiff = describeFareDifference(previousFare, newFare);
   }
 
