@@ -172,12 +172,31 @@ export function buildArrivedPickupWhatsAppMessage(options: {
   return buildArrivedCompanyVoiceWhatsAppMessage(booking);
 }
 
-/** Normalise UK/IE mobiles to WhatsApp international digits (no +). */
+/**
+ * Normalise a customer mobile to WhatsApp international digits (no +). Customers may be anywhere:
+ * "+" / "00" numbers keep their own country code (a "(0)" trunk digit after +44 / +353 is dropped);
+ * a bare national number starting 08x is read as Irish, any other leading 0 as UK.
+ */
 export function toWhatsAppDigits(mobile: string): string {
-  const digits = mobile.replace(/\D/g, "");
+  const raw = mobile.trim();
+  let digits = raw.replace(/\D/g, "");
   if (digits.length < 10) return "";
-  if (digits.startsWith("44") || digits.startsWith("353")) return digits;
-  if (digits.startsWith("0")) return `44${digits.slice(1)}`;
+  if (raw.startsWith("+") || digits.startsWith("00")) {
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    for (const cc of ["44", "353"]) {
+      if (digits.startsWith(`${cc}0`)) digits = `${cc}${digits.slice(cc.length + 1)}`;
+    }
+    return digits;
+  }
+  if (digits.startsWith("44") || digits.startsWith("353")) {
+    for (const cc of ["44", "353"]) {
+      if (digits.startsWith(`${cc}0`)) digits = `${cc}${digits.slice(cc.length + 1)}`;
+    }
+    return digits;
+  }
+  if (digits.startsWith("0")) {
+    return /^08[3-9]\d{7}$/.test(digits) ? `353${digits.slice(1)}` : `44${digits.slice(1)}`;
+  }
   return digits;
 }
 

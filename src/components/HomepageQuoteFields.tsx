@@ -480,7 +480,7 @@ export default function HomepageQuoteFields({
         id="pickup"
         name="pickup"
         label={design2 ? "Pickup" : "Pickup location"}
-        placeholder="Pickup address, postcode or airport"
+        placeholder={ports?.length ? "Address, postcode, airport or port" : "Pickup address, postcode or airport"}
         value={pickupAddress}
         onChange={onPickupChange}
         onSelectPlace={onPickupPlaceSelect}
@@ -541,7 +541,7 @@ export default function HomepageQuoteFields({
         id="dropoff"
         name="dropoff"
         label={design2 ? "Drop-off" : "Drop-off location"}
-        placeholder="Destination address, postcode or airport"
+        placeholder={ports?.length ? "Address, postcode, airport or port" : "Destination address, postcode or airport"}
         value={dropoffAddress}
         onChange={onDropoffChange}
         onSelectPlace={onDropoffPlaceSelect}

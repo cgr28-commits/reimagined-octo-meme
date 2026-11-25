@@ -5,6 +5,7 @@ import { updateSaveQuoteSettings } from "./booking-settings-store";
 
 import { decideBookingApprovalForTrip } from "../shared/approval-policy";
 import { resolvePorts, toPublicPorts, type PublicPort } from "../shared/ports";
+import { toWhatsAppDigits } from "../shared/arrival-whatsapp";
 import { releaseShortNoticeHold } from "./short-notice-card-hold";
 import {
   isPickupTooSoonForOwnerOvernight,
@@ -136,7 +137,7 @@ function buildOwnerWhatsAppPayUrl(record: ShortNoticeBookingRecord, payUrl: stri
   const text = encodeURIComponent(
     `Hi ${record.booking.customerName}, your short-notice booking ${record.reference} is approved. Please pay securely here: ${payUrl}`,
   );
-  const mobile = record.booking.mobileNumber.replace(/\D/g, "").replace(/^0/, "44");
+  const mobile = toWhatsAppDigits(record.booking.mobileNumber);
   return mobile ? `https://wa.me/${mobile}?text=${text}` : `https://wa.me/?text=${text}`;
 }
 

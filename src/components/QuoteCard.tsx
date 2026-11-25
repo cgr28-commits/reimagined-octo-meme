@@ -1071,7 +1071,10 @@ function QuoteCard({
   const timePremiumNeedsSchedule = publicPricingLoaded ? quoteNeedsScheduleUpFront(publicPricing) : QUOTE_SCHEDULE_UP_FRONT_AT_BUILD;
   const venueNeedsSchedule = isPublishedPickupPlace(publicPricing.eventVenuePickups, pickupAddress) ||
     (journeyMode === "return" && isPublishedPickupPlace(publicPricing.eventVenuePickups, dropoffAddress));
-  const scheduleUpFront = scheduleUpFrontPreview ?? (Boolean(initialEvent) || timePremiumNeedsSchedule || venueNeedsSchedule);
+  // Cruise & ferry page (owner, 25 Nov 2026): pickup date and time (and the return date and time) are
+  // asked for before any price, so cruise and ferry quotes always use the real schedule.
+  const scheduleUpFront =
+    Boolean(portPicker) || (scheduleUpFrontPreview ?? (Boolean(initialEvent) || timePremiumNeedsSchedule || venueNeedsSchedule));
   const [homepageFareChangeAck, setHomepageFareChangeAck] = useState(false);
   const returnJourney = journeyMode === "return";
   const [tripDateError, setTripDateError] = useState("");
