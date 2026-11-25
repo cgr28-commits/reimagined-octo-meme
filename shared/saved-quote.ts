@@ -217,9 +217,35 @@ export function generateSavedQuoteReference(now = new Date()): string {
   return `MAT-${stamp}-${suffix}`;
 }
 
-export function computeSavedQuoteExpiresAt(createdAt: Date = new Date(), validityDays = 7): string {
-  const expires = new Date(createdAt.getTime() + Math.min(7, Math.max(1, validityDays)) * 24 * 60 * 60 * 1000);
-  return expires.toISOString();
+type SavedQuotePickupFields = { tripDate?: string; tripTime?: string };
+
+/** Outbound pickup instant, or null when the saved quote has no date/time yet. */
+export function savedQuotePickupAt(journey?: SavedQuotePickupFields | null): Date | null {
+  const date = String(journey?.tripDate ?? "").trim();
+  const time = String(journey?.tripTime ?? "").trim();
+  if (!date || !time) return null;
+  return parseLondonLocalDateTime(date, time) ?? null;
+}
+
+/** True once the scheduled pickup has passed: the quote can no longer be booked. */
+export function savedQuotePickupPassed(journey: SavedQuotePickupFields | null | undefined, now = new Date()): boolean {
+  const pickup = savedQuotePickupAt(journey);
+  return pickup != null && pickup.getTime() <= now.getTime();
+}
+
+/**
+ * Quote validity (retrieval window, up to 7 days) capped at the scheduled pickup, so a
+ * saved quote is never shown as valid, or bookable, after the journey has begun.
+ */
+export function computeSavedQuoteExpiresAt(
+  createdAt: Date = new Date(),
+  validityDays = 7,
+  journey?: SavedQuotePickupFields | null,
+): string {
+  const validity = createdAt.getTime() + Math.min(7, Math.max(1, validityDays)) * 24 * 60 * 60 * 1000;
+  const pickup = savedQuotePickupAt(journey);
+  const capped = pickup && pickup.getTime() > createdAt.getTime() ? Math.min(validity, pickup.getTime()) : validity;
+  return new Date(capped).toISOString();
 }
 
 export function formatSavedQuoteAmount(amount: number): string {
@@ -285,10 +311,12 @@ export function formatSavedQuoteExpiryLabel(iso: string): string {
 }
 
 export function isSavedQuoteExpired(
-  record: Pick<SavedQuoteRecord, "expiresAt" | "status">,
+  record: Pick<SavedQuoteRecord, "expiresAt" | "status"> & { journey?: SavedQuotePickupFields | null },
   now = new Date(),
 ): boolean {
   if (record.status === "expired") return true;
+  // Retrieval validity must never override booking eligibility: past pickup = not bookable.
+  if (savedQuotePickupPassed(record.journey, now)) return true;
   const expiresMs = Date.parse(record.expiresAt);
   if (!Number.isFinite(expiresMs)) return true;
   return expiresMs <= now.getTime();

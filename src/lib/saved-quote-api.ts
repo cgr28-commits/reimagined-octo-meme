@@ -43,6 +43,8 @@ export type SaveQuoteResult = {
   /** Channel "whatsapp_send": whether our WhatsApp message was accepted for sending. */
   whatsappSent?: boolean;
   whatsappToSuffix?: string;
+  /** Why we could not send (no_held_price, disabled_or_not_approved, send_failed, …). */
+  whatsappUnavailableReason?: string;
   quoteUrl: string;
   /** True when a fixed-price booking link is held (journey had a pickup date and time). */
   priceHeld?: boolean;

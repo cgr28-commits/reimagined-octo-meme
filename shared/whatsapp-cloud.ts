@@ -437,13 +437,28 @@ export async function postWhatsAppMessage(
       });
       const data = (await res.json().catch(() => null)) as {
         messages?: Array<{ id?: string }>;
-        error?: { message?: string; code?: number };
+        error?: {
+          message?: string;
+          code?: number;
+          error_subcode?: number;
+          type?: string;
+          fbtrace_id?: string;
+          error_data?: { details?: string };
+        };
       } | null;
       if (res.ok) {
         return { sent: true, messageId: data?.messages?.[0]?.id };
       }
-      lastError = data?.error?.message
-        ? `${data.error.message}${data.error.code ? ` (code ${data.error.code})` : ""}`
+      // Meta's own diagnostics only (never the request, token or recipient): HTTP status,
+      // code/subcode, type, details and fbtrace_id so a rejection can be traced in Meta.
+      const meta = data?.error;
+      lastError = meta?.message
+        ? [
+            `HTTP ${res.status}: ${meta.message}`,
+            meta.code ? `(code ${meta.code}${meta.error_subcode ? `/${meta.error_subcode}` : ""})` : "",
+            meta.error_data?.details ? `details: ${meta.error_data.details}` : "",
+            meta.fbtrace_id ? `trace ${meta.fbtrace_id}` : "",
+          ].filter(Boolean).join(" ").slice(0, 600)
         : `HTTP ${res.status}`;
       if (!isRetriableWhatsAppHttpStatus(res.status) || attempt === SEND_MAX_ATTEMPTS) {
         return { sent: false, error: lastError };

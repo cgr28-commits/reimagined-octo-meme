@@ -107,7 +107,7 @@ export async function createSavedQuote(
     },
     status: "saved",
     createdAt,
-    expiresAt: computeSavedQuoteExpiresAt(now, input.validityDays),
+    expiresAt: computeSavedQuoteExpiresAt(now, input.validityDays, input.journey),
     ...(input.heldPrice ? { heldPrice: input.heldPrice } : {}),
     ...(input.attribution ? { attribution: input.attribution } : {}),
     ...(input.attributionConsent ? { attributionConsent: input.attributionConsent } : {}),
