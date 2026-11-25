@@ -119,6 +119,13 @@ function validateStructuredBookingRequest(
     isAirportTrip: booking.isAirportTrip === true,
     airportCode: stringField(booking.airportCode),
     termsAcceptedAt: stringField(booking.termsAcceptedAt),
+    pickupPlaceId: stringField(booking.pickupPlaceId),
+    dropoffPlaceId: stringField(booking.dropoffPlaceId),
+    pickupLat: typeof booking.pickupLat === "number" ? booking.pickupLat : null,
+    pickupLng: typeof booking.pickupLng === "number" ? booking.pickupLng : null,
+    dropoffLat: typeof booking.dropoffLat === "number" ? booking.dropoffLat : null,
+    dropoffLng: typeof booking.dropoffLng === "number" ? booking.dropoffLng : null,
+    sailingDetails: stringField(booking.sailingDetails),
   });
   if (blockers.length > 0) {
     return { ok: false, error: unpaidCustomerError(blockers[0]) };

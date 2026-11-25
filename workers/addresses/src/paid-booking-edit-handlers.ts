@@ -105,6 +105,8 @@ export type OwnerEditBookingBody = {
   mobileNumber?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Cruise ship / ferry details — amendable after booking. */
+  sailingDetails?: string;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
@@ -193,6 +195,9 @@ function parseEditFields(body: OwnerEditBookingBody): {
   if (body.flightNumber !== undefined) {
     const flight = String(body.flightNumber).trim();
     fields.flightNumber = flight ? flight.toUpperCase() : "";
+  }
+  if (body.sailingDetails !== undefined) {
+    fields.sailingDetails = String(body.sailingDetails).trim().slice(0, 200);
   }
   if (body.returnFlightNumber !== undefined) {
     const flight = String(body.returnFlightNumber).trim();
@@ -645,6 +650,7 @@ export async function handlePaidBookingEditRequest(
         suitcases: fresh.suitcases,
         flightNumber: fresh.flightNumber,
         returnFlightNumber: fresh.returnFlightNumber,
+        sailingDetails: fresh.sailingDetails,
         vehicle: fresh.vehicle,
         trackingToken: fresh.trackingToken,
         calendarEventIds: fresh.calendarEventIds,

@@ -250,6 +250,9 @@ function parseProposedFromBody(
   if (body.flightNumber !== undefined) {
     proposed.flightNumber = String(body.flightNumber ?? "").trim().toUpperCase().slice(0, 16);
   }
+  if (body.sailingDetails !== undefined) {
+    proposed.sailingDetails = String(body.sailingDetails ?? "").trim().slice(0, 200);
+  }
   if (body.mobileNumber !== undefined) {
     const mobile = String(body.mobileNumber ?? "").trim();
     if (mobile.length < 7) {
@@ -282,6 +285,7 @@ function mergeProposedOntoRecord(
   childSeats: number;
   childSeatNotes: string;
   flightNumber: string;
+  sailingDetails: string;
   mobileNumber: string;
 } {
   return {
@@ -300,6 +304,10 @@ function mergeProposedOntoRecord(
       proposed.flightNumber !== undefined
         ? String(proposed.flightNumber)
         : record.flightNumber || "",
+    sailingDetails:
+      proposed.sailingDetails !== undefined
+        ? String(proposed.sailingDetails)
+        : record.sailingDetails || "",
     mobileNumber:
       proposed.mobileNumber !== undefined
         ? String(proposed.mobileNumber)
@@ -333,6 +341,7 @@ function fieldDiffs(
   push("suitcases", "Suitcases", String(record.suitcases ?? 0), String(merged.suitcases));
   push("childSeats", "Child seats", String(record.childSeats ?? 0), String(merged.childSeats));
   push("flightNumber", "Flight number", record.flightNumber || "—", merged.flightNumber || "—");
+  push("sailingDetails", "Cruise ship / ferry", record.sailingDetails || "—", merged.sailingDetails || "—");
   push("mobileNumber", "Mobile", record.mobileNumber || "—", merged.mobileNumber || "—");
   return rows;
 }
@@ -864,6 +873,7 @@ export async function handleCustomerAmendSchedule(
         childSeats: merged.childSeats,
         childSeatNotes: merged.childSeatNotes,
         flightNumber: merged.flightNumber,
+        sailingDetails: merged.sailingDetails,
         mobileNumber: merged.mobileNumber,
         airportCode: resolvedAirportCode,
         isFromAirport: resolvedFromAirport,
@@ -1009,6 +1019,7 @@ export async function handleCustomerAmendSchedule(
       childSeats: merged.childSeats,
       childSeatNotes: merged.childSeatNotes,
       flightNumber: merged.flightNumber,
+      sailingDetails: merged.sailingDetails,
       mobileNumber: merged.mobileNumber,
       airportCode: resolvedAirportCode || undefined,
       isFromAirport: resolvedFromAirport,

@@ -185,8 +185,14 @@ function parseJourney(
     diaryRoute.routeDurationMinutes = metrics.durationMinutes;
     diaryRoute.routeDistanceKm = metrics.distanceKm;
   }
+  const placeIdOf = (v: unknown) =>
+    typeof v === "string" && v.trim() && v.trim().length <= 200 ? v.trim() : undefined;
+  const pickupPlaceId = placeIdOf(body.pickupPlaceId);
+  const dropoffPlaceId = placeIdOf(body.dropoffPlaceId);
   return {
     ...(Object.keys(diaryRoute).length ? { diaryRoute } : {}),
+    ...(pickupPlaceId ? { pickupPlaceId } : {}),
+    ...(dropoffPlaceId ? { dropoffPlaceId } : {}),
     pickupAddress,
     dropoffAddress,
     airportCode,

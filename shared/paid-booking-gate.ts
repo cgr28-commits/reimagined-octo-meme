@@ -5,6 +5,7 @@
 
 import { emailTypoSuggestion } from "./email-typo";
 import { businessClassPassengerLimitError } from "./business-class-capacity";
+import { DEFAULT_PORTS, resolveJourneyPorts, sailingRequirement } from "./ports";
 import { QUOTE_REQUIRED_FIELD_MESSAGES } from "./quote-required-field-messages";
 
 export type PaymentBookingGateInput = {
@@ -26,6 +27,14 @@ export type PaymentBookingGateInput = {
   isAirportTrip?: boolean | null;
   airportCode?: string | null;
   termsAcceptedAt?: string | null;
+  /** Cruise & ferry port journeys (optional; other flows omit these). */
+  pickupPlaceId?: string | null;
+  dropoffPlaceId?: string | null;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
+  sailingDetails?: string | null;
 };
 
 /** Omitted / empty child seats mean none. Non-integers stay invalid so they cannot be clamped into a booking. */
@@ -130,6 +139,16 @@ export function getPaymentBookingBlockers(input: PaymentBookingGateInput): strin
     }
     if (!returnTime) {
       blockers.push("Return time is required for a return journey.");
+    }
+  }
+  {
+    // A cruise pickup needs the ship name (ferry and other sailing details stay optional).
+    const { pickupPort, dropoffPort } = resolveJourneyPorts(DEFAULT_PORTS, input);
+    if (
+      sailingRequirement(pickupPort, dropoffPort, Boolean(input.returnJourney)).shipRequired &&
+      String(input.sailingDetails ?? "").trim().length < 2
+    ) {
+      blockers.push("Cruise ship name is required for a cruise terminal pickup.");
     }
   }
   if (!vehicle) {

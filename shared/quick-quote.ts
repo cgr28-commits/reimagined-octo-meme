@@ -79,6 +79,9 @@ export type QuickQuoteJourney = {
     routeDurationMinutes?: number;
     routeDistanceKm?: number;
   };
+  /** Stable place ids (a cruise/ferry port uses its catalogue id) so the port survives quote → booking. */
+  pickupPlaceId?: string;
+  dropoffPlaceId?: string;
   pickupAddress: string;
   dropoffAddress: string;
   airportCode?: QuickQuoteAirportCode | null;

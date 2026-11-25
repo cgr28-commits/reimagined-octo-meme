@@ -2745,6 +2745,9 @@ function QuoteCard({
       outboundTime: tripTime.trim(),
       returnDate: returnJourney ? returnDate.trim() : undefined,
       returnTime: returnJourney ? returnTime.trim() : undefined,
+      // Cruise & ferry page only: the worker refuses a fare without the real schedule. Opt-in, so
+      // price-first flows elsewhere (homepage, Design 2, restored/saved/owner quotes) are unchanged.
+      requireSchedule: portPicker ? true : undefined,
       passengers: requestedPassengers,
       suitcases,
       pickupLat: pickupPlace?.lat ?? undefined,

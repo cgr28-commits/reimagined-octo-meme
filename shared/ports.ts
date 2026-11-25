@@ -73,7 +73,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
       "Your driver meets you at the main cruise terminal building on Airport Road West (the taxi and shuttle area outside the terminal). We confirm the exact spot with you before you travel, as berths and access can change on the day.",
     berthConfirmation: true,
     active: true,
-    note: "Google place already used by the live site. Cruise lines list the same terminal as 48 Airport Road West, BT3 9EA; Google/Apple list 20 Airport Road West, BT3 9ED. Not labelled D1 (no official Belfast Harbour source).",
+    note: "Google place already used by the live site. Cruise lines list the same terminal as 48 Airport Road West, BT3 9EA; Google/Apple list 20 Airport Road West, BT3 9ED. Not labelled D1 (no official Belfast Harbour source). Cruise lines say taxis collect at the front of the terminal building (small, congested area). Belfast Harbour Cruise Code of Conduct: taxis at cruise berths need a Port Pass (safety induction), pre-booked fixed fares must be booked via the operator with a written record in the vehicle. Confirm every driver holds the pass.",
   },
   {
     id: "stena-belfast-cairnryan-vt4",
@@ -132,7 +132,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
     pickupInstructions: "Your driver meets you at the P&O Ferries passenger terminal at Larne Harbour.",
     berthConfirmation: false,
     active: false,
-    note: "INACTIVE: address from a booking site only; passenger terminal coordinates not yet confirmed with P&O. Add coordinates, then switch on.",
+    note: "INACTIVE (re-checked 25 Nov 2026): P&O publishes no Larne address, drop-off point or coordinates on its pages. Only the port authority office (9 Olderfleet Road, BT40 1AS) and the adjacent Larne Harbour rail station (about 54.848, -5.799) are published; neither is the passenger terminal entrance. Needs the terminal pin confirmed on Google Maps or with P&O Larne, then switch on.",
   },
   {
     id: "warrenpoint-port",
@@ -151,7 +151,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
     pickupInstructions: "Cruise calls are run through the port agent, so we confirm the exact passenger collection point before you travel.",
     berthConfirmation: true,
     active: false,
-    note: "INACTIVE: working freight port with only a few cruise calls; no verified passenger pickup point or postcode. Confirm with Warrenpoint Harbour Authority.",
+    note: "INACTIVE (re-checked 25 Nov 2026): Warrenpoint Harbour Authority, The Docks, BT34 3JR, is a working freight port with only occasional small expedition-ship calls. No passenger collection point is published, and tenders or berths vary by call. Confirm the pickup point per call with the Harbour Authority (028 4177 3381) before switching on.",
   },
   {
     id: "foyle-port-lisahally",
@@ -519,4 +519,80 @@ export function portRouteConflict(input: {
     return "We only run Dublin port transfers to and from Northern Ireland. Please choose a pickup or drop-off in Northern Ireland.";
   }
   return null;
+}
+
+/* ── Journey ↔ port resolution (booking, confirmations, amendments) ───────────────────────────── */
+
+type PortRef = Pick<PortEntry, "id" | "placeId" | "lat" | "lng" | "kind" | "operator" | "sailsTo" | "pickupInstructions">;
+
+export type JourneyPortEnds = {
+  pickupPlaceId?: string | null;
+  dropoffPlaceId?: string | null;
+  pickupLat?: number | null;
+  pickupLng?: number | null;
+  dropoffLat?: number | null;
+  dropoffLng?: number | null;
+};
+
+function portNear(ports: readonly PortRef[], lat?: number | null, lng?: number | null): PortRef | null {
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  return (
+    ports.find(
+      (p) =>
+        typeof p.lat === "number" && typeof p.lng === "number" &&
+        Math.abs(p.lat - lat) < 0.0015 && Math.abs(p.lng - lng) < 0.0025,
+    ) ?? null
+  );
+}
+
+/** Stable place id first (survives address edits and swaps); coordinates are only a fallback. */
+export function resolveJourneyPorts<P extends PortRef>(
+  ports: readonly P[],
+  ends: JourneyPortEnds,
+): { pickupPort: P | null; dropoffPort: P | null } {
+  const pick = (placeId?: string | null, lat?: number | null, lng?: number | null) =>
+    (findPortByPlaceId(ports, placeId) as P | null) ?? (portNear(ports, lat, lng) as P | null);
+  return {
+    pickupPort: pick(ends.pickupPlaceId, ends.pickupLat, ends.pickupLng),
+    dropoffPort: pick(ends.dropoffPlaceId, ends.dropoffLat, ends.dropoffLng),
+  };
+}
+
+export type PortPickupNote = { leg: "outbound" | "return"; portId: string; text: string };
+
+/**
+ * Where-we-meet-you notes follow the direction of travel: the outbound note only when the port is the
+ * pickup; on a return journey the legs reverse, so the drop-off port is the return pickup. A port that
+ * is only ever a drop-off never produces a note.
+ */
+export function portPickupNotes(
+  pickupPort: PortRef | null,
+  dropoffPort: PortRef | null,
+  returnJourney: boolean,
+): PortPickupNote[] {
+  const notes: PortPickupNote[] = [];
+  const add = (leg: PortPickupNote["leg"], port: PortRef | null) => {
+    const text = port?.pickupInstructions?.trim();
+    if (port && text) notes.push({ leg, portId: port.id, text });
+  };
+  add("outbound", pickupPort);
+  if (returnJourney) add("return", dropoffPort);
+  return notes;
+}
+
+/** Cruise pickups need the ship name; ferry operator and route come from the terminal. */
+export function sailingRequirement(
+  pickupPort: PortRef | null,
+  dropoffPort: PortRef | null,
+  returnJourney: boolean,
+): { port: PortRef | null; shipRequired: boolean; prefill: string } {
+  const port = pickupPort ?? dropoffPort;
+  if (!port) return { port: null, shipRequired: false, prefill: "" };
+  const cruisePickup =
+    (pickupPort?.kind === "cruise") || (returnJourney && dropoffPort?.kind === "cruise");
+  const prefill =
+    port.kind === "ferry" && port.operator
+      ? `${port.operator}${port.sailsTo ? ` — ${port.sailsTo} sailing` : ""}`
+      : "";
+  return { port, shipRequired: cruisePickup, prefill };
 }

@@ -583,6 +583,17 @@ export async function handleQuoteCalculateRequest(
     returnJourney,
   };
 
+  // Opt-in (cruise & ferry page): no fare without a real outbound schedule, and a return needs its own.
+  if (body.requireSchedule === true) {
+    const hasWhen = (d?: string, t?: string) => Boolean(String(d ?? "").trim() && String(t ?? "").trim());
+    if (!hasWhen(schedule.outboundDate, schedule.outboundTime) ||
+        (returnJourney && !hasWhen(schedule.returnDate, schedule.returnTime))) {
+      return json({ ok: false, reason: "schedule_required",
+        message: returnJourney
+          ? "Choose the pickup date and time, and the return date and time, to see your fixed fare."
+          : "Choose the pickup date and time to see your fixed fare." }, 422, origin);
+    }
+  }
   let result: ReturnType<typeof calculateAuthoritativeWebsiteQuote>;
   const needsVenueSchedule = (address: string, date?: string, time?: string) =>
     !validFareMinute(date + "T" + time) && isPublishedPickupPlace(pricing.eventVenuePickups, address);

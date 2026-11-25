@@ -4,7 +4,7 @@ import { overnightTooSoonBody } from "../../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { formatUkDateTime } from "../../../shared/uk-time";
 import { emailAddressProblem } from "../../../shared/email-typo";
-import { DEFAULT_PORTS } from "../../../shared/ports";
+import { DEFAULT_PORTS, portPickupNotes, resolveJourneyPorts, sailingRequirement } from "../../../shared/ports";
 import { usePorts } from "@/lib/use-ports";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -110,6 +110,7 @@ function BookQuoteInner() {
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
   const [sailingDetails, setSailingDetails] = useState("");
+  const [sailingTouched, setSailingTouched] = useState(false);
   const [tripDate, setTripDate] = useState("");
   const [payDeposit, setPayDeposit] = useState(false);
   const [cardBalanceAgreed, setCardBalanceAgreed] = useState(false);
@@ -177,23 +178,27 @@ function BookQuoteInner() {
 
   const journey = quote?.journey;
   const activePorts = usePorts();
-  const findNearPort = (lat?: number, lng?: number) =>
-    typeof lat === "number" && typeof lng === "number"
-      ? [...DEFAULT_PORTS, ...activePorts].find(
-          (port) =>
-            typeof port.lat === "number" &&
-            typeof port.lng === "number" &&
-            Math.abs(port.lat - lat) < 0.0015 &&
-            Math.abs(port.lng - lng) < 0.0025,
-        ) ?? null
-      : null;
-  const journeyPort = journey
-    ? findNearPort(journey.diaryRoute?.pickupLat, journey.diaryRoute?.pickupLng) ??
-      findNearPort(journey.diaryRoute?.dropoffLat, journey.diaryRoute?.dropoffLng)
-    : null;
-  const isPortJourney = Boolean(journeyPort);
-  // Pickup instructions shown here and in confirmations (kept out of the quote tool).
-  const portPickupNote = journeyPort?.pickupInstructions?.trim() ?? "";
+  // Ports are identified by their stable place id (kept through quote, saved quote and booking);
+  // coordinates are only a fallback for older quotes. Direction decides what the customer is told.
+  const { pickupPort, dropoffPort } = resolveJourneyPorts([...DEFAULT_PORTS, ...activePorts], {
+    pickupPlaceId: journey?.pickupPlaceId,
+    dropoffPlaceId: journey?.dropoffPlaceId,
+    pickupLat: journey?.diaryRoute?.pickupLat,
+    pickupLng: journey?.diaryRoute?.pickupLng,
+    dropoffLat: journey?.diaryRoute?.dropoffLat,
+    dropoffLng: journey?.diaryRoute?.dropoffLng,
+  });
+  const isPortJourney = Boolean(pickupPort || dropoffPort);
+  const pickupNotes = portPickupNotes(pickupPort, dropoffPort, Boolean(journey?.returnJourney));
+  // Stored on the booking for confirmations and the driver (kept out of the quote tool).
+  const portPickupNote = pickupNotes
+    .map((n) => (pickupNotes.length > 1 ? `${n.leg === "return" ? "Return" : "Outbound"}: ${n.text}` : n.text))
+    .join("\n");
+  const sailing = sailingRequirement(pickupPort, dropoffPort, Boolean(journey?.returnJourney));
+  // Ferry terminals pre-fill the operator and route; the customer can add or change the sailing time.
+  useEffect(() => {
+    if (sailing.prefill && !sailingTouched && !sailingDetails) setSailingDetails(sailing.prefill);
+  }, [sailing.prefill, sailingTouched, sailingDetails]);
 
   // Changing the pickup date/time re-prices the quote (night, evening, weekend and
   // Christmas surcharges) before payment.
@@ -443,6 +448,10 @@ function BookQuoteInner() {
     }
     if (!isValidMobileNumber(mobileNumber)) {
       setError("Please enter a valid WhatsApp / mobile number.");
+      return;
+    }
+    if (sailing.shipRequired && sailingDetails.trim().length < 2) {
+      setError("Please enter your cruise ship name.");
       return;
     }
     if (!termsAccepted) {
@@ -801,13 +810,21 @@ function BookQuoteInner() {
         {isPortJourney ? (
           <div className="min-w-0 space-y-1.5">
             <label htmlFor="book-quote-sailing-details" className="block text-xs font-medium text-white/60">
-              Cruise ship or ferry <span className="font-normal text-white/40">(optional)</span>
+              {sailing.shipRequired ? "Cruise ship name" : "Cruise ship or ferry"}{" "}
+              <span className="font-normal text-white/40">
+                {sailing.shipRequired ? "(required)" : "(optional)"}
+              </span>
             </label>
             <input
               id="book-quote-sailing-details"
               value={sailingDetails}
-              onChange={(e) => setSailingDetails(e.target.value)}
-              placeholder="e.g. Ship name, or ferry and sailing time"
+              onChange={(e) => {
+                setSailingTouched(true);
+                setSailingDetails(e.target.value);
+              }}
+              required={sailing.shipRequired}
+              aria-required={sailing.shipRequired}
+              placeholder={sailing.shipRequired ? "Ship name (sailing details optional)" : "e.g. Ship name, or ferry and sailing time"}
               maxLength={200}
               autoComplete="off"
               className={fieldClass}
@@ -816,16 +833,20 @@ function BookQuoteInner() {
               Helps your driver find you at the right terminal. Add the ship or ferry name, and the
               arrival or departure time if you know it.
             </p>
-            {portPickupNote ? (
+            {pickupNotes.map((n) => (
               <p
+                key={n.leg}
                 data-port-pickup-note
+                data-port-pickup-leg={n.leg}
                 className="rounded-lg px-3 py-2 text-xs leading-snug"
                 style={{ backgroundColor: "#e8fde1", color: "#071c38", WebkitTextFillColor: "#071c38" }}
               >
-                <span className="font-bold">Where we meet you: </span>
-                {portPickupNote}
+                <span className="font-bold">
+                  {pickupNotes.length > 1 ? (n.leg === "return" ? "Return pickup: " : "Outbound pickup: ") : "Where we meet you: "}
+                </span>
+                {n.text}
               </p>
-            ) : null}
+            ))}
           </div>
         ) : null}
         {journey.returnJourney && !journey.fromAirport ? (

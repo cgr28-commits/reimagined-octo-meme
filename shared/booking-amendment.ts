@@ -68,6 +68,7 @@ export const NON_REPRICE_FIELDS = [
   "mobileNumber",
   "flightNumber",
   "returnFlightNumber",
+  "sailingDetails",
   "notes",
   "childSeatNotes",
 ] as const;
@@ -122,6 +123,7 @@ export type PaidBookingAmendmentView = {
   mobileNumber?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  sailingDetails?: string;
   notes?: string;
 };
 
@@ -142,6 +144,7 @@ export type ProposedBookingAmendment = {
   vehicle?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  sailingDetails?: string;
   customerName?: string;
   customerEmail?: string;
   mobileNumber?: string;
@@ -285,6 +288,7 @@ const AMENDMENT_SUMMARY_FIELDS: Array<[key: string, label: string, kind: Amendme
   ["airportCode", "Airport", "text"],
   ["flightNumber", "Flight number", "text"],
   ["returnFlightNumber", "Return flight number", "text"],
+  ["sailingDetails", "Cruise ship / ferry", "text"],
   ["customerName", "Name", "text"],
   ["customerEmail", "Email", "text"],
   ["mobileNumber", "Mobile", "text"],
@@ -535,6 +539,7 @@ export const CUSTOMER_SELF_SERVICE_AMENDMENT_FIELDS = [
   "childSeats",
   "childSeatNotes",
   "flightNumber",
+  "sailingDetails",
   "mobileNumber",
 ] as const;
 

@@ -411,6 +411,10 @@ export function savedQuoteQuickQuoteBody(
     dropoffAddress: journey.dropoffLabel,
     ...(journey.pickupPlaceId ? { pickupPlaceId: journey.pickupPlaceId } : {}),
     ...(journey.dropoffPlaceId ? { dropoffPlaceId: journey.dropoffPlaceId } : {}),
+    ...(typeof journey.pickupLat === "number" && typeof journey.pickupLng === "number"
+      ? { pickupLat: journey.pickupLat, pickupLng: journey.pickupLng } : {}),
+    ...(typeof journey.dropoffLat === "number" && typeof journey.dropoffLng === "number"
+      ? { dropoffLat: journey.dropoffLat, dropoffLng: journey.dropoffLng } : {}),
     airportCode: journey.airportCode ?? null,
     fromAirport: typeof journey.isFromAirport === "boolean" ? journey.isFromAirport : null,
     journeyMode: journey.returnJourney ? "return" : "one-way",

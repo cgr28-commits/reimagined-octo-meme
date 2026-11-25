@@ -6,6 +6,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { calculateAuthoritativeWebsiteQuote } from "../src/lib/quote-service";
+import { defaultOwnerPricingSettings } from "../shared/owner-pricing-config";
+const livePricing = defaultOwnerPricingSettings();
+livePricing.specialDateFares = [];
 
 const port = "Belfast Cruise Terminal, 20 Airport Rd W, Belfast BT3 9ED, UK";
 const metrics = { distanceKm: 32, durationMinutes: 35 };
@@ -46,3 +49,13 @@ const card = readFileSync("src/components/QuoteCard.tsx", "utf8");
 assert.match(card, /Boolean\(portPicker\) \|\|/);
 assert.match(card, /outboundDate: tripDate,\s+outboundTime: tripTime,\s+returnDate,\s+returnTime,/);
 console.log("OK  QuoteCard: schedule required up front on the port page, passed to the engine");
+
+// Christmas (14-31 Dec, 20%) and night/weekend/bank-holiday adjustments are folded into the single fare.
+const norm = quote({ returnJourney: false, outboundDate: "2026-12-10", outboundTime: "12:00", pricing: livePricing });
+const xmas = quote({ returnJourney: false, outboundDate: "2026-12-16", outboundTime: "12:00", pricing: livePricing });
+assert.ok(xmas.amount > norm.amount, "Christmas period costs more");
+assert.ok(Math.abs(xmas.amount / norm.amount - 1.2) < 0.03, `Christmas ~20% (got ${xmas.amount / norm.amount})`);
+const night = quote({ returnJourney: false, outboundDate: WED, outboundTime: "23:30", pricing: livePricing });
+assert.ok(night.amount > wed.amount, "night premium folded into fare");
+for (const q of [norm, xmas, night, sat]) assert.equal(typeof q.amount, "number");
+console.log(`OK  Christmas £${norm.amount} -> £${xmas.amount} (+20%), night £${night.amount}: one customer-facing fare`);
