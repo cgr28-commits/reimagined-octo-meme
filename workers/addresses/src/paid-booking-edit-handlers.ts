@@ -51,7 +51,8 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import { type WorkerEmailEnv } from "./worker-email";
+import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { syncBookingJobFromAmendment } from "./booking-job-sync";
 import {
   sendUpdatedConfirmationForPaymentReference,
   sendUpdatedConfirmationFromCanonicalRecord,
@@ -107,6 +108,7 @@ export type OwnerEditBookingBody = {
   returnFlightNumber?: string;
   /** Cruise ship / ferry details — amendable after booking. */
   sailingDetails?: string;
+  portPickupNote?: string;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;
@@ -195,6 +197,9 @@ function parseEditFields(body: OwnerEditBookingBody): {
   if (body.flightNumber !== undefined) {
     const flight = String(body.flightNumber).trim();
     fields.flightNumber = flight ? flight.toUpperCase() : "";
+  }
+  if (body.portPickupNote !== undefined) {
+    fields.portPickupNote = String(body.portPickupNote).trim().slice(0, 600);
   }
   if (body.sailingDetails !== undefined) {
     fields.sailingDetails = String(body.sailingDetails).trim().slice(0, 200);
@@ -494,6 +499,17 @@ export async function handlePaidBookingEditRequest(
       : fareSensitive && serverFareMessage
         ? serverFareMessage
         : undefined;
+
+  await syncBookingJobFromAmendment(
+    env.TRACKING_STORE,
+    { paymentReference, trackingToken: updated.trackingToken },
+    {
+      tripDate: fields.tripDate, tripTime: fields.tripTime, pickupLabel: fields.pickupLabel, dropoffLabel: fields.dropoffLabel,
+      flightNumber: fields.flightNumber, passengers: fields.passengers, suitcases: fields.suitcases,
+      mobileNumber: fields.mobileNumber, sailingDetails: fields.sailingDetails, portPickupNote: fields.portPickupNote,
+    },
+    (driver, subject, body) => trySendEmail(env, { to: driver.email, toName: driver.name, subject, body, ownerCopy: false, preferWorkerProviders: true }).then(() => undefined),
+  ).catch(() => undefined);
 
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token = updated.trackingToken?.trim();

@@ -69,6 +69,8 @@ import {
 } from "./tracking-store";
 import { type WorkerEmailEnv } from "./worker-email";
 import { sendUpdatedConfirmationForPaymentReference } from "./send-updated-confirmation";
+import { syncBookingJobFromAmendment } from "./booking-job-sync";
+import { trySendEmail } from "./worker-email";
 import { createOrReuseAmendmentTopUpCheckout } from "./amendment-topup";
 
 type Env = WorkerEmailEnv & {
@@ -1042,6 +1044,17 @@ export async function handleCustomerAmendSchedule(
   }
 
   const warnings: string[] = [];
+
+  await syncBookingJobFromAmendment(
+    env.TRACKING_STORE,
+    { paymentReference: record.paymentReference, trackingToken: updated.trackingToken },
+    {
+      tripDate: merged.tripDate, tripTime: merged.tripTime, pickupLabel: merged.pickupLabel, dropoffLabel: merged.dropoffLabel,
+      flightNumber: merged.flightNumber, passengers: merged.passengers, suitcases: merged.suitcases,
+      mobileNumber: merged.mobileNumber, sailingDetails: merged.sailingDetails,
+    },
+    (driver, subject, body) => trySendEmail(env, { to: driver.email, toName: driver.name, subject, body, ownerCopy: false, preferWorkerProviders: true }).then(() => undefined),
+  ).catch(() => undefined);
 
   if (trackingStoreConfigured(env.TRACKING_STORE)) {
     const token = updated.trackingToken?.trim();

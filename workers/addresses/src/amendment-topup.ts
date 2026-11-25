@@ -53,7 +53,8 @@ import {
   saveTrackingJob,
   trackingStoreConfigured,
 } from "./tracking-store";
-import type { WorkerEmailEnv } from "./worker-email";
+import { trySendEmail, type WorkerEmailEnv } from "./worker-email";
+import { syncBookingJobFromAmendment } from "./booking-job-sync";
 
 export {
   buildHigherFarePendingAmendment,
@@ -384,6 +385,10 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     pending.proposed.flightNumber !== undefined
       ? String(pending.proposed.flightNumber || "")
       : booking.flightNumber;
+  const newSailingDetails =
+    pending.proposed.sailingDetails !== undefined
+      ? String(pending.proposed.sailingDetails || "")
+      : booking.sailingDetails;
   const newMobileNumber =
     pending.proposed.mobileNumber !== undefined
       ? String(pending.proposed.mobileNumber || "")
@@ -506,6 +511,7 @@ export async function finalizeAmendmentTopUpCheckout(input: {
       childSeats: newChildSeats,
       childSeatNotes: newChildSeatNotes,
       flightNumber: newFlightNumber,
+      sailingDetails: newSailingDetails,
       mobileNumber: newMobileNumber,
       airportCode: newAirportCode || undefined,
       isFromAirport: newIsFromAirport,
@@ -543,6 +549,17 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     { pendingAmendment: null },
     { appendAudit: false },
   );
+
+  await syncBookingJobFromAmendment(
+    input.env.TRACKING_STORE,
+    { paymentReference: bookingRef, trackingToken: updated.trackingToken },
+    {
+      tripDate: newTripDate, tripTime: newTripTime, pickupLabel: newPickupLabel, dropoffLabel: newDropoffLabel,
+      flightNumber: newFlightNumber, passengers: newPassengers, suitcases: newSuitcases,
+      mobileNumber: newMobileNumber, sailingDetails: newSailingDetails,
+    },
+    (driver, subject, body) => notifyAssignedDriver(input.env, driver, subject, body),
+  ).catch(() => undefined);
 
   if (trackingStoreConfigured(input.env.TRACKING_STORE)) {
     const token = updated.trackingToken?.trim();
@@ -628,4 +645,8 @@ export async function finalizeAmendmentTopUpCheckout(input: {
     emailWarning: emailResult?.sent ? undefined : emailResult?.error,
     booking: amendmentBookingSnapshot(fresh),
   };
+}
+
+async function notifyAssignedDriver(env: WorkerEmailEnv, driver: { email: string; name: string }, subject: string, body: string): Promise<void> {
+  await trySendEmail(env, { to: driver.email, toName: driver.name, subject, body, ownerCopy: false, preferWorkerProviders: true });
 }
