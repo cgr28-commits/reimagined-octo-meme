@@ -92,6 +92,8 @@ export type PaidBookingDetails = {
   returnTime: string;
   flightNumber: string;
   returnFlightNumber?: string;
+  /** Cruise ship / ferry sailing details (port transfers only), customer-entered at booking. */
+  sailingDetails?: string;
   passengers: number;
   suitcases: number;
   /**
@@ -333,6 +335,10 @@ function formatTripScheduleLines(details: PaidBookingDetails): string[] {
     lines.push(`Flight number for going: ${details.flightNumber}`);
   }
 
+  if (details.sailingDetails?.trim()) {
+    lines.push(`Cruise ship / ferry: ${details.sailingDetails.trim()}`);
+  }
+
   if (details.isAirportTrip && details.returnFlightNumber) {
     lines.push(`Flight number for collection: ${details.returnFlightNumber}`);
   }
@@ -377,6 +383,10 @@ function formatCustomerTripScheduleLines(details: PaidBookingDetails): string[] 
 
   if (details.isAirportTrip && details.flightNumber) {
     lines.push(`Flight number for going: ${details.flightNumber}`);
+  }
+
+  if (details.sailingDetails?.trim()) {
+    lines.push(`Cruise ship / ferry: ${details.sailingDetails.trim()}`);
   }
 
   if (details.isAirportTrip && details.returnFlightNumber) {
@@ -447,6 +457,10 @@ function invoiceRows(details: PaidBookingReceipt): Array<{ label: string; value:
       label: details.returnJourney ? "Outbound flight" : "Flight number",
       value: details.flightNumber,
     });
+  }
+
+  if (details.sailingDetails?.trim()) {
+    rows.push({ label: "Cruise ship / ferry", value: details.sailingDetails.trim() });
   }
 
   if (details.isAirportTrip && details.returnFlightNumber) {

@@ -1,3 +1,4 @@
+import { resolvePorts, toPublicPorts, type PortSettings, type PublicPort } from "../../shared/ports";
 import type { SaveQuoteSettings } from "../../shared/save-quote-settings";
 import { resolveWorkerBaseUrl } from "@/lib/worker-api";
 import {
@@ -124,6 +125,8 @@ export type BookingSettings = {
   };
   /** 20% deposit now, balance by card later (pickups 30+ days away). On unless switched off. */
   cardBalanceDeposit?: { enabled: boolean };
+  /** Owner edits to the cruise & ferry port catalogue (layered over the built-in list). */
+  ports?: PortSettings;
   /** Messages after a completed journey. Tips default off; Google reviews default on; delay defaults to 2 hours. */
   postJourneyRequests?: {
     tipRequestsEnabled: boolean;
@@ -529,6 +532,8 @@ export async function fetchPublicBookingNotice(): Promise<{
   shortNoticeConfirmationWindowHours: number;
   /** 20% deposit switch from the owner dashboard. True when unknown. */
   cardBalanceDepositEnabled: boolean;
+  /** Active cruise & ferry ports from the Worker; the built-in verified list when unknown. */
+  ports: PublicPort[];
 }> {
   try {
     const response = await fetch(`${WORKER_BASE}/booking-notice`, {
@@ -543,9 +548,13 @@ export async function fetchPublicBookingNotice(): Promise<{
         minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
         shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
         cardBalanceDepositEnabled: true,
+        ports: toPublicPorts(resolvePorts(undefined)),
       };
     }
     return {
+      ports: Array.isArray(payload.ports)
+        ? (payload.ports as PublicPort[])
+        : toPublicPorts(resolvePorts(undefined)),
       cardBalanceDepositEnabled:
         (payload.cardBalanceDeposit as { enabled?: unknown } | undefined)?.enabled !== false,
       minimumBookingNoticeHours: normalizeMinimumBookingNoticeHours(
@@ -568,6 +577,7 @@ export async function fetchPublicBookingNotice(): Promise<{
       minimumShortNoticeLeadHours: MINIMUM_SHORT_NOTICE_LEAD_HOURS,
       shortNoticeConfirmationWindowHours: SHORT_NOTICE_CONFIRMATION_WINDOW_HOURS,
       cardBalanceDepositEnabled: true,
+      ports: toPublicPorts(resolvePorts(undefined)),
     };
   }
 }
@@ -906,5 +916,25 @@ export async function updateSaveQuoteSettings(ownerKey: string, saveQuote: SaveQ
   });
   const payload = await parseJson(response);
   if (!response.ok) throw new Error(String(payload.error || "Could not save settings"));
+  return payload.settings as BookingSettings;
+}
+
+export async function updatePortSettings(
+  ownerKey: string,
+  ports: PortSettings,
+): Promise<BookingSettings> {
+  const response = await fetch(`${WORKER_BASE}/owner/booking-settings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Owner-Key": ownerKey.trim(),
+    },
+    body: JSON.stringify({ action: "set-ports", ports }),
+  });
+  const payload = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(String(payload.error || "Could not save the cruise & ferry ports"));
+  }
   return payload.settings as BookingSettings;
 }

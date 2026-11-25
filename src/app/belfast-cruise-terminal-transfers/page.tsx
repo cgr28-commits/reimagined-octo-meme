@@ -71,10 +71,11 @@ export default function BelfastCruiseTerminalTransfersPage() {
         <HeroSlideshow
           heading={CRUISE_TERMINAL_H1}
           headingSubject="Belfast Cruise Terminal"
-          intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal — airports, hotels and onward journeys."
+          intro="Pre-booked, fixed-price transfers to and from Belfast Cruise Terminal and the Belfast and Dublin ferry terminals — airports, hotels and onward journeys."
+          portPicker
           journey={{
             bookingIntroduction:
-              "Enter Belfast Cruise Terminal as your pickup or destination to see your fixed price.",
+              "Choose your cruise or ferry terminal below, then your airport, hotel or address, to see your fixed price.",
           }}
         />
         <div className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 lg:px-8">

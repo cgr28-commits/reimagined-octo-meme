@@ -3,6 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck,  type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
+import PortPicker from "@/components/PortPicker";
+import type { PublicPort } from "../../shared/ports";
 import QuoteHelpContact from "@/components/QuoteHelpContact";
 import { fetchWorkerReverseGeocode } from "@/lib/addresses-api";
 import {
@@ -74,6 +76,10 @@ type HomepageQuoteFieldsProps = {
   cardTitle?: string;
   /** Fills the empty address field with the chosen airport as an already-picked place. */
   onQuickPickAirport?: (code: QuickPickAirportCode) => void;
+  /** Cruise & ferry page: port tiles built into the quote tool (owner, 25 Nov 2026). */
+  ports?: PublicPort[];
+  onPickPort?: (port: PublicPort, direction: "from" | "to") => void;
+  portNotice?: string;
   /** Approved mobile Design 2: steppers, swap button, no journey type or schedule on this step. */
   design2?: boolean;
   homepagePolish?: boolean;
@@ -332,6 +338,9 @@ export default function HomepageQuoteFields({
   quickPicks = false,
   cardTitle,
   onQuickPickAirport,
+  ports,
+  onPickPort,
+  portNotice,
   journeyMode,
   onJourneyModeChange,
   pickupAddress,
@@ -553,6 +562,15 @@ export default function HomepageQuoteFields({
       ) : null}
 
       {quickPicks && onQuickPickAirport ? <QuickPickChips placement="fields" onPick={onQuickPickAirport} chosenPlaceIds={[pickupConfirmedPlace?.placeId, dropoffConfirmedPlace?.placeId]} /> : null}
+      {ports?.length && onPickPort ? (
+        <PortPicker
+          ports={ports}
+          pickupPlaceId={pickupConfirmedPlace?.placeId}
+          dropoffPlaceId={dropoffConfirmedPlace?.placeId}
+          onPick={onPickPort}
+          notice={portNotice}
+        />
+      ) : null}
 
       {design3 ? (
         <div role="group" aria-label="Journey type" data-d2-segment data-d3-home-segment>

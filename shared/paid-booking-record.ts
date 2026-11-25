@@ -183,6 +183,8 @@ export type PaidBookingRecord = {
   /** Full trip details kept for resend / owner lookup. */
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Cruise ship / ferry sailing details for port transfers. */
+  sailingDetails?: string;
   passengers?: number;
   suitcases?: number;
   childSeats?: number;

@@ -63,6 +63,7 @@ import {
 import OwnerSaveQuoteSettings from "@/components/OwnerSaveQuoteSettings";
 import OwnerDepositCashSettings from "@/components/OwnerDepositCashSettings";
 import OwnerCardBalanceDepositSettings from "@/components/OwnerCardBalanceDepositSettings";
+import OwnerPortSettings from "@/components/OwnerPortSettings";
 import OwnerPostJourneyRequestSettings from "@/components/OwnerPostJourneyRequestSettings";
 import {
   LUGGAGE_CAPACITY_OWNER_REASON,
@@ -1216,6 +1217,7 @@ export default function OwnerShortNoticePanel({
       </div>
       <OwnerSaveQuoteSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} fieldClass={fieldClass} />
       <OwnerCardBalanceDepositSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} />
+      <OwnerPortSettings ownerKey={ownerKey} settings={bookingSettings} onSaved={applySettings} />
       <OwnerPostJourneyRequestSettings
         ownerKey={ownerKey}
         settings={bookingSettings}

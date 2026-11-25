@@ -331,6 +331,7 @@ export async function handlePaidBookingsListRequest(
       let notes: string | undefined;
       let flightNumber: string | undefined;
       let returnFlightNumber: string | undefined;
+      let sailingDetails: string | undefined;
       let vehicle: string | undefined;
       let editHistory = booking.editHistory ?? [];
       let trackingToken = booking.trackingToken;
@@ -342,6 +343,7 @@ export async function handlePaidBookingsListRequest(
       notes = booking.notes;
       flightNumber = booking.flightNumber;
       returnFlightNumber = booking.returnFlightNumber;
+      sailingDetails = booking.sailingDetails;
       vehicle = booking.vehicle;
 
       const token = booking.trackingToken?.trim();
@@ -513,6 +515,7 @@ export async function handlePaidBookingsListRequest(
         returnTime: booking.returnTime,
         flightNumber,
         returnFlightNumber,
+        sailingDetails,
         airportCode: booking.airportCode || undefined,
         isFromAirport:
           typeof booking.isFromAirport === "boolean"

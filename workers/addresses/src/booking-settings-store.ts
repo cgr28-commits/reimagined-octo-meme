@@ -38,6 +38,11 @@ import {
   parseDepositCashSettingsInput,
   type DepositCashSettings,
 } from "../shared/deposit-cash";
+import {
+  defaultPortSettings,
+  normalizePortSettings,
+  type PortSettings,
+} from "../shared/ports";
 
 export type BookingSettings = {
   saveQuote: SaveQuoteSettings;
@@ -67,6 +72,8 @@ export type BookingSettings = {
   cardBalanceDeposit: CardBalanceDepositSettings;
   /** Post-journey tip and Google review messages. Missing saved values use the defaults. */
   postJourneyRequests: PostJourneyRequestSettings;
+  /** Cruise & ferry port edits layered over the built-in catalogue (owner, 25 Nov 2026). */
+  ports: PortSettings;
   updatedAt: string;
 };
 
@@ -93,6 +100,7 @@ export function defaultBookingSettings(): BookingSettings {
     depositCash: defaultDepositCashSettings(),
     cardBalanceDeposit: { enabled: true },
     postJourneyRequests: defaultPostJourneyRequestSettings(),
+    ports: defaultPortSettings(),
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -140,6 +148,7 @@ export function normalizeBookingSettings(
     postJourneyRequests: normalizePostJourneyRequestSettings(
       (raw as { postJourneyRequests?: unknown } | null | undefined)?.postJourneyRequests,
     ),
+    ports: normalizePortSettings((raw as { ports?: unknown } | null | undefined)?.ports),
     updatedAt: String(raw?.updatedAt ?? new Date().toISOString()),
   };
 }
@@ -158,6 +167,7 @@ async function putBookingSettings(
   const normalized = normalizeBookingSettings({
     ...settings,
     postJourneyRequests: settings.postJourneyRequests ?? previous.postJourneyRequests,
+    ports: settings.ports ?? previous.ports,
     updatedAt: new Date().toISOString(),
   });
   await store.put(BOOKING_SETTINGS_KEY, JSON.stringify(normalized), {
@@ -495,6 +505,16 @@ export async function updatePostJourneyRequestSettings(
   return putBookingSettings(store, {
     ...current,
     postJourneyRequests,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updatePortSettings(store: KVNamespace, raw: unknown): Promise<BookingSettings> {
+  const ports = normalizePortSettings(raw);
+  const current = await getBookingSettings(store);
+  return putBookingSettings(store, {
+    ...current,
+    ports,
     updatedAt: new Date().toISOString(),
   });
 }

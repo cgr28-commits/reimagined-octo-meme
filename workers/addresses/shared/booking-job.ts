@@ -38,6 +38,8 @@ export type BookingJobRecord = {
   returnTime?: string;
   flightNumber?: string;
   returnFlightNumber?: string;
+  /** Cruise ship / ferry sailing details for port transfers. */
+  sailingDetails?: string;
   /** Leg the current driver assignment is for (set by per-leg assignment). */
   assignedLeg?: "outbound" | "return";
   passengers: number;

@@ -4,6 +4,7 @@ import { updateSaveQuoteSettings } from "./booking-settings-store";
  */
 
 import { decideBookingApprovalForTrip } from "../shared/approval-policy";
+import { resolvePorts, toPublicPorts, type PublicPort } from "../shared/ports";
 import { releaseShortNoticeHold } from "./short-notice-card-hold";
 import {
   isPickupTooSoonForOwnerOvernight,
@@ -79,6 +80,7 @@ export const BOOKING_CLASH_HOLD_ID = "booking-clash";
 import {
   addUnavailablePeriod,
   bookingSettingsPublicView,
+  updatePortSettings,
   deleteUnavailablePeriod,
   getBookingSettings,
   type BookingSettings,
@@ -2347,6 +2349,10 @@ export async function handleOwnerSaveBookingSettings(
       );
       return { ok: true, settings: bookingSettingsPublicView(settings) };
     }
+    if (action === "set-ports") {
+      const settings = await updatePortSettings(env.TRACKING_STORE, body.ports ?? body);
+      return { ok: true, settings: bookingSettingsPublicView(settings) };
+    }
     if (action === "set-post-journey-requests") {
       const settings = await updatePostJourneyRequestSettings(
         env.TRACKING_STORE,
@@ -2482,6 +2488,7 @@ export async function handlePublicGetBookingNotice(env: {
   shortNoticeConfirmationWindowHours: number;
   depositCash: { enabled: boolean; percent: number; minimumGbp: number };
   cardBalanceDeposit: { enabled: boolean };
+  ports: PublicPort[];
 }> {
   if (!env.TRACKING_STORE) {
     return {
@@ -2496,6 +2503,7 @@ export async function handlePublicGetBookingNotice(env: {
         minimumGbp: DEFAULT_DEPOSIT_MINIMUM_GBP,
       },
       cardBalanceDeposit: { enabled: true },
+      ports: toPublicPorts(resolvePorts(undefined)),
     };
   }
   const settings = await getBookingSettings(env.TRACKING_STORE);
@@ -2511,6 +2519,7 @@ export async function handlePublicGetBookingNotice(env: {
       minimumGbp: settings.depositCash.minimumGbp,
     },
     cardBalanceDeposit: { enabled: settings.cardBalanceDeposit.enabled === true },
+    ports: toPublicPorts(resolvePorts(settings.ports)),
   };
 }
 

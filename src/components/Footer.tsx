@@ -76,7 +76,7 @@ export default function Footer() {
                   href="/belfast-cruise-terminal-transfers/"
                   className="text-sm text-white/50 transition-colors hover:text-emerald"
                 >
-                  Belfast cruise transfers
+                  Cruise & ferry transfers
                 </Link>
               </li>
             </ul>

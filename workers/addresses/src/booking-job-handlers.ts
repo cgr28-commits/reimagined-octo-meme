@@ -268,6 +268,9 @@ export async function createBookingJobFromSubmission(
   if (typeof b.returnFlightNumber === "string" && b.returnFlightNumber.trim()) {
     job.returnFlightNumber = b.returnFlightNumber.trim().toUpperCase();
   }
+  if (typeof b.sailingDetails === "string" && b.sailingDetails.trim()) {
+    job.sailingDetails = b.sailingDetails.trim().slice(0, 200);
+  }
   if (typeof b.airportCode === "string" && b.airportCode.trim()) {
     job.airportCode = b.airportCode.trim().toUpperCase();
   }
@@ -389,6 +392,7 @@ export async function handleBookingJobMarkPaidRequest(
           returnTime: job.returnTime,
           flightNumber: job.flightNumber,
           returnFlightNumber: job.returnFlightNumber,
+          sailingDetails: job.sailingDetails,
           passengers: job.passengers,
           suitcases: job.suitcases,
           vehicle: job.vehicle,
@@ -437,6 +441,7 @@ export async function handleBookingJobMarkPaidRequest(
         returnTime: job.returnTime ?? "",
         flightNumber: job.flightNumber ?? "",
         returnFlightNumber: job.returnFlightNumber,
+        sailingDetails: job.sailingDetails,
         passengers: job.passengers,
         suitcases: job.suitcases,
         vehicle: job.vehicle,

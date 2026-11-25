@@ -34,7 +34,10 @@ export function toDispatchBooking(job: BookingJobRecord): DispatchBooking {
     vehicle: job.vehicle || "",
     customerFirstName: (job.customerName || "").trim().split(/\s+/)[0] ?? "",
     customerMobile: job.customerMobile || "",
-    notes: (job.message || "").slice(0, 500),
+    notes: [job.sailingDetails?.trim() ? `Cruise ship / ferry: ${job.sailingDetails.trim()}` : "", (job.message || "").trim()]
+      .filter(Boolean)
+      .join(" — ")
+      .slice(0, 500),
     assignedOutsidePortal: active && !(job.driverAccountId || "").trim(),
   };
 }

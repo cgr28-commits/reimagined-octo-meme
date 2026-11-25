@@ -1,5 +1,8 @@
 "use client";
 
+import { usePorts } from "@/lib/use-ports";
+import { portPairConflict, portToPlace } from "@/lib/port-places";
+import type { PublicPort } from "../../shared/ports";
 import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
@@ -759,6 +762,8 @@ type QuoteCardProps = {
   homepagePolish?: boolean;
   /** Homepage only: neutral card title and one-tap airport quick picks (owner, 14 Nov 2026). */
   homepageQuickPicks?: boolean;
+  /** Cruise & ferry page: show the port tiles (From port / To port) inside the quote tool. */
+  portPicker?: boolean;
   /** Page-specific card title shown above the fields (e.g. "Events & Concerts" on /events/). */
   quoteCardTitle?: string;
   bookingIntroduction?: string;
@@ -875,6 +880,7 @@ function QuoteCard({
   eventChoices,
   homepagePolish = false,
   homepageQuickPicks = false,
+  portPicker = false,
   quoteCardTitle,
   initialAirportCode = "",
   initialDirection = "to-airport",
@@ -1291,6 +1297,8 @@ function QuoteCard({
   const [depositCashSettings, setDepositCashSettings] = useState<DepositCashSettings | null>(null);
   // Owner's 20% deposit switch (dashboard).
   const cardBalanceDepositEnabled = useCardBalanceDepositEnabled();
+  const ports = usePorts();
+  const [portNotice, setPortNotice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PAYMENT_METHOD_DEPOSIT_CASH);
   const [cashAgreementAccepted, setCashAgreementAccepted] = useState(false);
   const [bookingMeetGreetSelected, setBookingMeetGreetSelected] = useState(false);
@@ -3834,6 +3842,11 @@ function QuoteCard({
   }
 
   function handlePickupPlaceSelect(place: SelectedPlace) {
+    const portConflict = portPairConflict(place, isQuoteReadyPlace(dropoffPlace) ? dropoffPlace : null, ports);
+    if (portConflict) {
+      setPickupPlaceError(portConflict);
+      return;
+    }
     const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== pickupPlace.placeId;
     setPickupPlace(place);
     setPickupPlaceError("");
@@ -3887,6 +3900,11 @@ function QuoteCard({
   }
 
   function handleDropoffPlaceSelect(place: SelectedPlace) {
+    const portConflict = portPairConflict(place, isQuoteReadyPlace(pickupPlace) ? pickupPlace : null, ports);
+    if (portConflict) {
+      setDropoffPlaceError(portConflict);
+      return;
+    }
     const addressChanged = Boolean(place.placeId?.trim()) && place.placeId !== dropoffPlace.placeId;
     setDropoffPlace(place);
     setDropoffPlaceError("");
@@ -3950,6 +3968,35 @@ function QuoteCard({
     } else if (!pickupReady && dropoffPlace.placeId !== place.placeId) {
       handlePickupPlacesSuggestionSelect(place);
     } else if (pickupPlace.placeId !== place.placeId) {
+      handleDropoffPlacesSuggestionSelect(place);
+    }
+  }
+
+  /**
+   * Port tile (cruise & ferry page): fills the pickup ("From port") or drop-off ("To port") with
+   * the port's confirmed place, exactly as if it had been picked from the suggestions. A Dublin
+   * port is refused if the other end is also in the Republic (no local Dublin taxi).
+   */
+  function applyPortPick(port: PublicPort, direction: "from" | "to") {
+    if (returnOfferToken) return;
+    const place = portToPlace(port);
+    const other = direction === "from" ? dropoffPlace : pickupPlace;
+    const conflict = portPairConflict(place, isQuoteReadyPlace(other) ? other : null, ports);
+    if (conflict) {
+      setPortNotice(conflict);
+      return;
+    }
+    setPortNotice("");
+    setHomepagePriceRequested(false);
+    if (direction === "from") {
+      if (dropoffPlace.placeId === place.placeId) {
+        handleDropoffChange("");
+      }
+      handlePickupPlacesSuggestionSelect(place);
+    } else {
+      if (pickupPlace.placeId === place.placeId) {
+        handlePickupChange("");
+      }
       handleDropoffPlacesSuggestionSelect(place);
     }
   }
@@ -10311,6 +10358,9 @@ function QuoteCard({
                 quickPicks={homepageQuickPicks}
                 cardTitle={quoteCardTitle}
                 onQuickPickAirport={applyHomepageQuickPick}
+                ports={portPicker ? ports : undefined}
+                onPickPort={applyPortPick}
+                portNotice={portNotice}
                 formResetKey={formResetKey}
                 journeyMode={journeyMode === "return" ? "return" : "one-way"}
                 onJourneyModeChange={(value) => {

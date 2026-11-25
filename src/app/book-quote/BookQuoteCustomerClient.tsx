@@ -4,6 +4,8 @@ import { overnightTooSoonBody } from "../../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { formatUkDateTime } from "../../../shared/uk-time";
 import { emailAddressProblem } from "../../../shared/email-typo";
+import { DEFAULT_PORTS } from "../../../shared/ports";
+import { usePorts } from "@/lib/use-ports";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import BookingTermsConsent from "@/components/BookingTermsConsent";
@@ -107,6 +109,7 @@ function BookQuoteInner() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [flightNumber, setFlightNumber] = useState("");
   const [returnFlightNumber, setReturnFlightNumber] = useState("");
+  const [sailingDetails, setSailingDetails] = useState("");
   const [tripDate, setTripDate] = useState("");
   const [payDeposit, setPayDeposit] = useState(false);
   const [cardBalanceAgreed, setCardBalanceAgreed] = useState(false);
@@ -173,6 +176,22 @@ function BookQuoteInner() {
   }, [id]);
 
   const journey = quote?.journey;
+  const activePorts = usePorts();
+  const nearPort = (lat?: number, lng?: number) =>
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    [...DEFAULT_PORTS, ...activePorts].some(
+      (port) =>
+        typeof port.lat === "number" &&
+        typeof port.lng === "number" &&
+        Math.abs(port.lat - lat) < 0.0015 &&
+        Math.abs(port.lng - lng) < 0.0025,
+    );
+  const isPortJourney = Boolean(
+    journey &&
+      (nearPort(journey.diaryRoute?.pickupLat, journey.diaryRoute?.pickupLng) ||
+        nearPort(journey.diaryRoute?.dropoffLat, journey.diaryRoute?.dropoffLng)),
+  );
 
   // Changing the pickup date/time re-prices the quote (night, evening, weekend and
   // Christmas surcharges) before payment.
@@ -343,6 +362,9 @@ function BookQuoteInner() {
       flightNumber: journey.fromAirport ? flightNumber.trim() : "",
       returnFlightNumber:
         journey.returnJourney && !journey.fromAirport ? returnFlightNumber.trim() : "",
+      ...(isPortJourney && sailingDetails.trim()
+        ? { sailingDetails: sailingDetails.trim().slice(0, 200) }
+        : {}),
       passengers: journey.passengers,
       suitcases: journey.suitcases,
       vehicle: journey.vehicleType || "Standard Saloon (1–4 passengers)",
@@ -370,6 +392,8 @@ function BookQuoteInner() {
     mobileNumber,
     flightNumber,
     returnFlightNumber,
+    sailingDetails,
+    isPortJourney,
     childSeatRequired,
     termsAccepted,
     tripDate,
@@ -767,6 +791,26 @@ function BookQuoteInner() {
             <p className="text-xs leading-snug text-white/55">
               Used to monitor your flight and adjust your collection time if your flight arrives
               early or is delayed.
+            </p>
+          </div>
+        ) : null}
+        {isPortJourney ? (
+          <div className="min-w-0 space-y-1.5">
+            <label htmlFor="book-quote-sailing-details" className="block text-xs font-medium text-white/60">
+              Cruise ship or ferry <span className="font-normal text-white/40">(optional)</span>
+            </label>
+            <input
+              id="book-quote-sailing-details"
+              value={sailingDetails}
+              onChange={(e) => setSailingDetails(e.target.value)}
+              placeholder="e.g. Ship name, or ferry and sailing time"
+              maxLength={200}
+              autoComplete="off"
+              className={fieldClass}
+            />
+            <p className="text-xs leading-snug text-white/55">
+              Helps your driver find you at the right terminal. Add the ship or ferry name, and the
+              arrival or departure time if you know it.
             </p>
           </div>
         ) : null}

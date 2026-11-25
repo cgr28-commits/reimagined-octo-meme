@@ -78,6 +78,8 @@ type Props = {
   belowIntro?: ReactNode;
   /** Homepage only: neutral quote tool with airport quick picks and "More journeys" links. */
   homepageQuickPicks?: boolean;
+  /** Cruise & ferry page: port tiles inside the quote tool, plus the airport quick picks. */
+  portPicker?: boolean;
   /** Page-specific quote card title (e.g. "Events & Concerts"). */
   quoteCardTitle?: string;
 };
@@ -112,7 +114,7 @@ const HOMEPAGE_INTRO =
  * Tablet keeps the Belfast International photograph. Desktop uses a static navy
  * gradient; phones retain their existing navy background.
  */
-export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, heroBackground, heroImageSrc, design3TownHero = false, design3HeroImageUrl, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
+export default function HeroSlideshow({ heading, headingSubject, intro, introFromAirport, introFromValue, journey, eventChoices, navId, restore, belowIntro, homepageQuickPicks = false, portPicker = false, heroBackground, heroImageSrc, design3TownHero = false, design3HeroImageUrl, showRotatingCards = false, desktopRoomy = false, quoteCardTitle }: Props = {}) {
   const introText = intro ?? HOMEPAGE_INTRO;
   // Homepage only: split after the first sentence so phones can show the short version.
   const introSplit = intro ? null : /^([\s\S]+?[.!?])\s+([\s\S]+)$/.exec(introText);
@@ -225,7 +227,8 @@ export default function HeroSlideshow({ heading, headingSubject, intro, introFro
           <QuoteCard
             presentation="homepage"
             homepagePolish
-            homepageQuickPicks={homepageQuickPicks}
+            homepageQuickPicks={homepageQuickPicks || portPicker}
+            portPicker={portPicker}
             quoteCardTitle={quoteCardTitle}
             bookingIntroduction={journey?.bookingIntroduction}
             initialEventTransfer={journey?.eventTransfer}
