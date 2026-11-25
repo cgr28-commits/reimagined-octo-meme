@@ -73,7 +73,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
       "Your driver meets you at the main cruise terminal building on Airport Road West (the taxi and shuttle area outside the terminal). We confirm the exact spot with you before you travel, as berths and access can change on the day.",
     berthConfirmation: true,
     active: true,
-    note: "Google place already used by the live site. Cruise lines list the same terminal as 48 Airport Road West, BT3 9EA; Google/Apple list 20 Airport Road West, BT3 9ED. Not labelled D1 (no official Belfast Harbour source). Cruise lines say taxis collect at the front of the terminal building (small, congested area). Belfast Harbour Cruise Code of Conduct: taxis at cruise berths need a Port Pass (safety induction), pre-booked fixed fares must be booked via the operator with a written record in the vehicle. Confirm every driver holds the pass.",
+    note: "Google place already used by the live site. Cruise lines list the same terminal as 48 Airport Road West, BT3 9EA; Google/Apple list 20 Airport Road West, BT3 9ED. Not labelled D1 (no official Belfast Harbour source). Cruise lines say taxis collect at the front of the terminal building (small, congested area). Belfast Harbour Cruise Code of Conduct: taxis at cruise berths need a Port Pass (safety induction), pre-booked fixed fares must be booked via the operator with a written record in the vehicle. Confirm every driver holds the pass. PORT PASS (checked 25 Nov 2026, Belfast Harbour): free at present (Harbour says a fee may follow), valid 3 years. Steps: online Port Safety Induction + assessment (Quay Access option), photo, Employer/Sponsor Authorisation form, online application at access-pass.belfast-harbour.co.uk, then collect by appointment from Belfast Harbour Police (Milewater Basin, Dufferin Road). The Code of Conduct says registered taxis must carry the pass and be denied access without it; it does not separately address pre-booked private collections beyond the fixed-fare/pre-booked tour rules (fare agreed at booking, written record in the vehicle), so assume the pass applies to our drivers and confirm with Belfast Harbour Police.",
   },
   {
     id: "stena-belfast-cairnryan-vt4",
@@ -132,7 +132,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
     pickupInstructions: "Your driver meets you at the P&O Ferries passenger terminal at Larne Harbour.",
     berthConfirmation: false,
     active: false,
-    note: "INACTIVE (re-checked 25 Nov 2026): P&O publishes no Larne address, drop-off point or coordinates on its pages. Only the port authority office (9 Olderfleet Road, BT40 1AS) and the adjacent Larne Harbour rail station (about 54.848, -5.799) are published; neither is the passenger terminal entrance. Needs the terminal pin confirmed on Google Maps or with P&O Larne, then switch on.",
+    note: "INACTIVE (re-checked 25 Nov 2026): P&O publishes no Larne address, drop-off point or coordinates on its pages. Only the port authority office (9 Olderfleet Road, BT40 1AS) and the adjacent Larne Harbour rail station (about 54.848, -5.799) are published; neither is the passenger terminal entrance. Larne Harbour rail station shares the passenger terminus with the P&O terminal, so the station pin is probably close, but that is not a verified collection point. Google Maps could not be queried from the build environment: once the staging Places key is set, search \"P&O Ferries Larne\" in the owner port settings, compare with P&O, then switch on.",
   },
   {
     id: "warrenpoint-port",
@@ -151,7 +151,7 @@ export const DEFAULT_PORTS: readonly PortEntry[] = [
     pickupInstructions: "Cruise calls are run through the port agent, so we confirm the exact passenger collection point before you travel.",
     berthConfirmation: true,
     active: false,
-    note: "INACTIVE (re-checked 25 Nov 2026): Warrenpoint Harbour Authority, The Docks, BT34 3JR, is a working freight port with only occasional small expedition-ship calls. No passenger collection point is published, and tenders or berths vary by call. Confirm the pickup point per call with the Harbour Authority (028 4177 3381) before switching on.",
+    note: "INACTIVE (re-checked 25 Nov 2026): Warrenpoint Harbour Authority, The Docks, BT34 3JR, is a working freight port with only occasional small expedition-ship calls. No passenger collection point is published, and tenders or berths vary by call. Confirm the pickup point per call with the Harbour Authority (028 4177 3381) before switching on. Terminal is about 1 mile from the town centre; local taxi firms are Mals Taxis and Gold Cabs. Google Maps could not be queried from the build environment, so no pin has been verified.",
   },
   {
     id: "foyle-port-lisahally",
