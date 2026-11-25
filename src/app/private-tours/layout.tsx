@@ -22,7 +22,7 @@ export default function PrivateToursLayout({ children }: { children: React.React
   return (
     <div className="pt">
       {TOURS_LIVE ? null : <div className="pt-banner" role="note"><b>Staging preview.</b> Provisional journey estimates and prices. Nothing here is live, bookable or charged.</div>}
-      <header className="pt-nav">
+      <div className="pt-nav" role="banner">
         <Link href="/private-tours/" className="pt-brand" aria-label="My Airport Taxi NI: Private Tours home"><Logo wide theme="light" priority className="h-10 sm:h-12 w-auto" /></Link>
         <nav aria-label="Private Tours">
           <Link href="/private-tours/#tours">Signature tours</Link>
@@ -30,7 +30,7 @@ export default function PrivateToursLayout({ children }: { children: React.React
           <Link href="/private-tours/plan/">Plan your day</Link>
           <Link href="/private-tours/cruise-excursions/">Cruise guests</Link>
         </nav>
-      </header>
+      </div>
       <main>{children}</main>
       <FloatingItinerary />
       <footer className="pt-foot">
