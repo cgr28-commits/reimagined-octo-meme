@@ -14,11 +14,20 @@ the site went down twice because of hosting changes. Never do, suggest or instru
   the owner. Do not disable it.
 
 ## SEO stability freeze (owner decision, 26 Nov 2026)
-Do **not** change the SEO `<title>` or visible H1 of these pages until **7 January 2027**, or six
-weeks after the Phase 2 SEO change is deployed if that deploy happens later. Exceptions need
-explicit owner approval in the request itself. Search Console showed the Belfast International
-page losing ground after its title was rewritten five times in three weeks (29 Oct–20 Nov 2026).
-Frequent title churn stops Google settling on a page.
+The SEO stability period began on **26 November 2026**. It stays active until the owner explicitly
+authorises its removal after the SEO review on 7 January 2027.
+- **7 January 2027 is a review checkpoint, not an expiry date.** Do not treat the freeze as lifted
+  on or after that date unless the owner has said so.
+- During the stability period, every coding agent works in **read-only SEO monitoring and
+  recommendation mode**. That means no changes to SEO titles, meta descriptions, H1s, internal
+  linking, structured data or landing pages, and no SEO branches, commits, PRs, merges or deploys.
+  The only exception is a specific change the owner explicitly approves.
+- SEO changes that were approved earlier but never merged (for example older `seo/*` branches) must
+  not go ahead without fresh owner approval.
+
+Why: Search Console showed the Belfast International page losing ground after its title was
+rewritten five times in three weeks (29 Oct–20 Nov 2026). Frequent title churn stops Google
+settling on a page. The pages below are the ones the Phase 2 SEO change (PR #1072) set.
 
 | Page | Frozen title | Frozen H1 | Source |
 | --- | --- | --- | --- |
