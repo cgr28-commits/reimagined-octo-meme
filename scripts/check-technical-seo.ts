@@ -52,14 +52,19 @@ console.log("=== Homepage title, description, H1 ===");
   assert.equal(HOMEPAGE_SEO_TITLE, "Airport Taxi Belfast, NI & Ireland | My Airport Taxi NI");
   assert.equal(
     HOMEPAGE_SEO_DESCRIPTION,
-    "Fixed-price airport taxis across Belfast, Northern Ireland and Ireland, with up to 60 minutes’ complimentary waiting on airport pickups. Book online 24/7.",
+    "Fixed-fare airport taxis from Belfast and across NI to Belfast International, Belfast City and Dublin. Instant online quote and a 5% return discount.",
   );
   assert.ok(
-    HOMEPAGE_SEO_DESCRIPTION.length >= 150 && HOMEPAGE_SEO_DESCRIPTION.length <= 160,
+    HOMEPAGE_SEO_DESCRIPTION.length >= 140 && HOMEPAGE_SEO_DESCRIPTION.length <= 160, // owner-approved copy is 149 chars
     `homepage description length ${HOMEPAGE_SEO_DESCRIPTION.length}`,
   );
   assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /60 minutes’ waiting(?! on airport pickups)/);
-  assert.match(HOMEPAGE_SEO_DESCRIPTION, /up to 60 minutes’ complimentary waiting on airport pickups/);
+  // Phase 2 SEO (owner-approved 26 Nov 2026): claims must match the service — the 5% return
+  // discount exists in the quote engine; no price figures and no round-the-clock driver promise.
+  assert.match(HOMEPAGE_SEO_DESCRIPTION, /Belfast International, Belfast City and Dublin/);
+  assert.match(HOMEPAGE_SEO_DESCRIPTION, /5% return discount/);
+  assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /£\d/);
+  assert.doesNotMatch(HOMEPAGE_SEO_DESCRIPTION, /24\/7 (drivers|service|transfers)/i);
   assert.equal(SITE.name, "My Airport Taxi NI");
   assert.doesNotMatch(SITE_PUBLIC_SEO_DESCRIPTION, /£\d/);
   assert.match(visibleMarkupText(hero), /Belfast & Dublin Airport Transfers/);

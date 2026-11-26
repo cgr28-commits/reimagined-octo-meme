@@ -12,8 +12,8 @@ import { getBreadcrumbJsonLd, getFaqPageJsonLd, getServiceAreaJsonLd } from "@/l
 import styles from "./station.module.css";
 
 const path = "/belfast-grand-central-station-taxi/";
-const title = "Belfast Grand Central Station Taxi to Anywhere in NI";
-const description = "Arrived at Belfast Grand Central by train or coach? Pre-book a fixed-price taxi onward to anywhere in Northern Ireland or to the airports.";
+const title = "Belfast Grand Central Station Taxi | Pre-Booked, Fixed Fare";
+const description = "Pre-book your taxi from Belfast Grand Central Station to anywhere in Northern Ireland or the airports. Fixed fares, instant quotes and 24/7 online booking.";
 const stationGuide = "https://www.translink.co.uk/using-translink/station-finder/belfast-grand-central-station";
 const whatsapp = `https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, I would like help arranging a Belfast Grand Central Station transfer.")}`;
 
@@ -54,6 +54,7 @@ const routes = [
 
 const faqs = [
   ["Can I pre-book a taxi from Belfast Grand Central Station?", "Yes. Enter the station as your pickup, choose your destination and confirm the passenger and suitcase counts to view a quote. You select the pickup date and time when you continue to book. Short-notice journeys may need availability approval before payment."],
+  ["Is there a taxi rank at Belfast Grand Central Station?", "Yes. Translink lists a public-hire (black taxi) rank on Boyne Bridge Place, beside the station, next to the general drop-off spaces. Rank taxis are not pre-booked, so what is available depends on when you arrive. If you would rather arrange your onward journey in advance, you can pre-book with us: you agree a fixed fare before you travel, and your driver meets you at the collection point in your booking confirmation, which is separate from the rank."],
   ["Where will my driver collect me?", "Follow the collection point agreed for your booking. The public-hire taxi rank is separate from a pre-booked private transfer; do not assume your driver will be waiting there. If you do not have a confirmed meeting point, contact us on WhatsApp before making your way outside."],
   ["I'm arriving at Grand Central from Dublin — can you take me anywhere in Northern Ireland?", "Yes. Enter Belfast Grand Central Station as the pickup and your destination anywhere in Northern Ireland, from the Causeway Coast to Fermanagh, for a fixed price before you book. Book for a realistic time after your Enterprise train or coach is due, allowing for baggage and the walk to the agreed collection point."],
   ["Can I get a taxi from Belfast City Airport to Grand Central Station?", "Yes. Select George Best Belfast City Airport as the pickup and Belfast Grand Central Station as the destination for a fixed quote, then add your flight number when you book so we can monitor your landing. Airport pickups include up to 60 minutes complimentary waiting. The same journey can be booked the other way for a flight."],
