@@ -53,11 +53,11 @@ async function main() {
     const r = await withReturnDiscountPausedDuringOffer(pricing, env, during);
     assert.equal(r.returnDiscount.rate, 0);
   });
-  await check("before the offer starts: normal 5% return discount", async () => {
-    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, before)).returnDiscount.rate, 0.05);
+  await check("any live offer (promo switch on) pauses the return discount, dated or not", async () => {
+    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, before)).returnDiscount.rate, 0);
   });
-  await check("after the offer ends (end is exclusive): 5% is back with no action", async () => {
-    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, after)).returnDiscount.rate, 0.05);
+  await check("after a dated offer ends the everyday offer is still live: still paused", async () => {
+    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, after)).returnDiscount.rate, 0);
   });
   await check("every other pricing field is untouched (Christmas surcharge, tiers, Dublin adjustment)", async () => {
     const r = await withReturnDiscountPausedDuringOffer(pricing, env, during);
@@ -68,11 +68,11 @@ async function main() {
     const paused = await withReturnDiscountPausedDuringOffer(pricing, env, during);
     assert.equal(savedQuotePricingFor(paused, { returnDiscountRate: 0.05 }).returnDiscount.rate, 0.05);
   });
-  await check("owner switches the offer off in the dashboard: 5% returns immediately", async () => {
+  await check("dated campaign switched off but promo still on: stays paused", async () => {
     await savePromoSettings(db, { campaign: { enabled: false, name: "Black Friday", discountRate: 0.05, startsAt: "2026-11-26T00:00:00.000Z", endsAt: "2026-12-01T00:00:00.000Z" } }, new Date("2026-11-27T11:00:00Z"));
-    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, during)).returnDiscount.rate, 0.05);
+    assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, during)).returnDiscount.rate, 0);
   });
-  await check("promo master switch off: offer not running, 5% stays", async () => {
+  await check("owner switches the promo off in the dashboard: 5% returns immediately", async () => {
     await savePromoSettings(db, { enabled: true, campaign: { enabled: true, name: "Black Friday", discountRate: 0.05, startsAt: "2026-11-26T00:00:00.000Z", endsAt: "2026-12-01T00:00:00.000Z" } }, new Date("2026-11-27T12:00:00Z"));
     await savePromoSettings(db, { enabled: false }, new Date("2026-11-27T12:01:00Z"));
     assert.equal((await withReturnDiscountPausedDuringOffer(pricing, env, during)).returnDiscount.rate, 0.05);

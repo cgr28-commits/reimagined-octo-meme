@@ -1,5 +1,4 @@
 import { corsHeaders } from "../shared/google-places";
-import { activePromoCampaign } from "../shared/promo-code";
 import { toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
 import {
   PREVIEW_PRICING_FORBIDDEN_CODE,
@@ -43,8 +42,10 @@ export function isPublicPricingConfigPath(pathname: string): boolean {
 
 /**
  * Owner, 26 Nov 2026: the standard return-booking discount is switched off while a scheduled
- * promo offer (Black Friday) is running, so the two never stack. It comes back by itself when the
- * offer's window ends or the owner switches the offer off in the dashboard.
+ * promo offer is live (owner, 26 Nov 2026: "when any offer goes live the 5% return comes off"), so
+ * the two never stack. An offer is live whenever the promo master switch is on, whether it is the
+ * everyday code offer or a dated campaign. The return discount comes back by itself when the owner
+ * switches the promo off in the dashboard.
  * Only the live quoting copy is changed; the stored pricing settings are never rewritten.
  * If the promo settings can't be read, the normal discount stays (fail safe).
  */
@@ -57,7 +58,7 @@ export async function withReturnDiscountPausedDuringOffer<T extends { returnDisc
   try {
     const db = promoDb(env);
     if (!db) return settings;
-    if (!activePromoCampaign(await getPromoSettings(db), now)) return settings;
+    if (!(await getPromoSettings(db)).enabled) return settings;
     return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
   } catch {
     return settings;
