@@ -7,6 +7,7 @@
 import { useId, useState } from "react";
 import { PROMO_MARKETING_CONSENT_WORDING } from "../../shared/promo-code";
 import { markPromoSignedUp, requestPromoCode } from "@/lib/promo-api";
+import { SITE } from "@/lib/data";
 
 type Props = {
   source: "popup" | "mobile-banner" | "quote-banner" | "exit-intent";
@@ -142,6 +143,15 @@ export default function PromoSignupForm({ source, validityDays, percentLabel, of
       >
         {state === "sending" ? "Sending…" : `Send My ${percentLabel} Discount Code`}
       </button>
+      <a
+        href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, can I have the promo code?")}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-promo-whatsapp
+        className={`mt-2 inline-flex min-h-11 w-full items-center justify-center text-sm font-semibold underline underline-offset-4 ${dark ? "text-white" : "text-navy"}`}
+      >
+        Prefer WhatsApp? Get your code there
+      </a>
       <p className={`mt-2.5 text-[11px] leading-snug ${dark ? "text-white/60" : "text-navy/55"}`}>
         Valid for {validityDays} days. Airport charges excluded; minimum vehicle fare applies; one use per customer. See our{" "}
         <a href="/privacy/" className="underline underline-offset-2">Privacy Policy</a>.
