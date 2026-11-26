@@ -1,5 +1,6 @@
 "use client";
 
+import ReturnDiscountBadge from "@/components/ReturnDiscountBadge";
 import { useState, type ReactNode } from "react";
 import { UserRound, BriefcaseBusiness, ArrowDownUp, Minus, Plus, Check, Tag, Plane, Clock, CalendarCheck,  type LucideIcon } from "lucide-react";
 import AddressInput from "@/components/AddressInput";
@@ -461,7 +462,7 @@ export default function HomepageQuoteFields({
             }`}
           >
             <span className="text-sm font-semibold">Return</span>
-            <span className="mt-1 rounded-full bg-emerald px-2 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">Save 5%</span>
+            <ReturnDiscountBadge style="save" className="mt-1 rounded-full bg-emerald px-2 py-0.5 text-[10px] font-bold leading-none text-[#071c38]" />
           </button>
         </div>
       </div>
@@ -560,7 +561,7 @@ export default function HomepageQuoteFields({
             One way
           </button>
           <button type="button" aria-pressed={journeyMode === "return"} onClick={() => onJourneyModeChange("return")}>
-            <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
+            <span className="inline-flex items-center gap-1.5">Return <ReturnDiscountBadge style="off" className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]" /></span>
           </button>
         </div>
       ) : null}
