@@ -277,6 +277,78 @@ async function handleCodeRequest(request: Request, env: PromoHandlerEnv, origin:
   });
 }
 
+export type ChannelPromoResult =
+  | { ok: true; code: string; discountRate: number; minimumVehicleFareGbp: number; validityDays: number; emailed: boolean; journeyBefore: string | null }
+  | { ok: false; reason: "disabled" | "rate_limited" | "unavailable" | "not_eligible" | "send_failed" };
+
+/**
+ * A code requested outside the website form (WhatsApp, 26 Nov 2026). Same rules as /promo/request:
+ * the promo switch, rate limits, one code per email, owner-deactivated emails blocked, and the code
+ * emailed too. `rateKey` (the customer's phone) stands in for the IP address in the rate limit.
+ * Reasons are deliberately vague so an address's history is never revealed.
+ */
+export async function requestPromoCodeForChannel(
+  env: PromoHandlerEnv,
+  input: { email: string; source: string; rateKey: string; now?: Date },
+): Promise<ChannelPromoResult> {
+  const db = promoDb(env);
+  if (!db) return { ok: false, reason: "unavailable" };
+  const email = normalizePromoEmail(input.email);
+  if (!email) return { ok: false, reason: "not_eligible" };
+  const now = input.now ?? clock();
+  const source = input.source.replace(/[^a-z0-9-]/gi, "").slice(0, 40) || "whatsapp";
+  try {
+    const secret = env.PROMO_HASH_SECRET?.trim() ?? "";
+    const emailHash = await promoEmailHash(email, secret);
+    const ipHash = await promoIpHash(`${source}:${input.rateKey}`, secret);
+    const settings = await getPromoSettings(db);
+    if (!settings.enabled) {
+      await logPromoRequest(db, { at: now, emailHash, ipHash, outcome: "disabled", source });
+      return { ok: false, reason: "disabled" };
+    }
+    if (await promoRequestRateLimited(db, { now, emailHash, ipHash })) {
+      await logPromoRequest(db, { at: now, emailHash, ipHash, outcome: "rate_limited", source });
+      return { ok: false, reason: "rate_limited" };
+    }
+    const result = await issueOrResendPromoCode(db, { email, emailHash, settings, now, source, marketingOptIn: false });
+    if (result.kind !== "issued" && result.kind !== "resend") {
+      await logPromoRequest(db, {
+        at: now, emailHash, ipHash,
+        outcome: result.kind === "already_used" ? "already_used" : result.kind === "blocked" ? "blocked" : "resend_throttled",
+        code: "code" in result ? result.code : undefined,
+        source,
+      });
+      return { ok: false, reason: "not_eligible" };
+    }
+    const validityDays = Math.round((Date.parse(result.expiresAt) - Date.parse(result.issuedAt)) / 86_400_000);
+    let emailed = false;
+    if (!previewMode(env)) {
+      const offer = activePromoCampaign(settings, now);
+      const message = buildPromoCodeEmail({
+        ...result,
+        ...(offer && result.discountRate >= offer.discountRate ? { offerName: offer.name } : {}),
+        validityDays,
+        siteUrl: siteUrl(env),
+        hasExcludedDates: settings.blackoutDates.length > 0,
+      });
+      const sent = await trySendBrandedCustomerEmail(env, {
+        to: email, subject: message.subject, body: message.text, htmlBody: message.html,
+        ownerCopy: false, idempotencyKey: `promo-${result.code}-${now.getTime()}`,
+      });
+      emailed = sent.sent;
+    }
+    await markPromoEmailSent(db, result.code, now);
+    await logPromoRequest(db, { at: now, emailHash, ipHash, outcome: result.kind === "issued" ? "issued" : "resent", code: result.code, source });
+    return {
+      ok: true, code: result.code, discountRate: result.discountRate, minimumVehicleFareGbp: result.minimumVehicleFareGbp,
+      validityDays, emailed, journeyBefore: settings.journeyBefore ?? null,
+    };
+  } catch (error) {
+    console.error("Promo channel request failed", error instanceof Error ? error.message : "");
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
 const VALIDATE_LIMIT_PER_HOUR = 30;
 
 async function handleValidate(request: Request, env: PromoHandlerEnv, origin: string | null): Promise<Response> {

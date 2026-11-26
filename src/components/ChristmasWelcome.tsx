@@ -11,6 +11,7 @@ import PromoSignupForm from "@/components/PromoSignupForm";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import { COOKIE_CONSENT_EVENT, readCookieConsent } from "@/lib/cookie-consent";
 import { withBasePath } from "@/lib/paths";
+import { SITE } from "@/lib/data";
 import {
   bookingInProgress,
   fetchPromoConfig,
@@ -427,6 +428,16 @@ export default function ChristmasWelcome() {
                 }}
               />
             </div>
+            {!claimed ? (
+              <a
+                href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, can I have the promo code?")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cw-link mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4 hover:text-white"
+              >
+                Prefer WhatsApp? Get your code there
+              </a>
+            ) : null}
             {claimed ? (
               <QuoteNavLink onNavigate={() => { trackChristmasVideo("popup_get_quote"); close(); }} className="btn-primary cw-primary mt-5 inline-flex min-h-12 w-full items-center justify-center px-6 text-base font-bold">
                 Get My Quote
