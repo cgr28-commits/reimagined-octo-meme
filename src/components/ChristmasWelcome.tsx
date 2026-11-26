@@ -54,12 +54,6 @@ function markSeen(): void {
   }
 }
 
-function addDays(dateKey: string, days: number): string {
-  const d = new Date(`${dateKey}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * The excluded date range that covers Christmas Day this season (from the live promo settings),
  * so the offer can say which journeys it covers. null = no Christmas exclusion.
@@ -71,8 +65,8 @@ function christmasExclusion(config: PublicPromoConfig): { from: string; to: stri
   return hit ? { from: hit.from, to: hit.to } : null;
 }
 
-function formatDay(dateKey: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "long" }).format(
+function formatLongDay(dateKey: string): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }).format(
     new Date(`${dateKey}T12:00:00Z`),
   );
 }
@@ -152,7 +146,7 @@ export default function ChristmasWelcome() {
   const exclusion = config ? christmasExclusion(config) : null;
   // The code can still be used on a journey before the Christmas exclusion starts.
   const offerUsable = config?.welcomeVideoMode === "with-promo" && config.enabled && (!exclusion || today < exclusion.from);
-  const lastJourneyDay = exclusion ? addDays(exclusion.from, -1) : null;
+  const journeyBeforeText = config?.journeyBefore ? formatLongDay(config.journeyBefore) : null;
 
   const nextAfterVideo = useCallback(() => {
     videoRef.current?.pause();
@@ -405,7 +399,7 @@ export default function ChristmasWelcome() {
               </button>
             </div>
             <p className="cw-small mx-auto mt-5 max-w-md text-xs leading-relaxed">
-              {lastJourneyDay ? `For journeys up to ${formatDay(lastJourneyDay)}. ` : ""}
+              {journeyBeforeText ? `For journeys before ${journeyBeforeText}. ` : ""}
               {percent} off the vehicle fare, minimum vehicle fare {minimum}, airport charges excluded. Your code is emailed to you, valid for {config.validityDays} days, one per customer.
             </p>
           </div>
@@ -418,7 +412,7 @@ export default function ChristmasWelcome() {
             </h2>
             <p className="cw-sub mt-2 text-[0.95rem] leading-relaxed">
               Enter your email and we’ll send your code straight away
-              {lastJourneyDay ? ` — use it on journeys up to ${formatDay(lastJourneyDay)}` : ""}.
+              {journeyBeforeText ? ` — use it on journeys before ${journeyBeforeText}` : ""}.
             </p>
             <div className="mt-5">
               <PromoSignupForm

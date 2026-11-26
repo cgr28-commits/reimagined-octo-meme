@@ -12,6 +12,7 @@
  */
 import {
   promoBlackoutFor,
+  promoExcludedRanges,
   promoBlackoutMessage,
   promoRejectMessage,
   type PromoRejectReason,
@@ -60,7 +61,7 @@ export async function checkPromoForWebsiteBooking(
     });
     if (!check.ok) return check;
     if (input.otherOfferApplied) return { ok: false, reason: "not_combinable" };
-    const blackout = promoBlackoutFor(input.journeyDates ?? [], settings.blackoutDates);
+    const blackout = promoBlackoutFor(input.journeyDates ?? [], promoExcludedRanges(settings));
     if (blackout) return { ok: false, reason: "blackout_date", message: promoBlackoutMessage(blackout) };
     return { ok: true, terms: check.terms, emailHash: check.emailHash };
   } catch (error) {
