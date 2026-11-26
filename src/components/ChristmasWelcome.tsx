@@ -11,7 +11,6 @@ import PromoSignupForm from "@/components/PromoSignupForm";
 import QuoteNavLink from "@/components/QuoteNavLink";
 import { COOKIE_CONSENT_EVENT, readCookieConsent } from "@/lib/cookie-consent";
 import { withBasePath } from "@/lib/paths";
-import { SITE } from "@/lib/data";
 import {
   bookingInProgress,
   fetchPromoConfig,
@@ -398,15 +397,6 @@ export default function ChristmasWelcome() {
               >
                 Continue to Website
               </button>
-              <a
-                href={`https://wa.me/${SITE.whatsappAssistantLive ? SITE.whatsappAssistant : SITE.whatsapp}?text=${encodeURIComponent("Hello, can I have the promo code?")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-promo-whatsapp
-                className="cw-link mx-auto inline-flex min-h-11 items-center px-3 text-sm font-semibold underline underline-offset-4 hover:text-white"
-              >
-                Prefer WhatsApp? Get your code there
-              </a>
             </div>
             <p className="cw-small mx-auto mt-5 max-w-md text-xs leading-relaxed">
               {journeyBeforeText ? `For journeys before ${journeyBeforeText}. ` : ""}
