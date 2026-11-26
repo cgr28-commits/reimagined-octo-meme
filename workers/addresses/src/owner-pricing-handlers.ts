@@ -1,4 +1,5 @@
 import { corsHeaders } from "../shared/google-places";
+import { activePromoCampaign } from "../shared/promo-code";
 import { toPublicOwnerPricingConfig } from "../shared/owner-pricing-config";
 import {
   PREVIEW_PRICING_FORBIDDEN_CODE,
@@ -16,6 +17,7 @@ import {
   OwnerPricingValidationError,
   saveOwnerPricingSettings,
 } from "./owner-pricing-store";
+import { getPromoSettings, promoDb, type PromoEnv } from "./promo-store";
 
 export type OwnerPricingEnv = DriverAuthEnv & {
   TRACKING_STORE?: KVNamespace;
@@ -39,8 +41,32 @@ export function isPublicPricingConfigPath(pathname: string): boolean {
   return pathname === "/pricing/public" || pathname === "/api/pricing/public";
 }
 
+/**
+ * Owner, 26 Nov 2026: the standard return-booking discount is switched off while a scheduled
+ * promo offer (Black Friday) is running, so the two never stack. It comes back by itself when the
+ * offer's window ends or the owner switches the offer off in the dashboard.
+ * Only the live quoting copy is changed; the stored pricing settings are never rewritten.
+ * If the promo settings can't be read, the normal discount stays (fail safe).
+ */
+export async function withReturnDiscountPausedDuringOffer<T extends { returnDiscount: { rate: number } }>(
+  settings: T,
+  env: PromoEnv | undefined,
+  now: Date = new Date(),
+): Promise<T> {
+  if (!env || settings.returnDiscount.rate === 0) return settings;
+  try {
+    const db = promoDb(env);
+    if (!db) return settings;
+    if (!activePromoCampaign(await getPromoSettings(db), now)) return settings;
+    return { ...settings, returnDiscount: { ...settings.returnDiscount, rate: 0 } };
+  } catch {
+    return settings;
+  }
+}
+
 export async function loadOwnerPricingOrDefault(env?: {
   TRACKING_STORE?: KVNamespace;
+  DRIVER_DB?: unknown;
   EVENTS_HUB_PUBLIC?: string;
   BESPOKE_QUOTES_ENABLED?: string;
 }) {
@@ -48,9 +74,11 @@ export async function loadOwnerPricingOrDefault(env?: {
     return ownerPricingDefaults();
   }
   const settings = getOwnerPricingSettings(env.TRACKING_STORE);
-  if (env.EVENTS_HUB_PUBLIC !== "1" && env.BESPOKE_QUOTES_ENABLED !== "1") return settings;
+  if (env.EVENTS_HUB_PUBLIC !== "1" && env.BESPOKE_QUOTES_ENABLED !== "1") {
+    return withReturnDiscountPausedDuringOffer(await settings, env);
+  }
   const [stored, eventVenuePickups] = await Promise.all([settings, calendarVenuePickups(env.TRACKING_STORE)]);
-  return { ...stored, eventVenuePickups };
+  return { ...(await withReturnDiscountPausedDuringOffer(stored, env)), eventVenuePickups };
 }
 
 export async function handlePublicGetPricingConfig(
