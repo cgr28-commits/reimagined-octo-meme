@@ -1,5 +1,6 @@
 "use client";
 
+import ReturnDiscountBadge from "@/components/ReturnDiscountBadge";
 import { overnightTooSoonBody } from "../../shared/owner-quiet-hours";
 import PaymentMethodLogos from "@/components/PaymentMethodLogos";
 import { isOnSitePaymentUrl } from "@/lib/stripe-pay";
@@ -10290,7 +10291,7 @@ function QuoteCard({
                       setJourneyMode("return");
                     }}
                   >
-                    <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
+                    <span className="inline-flex items-center gap-1.5">Return <ReturnDiscountBadge style="off" className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]" /></span>
                   </button>
                 </div>
                 {scheduleUpFront ? renderQuoteScheduleFields("quote", true) : null}
@@ -10865,7 +10866,7 @@ function QuoteCard({
                 journeyMode === "return" ? QUOTE_CHOICE_ON : QUOTE_CHOICE_OFF
               }`}
             >
-              <span className="inline-flex items-center gap-1.5">Return <span className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]">5% off</span></span>
+              <span className="inline-flex items-center gap-1.5">Return <ReturnDiscountBadge style="off" className="rounded-full bg-emerald px-1.5 py-0.5 text-[10px] font-bold leading-none text-[#071c38]" /></span>
             </button>
           </div>
           {journeyMode == null && (
