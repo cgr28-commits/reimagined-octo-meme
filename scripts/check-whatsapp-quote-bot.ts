@@ -1032,6 +1032,33 @@ async function main() {
     }
   }
 
+  {
+    // Heather (26 Nov 2026): "Trying to get a quote…" put "Trying" down as the pickup.
+    const at = new Date("2026-11-26T22:03:12Z");
+    const d = decideWhatsAppReply(
+      null,
+      "Trying to get a quote for a taxi pick up at Banbridge to Belfast city airport Sunday 29/11/26 leaving 09.00. H",
+      { now: at },
+    );
+    assert.equal(d.conversation.draft.pickupAddress, "Banbridge");
+    assert.equal(d.conversation.draft.airportCode, "BHD");
+    assert.equal(d.conversation.draft.fromAirport, false);
+    assert.equal(d.conversation.draft.outboundDate, "2026-11-29");
+    assert.equal(d.conversation.draft.outboundTime, "09:00", "a full stop after the time is fine");
+    assert.doesNotMatch(d.reply, /Trying/);
+    for (const [msg, pickup] of [
+      ["I want to get a price to be picked up from Lisburn to Belfast International", "Lisburn"],
+      ["Need to book a taxi from Newry to Dublin Airport", "Newry"],
+      ["Hoping to get a quote, collect from 12 Main Street Lisburn to BFS", "12 Main Street Lisburn"],
+    ] as const) {
+      const r = decideWhatsAppReply(null, msg, { now: at });
+      assert.equal(r.conversation.draft.pickupAddress, pickup, msg);
+    }
+    // Dotted dates are still dates, not times.
+    assert.deepEqual(extractClockTimes("on 14.11.2026 at 10:30"), ["10:30"]);
+    console.log("OK  'Trying to … pick up at Banbridge to BHD' reads Banbridge, and 09.00. is the time");
+  }
+
   console.log("\nAll WhatsApp quote assistant checks passed.");
 }
 

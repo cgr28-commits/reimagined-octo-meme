@@ -338,9 +338,9 @@ export function extractClockTimes(text: string): string[] {
   }
   const colon = /\b([01]?\d|2[0-3])[:.]([0-5]\d)\b(?!\s*(?:am|pm|a\.m|p\.m))/gi;
   for (const m of text.matchAll(colon)) {
-    // Skip dotted dates like 14.11.2026.
-    const after = text.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 1);
-    if (after === "." || after === "/") continue;
+    // Skip dotted dates like 14.11.2026 — but a full stop ending the sentence ("leaving 09.00.") is fine.
+    const after = text.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 2);
+    if (/^[./]\d/.test(after)) continue;
     const value = parseUkTime(`${m[1]}:${m[2]}`);
     if (value) found.push({ index: m.index ?? 0, value });
   }
@@ -585,8 +585,11 @@ type RouteSide = { airportCode?: QuickQuoteAirportCode; label?: string; address?
 const ROUTE_SEPARATOR = /\s+(?:going\s+to|heading\s+to|over\s+to|to|->|→|–|—|-)\s+/i;
 const ROUTE_LEAD =
   /^(?:.*?\b)?(?:from|pick(?:ed|ing)?\s*-?\s*up(?:\s+(?:at|from))?|collect(?:ed|ion)?(?:\s+(?:at|from))?)\s+(?:the\s+)?/i;
+/** Words that say the pickup follows: "from", "pick (me) up at", "collect from". */
+const PICKUP_LEAD_WORDS =
+  /\b(?:from|pick(?:ed|ing)?\s*-?\s*(?:me\s+|us\s+)?up\s+(?:at|from|in)|collect(?:ed|ion)?(?:\s+(?:me|us))?\s+(?:at|from|in))\s+/i;
 const NOT_AN_ADDRESS =
-  /\b(?:need|want|looking|taxi|cab|quote|price|book(?:ing)?|lift|transfer|hi|hello|how much|can i|could i|please|going|heading|travelling|traveling|getting|get|go|taken|picked)\b/i;
+  /\b(?:need|want|wanting|trying|try|hoping|wondering|would|like|looking|taxi|cab|quote|price|book(?:ing)?|lift|transfer|hi|hello|how much|can i|could i|please|going|heading|travelling|traveling|getting|get|go|taken|picked)\b/i;
 const MONTH = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*";
 const ADDRESS_TAIL = new RegExp(
   String.raw`\s*(?:,\s*)?\b(?:on|at|for|by|around|about|tomorrow|today|tonight|this|next|mon|tue|wed|thu|fri|sat|sun)[a-z]*\b.*$` +
@@ -624,8 +627,14 @@ function readRouteSide(raw: string, isPickupSide: boolean): RouteSide | null {
  * place, the first side is the pickup and the second the drop-off.
  */
 function applySimpleRoute(draft: WhatsAppQuoteDraft, text: string) {
-  const sep = text.match(ROUTE_SEPARATOR);
-  if (!sep || sep.index == null) return;
+  // "Trying to get a quote for a taxi pick up at Banbridge to Belfast City airport" (26 Nov 2026):
+  // when the message says where the pickup is ("pick up at", "from"), the route's "to" is the one
+  // after it, not an earlier "trying to / want to / need to".
+  const lead = text.match(PICKUP_LEAD_WORDS);
+  const searchFrom = lead?.index != null ? lead.index + lead[0].length : 0;
+  const sepAfter = text.slice(searchFrom).match(ROUTE_SEPARATOR);
+  const sep = sepAfter && sepAfter.index != null ? { index: sepAfter.index + searchFrom, 0: sepAfter[0] } : null;
+  if (!sep) return;
   const left = text.slice(0, sep.index);
   const right = text.slice(sep.index + sep[0].length);
   if (/\bfrom\b/i.test(right) && !/\bfrom\b/i.test(left)) return; // "to X from Y" is handled elsewhere
