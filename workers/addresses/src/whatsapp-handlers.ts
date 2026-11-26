@@ -20,6 +20,7 @@
  * and the owner gets an email.
  */
 
+import { handleWhatsAppPromoMessage, type WhatsAppPromoEnv } from "./whatsapp-promo";
 import {
   D360_WEBHOOK_SECRET_HEADER,
   normalizeWhatsAppNumber,
@@ -171,6 +172,10 @@ import {
 } from "./whatsapp-quote-form-endpoint";
 
 export type WhatsAppEnv = WhatsAppCloudEnv & WorkerEmailEnv & {
+  DRIVER_DB?: unknown;
+  PROMO_HASH_SECRET?: string;
+  /** "false" stops the assistant sending promo codes on request. */
+  WHATSAPP_PROMO_ENABLED?: string;
   TRACKING_STORE?: KVNamespace;
   SITE_ORIGIN?: string;
   GOOGLE_PLACES_API_KEY?: string;
@@ -920,6 +925,14 @@ async function handleInboundMessage(
   if (!message.text) {
     await replyToNonTextMessage(env, store, message, isTeamPhone);
     return;
+  }
+  // "Can I have the promo code?": asks for their email and sends their code (deterministic, no AI).
+  {
+    const promoReply = await handleWhatsAppPromoMessage(env as WhatsAppPromoEnv, phone, message.text);
+    if (promoReply) {
+      await reply(env, phone, promoReply);
+      return;
+    }
   }
   // "Send me the form": the quote form, for customers who'd rather fill it in.
   if (isWhatsAppQuoteFormRequest(message.text)) {
