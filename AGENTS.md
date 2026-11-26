@@ -13,6 +13,32 @@ the site went down twice because of hosting changes. Never do, suggest or instru
 - `site-watchdog.yml` checks the live site every 15 minutes, redeploys if it is broken and emails
   the owner. Do not disable it.
 
+## SEO stability freeze (owner decision, 26 Nov 2026)
+Do **not** change the SEO `<title>` or visible H1 of these pages until **7 January 2027**, or six
+weeks after the Phase 2 SEO change is deployed if that deploy happens later. Exceptions need
+explicit owner approval in the request itself. Search Console showed the Belfast International
+page losing ground after its title was rewritten five times in three weeks (29 Oct–20 Nov 2026).
+Frequent title churn stops Google settling on a page.
+
+| Page | Frozen title | Frozen H1 | Source |
+| --- | --- | --- | --- |
+| Homepage `/` | Airport Taxi Belfast, NI & Ireland \| My Airport Taxi NI | Belfast & Dublin Airport Transfers | `HOMEPAGE_SEO_TITLE` in `src/lib/data.ts`; H1 in `src/components/HeroSlideshow.tsx` |
+| `/airports/belfast-international/` | Belfast International Airport Taxi (BFS) \| Fixed Fares | Belfast International Airport Taxi & Transfers | `src/lib/location-pages.ts` |
+| `/airports/belfast-city/` | Belfast City Airport Taxi (George Best BHD) \| Fixed Fares | Belfast City Airport Taxi & Transfers | `src/lib/location-pages.ts` |
+| `/belfast-grand-central-station-taxi/` | Belfast Grand Central Station Taxi \| Pre-Booked, Fixed Fare | Belfast Grand Central Station Taxi Transfers | `src/app/belfast-grand-central-station-taxi/page.tsx` |
+| `/locations/lisburn-airport-taxis/`, `/locations/newry-airport-taxis/`, `/locations/craigavon-airport-taxis/`, `/locations/coleraine-airport-taxis/` | as live on 26 Nov 2026 | as live on 26 Nov 2026 | `src/lib/town-hubs-*.ts` |
+
+- Page targeting: the Belfast International page targets "Belfast International Airport /
+  Aldergrove / BFS" taxi and transfer searches. The homepage keeps the generic "Belfast airport
+  taxi" searches. Do not put "Belfast Airport Taxi" at the start of the BFS title.
+- Internal links: keep useful airport links from every relevant town page, with natural anchor text
+  that fits the sentence. Don't add a second contextual link to the same airport in the same block.
+  Don't randomise anchors or set keyword ratios.
+- Don't make further SEO changes because of short-term ranking moves. Present the Search Console
+  evidence and get owner approval first.
+- Snippet claims must match the real service: say "book online 24/7", never 24/7 drivers. The 5% return
+  discount applies to the journey fare. The 100% refund needs cancellation 24+ hours before pickup.
+
 ## Visual quality (standing acceptance requirement)
 Every feature must be **functionally correct, visually balanced, mobile-first, consistent with
 premium branding, and professionally presented**. Typography, line breaks, spacing, alignment and
