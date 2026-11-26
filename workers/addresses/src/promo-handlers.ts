@@ -25,6 +25,7 @@ import {
   normalizePromoEmail,
   activePromoCampaign,
   promoBlackoutFor,
+  promoExcludedRanges,
   promoBlackoutMessage,
   promoCodesCsv,
   promoMeetsMinimum,
@@ -304,7 +305,7 @@ async function handleValidate(request: Request, env: PromoHandlerEnv, origin: st
     }
     const check = await checkPromoCodeForBooking(db, { code, bookingEmail: email, now, secret });
     if (!check.ok) return json({ ok: false, reason: check.reason, error: promoRejectMessage(check.reason) }, 200, origin);
-    const blackout = promoBlackoutFor([body.tripDate as string, body.returnDate as string], settings.blackoutDates);
+    const blackout = promoBlackoutFor([body.tripDate as string, body.returnDate as string], promoExcludedRanges(settings));
     if (blackout) {
       return json({ ok: false, reason: "blackout_date", error: promoBlackoutMessage(blackout) }, 200, origin);
     }

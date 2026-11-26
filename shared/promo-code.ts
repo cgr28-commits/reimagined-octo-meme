@@ -56,6 +56,8 @@ export type PromoSettings = {
   popupDelaySeconds: number;
   /** Journey dates excluded from promo codes (owner dashboard). Applies to every leg. */
   blackoutDates: PromoBlackoutRange[];
+  /** Owner, 26 Nov 2026: codes only work for journeys BEFORE this date (YYYY-MM-DD); null = no limit. */
+  journeyBefore: string | null;
   /** Scheduled higher-value offer (owner dashboard); null = none. */
   campaign: PromoCampaign | null;
   updatedAt?: string;
@@ -80,6 +82,7 @@ export const DEFAULT_PROMO_SETTINGS: PromoSettings = {
     { from: "2027-07-09", to: "2027-07-18", label: "Twelfth fortnight" },
     { from: "2027-08-17", to: "2027-08-21", label: "Harry Styles in Dublin" },
   ],
+  journeyBefore: "2027-06-01",
   // Owner, 16 Nov 2026: 15% for Black Friday (Fri 27 Nov – Mon 30 Nov 2026, UK time = UTC in November).
   campaign: {
     enabled: true,
@@ -261,6 +264,10 @@ export function normalizePromoSettings(input: unknown, fallback: PromoSettings =
     blackoutDates: Array.isArray(raw.blackoutDates)
       ? normalizeBlackoutRanges(raw.blackoutDates)
       : [...(fallback.blackoutDates ?? [])],
+    journeyBefore:
+      "journeyBefore" in raw
+        ? (typeof raw.journeyBefore === "string" && isIsoDate(raw.journeyBefore) ? raw.journeyBefore : null)
+        : fallback.journeyBefore ?? null,
     campaign: "campaign" in raw ? normalizeCampaign(raw.campaign) : fallback.campaign ? { ...fallback.campaign } : null,
     ...(typeof raw.updatedAt === "string" ? { updatedAt: raw.updatedAt } : {}),
   };
@@ -316,6 +323,11 @@ export function validatePromoSettingsInput(input: Record<string, unknown>): { ok
       if (to < from) return { ok: false, error: `The end date ${to} is before the start date ${from}.` };
     }
     out.blackoutDates = normalizeBlackoutRanges(list);
+  }
+  if ("journeyBefore" in input) {
+    if (input.journeyBefore === null || input.journeyBefore === "") out.journeyBefore = null;
+    else if (typeof input.journeyBefore === "string" && isIsoDate(input.journeyBefore)) out.journeyBefore = input.journeyBefore;
+    else return { ok: false, error: "Journeys-before date must be a valid date." };
   }
   if ("campaign" in input) {
     if (input.campaign === null) {
@@ -401,6 +413,8 @@ export type PublicPromoConfig = {
   popupDelaySeconds: number;
   /** Excluded journey dates (shown to customers when they apply a code). */
   blackoutDates: PromoBlackoutRange[];
+  /** Codes only work for journeys before this date (YYYY-MM-DD); also added to blackoutDates as an open-ended range. */
+  journeyBefore?: string | null;
   /** Set only while a scheduled offer (e.g. Black Friday) is running. */
   campaign?: { id: string; name: string; endsAt: string };
 };
@@ -420,7 +434,8 @@ export function publicPromoConfig(settings: PromoSettings, now: Date = new Date(
       ? "off"
       : settings.welcomeVideoMode,
     popupDelaySeconds: settings.popupDelaySeconds,
-    blackoutDates: settings.blackoutDates ?? [],
+    blackoutDates: promoExcludedRanges(settings),
+    journeyBefore: settings.journeyBefore ?? null,
   };
 }
 
@@ -546,14 +561,29 @@ function shortUkDate(iso: string): string {
   return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })} ${d.getUTCFullYear()}`;
 }
 
+const OPEN_ENDED = "2099-12-31";
+
+/** Excluded dates plus the open-ended "journeys from <journeyBefore>" range. */
+export function promoExcludedRanges(settings: Pick<PromoSettings, "blackoutDates" | "journeyBefore">): PromoBlackoutRange[] {
+  const list = [...(settings.blackoutDates ?? [])];
+  if (settings.journeyBefore && isIsoDate(settings.journeyBefore)) {
+    list.push({ from: settings.journeyBefore, to: OPEN_ENDED, label: "after the offer period" });
+  }
+  return list;
+}
+
 /** "24–26 Dec 2026 (Christmas)" style wording for customers and the dashboard. */
 export function formatBlackoutRange(range: PromoBlackoutRange): string {
+  if (range.to >= OPEN_ENDED) return `${shortUkDate(range.from)} onwards`;
   const span = range.from === range.to ? shortUkDate(range.from) : `${shortUkDate(range.from)} – ${shortUkDate(range.to)}`;
   return range.label ? `${span} (${range.label})` : span;
 }
 
 /** Customer message when a journey date is excluded. */
 export function promoBlackoutMessage(hit: PromoBlackoutRange & { date: string }): string {
+  if (hit.to >= OPEN_ENDED) {
+    return `Promo codes only apply to journeys before ${shortUkDate(hit.from)}. Please choose an earlier date or continue without the code.`;
+  }
   return `Promo codes can't be used for journeys on ${shortUkDate(hit.date)}${hit.label ? ` (${hit.label})` : ""}. Excluded dates: ${formatBlackoutRange(hit)}. Please choose another date or continue without the code.`;
 }
 
