@@ -3726,8 +3726,10 @@ body:has(.cookie-consent-banner--modal) {
 @media (min-width: 1200px) {
   :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #step1-journey-details { grid-template-rows: repeat(7, auto) 1fr !important; }
   :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #step1-journey-details > [data-homepage-quote-fields] { grid-row: 1 !important; }
-  /* Demand indicator (27 Nov 2026): directly above the vehicle choices, in the white panel's first row. */
-  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-seasonal-booking-message] { grid-row: 1 !important; grid-column: 1 !important; }
+  /* Demand indicator (27 Nov 2026): directly above the vehicle choices, in the white panel's first row.
+     "Edit journey" unfolds the journey form into that same row, so hide the card while editing. */
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"]:not([data-desktop-journey-editing="true"]) #quote-results-summary > [data-seasonal-booking-message] { grid-row: 1 !important; grid-column: 1 !important; }
+  :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"][data-desktop-journey-editing="true"] #quote-results-summary > [data-seasonal-booking-message] { display: none !important; }
   :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-quote-vehicle-categories] { grid-row: 2 !important; }
   :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-business-class-upgrade] { grid-row: 3 !important; }
   :is(.homepage-hero, [data-hub-quote]) .quote-flow[data-quote-results="ready"] #quote-results-summary > [data-homepage-return-breakdown-desktop] { grid-row: 4 !important; }
