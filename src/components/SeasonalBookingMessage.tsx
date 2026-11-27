@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { seasonalBookingMessage } from "../../shared/seasonal-booking-message";
-import { DECEMBER_2026_DEMAND_HEADING, DEMAND_BAR_SEGMENTS, demandIndicatorFor } from "../../shared/demand-indicator";
-import { websiteEventIcon } from "../../shared/website-event-notices";
+import { demandIndicatorFor } from "../../shared/demand-indicator";
+import {
+  AVAILABILITY_BOOK_EARLY,
+  AVAILABILITY_FREE_CANCELLATION,
+  AVAILABILITY_PALETTE,
+  AVAILABILITY_SEGMENTS,
+  availabilityViewFor,
+} from "@/lib/availability-indicator-view";
 
 type Props = {
   /** Pickup date from the quote form (YYYY-MM-DD). */
@@ -11,146 +16,108 @@ type Props = {
   returnDate?: string;
   pickup?: string;
   dropoff?: string;
-  /** Short-notice / request bookings: no "secure your journey today" line. */
+  /** Short-notice / request bookings: no "secure your driver" line. */
   needsApproval?: boolean;
-  /** "panel" sits between the price and the book button (desktop); "list" sits under the chosen car's price (phones). */
-  placement: "panel" | "list";
 };
 
-/** Counts up from 0 to the real figure once, so the bar feels alive (owner, 17 Nov 2026). Never goes past the real figure. */
-function useCountUp(target: number | null, durationMs = 1400): number | null {
-  const [value, setValue] = useState<number | null>(target === null ? null : 0);
-  useEffect(() => {
-    if (target === null) {
-      setValue(null);
-      return;
-    }
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setValue(target);
-      return;
-    }
-    let frame = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setValue(Math.round(target * eased));
-      if (t < 1) frame = requestAnimationFrame(tick);
-    };
-    setValue(0);
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [target, durationMs]);
-  return value;
+function TrendingUpIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2FBF4A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+      <path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.2 7.5 9.5 4.4-1.3 7.5-4.9 7.5-9.5V6L12 3Z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </svg>
+  );
 }
 
 /**
- * Date-specific booking message with "Expected demand for your date" (owner, 15 Nov 2026).
- * Busy dates show a demand bar; everyday dates show the seasonal message only.
+ * Availability indicator above the vehicle choice on the quote results (owner, 27 Nov 2026).
+ * Ten rounded segments, colour by band, honest wording: figures set from the owner's diary read
+ * "booked"; seasonal estimates read "expected demand"; nothing ever says "fully booked".
+ * See src/lib/availability-indicator-view.ts for the rules.
  */
-export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, dropoff, needsApproval, placement }: Props) {
+export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, dropoff, needsApproval }: Props) {
   const message = seasonalBookingMessage(tripDate, { needsApproval });
   const demand = demandIndicatorFor({ tripDate, returnDate, pickup, dropoff, needsApproval });
-  const shownPercent = useCountUp(demand?.bookedPercent ?? null);
   if (!message || !demand) return null;
-  const showBar = true; // a demand bar on every date (owner, 17 Nov 2026)
-  const soon = demand.level === "soon";
-  // Colour = how busy the date is (owner, 17 Nov 2026): green low, amber high, red very high.
-  // Booked % decides it where set (60–79% amber, 80%+ red); otherwise big events / concerts and
-  // Christmas–New Year are red, bank holidays and Easter amber, and every other day green.
-  const RED_SEASONS = ["christmas", "christmas-run-up", "between-christmas-new-year", "new-year"];
-  const AMBER_SEASONS = ["bank-holiday", "easter"];
-  const RANK = { green: 0, amber: 1, red: 2 } as const;
-  const dateTone: "green" | "amber" | "red" =
-    demand.event || RED_SEASONS.includes(demand.season) ? "red" : AMBER_SEASONS.includes(demand.season) ? "amber" : "green";
-  const pct = demand.bookedPercent;
-  const pctTone: "green" | "amber" | "red" = pct === null ? "green" : pct >= 80 ? "red" : pct >= 60 ? "amber" : "green";
-  // December 2026 estimates (60–90%) always use the red treatment (owner, 23 Nov 2026).
-  const tone = demand.estimated ? "red" : RANK[pctTone] > RANK[dateTone] ? pctTone : dateTone;
-  const veryHigh = tone !== "green";
-  const filledSegments =
-    demand.bookedPercent !== null ? demand.filledSegments : tone === "red" ? 4 : tone === "amber" ? 3 : 2;
-  const label = demand.bookedPercent !== null ? (demand.label ?? "") : tone === "red" ? "Very high" : tone === "amber" ? "High" : "Normal";
-  const accent = tone === "red" ? "#D93025" : tone === "amber" ? "#E8A317" : "#2FBF4A";
-  const icon = demand.estimated ? "✨" : demand.event ? websiteEventIcon(demand.event) : soon ? "⏱️" : message.icon;
+  const view = availabilityViewFor(demand);
+  const palette = AVAILABILITY_PALETTE[view.tone];
+  const hasStatus = view.kind !== "none";
+  const label = [view.percentLabel, view.status].filter(Boolean).join(", ");
+
   return (
     <div
-      data-seasonal-booking-message={placement}
+      data-seasonal-booking-message="above-vehicles"
       data-season={message.season}
       data-demand-level={demand.level}
-      data-demand-tone={tone}
-      className={`mt-2.5 rounded-xl border px-3.5 py-2.5 text-left text-[#071C38] ${
-        veryHigh ? "border-[#e2c98f] bg-[#fdf6e7]" : "border-[#071C38]/12 bg-white"
-      }`}
+      data-demand-tone={hasStatus ? view.tone : "none"}
+      data-demand-kind={view.kind}
+      className="mb-3 rounded-xl border px-3.5 py-3 text-left text-[#071C38]"
+      style={{ background: hasStatus ? palette.background : "#FFFFFF", borderColor: hasStatus ? palette.border : "rgba(7,28,56,0.12)" }}
     >
-      <p className="text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]">
-        {icon ? <span aria-hidden="true">{icon} </span> : null}
-        {showBar || soon ? (
-          <span className="whitespace-nowrap">{message.travelDateLabel}</span>
-        ) : (
-          <>
-            Travelling on <span className="whitespace-nowrap">{message.travelDateLabel}</span>?
-          </>
-        )}
+      {hasStatus && view.heading ? (
+        <p className="flex items-center gap-1.5 text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]">
+          {view.showTrendIcon ? <TrendingUpIcon color={palette.accent} /> : null}
+          <span>{view.heading}</span>
+        </p>
+      ) : null}
+      <p className={`${hasStatus ? "mt-0.5 text-[0.8rem] font-semibold text-[#071C38]/70" : "text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]"}`}>
+        <span className="whitespace-nowrap">{message.travelDateLabel}</span>
       </p>
-      {showBar ? (
-        <>
-          <p className="mt-1.5 flex items-center justify-between gap-2 text-[0.8rem]">
-            <span className={`inline-flex items-center gap-1.5 ${veryHigh ? "text-[#633806]" : "text-[#071C38]/70"}`}>
-              <span className="demand-pulse-dot" style={{ background: accent, color: accent }} aria-hidden="true" />
-              {demand.estimated
-                ? DECEMBER_2026_DEMAND_HEADING
-                : demand.bookedPercent !== null
-                  ? "Bookings for your date"
-                  : "Expected demand for your date"}
-            </span>
-            <span className={`font-extrabold tabular-nums ${tone === "red" ? "text-[#B3261E]" : tone === "amber" ? "text-[#8A5A00]" : "text-[#0F6E56]"}`}>
-              {demand.bookedPercent !== null && shownPercent !== null
-                ? demand.estimated
-                  ? `${shownPercent}%`
-                  : `${shownPercent}% booked`
-                : label}
-            </span>
-          </p>
-          {demand.bookedPercent !== null ? (
-            <div
-              className="mt-1.5 h-1.5 overflow-hidden rounded-full"
-              style={{ background: veryHigh ? "#e7dfcf" : "#e3e8ee" }}
-              role="img"
-              aria-label={demand.estimated ? `${DECEMBER_2026_DEMAND_HEADING}: ${label}` : label}
-              data-demand-bar
-              data-demand-percent={demand.bookedPercent}
-            >
-              <span
-                className="demand-bar-fill block h-full rounded-full"
-                style={{ width: `${demand.bookedPercent}%`, background: accent }}
-              />
-            </div>
-          ) : (
-            <div
-              className="mt-1.5 grid grid-cols-5 gap-1"
-              role="img"
-              aria-label={`Expected demand: ${label}`}
-              data-demand-bar
-            >
-              {Array.from({ length: DEMAND_BAR_SEGMENTS }, (_, index) => (
-                <span
-                  key={index}
-                  className={`h-1.5 overflow-hidden rounded-full ${index < filledSegments ? "demand-segment-on" : ""}`}
-                  style={{
-                    background: index < filledSegments ? accent : veryHigh ? "#e7dfcf" : "#e3e8ee",
-                    animationDelay: `${index * 140}ms, ${900 + index * 140}ms`,
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </>
+
+      {view.kind === "figure" ? (
+        <div
+          className="mt-2.5 grid gap-1"
+          style={{ gridTemplateColumns: `repeat(${AVAILABILITY_SEGMENTS}, minmax(0, 1fr))` }}
+          role="img"
+          aria-label={label}
+          data-demand-bar
+          data-demand-percent={view.percent ?? undefined}
+          data-demand-segments={view.filledSegments}
+        >
+          {Array.from({ length: AVAILABILITY_SEGMENTS }, (_, index) => (
+            <span
+              key={index}
+              className={`h-2 rounded-full ${index < view.filledSegments ? "avail-seg-on" : ""}`}
+              style={{
+                background: index < view.filledSegments ? palette.accent : palette.track,
+                animationDelay: `${index * 60}ms`,
+              }}
+            />
+          ))}
+        </div>
       ) : null}
-      <p className="mt-1.5 text-[0.8rem] font-medium leading-snug text-[#071C38]/80">{demand.body}</p>
-      {demand.level === "normal" && message.closing ? (
-        <p className="mt-1 text-[0.8rem] font-bold leading-snug text-[#147a2a]">{message.closing}</p>
+
+      {hasStatus && view.status ? (
+        <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[0.8rem] leading-snug">
+          {view.percentLabel ? (
+            <span className="font-extrabold tabular-nums" style={{ color: palette.text }}>
+              {view.percentLabel}
+            </span>
+          ) : null}
+          <span className="font-semibold" style={{ color: palette.text }}>
+            {view.status}
+          </span>
+        </p>
       ) : null}
+
+      {view.bookEarly ? (
+        <p className="mt-1.5 text-[0.8rem] font-medium leading-snug text-[#071C38]/85">{AVAILABILITY_BOOK_EARLY}</p>
+      ) : null}
+      {view.note ? <p className="mt-1 text-[0.8rem] font-medium leading-snug text-[#071C38]/80">{view.note}</p> : null}
+
+      <p className="mt-2 flex items-center gap-1.5 text-[0.75rem] font-semibold leading-snug text-[#147a2a]">
+        <ShieldIcon />
+        <span>{AVAILABILITY_FREE_CANCELLATION}</span>
+      </p>
     </div>
   );
 }

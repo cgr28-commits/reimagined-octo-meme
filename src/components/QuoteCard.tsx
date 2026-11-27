@@ -9379,7 +9379,7 @@ function QuoteCard({
   }
 
   /** Date-specific booking message — only with a real instant price for the chosen vehicle. */
-  function renderSeasonalBookingMessage(placement: "panel" | "list") {
+  function renderSeasonalBookingMessage() {
     const priceReady =
       !isVehiclePersonalQuote &&
       !authoritativeQuoteFailed &&
@@ -9395,7 +9395,6 @@ function QuoteCard({
         pickup={pickupAddress}
         dropoff={dropoffAddress}
         needsApproval={isAvailabilityRequest}
-        placement={placement}
       />
     );
   }
@@ -9407,6 +9406,7 @@ function QuoteCard({
     return (
       <>
       {renderEmptyRunNotice()}
+      {renderSeasonalBookingMessage()}
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
@@ -9420,7 +9420,6 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
-        selectedFooter={renderSeasonalBookingMessage("list")}
         desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} tripDate={tripDate} tripTime={tripTime} fareGbp={pricedFare?.totalGbp ?? null} />}
       />
       </>
@@ -9542,7 +9541,6 @@ function QuoteCard({
           setCashAgreementAccepted(false);
         }}
         businessClassInclusions={renderBusinessClassInclusions()}
-        bookingMessage={renderSeasonalBookingMessage("panel")}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}
         hasAirportCollection={isFromAirport || (returnJourney && Boolean(isAirportTrip || dropoffAirportCode))}
