@@ -42,6 +42,9 @@ export type OwnerDriver = {
   operatorLicenceNumber: string;
   vehicleSummary: string;
   vehicleReg?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleColour?: string;
   createdAt: string;
   documents?: DocumentSummaryItem[];
   attention?: string[];
@@ -196,6 +199,8 @@ export const ownerDrivers = {
     request<{ driverId: string; inviteToken: string; expiresAt: string }>("/owner/driver-accounts/invite", { headers: owner(key), body }),
   signInLink: (key: string, driverId: string) =>
     request<{ signInToken: string; expiresAt: string }>("/owner/driver-accounts/sign-in-link", { headers: owner(key), body: { driverId } }),
+  importSavedDrivers: (key: string) =>
+    request<{ added: number; updated: number; skipped: number }>("/owner/driver-accounts/import-saved-drivers", { headers: owner(key), body: {} }),
   setStatus: (key: string, driverId: string, action: string, reason: string) =>
     request<{ status: DriverAccountStatus; reviewBookings: ReviewBooking[] }>("/owner/driver-accounts/status", {
       headers: owner(key),
@@ -241,10 +246,10 @@ export const driverAccount = {
   acceptInvite: (body: {
     token: string;
     mobile: string;
-    operatorName: string;
-    operatorLicenceNumber: string;
-    vehicleSummary: string;
-    confirmOwnOperatorLicence: boolean;
+    vehicleMake: string;
+    vehicleModel: string;
+    vehicleColour: string;
+    vehicleReg: string;
   }) => request<{ sessionToken: string }>("/driver-portal/account/accept-invite", { body }),
   signIn: (token: string) => request<{ sessionToken: string }>("/driver-portal/account/sign-in", { body: { token } }),
   me: (session: string) => request<DriverMe>("/driver-portal/account/me", { headers: driver(session) }),

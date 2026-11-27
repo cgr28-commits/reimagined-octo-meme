@@ -53,11 +53,14 @@ Without those secrets the workflow skips the deploy with a warning — nothing f
 
 ## Stage 1 scope (built)
 
-- Owner: invite (link to copy — nothing is sent), review documents (accept / reject with reason),
+- Owner: invite (link to copy — nothing is sent),
   approve / decline / suspend / reinstate / remove (reasons kept), single-use 30-minute sign-in links,
   office messages, permanent audit trail, private driver-support number.
-- Approval needs accepted, in-date: operator licence, taxi driver licence, vehicle licence, insurance.
-- Driver: apply (own operator licence confirmed), add/renew documents with expiry, Available / Unavailable,
+- Approval does not require licence or insurance documents. Driver details remain name, email, mobile,
+  vehicle make/model/colour and registration. The owner can copy complete saved profiles from the existing
+  vehicle roster into Drivers; imported profiles are approved and initially available for offers. Incomplete
+  profiles and duplicate emails are skipped and reported.
+- Driver: apply with mobile and vehicle registration; make, model and colour are optional. Registration is needed before accepting a job. Available / Unavailable,
   Contact office (Call when the support number is set; otherwise Message the office), sign out.
 - Suspend / decline / remove signs the driver out everywhere and cancels unused links.
 - The support number is never on the website or in the audit log, is only returned to approved signed-in
@@ -71,7 +74,8 @@ uses an individual session token header, revoked on suspend/remove).
 ## Stage 2 scope (built on staging 12 Nov 2026 — live 16 Nov 2026, owner approved)
 
 Live: D1 `matni-drivers` (`e3fa0869-2e0a-4b22-acd7-cfc541d386e2`) bound as `DRIVER_DB` on the live Worker,
-migrations 0001–0004 applied; maintenance runs on the existing cron.
+migrations 0001–0004 applied; migration 0007 adds a link to existing saved profiles and vehicle detail columns.
+Migration 0007 must be applied before deploying the profile import action.
 
 Routes `/owner/driver-jobs*` and `/driver-portal/jobs*` (`workers/addresses/src/driver-jobs.ts`), tables in
 `migrations/driver-db/0004_stage2_offers_jobs.sql`. All answer 404 without a `DRIVER_DB` binding.
@@ -79,7 +83,7 @@ Routes `/owner/driver-jobs*` and `/driver-portal/jobs*` (`workers/addresses/src/
 - **Offers** — one per booking leg. *Fixed price*: owner sets the driver fee, first invited driver to accept gets
   it (a conditional update plus a unique "one live job per leg" index make a double award impossible).
   *Bids*: private prices; the owner always chooses, the lowest never wins automatically. *Direct*: one named
-  driver accepts or declines. Offers only go to approved, available drivers with in-date documents (direct may
+  driver accepts or declines. Offers only go to approved, available drivers (direct may
   go to an approved driver switched to unavailable). Offers never stay open past the pickup time.
 - **What a driver sees** — before the job is theirs: date, time, area (no street, no full postcode), passengers,
   their fee. After: full addresses, customer first name and mobile, flight, notes, their fee. Never the customer
