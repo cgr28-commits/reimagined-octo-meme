@@ -3,6 +3,7 @@
 import { seasonalBookingMessage } from "../../shared/seasonal-booking-message";
 import { demandIndicatorFor } from "../../shared/demand-indicator";
 import {
+  type AvailabilityView,
   AVAILABILITY_BOOK_EARLY,
   AVAILABILITY_FREE_CANCELLATION,
   AVAILABILITY_PALETTE,
@@ -40,24 +41,43 @@ function ShieldIcon() {
 
 /**
  * Availability indicator above the vehicle choice on the quote results (owner, 27 Nov 2026).
- * Ten rounded segments, colour by band, honest wording: figures set from the owner's diary read
- * "booked"; seasonal estimates read "expected demand"; nothing ever says "fully booked".
+ * Ten rounded segments, colour by expected-demand level (low / moderate / high / very high).
+ * No percentages and no "booked" wording: the underlying figures are a calendar table, not live bookings.
  * See src/lib/availability-indicator-view.ts for the rules.
  */
 export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, dropoff, needsApproval }: Props) {
   const message = seasonalBookingMessage(tripDate, { needsApproval });
   const demand = demandIndicatorFor({ tripDate, returnDate, pickup, dropoff, needsApproval });
   if (!message || !demand) return null;
-  const view = availabilityViewFor(demand);
+  return (
+    <AvailabilityIndicatorCard
+      view={availabilityViewFor(demand)}
+      dateLabel={message.travelDateLabel}
+      season={message.season}
+      level={demand.level}
+    />
+  );
+}
+
+export function AvailabilityIndicatorCard({
+  view,
+  dateLabel,
+  season,
+  level,
+}: {
+  view: AvailabilityView;
+  dateLabel: string;
+  season?: string;
+  level?: string;
+}) {
   const palette = AVAILABILITY_PALETTE[view.tone];
-  const hasStatus = view.kind !== "none";
-  const label = [view.percentLabel, view.status].filter(Boolean).join(", ");
+  const hasStatus = view.kind === "bar";
 
   return (
     <div
       data-seasonal-booking-message="above-vehicles"
-      data-season={message.season}
-      data-demand-level={demand.level}
+      data-season={season}
+      data-demand-level={level}
       data-demand-tone={hasStatus ? view.tone : "none"}
       data-demand-kind={view.kind}
       className="mb-3 rounded-xl border px-3.5 py-3 text-left text-[#071C38]"
@@ -70,18 +90,16 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
         </p>
       ) : null}
       <p className={`${hasStatus ? "mt-0.5 text-[0.8rem] font-semibold text-[#071C38]/70" : "text-[0.95rem] font-extrabold leading-snug tracking-[-0.01em]"}`}>
-        <span className="whitespace-nowrap">{message.travelDateLabel}</span>
+        <span className="whitespace-nowrap">{dateLabel}</span>
       </p>
 
-      {view.kind === "figure" ? (
+      {view.kind === "bar" ? (
         <div
           className="mt-2.5 grid gap-1"
           style={{ gridTemplateColumns: `repeat(${AVAILABILITY_SEGMENTS}, minmax(0, 1fr))` }}
           role="img"
-          aria-label={label}
+          aria-label={view.status ?? undefined}
           data-demand-bar
-          data-demand-percent={view.percent ?? undefined}
-          data-demand-segments={view.filledSegments}
         >
           {Array.from({ length: AVAILABILITY_SEGMENTS }, (_, index) => (
             <span
@@ -96,16 +114,9 @@ export default function SeasonalBookingMessage({ tripDate, returnDate, pickup, d
         </div>
       ) : null}
 
-      {hasStatus && view.status ? (
-        <p className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[0.8rem] leading-snug">
-          {view.percentLabel ? (
-            <span className="font-extrabold tabular-nums" style={{ color: palette.text }}>
-              {view.percentLabel}
-            </span>
-          ) : null}
-          <span className="font-semibold" style={{ color: palette.text }}>
-            {view.status}
-          </span>
+      {view.kind === "bar" && view.status ? (
+        <p className="mt-2 text-[0.85rem] font-extrabold leading-snug" style={{ color: palette.text }}>
+          {view.status}
         </p>
       ) : null}
 
