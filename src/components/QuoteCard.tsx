@@ -9379,15 +9379,11 @@ function QuoteCard({
   }
 
   /** Date-specific booking message — only with a real instant price for the chosen vehicle. */
-  function renderSeasonalBookingMessage(placement: "panel" | "list") {
-    const priceReady =
-      !isVehiclePersonalQuote &&
-      !authoritativeQuoteFailed &&
-      !vehicleFareUpdating &&
-      mayPaintNumericFare &&
-      paymentAmount != null &&
-      Number.isFinite(paymentAmount);
-    if (!priceReady || !tripDate) return null;
+  function renderSeasonalBookingMessage() {
+    // Demand level depends only on the journey date, so this must not depend on the selected vehicle's
+    // price state (pending/updating/personal quote): the card sits above the vehicle heading, and
+    // mounting/unmounting it while a fare reprices would shift the vehicle choices below it.
+    if (!tripDate) return null;
     return (
       <SeasonalBookingMessage
         tripDate={tripDate}
@@ -9395,7 +9391,6 @@ function QuoteCard({
         pickup={pickupAddress}
         dropoff={dropoffAddress}
         needsApproval={isAvailabilityRequest}
-        placement={placement}
       />
     );
   }
@@ -9407,6 +9402,7 @@ function QuoteCard({
     return (
       <>
       {renderEmptyRunNotice()}
+      {renderSeasonalBookingMessage()}
       <QuoteVehicleCategories
         passengers={passengers}
         suitcases={suitcases}
@@ -9420,7 +9416,6 @@ function QuoteCard({
         desktopPrices={desktopVehiclePriceLabels()}
         // Owner decision (14 Nov 2026): the request-only 7 Seater shows no "From £…" price.
         desktopRequestPrices={{}}
-        selectedFooter={renderSeasonalBookingMessage("list")}
         desktopTopNotice={<EventDemandNotice addresses={[pickupAddress, dropoffAddress]} dropoff={dropoffAddress} dates={[tripDate, returnJourney ? returnDate : undefined]} tripDate={tripDate} tripTime={tripTime} fareGbp={pricedFare?.totalGbp ?? null} />}
       />
       </>
@@ -9542,7 +9537,6 @@ function QuoteCard({
           setCashAgreementAccepted(false);
         }}
         businessClassInclusions={renderBusinessClassInclusions()}
-        bookingMessage={renderSeasonalBookingMessage("panel")}
         priceUnavailable={authoritativeQuoteFailed}
         onRetryPrice={retryAuthoritativeQuote}
         hasAirportCollection={isFromAirport || (returnJourney && Boolean(isAirportTrip || dropoffAirportCode))}

@@ -10458,6 +10458,13 @@ html[data-mobile-light] [data-promo-saving] { color: #1a7f31 !important; }
   .demand-pulse-dot, .demand-bar-fill, .demand-segment-on { animation: none !important; }
 }
 
+/* Availability indicator segments (owner, 27 Nov 2026): fill in once on arrival, no continuous pulse. */
+@keyframes avail-seg-in { from { opacity: 0; transform: scaleX(0.3); } to { opacity: 1; transform: scaleX(1); } }
+.avail-seg-on { transform-origin: left center; animation: avail-seg-in 0.35s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .avail-seg-on { animation: none !important; }
+}
+
 /* Airport quick-pick buttons (owner, 17 Nov 2026): slightly longer, squarer, modern and NOT green —
    white with navy text, soft border and shadow; navy outline on hover/press. Phones/tablets fill the
    row in four equal buttons under the destination box; desktop keeps them in the card title row. */
