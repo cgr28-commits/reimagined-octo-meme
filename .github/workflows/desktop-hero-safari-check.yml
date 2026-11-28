@@ -22,12 +22,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build preview branch
-        run: GITHUB_PAGES=true npm run build
+        run: for a in 1 2 3; do GITHUB_PAGES=true npm run build && exit 0; sleep $((a*10)); done; exit 1
       - name: Build live code (main) for comparison
         run: |
           git fetch --depth=1 origin main
           git worktree add ../baseline FETCH_HEAD
-          cd ../baseline && npm ci && GITHUB_PAGES=true npm run build
+          cd ../baseline && npm ci
+          for a in 1 2 3; do GITHUB_PAGES=true npm run build && exit 0; sleep $((a*10)); done; exit 1
       - name: Serve both builds
         run: |
           (cd out && python3 -m http.server 3000 > /tmp/new.log 2>&1 &)
