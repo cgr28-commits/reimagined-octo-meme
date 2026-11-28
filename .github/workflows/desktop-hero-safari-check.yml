@@ -49,7 +49,8 @@ jobs:
         run: |
           sudo safaridriver --enable
           python3 -m pip install --break-system-packages selenium pillow >/dev/null
-          BASE=http://127.0.0.1:3000 python3 review/desktop-hero-safari/safari.py
+          BASE=http://127.0.0.1:3000 TAG=new python3 review/desktop-hero-safari/safari.py
+          BASE=http://127.0.0.1:3001 TAG=live python3 review/desktop-hero-safari/safari.py
       - name: Compare phone and tablet (preview vs live)
         if: always()
         run: |
@@ -64,7 +65,7 @@ jobs:
         if: always()
         run: |
           mkdir -p review/desktop-hero-safari/out
-          cp test-results/safari-check/safari/*.png test-results/safari-check/safari/report.json review/desktop-hero-safari/out/ || true
+          cp test-results/safari-check/safari/*.png test-results/safari-check/safari/report-*.json review/desktop-hero-safari/out/ || true
           for f in new-oneway-filled-1440 new-return-filled-1440 new-return-results-1440 new-fresh-1280 new-fresh-1920 new-fresh-390 new-fresh-1024 live-fresh-1024; do
             cp test-results/safari-check/states/$f.png review/desktop-hero-safari/out/webkit-$f.png || true
           done

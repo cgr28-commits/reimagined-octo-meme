@@ -4,6 +4,7 @@ import json, os, time
 from selenium import webdriver
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:3000")
+TAG = os.environ.get("TAG", "new")
 OUT = "test-results/safari-check/safari"
 os.makedirs(OUT, exist_ok=True)
 d = webdriver.Safari()
@@ -14,7 +15,7 @@ try:
     for w, h in [(1280, 800), (1440, 900), (1920, 1080)]:
         d.set_window_size(w, h + 80)
         d.get(BASE + "/")
-        time.sleep(4)
+        time.sleep(8)
         info = d.execute_script("""
           const h1=document.querySelector('#homepage-booking-intro > h1');
           const card=document.querySelector('#quote [data-quote-presentation="homepage"]');
@@ -24,11 +25,14 @@ try:
                   cardLeft: Math.round(r.left), cardWidth: Math.round(r.width), cardRightEdgeInView: r.right <= innerWidth,
                   btnFill: getComputedStyle(btn).webkitTextFillColor, btnColor: getComputedStyle(btn).color,
                   overflow: document.documentElement.scrollWidth > innerWidth,
+                  h1Opacity: getComputedStyle(h1).opacity, h1Visibility: getComputedStyle(h1).visibility,
+                  topAtH1: (()=>{const r=h1.getBoundingClientRect();const e=document.elementFromPoint(r.left+20,r.top+r.height/2);return e?e.tagName+'.'+String(e.className).slice(0,30):'none'})(),
+                  topAtCard: (()=>{const e=document.elementFromPoint(r.left+40,r.top+60);return e?e.tagName+'#'+e.id+'.'+String(e.className).slice(0,30):'none'})(),
                   safari: navigator.userAgent};""")
         report.append(info)
-        d.save_screenshot(f"{OUT}/safari-fresh-{info['viewport']}.png")
+        d.save_screenshot(f"{OUT}/safari-{TAG}-fresh-{info['viewport']}.png")
 finally:
     d.quit()
-    with open(f"{OUT}/report.json", "w") as f:
+    with open(f"{OUT}/report-{TAG}.json", "w") as f:
         json.dump(report, f, indent=2)
     print(json.dumps(report, indent=2))
