@@ -5,6 +5,7 @@ import "./globals.css";
 import "./seasonal-christmas.css";
 import "./mobile-home-mockup.css";
 import "./desktop-home-premium.css";
+import "./desktop-home-twocolumn.css";
 import "./tablet-d3-brand.css";
 import { CHRISTMAS_DECORATIONS } from "@/lib/seasonal";
 import PreventHorizontalScroll from "@/components/PreventHorizontalScroll";

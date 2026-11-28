@@ -1,0 +1,215 @@
+/*
+ * Desktop homepage hero (1200px and wider) — two-column layout (owner request, 27 Nov 2026).
+ * Left ~55%: heading, intro, benefits and Google rating. Right ~45%: the existing quote calculator.
+ * One continuous airport photograph runs behind both columns under a navy overlay.
+ *
+ * Layout only: no markup, wording, fields, pricing or behaviour changes. The calculator is the same
+ * component; its wrapper (#quote) uses display: contents so its existing children can sit in the
+ * hero grid. Scoped to the homepage first step (section[data-desktop-roomy], no quote results or
+ * checkout showing) at 1200px+, so phones, tablets and later booking steps are untouched.
+ * Loaded after desktop-home-premium.css; same layer and selector style so it can override it.
+ */
+@media (min-width: 1200px) {
+@layer base {
+  /* ---------- Continuous background: one photo behind both columns ---------- */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) {
+    background: #071c38 !important;
+  }
+  /* The existing hero photo layer is switched back on for desktop, full width. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-media {
+    display: block !important;
+    background: #071c38 !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-media > picture {
+    display: block !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-media .homepage-hero-photo {
+    object-position: 62% 40% !important;
+  }
+  /* Navy overlay: stronger behind the text on the left, lighter behind the calculator, solid navy
+     only at the very bottom edge so the next section joins without a seam. No vertical divider. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-media > .homepage-hero-scrim {
+    display: block !important;
+    background:
+      linear-gradient(90deg, rgba(4, 22, 46, 0.9) 0%, rgba(4, 22, 46, 0.78) 34%, rgba(4, 22, 46, 0.55) 62%, rgba(4, 22, 46, 0.5) 100%),
+      linear-gradient(180deg, rgba(4, 22, 46, 0.35) 0%, rgba(4, 22, 46, 0) 30%, rgba(7, 28, 56, 0.55) 78%, #071c38 100%) !important;
+  }
+  /* The old narrow right-hand image is replaced by the full-width photograph. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside]))::before {
+    content: none !important;
+    display: none !important;
+  }
+
+  /* ---------- Two-column grid (about 55% / 45%) ---------- */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) .homepage-hero-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr) !important;
+    grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr) auto !important;
+    grid-auto-flow: row !important;
+    column-gap: clamp(2.5rem, 4.5vw, 6rem) !important;
+    row-gap: clamp(1.25rem, 2.6vh, 2rem) !important;
+    align-content: center !important;
+    align-items: center !important;
+    max-width: min(1680px, 100%) !important;
+    padding-left: clamp(1.5rem, 4vw, 5rem) !important;
+    padding-right: clamp(1.5rem, 4vw, 5rem) !important;
+    padding-top: clamp(2rem, 6vh, 4.5rem) !important;
+    padding-bottom: clamp(2rem, 5vh, 3.5rem) !important;
+  }
+  /* The quote wrapper steps out of the way so its existing children join the hero grid. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote {
+    display: contents !important;
+  }
+
+  /* Left column: heading and intro. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    align-self: end !important;
+    text-align: left !important;
+    padding-top: 0 !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 {
+    font-size: clamp(2.9rem, 3.6vw + 0.6rem, 4.6rem) !important;
+    line-height: 1.04 !important;
+    text-align: left !important;
+    text-wrap: balance;
+    white-space: normal !important;
+    max-width: 100% !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > h1 * { white-space: normal !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #homepage-booking-intro > p {
+    max-width: 36rem !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    white-space: normal !important;
+    text-align: left !important;
+    font-size: clamp(1.0625rem, 0.45vw + 0.9rem, 1.3rem) !important;
+  }
+
+  /* Left column: benefits (2 x 2) and the Google rating. Same elements, new place. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    align-self: start !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+    width: 100% !important;
+    max-width: 40rem;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] [data-desktop-benefits-list] {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.9rem 1.5rem !important;
+    column-gap: 1.5rem !important;
+    flex: none !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] [data-desktop-benefits-list] > li {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.7rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] [data-desktop-benefits-list] > li strong {
+    white-space: normal !important;
+    font-size: 1rem !important;
+    color: #ffffff !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] [data-desktop-benefits-reviews] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > aside[data-desktop-quote-benefits] [data-desktop-benefits-reviews] [data-reviews-panel] {
+    width: fit-content !important;
+    max-width: 100% !important;
+  }
+
+  /* Right column: the existing calculator, translucent white card (same component). */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) > .homepage-hero-layout > #quote > [data-quote-presentation="homepage"],
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    grid-column: 2 !important;
+    grid-row: 1 / span 4 !important;
+    align-self: center !important;
+    width: 100% !important;
+    max-width: 44rem !important;
+    justify-self: end !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid rgba(255, 255, 255, 0.55) !important;
+    border-radius: 1.5rem !important;
+    box-shadow: 0 24px 56px -28px rgba(0, 10, 30, 0.7), 0 6px 16px -10px rgba(0, 10, 30, 0.35) !important;
+  }
+
+  /* "Popular" journey links: centred under both columns, unchanged. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > nav[data-more-journeys] {
+    grid-column: 1 / -1 !important;
+    grid-row: 5 !important;
+    justify-self: center !important;
+    margin-top: 0.5rem !important;
+  }
+
+  /* ---------- Calculator fields: same fields, re-flowed for the narrower right column ----------
+     The wide-card grid placements are ignored once the container is a wrapping flex row, so every
+     existing field (including conditional ones) keeps working; only the arrangement changes. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: flex-end !important;
+    gap: 0.75rem 1rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > * { order: 5; flex: 1 1 100% !important; min-width: 0 !important; width: auto !important; max-width: 100% !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > :first-child { order: 0; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] [data-homepage-quote-scroll] > div:has(> div > label[for="pickup"]) { order: 1; flex: 1 1 100% !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] [data-homepage-quote-scroll] > div:has(> div > label[for="dropoff"]) { order: 2; flex: 1 1 100% !important; margin-top: -1rem !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] [data-homepage-quote-scroll] > button { order: 1; position: relative !important; inset: auto !important; transform: none !important; flex: 0 0 2.25rem !important; width: 2.25rem !important; height: 2.25rem !important; margin: -1.125rem 1rem -1.125rem auto !important; z-index: 5; align-self: flex-end !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] [data-homepage-quote-scroll] > div:first-child { order: 3; position: static !important; flex: 1 1 100% !important; width: auto !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] #quote-section-schedule { order: 4; flex: 1 1 100% !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] #passenger-luggage-section > div { order: 6; flex: 1 1 calc(50% - 0.5rem) !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] #homepage-quote-requirements { order: 8; margin: 0 !important; }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] [data-quote-price-action] { order: 7; flex: 1 1 100% !important; }
+
+  /* Card heading: title on its own line, airport quick-pick buttons on a wrapping row beneath. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > [data-desktop-card-head] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.75rem 1rem !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > [data-desktop-card-head] > [data-desktop-card-head-title] {
+    flex: 1 1 100% !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > [data-desktop-card-head] > [data-quick-picks-head] {
+    flex: 1 1 100% !important;
+    margin-left: 0 !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > [data-desktop-card-head] > [data-quick-picks-head] > button[data-quick-pick] {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    font-size: 0.8125rem !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > [data-desktop-card-head] > [data-quick-picks-head] { flex-wrap: nowrap !important; gap: 0.375rem !important; }
+
+  /* Slightly shorter fields and padding so the whole card fits a laptop screen. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) { --roomy-field: clamp(3rem, 6vh, 3.375rem); }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] {
+    padding: clamp(1.125rem, 2.4vh, 1.5rem) clamp(1.25rem, 2vw, 2rem) clamp(1rem, 2vh, 1.25rem) !important;
+  }
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] { row-gap: 0.75rem !important; }
+
+  /* Conditional extras keep their place after the main fields. */
+  html:root:root:root:root:root:root:root:root:root:root:root:not([data-mobile-d3]) main > section.homepage-hero[data-desktop-roomy]:not(:has([data-quote-results], [data-checkout-aside])) #quote > [data-quote-presentation="homepage"] > form [data-homepage-quote-fields] > :is([data-event-transfer-choice], [data-homepage-capacity-check]) { order: 9 !important; }
+}
+}
