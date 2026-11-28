@@ -1,0 +1,64 @@
+# Temporary review run for the desktop two-column homepage (scratch branch only; never merged).
+# Builds the preview branch and the live code, then checks them in WebKit and real Safari on macOS.
+# All external requests in the Playwright checks are mocked or blocked: no live quotes, bookings,
+# payments, emails or ad tracking.
+name: Desktop hero Safari check
+"on":
+  push:
+    branches: [claude/desktop-hero-safari-check]
+permissions:
+  contents: read
+jobs:
+  safari:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build preview branch
+        run: GITHUB_PAGES=true npm run build
+      - name: Build live code (main) for comparison
+        run: |
+          git fetch --depth=1 origin main
+          git worktree add ../baseline FETCH_HEAD
+          cd ../baseline && npm ci && GITHUB_PAGES=true npm run build
+      - name: Serve both builds
+        run: |
+          (cd out && python3 -m http.server 3000 > /tmp/new.log 2>&1 &)
+          (cd ../baseline/out && python3 -m http.server 3001 > /tmp/base.log 2>&1 &)
+          for p in 3000 3001; do for i in $(seq 1 30); do curl -sf http://127.0.0.1:$p/ >/dev/null && break; sleep 1; done; done
+      - run: npm install --no-save --package-lock=false playwright@1.58.2
+      - run: npx playwright install webkit
+      - name: WebKit full quote journey (existing regression test, desktop widths)
+        run: PLAYWRIGHT_BROWSER=webkit TEST_BASE_URL=http://127.0.0.1:3000 WIDTHS=1280,1440,1920 node --import tsx review/desktop-hero-safari/journey.mjs
+      - name: WebKit hero states (preview branch)
+        if: always()
+        run: BASE=http://127.0.0.1:3000 TAG=new node --import tsx review/desktop-hero-safari/states.mjs
+      - name: WebKit hero states (live code)
+        if: always()
+        run: BASE=http://127.0.0.1:3001 TAG=live node --import tsx review/desktop-hero-safari/states.mjs
+      - name: Real Safari screenshots
+        if: always()
+        run: |
+          sudo safaridriver --enable
+          python3 -m pip install --break-system-packages selenium pillow >/dev/null
+          BASE=http://127.0.0.1:3000 python3 review/desktop-hero-safari/safari.py
+      - name: Compare phone and tablet (preview vs live)
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          from PIL import Image, ImageChops
+          d='test-results/safari-check/states'
+          for w in [390,768,1024,1180]:
+              a=Image.open(f'{d}/live-fresh-{w}.png').convert('RGB'); b=Image.open(f'{d}/new-fresh-{w}.png').convert('RGB')
+              print(w, 'size', a.size==b.size, 'diff bbox', ImageChops.difference(a,b).getbbox())
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safari-check
+          path: test-results/safari-check
