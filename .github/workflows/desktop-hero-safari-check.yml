@@ -7,7 +7,7 @@ name: Desktop hero Safari check
   push:
     branches: [claude/desktop-hero-safari-check]
 permissions:
-  contents: read
+  contents: write # only to save review screenshots onto this scratch branch
 jobs:
   safari:
     runs-on: macos-latest
@@ -44,9 +44,6 @@ jobs:
       - name: WebKit hero states (live code)
         if: always()
         run: BASE=http://127.0.0.1:3001 TAG=live node --import tsx review/desktop-hero-safari/states.mjs
-      - name: WebKit hero states (live code, second pass for noise)
-        if: always()
-        run: BASE=http://127.0.0.1:3001 TAG=live2 node --import tsx review/desktop-hero-safari/states.mjs
       - name: Real Safari screenshots
         if: always()
         run: |
@@ -62,27 +59,17 @@ jobs:
           for w in [390,768,1024,1180]:
               a=Image.open(f'{d}/live-fresh-{w}.png').convert('RGB'); b=Image.open(f'{d}/new-fresh-{w}.png').convert('RGB')
               print(w, 'size', a.size==b.size, 'diff bbox', ImageChops.difference(a,b).getbbox())
-              c=Image.open(f'{d}/live2-fresh-{w}.png').convert('RGB')
-              print(w, 'live vs live (noise) bbox', ImageChops.difference(a,c).getbbox())
           EOF
-      - name: Dump review images into the log (artifact downloads are not reachable from the agent)
+      - name: Save review screenshots onto this scratch branch
         if: always()
         run: |
-          python3 - <<'EOF'
-          import base64, io
-          from PIL import Image
-          d='test-results/safari-check'
-          items=[('states/live-fresh-768.png',(0,0,768,560)),('states/new-fresh-768.png',(0,0,768,560)),
-                 ('states/live-fresh-1180.png',(0,0,1180,560)),('states/new-fresh-1180.png',(0,0,1180,560)),
-                 ('safari/safari-fresh-1440.png',None),('states/new-return-filled-1440.png',None),('states/new-return-results-1440.png',None)]
-          for f,box in items:
-              try: im=Image.open(f'{d}/{f}').convert('RGB')
-              except Exception as e: print('MISSING',f,e); continue
-              if box: im=im.crop(box)
-              im.thumbnail((1440,1100))
-              buf=io.BytesIO(); im.save(buf,'JPEG',quality=72)
-              print('IMG-BEGIN',f.replace('/','__')); print(base64.b64encode(buf.getvalue()).decode()); print('IMG-END')
-          EOF
+          mkdir -p review/desktop-hero-safari/out
+          cp test-results/safari-check/safari/*.png test-results/safari-check/safari/report.json review/desktop-hero-safari/out/ || true
+          for f in new-oneway-filled-1440 new-return-filled-1440 new-return-results-1440 new-fresh-1280 new-fresh-1920 new-fresh-390 new-fresh-1024 live-fresh-1024; do
+            cp test-results/safari-check/states/$f.png review/desktop-hero-safari/out/webkit-$f.png || true
+          done
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add review/desktop-hero-safari/out && git commit -m "Review screenshots (Safari/WebKit) [skip ci]" && git push origin HEAD:claude/desktop-hero-safari-check
       - uses: actions/upload-artifact@v4
         if: always()
         with:
