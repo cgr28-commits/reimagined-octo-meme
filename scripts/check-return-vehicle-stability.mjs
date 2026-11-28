@@ -58,6 +58,18 @@ try {
   await page.getByRole('button',{name:/BOOK THIS TRANSFER.*£|Continue (?:with|to booking)/i}).waitFor();
   if(returning) await page.locator(width < 768 ? '[data-homepage-return-breakdown]' : '[data-homepage-return-breakdown-desktop]').waitFor();
   await page.waitForTimeout(1200);
+  // Demand indicator (owner, 27 Nov 2026): exactly one card, visually directly above the vehicle choices
+  // (CSS grid placement on desktop, DOM order on phones), with no percentage or "booked" wording.
+  const demand=await page.evaluate(()=>{
+   const cards=[...document.querySelectorAll('[data-seasonal-booking-message]')];
+   const choices=document.querySelector('[data-quote-vehicle-categories]');
+   const card=cards[0]?.getBoundingClientRect(),list=choices?.getBoundingClientRect();
+   return {count:cards.length,above:Boolean(card&&list&&card.height>0&&card.bottom<=list.top+1),text:cards[0]?.innerText||'',sameColumn:Boolean(card&&list&&Math.abs(card.left-list.left)<=2)};
+  });
+  assert.equal(demand.count,1,`${width}px: demand indicator must appear exactly once`);
+  assert.ok(demand.above,`${width}px: demand indicator must sit above the vehicle choices`);
+  assert.ok(demand.sameColumn,`${width}px: demand indicator must align with the vehicle choices`);
+  assert.doesNotMatch(demand.text,/\d+\s*%|percent|booked|fully|sold out/i,`${width}px: demand indicator must not show percentages or booking claims`);
   await page.locator('[data-quote-vehicle-options-heading]').scrollIntoViewIfNeeded();
   const measured=[];
   for(const [id,vehicle] of [['estate',ESTATE_VEHICLE],['executive',EXECUTIVE_VEHICLE],['minibus',MINIBUS_VEHICLE]]) {
