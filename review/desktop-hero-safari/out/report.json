@@ -1,0 +1,38 @@
+[
+  {
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a",
+    "cardRightEdgeInView": true,
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "cardLeft": 715,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardWidth": 496,
+    "h1Weight": "800",
+    "btnColor": "rgb(255, 255, 255)",
+    "viewport": 1280,
+    "overflow": false
+  },
+  {
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a",
+    "cardRightEdgeInView": true,
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "cardLeft": 806,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardWidth": 559,
+    "h1Weight": "800",
+    "btnColor": "rgb(255, 255, 255)",
+    "viewport": 1440,
+    "overflow": false
+  },
+  {
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a",
+    "cardRightEdgeInView": true,
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "cardLeft": 1067,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardWidth": 648,
+    "h1Weight": "800",
+    "btnColor": "rgb(255, 255, 255)",
+    "viewport": 1920,
+    "overflow": false
+  }
+]
