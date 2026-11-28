@@ -12,6 +12,8 @@ jobs:
   safari:
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      SKIP_JOURNEY: '1' # already passed in the first run
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,6 +36,7 @@ jobs:
       - run: npm install --no-save --package-lock=false playwright@1.58.2
       - run: npx playwright install webkit
       - name: WebKit full quote journey (existing regression test, desktop widths)
+        if: env.SKIP_JOURNEY != '1'
         run: PLAYWRIGHT_BROWSER=webkit TEST_BASE_URL=http://127.0.0.1:3000 WIDTHS=1280,1440,1920 node --import tsx review/desktop-hero-safari/journey.mjs
       - name: WebKit hero states (preview branch)
         if: always()
@@ -41,6 +44,9 @@ jobs:
       - name: WebKit hero states (live code)
         if: always()
         run: BASE=http://127.0.0.1:3001 TAG=live node --import tsx review/desktop-hero-safari/states.mjs
+      - name: WebKit hero states (live code, second pass for noise)
+        if: always()
+        run: BASE=http://127.0.0.1:3001 TAG=live2 node --import tsx review/desktop-hero-safari/states.mjs
       - name: Real Safari screenshots
         if: always()
         run: |
@@ -56,6 +62,26 @@ jobs:
           for w in [390,768,1024,1180]:
               a=Image.open(f'{d}/live-fresh-{w}.png').convert('RGB'); b=Image.open(f'{d}/new-fresh-{w}.png').convert('RGB')
               print(w, 'size', a.size==b.size, 'diff bbox', ImageChops.difference(a,b).getbbox())
+              c=Image.open(f'{d}/live2-fresh-{w}.png').convert('RGB')
+              print(w, 'live vs live (noise) bbox', ImageChops.difference(a,c).getbbox())
+          EOF
+      - name: Dump review images into the log (artifact downloads are not reachable from the agent)
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import base64, io
+          from PIL import Image
+          d='test-results/safari-check'
+          items=[('states/live-fresh-768.png',(0,0,768,560)),('states/new-fresh-768.png',(0,0,768,560)),
+                 ('states/live-fresh-1180.png',(0,0,1180,560)),('states/new-fresh-1180.png',(0,0,1180,560)),
+                 ('safari/safari-fresh-1440.png',None),('states/new-return-filled-1440.png',None),('states/new-return-results-1440.png',None)]
+          for f,box in items:
+              try: im=Image.open(f'{d}/{f}').convert('RGB')
+              except Exception as e: print('MISSING',f,e); continue
+              if box: im=im.crop(box)
+              im.thumbnail((1440,1100))
+              buf=io.BytesIO(); im.save(buf,'JPEG',quality=72)
+              print('IMG-BEGIN',f.replace('/','__')); print(base64.b64encode(buf.getvalue()).decode()); print('IMG-END')
           EOF
       - uses: actions/upload-artifact@v4
         if: always()
