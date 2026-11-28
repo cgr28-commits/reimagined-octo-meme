@@ -1,0 +1,50 @@
+[
+  {
+    "h1Weight": "800",
+    "topAtCard": "SPAN#.",
+    "topAtH1": "SPAN.text-white",
+    "viewport": 1280,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 40,
+    "cardWidth": 1183,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback"
+  },
+  {
+    "h1Weight": "800",
+    "topAtCard": "SPAN#.",
+    "topAtH1": "SPAN.text-white",
+    "viewport": 1440,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 112,
+    "cardWidth": 1200,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback"
+  },
+  {
+    "h1Weight": "800",
+    "topAtCard": "SPAN#.",
+    "topAtH1": "SPAN.text-white",
+    "viewport": 1920,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 352,
+    "cardWidth": 1200,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback"
+  }
+]

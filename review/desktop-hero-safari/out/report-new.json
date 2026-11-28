@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "h1Weight": "800",
+    "topAtCard": "DIV#.hidden",
+    "topAtH1": "SPAN.text-emerald",
+    "viewport": 1280,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 715,
+    "cardWidth": 496,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a"
+  },
+  {
+    "h1Weight": "800",
+    "topAtCard": "DIV#.hidden",
+    "topAtH1": "SPAN.text-emerald",
+    "viewport": 1440,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 806,
+    "cardWidth": 559,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a"
+  },
+  {
+    "h1Weight": "800",
+    "topAtCard": "DIV#.hidden",
+    "topAtH1": "SPAN.text-emerald",
+    "viewport": 1920,
+    "btnFill": "rgb(255, 255, 255)",
+    "cardLeft": 1067,
+    "cardWidth": 648,
+    "btnColor": "rgb(255, 255, 255)",
+    "overflow": false,
+    "h1Visibility": "visible",
+    "cardRightEdgeInView": true,
+    "h1Opacity": "1",
+    "safari": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+    "h1Font": "Manrope, Manrope Fallback, system-ui, -a"
+  }
+]
